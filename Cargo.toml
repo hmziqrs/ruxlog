@@ -14,4 +14,3 @@ serde = { version = "1.0.196", features = ["derive"] }
 # validator = { version = "0.16.1", features = ["derive"] }
 axum-valid = { version = "0.15.0", default-features = false, features = ["garde", "basic"] }
 garde = "0.18.0"
-
