@@ -6,15 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-axum = "0.7.4"
-serde_json = "1.0.113"
-tower-livereload = "0.9.2"
-tokio = { version = "1.36.0", features = ["full"] }
-serde = { version = "1.0.196", features = ["derive"] }
+axum = "0.7.7"
+serde_json = "1.0.128"
+tower-livereload = "0.9.4"
+tokio = { version = "1.40.0", features = ["full"] }
+serde = { version = "1.0.210", features = ["derive"] }
 # validator = { version = "0.16.1", features = ["derive"] }
-axum-valid = { version = "0.15.0", default-features = false, features = ["garde", "basic"] }
-garde = "0.18.0"
+axum-valid = { version = "0.20.0", default-features = false, features = ["garde", "basic"] }
 tower-http = { version = "0.6.1", features = ["trace"] }
 tracing-subscriber = "0.3.18"
 tracing = "0.1.40"
+garde = { version = "0.20.0", features = ["full"] }
 
