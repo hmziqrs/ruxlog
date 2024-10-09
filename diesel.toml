@@ -2,8 +2,8 @@
 # see https://diesel.rs/guides/configuring-diesel-cli
 
 [print_schema]
-file = "src/schema.rs"
+file = "src/db/schema.rs"
 custom_type_derives = ["diesel::query_builder::QueryId", "Clone"]
 
 [migrations_directory]
-dir = "/Users/hackerhgl/Documents/programming/opensource/axum_auth/migrations"
+dir = "src/db/migrations"
