@@ -7,10 +7,14 @@ use serde_json::{Value, json};
 use crate::modules;
 
 pub fn router() -> Router {
-    Router::new().route("/", routing::get(handler))
-        .route("/auth/v1/log_in", routing::post(modules::auth_v1::controller::login))
-}
+    let auth_v1_routes: Router = Router::new()
+        .route("/log_in", routing::post(modules::auth_v1::controller::login));
 
+    return Router::new()
+        .route("/", routing::get(handler))
+        .nest("/auth/v1", auth_v1_routes);
+        
+}
 
 
 async fn handler() -> Json<Value> {
