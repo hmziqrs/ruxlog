@@ -1,14 +1,17 @@
-use axum::Json;
-use axum_valid::Garde;
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum_garde::WithValidation;
+use axum_macros::debug_handler;
 
-use crate::db::models::user;
+use crate::{modules::auth_v1::validator::V1LoginPayload, AppState};
 
-use super::validator;
-
-
-pub async fn login(body: Garde<Json<validator::V1LoginPayload>>) -> String {
-    println!("login v2 #{:?}", body);
-    "login v2".to_string()
+#[debug_handler]
+pub async fn login(
+    state: State<AppState>,
+    WithValidation(payload): WithValidation<Json<V1LoginPayload>>,
+) -> impl IntoResponse {
+    print!("{}", state.db_pool.status().max_size);
+    println!("login v2 #{:?}", payload);
+    StatusCode::INTERNAL_SERVER_ERROR.into_response()
 }
 
 // pub async fn register(body: Garde<Json<validator::V1RegisterPayload>>) -> String {

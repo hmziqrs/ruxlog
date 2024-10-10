@@ -1,5 +1,6 @@
 use deadpool_diesel::postgres::Pool;
 
+#[derive(Clone)]
 pub struct AppState {
-    pub db: Pool,
+    pub db_pool: Pool,
 }
