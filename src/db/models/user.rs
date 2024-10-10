@@ -3,7 +3,7 @@
 
 
 use diesel::prelude::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::db::schema;
 
@@ -12,6 +12,13 @@ use crate::db::schema;
 
 pub struct User {
     pub id: i32,
+    pub name: String,
+    pub email: String,
+}
+
+#[derive(Insertable, Deserialize, Debug)]
+#[diesel(table_name = schema::users)]
+pub struct NewUser {
     pub name: String,
     pub email: String,
 }
@@ -28,8 +35,13 @@ impl User {
         users.load(conn)
     }
 
-    // pub fn create(conn: &PgConnection, name: &str, email: &str) -> Result<Self, diesel::result::Error> {
-    //     use crate::schema::users::dsl::*;
+    pub fn find_by_email(conn: &mut PgConnection, email: &str) -> Result<Self, diesel::result::Error> {
+        use crate::db::schema::users::dsl::*;
+        users.filter(email.eq(email)).first(conn)
+    }
+
+    // pub fn create(conn: &mut PgConnection, name: &str, email: &str) -> Result<Self, diesel::result::Error> {
+    //     use crate::db::schema::users::dsl::*;
     //     let new_user = NewUser {
     //         name: name.to_string(),
     //         email: email.to_string(),

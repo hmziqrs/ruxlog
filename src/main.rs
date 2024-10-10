@@ -3,6 +3,7 @@ mod router;
 
 pub mod modules;
 pub mod db;
+pub mod state;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
