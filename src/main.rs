@@ -2,6 +2,7 @@
 mod router;
 
 pub mod modules;
+pub mod db;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

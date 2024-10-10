@@ -1,0 +1,1 @@
+diesel_ext -m -d "Queryable, Identifiable, Selectable, Debug, PartialEq" > src/db/models.rs
