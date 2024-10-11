@@ -6,5 +6,6 @@ diesel::table! {
         name -> Varchar,
         email -> Varchar,
         password -> Varchar,
+        avatar -> Nullable<Varchar>,
     }
 }

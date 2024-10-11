@@ -3,9 +3,7 @@
 #![allow(unused)]
 #![allow(clippy::all)]
 
-
 use diesel::prelude::*;
-
 
 #[derive(Queryable, Debug)]
 #[diesel(table_name = users)]
@@ -15,4 +13,3 @@ pub struct User {
     pub email: String,
     pub password: String,
 }
-
