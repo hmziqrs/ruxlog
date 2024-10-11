@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use garde::{self, Validate};
+use serde::{Deserialize, Serialize};
 
 use crate::AppState;
 
@@ -7,8 +7,7 @@ use crate::AppState;
 #[garde(context(AppState))]
 pub struct V1LoginPayload {
     #[garde(email)]
-    email: String,
+    pub email: String,
     #[garde(length(min = 1))]
-    password: String,
+    pub password: String,
 }
-
