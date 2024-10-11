@@ -17,7 +17,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     tracing::info!("Starting server.");
-    let pool = db::connect::get_pool();
+    let pool = db::connect::get_pool().await;
     tracing::info!("Postgres connection established.");
     let state = AppState { db_pool: pool };
 
