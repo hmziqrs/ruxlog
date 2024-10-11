@@ -32,11 +32,11 @@ pub struct NewUser {
 }
 
 impl User {
-    pub async fn find_by_email(pool: &Pool, email: &str) -> Result<Self, DBError> {
+    pub async fn find_by_email(pool: &Pool, user_email: String) -> Result<Option<Self>, DBError> {
         use crate::db::schema::users::dsl::*;
 
         execute_db_operation(pool, move |conn| {
-            schema::users::table.filter(email.eq(email)).first(conn)
+            users.filter(email.eq(user_email)).first(conn).optional()
         })
         .await
     }

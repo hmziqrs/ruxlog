@@ -15,20 +15,24 @@ pub async fn log_in(
     WithValidation(payload): WithValidation<Json<V1LoginPayload>>,
 ) -> impl IntoResponse {
     let payload = payload.into_inner();
-    let user = User::find_by_email(&state.db_pool, payload.email.as_str()).await;
-
-    println!("{:?}", user);
+    let user = User::find_by_email(&state.db_pool, payload.email).await;
 
     match user {
-        Ok(user) => (StatusCode::OK, Json(user)).into_response(),
-        Err(err) => (
+        Ok(Some(user)) => (StatusCode::OK, Json(json!(user))),
+        Ok(None) => (
             StatusCode::NOT_FOUND,
             Json(json!({
-                "error": err.to_string(),
-                "message": "User not found",
+                "error": "User not found",
+                "message": "No user with this email exists",
             })),
-        )
-            .into_response(),
+        ),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": err.to_string(),
+                "message": "An error occurred while fetching the user",
+            })),
+        ),
     }
 }
 
@@ -46,17 +50,13 @@ pub async fn register(
     let user = User::create(&state.db_pool, new_user).await;
 
     match user {
-        Ok(user) => (StatusCode::OK, Json(user)).into_response(),
-        Err(err) => {
-            tracing::error!("{}", err.to_string());
-            (
-                StatusCode::CONFLICT,
-                Json(json!({
-                    "error": err.to_string(),
-                    "message": "Failed to create user",
-                })),
-            )
-                .into_response()
-        }
+        Ok(user) => (StatusCode::CREATED, Json(json!(user))),
+        Err(err) => (
+            StatusCode::CONFLICT,
+            Json(json!({
+                "error": err.to_string(),
+                "message": "Failed to create user",
+            })),
+        ),
     }
 }
