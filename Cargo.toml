@@ -28,4 +28,5 @@ dotenv = "0.15.0"
 chrono = "0.4.38"
 axum-macros = "0.4.2"
 axum_garde = "0.20.0"
+thiserror = "1.0.64"
 

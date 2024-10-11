@@ -209,6 +209,7 @@ dependencies = [
  "garde",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "tower-http",
  "tower-livereload",

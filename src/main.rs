@@ -12,6 +12,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv::dotenv().ok();
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)
+        .with_thread_ids(true)
+        .with_thread_names(true)
         .init();
 
     tracing::info!("Starting server.");

@@ -1,10 +1,11 @@
 use axum::{
     extract::State,
-    response::Json,
+    http::StatusCode,
+    response::{IntoResponse, Json},
     routing::{self, post},
     Router,
 };
-use serde_json::{json, Value};
+use serde_json::json;
 use tower_http::trace::TraceLayer;
 
 use crate::{modules, AppState};
@@ -20,9 +21,7 @@ pub fn router() -> Router<AppState> {
         .layer(TraceLayer::new_for_http());
 }
 
-async fn handler(s: State<AppState>) -> Json<Value> {
+async fn handler(s: State<AppState>) -> impl IntoResponse {
     println!("{:?}", s.db_pool.status());
-    Json(json!({
-        "message": "hot reload testing-xxxsadasdas!"
-    }))
+    (StatusCode::OK, Json(json!({"message": "success"})))
 }

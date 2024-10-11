@@ -6,7 +6,7 @@ use deadpool_diesel::postgres::Pool;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::db::schema;
+use crate::db::{errors::DBError, schema, utils::combine_errors};
 
 #[derive(Queryable, Debug, Selectable, Identifiable, Serialize, PartialEq)]
 #[diesel(table_name = schema::users)]
@@ -26,18 +26,10 @@ pub struct NewUser {
     pub password: String,
 }
 
-/// response.
-fn internal_error<E>(err: E) -> (StatusCode, String)
-where
-    E: std::error::Error,
-{
-    (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
-}
-
 impl User {
-    pub async fn find_by_email(pool: Pool, email: &str) -> Result<Self, (StatusCode, String)> {
+    pub async fn find_by_email(pool: Pool, email: &str) -> Result<Self, DBError> {
         use crate::db::schema::users::dsl::*;
-        let conn = pool.get().await.map_err(internal_error)?;
+        let conn = pool.get().await?;
 
         let result = conn
             .interact(|conn| {
@@ -46,16 +38,16 @@ impl User {
                     .select(User::as_select())
                     .first(conn)
             })
-            .await
-            .map_err(internal_error)?
-            .map_err(internal_error)?;
+            .await;
 
-        return Ok(result);
+        let flatten = combine_errors(result)?;
+
+        return Ok(flatten);
     }
 
-    pub async fn creat(pool: Pool, new_user: NewUser) -> Result<Self, (StatusCode, String)> {
+    pub async fn create(pool: Pool, new_user: NewUser) -> Result<Self, DBError> {
         use crate::db::schema::users::dsl::*;
-        let conn = pool.get().await.map_err(internal_error)?;
+        let conn = pool.get().await?;
 
         let res = conn
             .interact(|conn| {
@@ -64,31 +56,10 @@ impl User {
                     .returning(User::as_returning())
                     .get_result(conn)
             })
-            .await
-            .map_err(internal_error)?
-            .map_err(internal_error)?;
+            .await;
 
-        return Ok(res);
+        let flatten = combine_errors(res)?;
+
+        return Ok(flatten);
     }
-
-    // pub fn create(conn: &mut PgConnection, name: &str, email: &str) -> Result<Self, diesel::result::Error> {
-    //     use crate::db::schema::users::dsl::*;
-    //     let new_user = NewUser {
-    //         name: name.to_string(),
-    //         email: email.to_string(),
-    //     };
-    //     diesel::insert_into(users).values(&new_user).get_result(conn)
-    // }
-
-    // pub fn update(conn: &PgConnection, id: i32, name: &str, email: &str) -> Result<Self, diesel::result::Error> {
-    //     use crate::schema::users::dsl::*;
-    //     diesel::update(users.find(id))
-    //         .set((name.eq(name), email.eq(email)))
-    //         .get_result(conn)
-    // }
-
-    // pub fn delete(conn: &PgConnection, id: i32) -> Result<usize, diesel::result::Error> {
-    //     use crate::schema::users::dsl::*;
-    //     diesel::delete(users.find(id)).execute(conn)
-    // }
 }
