@@ -2,15 +2,18 @@ use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_garde::WithValidation;
 use axum_macros::debug_handler;
 
-use crate::{db::models::user::User, modules::auth_v1::validator::V1LoginPayload, AppState};
+use crate::{
+    db::models::user::{NewUser, User},
+    modules::auth_v1::validator::{V1LoginPayload, V1RegisterPayload},
+    AppState,
+};
 
 #[debug_handler]
-pub async fn login(
+pub async fn log_in(
     state: State<AppState>,
     WithValidation(payload): WithValidation<Json<V1LoginPayload>>,
 ) -> impl IntoResponse {
     println!("ok");
-    // print!("{}", state.db_pool.status().max_size);
     let payload = payload.into_inner();
     println!("login v2 #{:?}", payload);
     let user = User::find_by_email(state.db_pool.clone(), payload.email.as_str()).await;
@@ -18,8 +21,28 @@ pub async fn login(
     return StatusCode::OK;
 }
 
-// pub async fn register(body: Garde<Json<validator::V1RegisterPayload>>) -> String {
-//     user::User::find_all(&mut crate::db::connection::establish_connection()).unwrap();
-//     println!("register v2 #{:?}", body);
-//     "register v2".to_string()
-// }
+#[debug_handler]
+pub async fn register(
+    state: State<AppState>,
+    WithValidation(payload): WithValidation<Json<V1RegisterPayload>>,
+) -> impl IntoResponse {
+    println!("ok");
+    let payload = payload.into_inner();
+    println!("register v2 #{:?}", payload);
+    let new_user = NewUser {
+        name: payload.name.clone(),
+        email: payload.email.clone(),
+        password: payload.password.clone(),
+    };
+    let user = User::creat(state.db_pool.clone(), new_user).await;
+    println!("user: {:?}", user);
+
+    match user {
+        Ok(user) => (StatusCode::CREATED, Json(user)).into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to create user: {:?}", err),
+        )
+            .into_response(),
+    };
+}

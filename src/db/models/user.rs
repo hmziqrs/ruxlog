@@ -14,6 +14,7 @@ pub struct User {
     pub id: i32,
     pub name: String,
     pub email: String,
+    pub password: String,
     pub avatar: Option<String>,
 }
 
@@ -22,6 +23,7 @@ pub struct User {
 pub struct NewUser {
     pub name: String,
     pub email: String,
+    pub password: String,
 }
 
 /// response.
@@ -33,14 +35,6 @@ where
 }
 
 impl User {
-    pub async fn find_by_id(
-        conn: &mut PgConnection,
-        id: i32,
-    ) -> Result<Self, diesel::result::Error> {
-        use crate::db::schema::users::dsl::*;
-        users.find(id).select(User::as_select()).first(conn)
-    }
-
     pub async fn find_by_email(pool: Pool, email: &str) -> Result<Self, (StatusCode, String)> {
         use crate::db::schema::users::dsl::*;
         let conn = pool.get().await.map_err(internal_error)?;
@@ -59,7 +53,7 @@ impl User {
         return Ok(result);
     }
 
-    pub async fn create_user(pool: Pool, new_user: NewUser) -> Result<Self, (StatusCode, String)> {
+    pub async fn creat(pool: Pool, new_user: NewUser) -> Result<Self, (StatusCode, String)> {
         use crate::db::schema::users::dsl::*;
         let conn = pool.get().await.map_err(internal_error)?;
 

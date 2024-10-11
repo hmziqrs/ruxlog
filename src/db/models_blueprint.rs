@@ -3,13 +3,11 @@
 #![allow(unused)]
 #![allow(clippy::all)]
 
-use diesel::prelude::*;
-
-#[derive(Queryable, Debug)]
-#[diesel(table_name = users)]
+#[derive(Queryable, Identifiable, Selectable, Debug, PartialEq)]
 pub struct User {
     pub id: i32,
     pub name: String,
     pub email: String,
     pub password: String,
+    pub avatar: Option<String>,
 }
