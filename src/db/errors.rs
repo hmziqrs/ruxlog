@@ -8,6 +8,6 @@ pub enum DBError {
     #[error("Database connection error")]
     UnknownError(#[from] InteractError),
 
-    #[error("Database query error")]
+    #[error("Database query error {0:?}")]
     QueryError(#[from] diesel::result::Error),
 }
