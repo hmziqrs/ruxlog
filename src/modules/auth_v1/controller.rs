@@ -10,6 +10,25 @@ use crate::{
 };
 
 #[debug_handler]
+pub async fn log_out() -> impl IntoResponse {
+    // Clear the session cookie
+    let mut response = (
+        StatusCode::OK,
+        Json(json!({
+            "message": "Logged out successfully",
+        })),
+    )
+        .into_response();
+
+    response.headers_mut().append(
+        axum::http::header::SET_COOKIE,
+        axum::http::HeaderValue::from_str("session_id=; Path=/; Max-Age=0; HttpOnly").unwrap(),
+    );
+
+    response
+}
+
+#[debug_handler]
 pub async fn log_in(
     state: State<AppState>,
     WithValidation(payload): WithValidation<Json<V1LoginPayload>>,
@@ -18,21 +37,48 @@ pub async fn log_in(
     let user = User::find_by_email(&state.db_pool, payload.email).await;
 
     match user {
-        Ok(Some(user)) => (StatusCode::OK, Json(json!(user))),
+        Ok(Some(user)) => {
+            if user.password == payload.password {
+                // Set the session ID in a cookie
+                let mut response = (StatusCode::OK, Json(json!(user))).into_response();
+
+                response.headers_mut().append(
+                    axum::http::header::SET_COOKIE,
+                    axum::http::HeaderValue::from_str(&format!(
+                        "session_id={}; Path=/; HttpOnly",
+                        user.id
+                    ))
+                    .unwrap(),
+                );
+
+                response
+            } else {
+                (
+                    StatusCode::UNAUTHORIZED,
+                    Json(json!({
+                        "error": "Invalid credentials",
+                        "message": "The provided password is incorrect",
+                    })),
+                )
+                    .into_response()
+            }
+        }
         Ok(None) => (
             StatusCode::NOT_FOUND,
             Json(json!({
                 "error": "User not found",
                 "message": "No user with this email exists",
             })),
-        ),
+        )
+            .into_response(),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({
                 "error": err.to_string(),
                 "message": "An error occurred while fetching the user",
             })),
-        ),
+        )
+            .into_response(),
     }
 }
 

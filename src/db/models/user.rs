@@ -31,7 +31,24 @@ pub struct NewUser {
     pub password: String,
 }
 
+#[derive(Deserialize, Debug, Insertable, AsChangeset)]
+#[diesel(table_name = schema::users)]
+pub struct UpdateUser {
+    pub name: Option<String>,
+    pub email: Option<String>,
+    pub password: Option<String>,
+}
+
 impl User {
+    pub async fn find_by_id(pool: &Pool, user_id: i32) -> Result<Option<Self>, DBError> {
+        use crate::db::schema::users::dsl::*;
+
+        execute_db_operation(pool, move |conn| {
+            users.filter(id.eq(user_id)).first(conn).optional()
+        })
+        .await
+    }
+
     pub async fn find_by_email(pool: &Pool, user_email: String) -> Result<Option<Self>, DBError> {
         use crate::db::schema::users::dsl::*;
 
@@ -47,6 +64,18 @@ impl User {
         execute_db_operation(pool, move |conn| {
             diesel::insert_into(schema::users::table)
                 .values(new_user)
+                .returning(User::as_returning())
+                .get_result(conn)
+        })
+        .await
+    }
+
+    pub async fn update(pool: &Pool, user_id: i32, payload: UpdateUser) -> Result<Self, DBError> {
+        use crate::db::schema::users::dsl::*;
+
+        execute_db_operation(pool, move |conn| {
+            diesel::update(users.filter(id.eq(user_id)))
+                .set(&payload)
                 .returning(User::as_returning())
                 .get_result(conn)
         })
