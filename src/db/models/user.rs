@@ -12,7 +12,7 @@ use crate::db::{
     utils::{combine_errors, execute_db_operation},
 };
 
-#[derive(Queryable, Debug, Selectable, Identifiable, Serialize, PartialEq)]
+#[derive(Queryable, Clone, Debug, Selectable, Identifiable, Serialize, PartialEq)]
 #[diesel(table_name = schema::users)]
 pub struct User {
     pub id: i32,

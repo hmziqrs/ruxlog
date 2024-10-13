@@ -22,6 +22,9 @@ tokio = { version = "1.40.0", features = ["full"] }
 serde = { version = "1.0.210", features = ["derive"] }
 # validator = { version = "0.16.1", features = ["derive"] }
 tower-http = { version = "0.6.1", features = ["trace"] }
+tower-sessions-core = "0.13"
+tower-sessions-redis-store = "0.14.0"
+tower-sessions = { version = "0.13", features = ["private"] }
 tracing-subscriber = "0.3.18"
 tracing = "0.1.40"
 garde = { version = "0.20.0", features = ["full"] }
@@ -34,3 +37,5 @@ axum-macros = "0.4.2"
 axum_garde = "0.20.0"
 thiserror = "1.0.64"
 md5 = "0.7.0"
+password-auth = "1.0.0"
+time = "0.3.36"

@@ -1,0 +1,115 @@
+use core::error;
+
+use axum::async_trait;
+use axum_login::{AuthUser, AuthnBackend, UserId};
+use deadpool_diesel::postgres::Pool;
+use password_auth::verify_password;
+use serde::Deserialize;
+use tokio::task;
+
+use crate::db::{errors::DBError, models::user::User};
+
+pub type AuthSession = axum_login::AuthSession<AuthBackend>;
+
+#[derive(Clone)]
+pub struct AuthBackend {
+    pub pool: Pool,
+}
+
+impl std::fmt::Debug for AuthBackend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AuthBackend")
+            .field("pool", &"Pool{...}")
+            .finish()
+    }
+}
+
+impl AuthUser for User {
+    type Id = i32;
+
+    fn id(&self) -> Self::Id {
+        self.id
+    }
+
+    fn session_auth_hash(&self) -> &[u8] {
+        self.password.as_bytes()
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum AuthError {
+    #[error("Invalid password")]
+    InvalidPassword,
+
+    #[error("Internal DB error")]
+    InternalDBError(#[from] DBError),
+}
+
+impl AuthBackend {
+    /// Create a new backend instance.
+    pub fn new(pool: &Pool) -> Self {
+        Self { pool: pool.clone() }
+    }
+
+    /// Verify a password against a hash.
+    fn check_password(password: String, hash: &str) -> Result<bool, AuthError> {
+        verify_password(password, hash)
+            .map(|_| true)
+            .map_err(|_| AuthError::InvalidPassword)
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub enum Credentials {
+    Password(PasswordCreds),
+    // OAuth(OAuthCreds),
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PasswordCreds {
+    pub email: String,
+    pub password: String,
+}
+
+#[async_trait]
+impl AuthnBackend for AuthBackend {
+    type User = User;
+    type Credentials = Credentials;
+    type Error = AuthError;
+
+    async fn authenticate(
+        &self,
+        creds: Self::Credentials,
+    ) -> Result<Option<Self::User>, AuthError> {
+        match creds {
+            Credentials::Password(password_creds) => {
+                let user = User::find_by_email(&self.pool, password_creds.email).await?;
+
+                if let Some(user) = user {
+                    tracing::info!("A user is authenticating: {}.", user.email);
+
+                    // Offload the password verification to a blocking task.
+                    let password = user.password.clone();
+                    let password_valid = task::spawn_blocking(move || {
+                        Self::check_password(password_creds.password, &password)
+                    })
+                    .await
+                    .map_err(|_| AuthError::InvalidPassword)??;
+
+                    if password_valid {
+                        Ok(Some(user))
+                    } else {
+                        Ok(None)
+                    }
+                } else {
+                    Ok(None)
+                }
+            } // Add other credential types here if needed
+        }
+    }
+
+    /// Retrieves a user by ID from the database.
+    async fn get_user(&self, user_id: &UserId<Self>) -> Result<Option<Self::User>, Self::Error> {
+        Ok(User::find_by_id(&self.pool, *user_id).await?)
+    }
+}
