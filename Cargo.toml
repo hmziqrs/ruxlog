@@ -11,6 +11,7 @@ rustflags = '-L /opt/homebrew/opt/libpq/lib -L /opt/homebrew/lib'
 [dependencies]
 axum = "0.7.7"
 axum-extra = { version = "0.9.4", features = ["cookie-private"] }
+axum-login = "0.16.0"
 axum-valid = { version = "0.20.0", default-features = false, features = [
     "garde",
     "basic",
