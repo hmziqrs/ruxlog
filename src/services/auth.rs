@@ -1,5 +1,3 @@
-use core::error;
-
 use axum::async_trait;
 use axum_login::{AuthUser, AuthnBackend, UserId};
 use deadpool_diesel::postgres::Pool;
@@ -7,7 +5,7 @@ use password_auth::verify_password;
 use serde::Deserialize;
 use tokio::task;
 
-use crate::db::{errors::DBError, models::user::User};
+use crate::db::models::user::User;
 
 pub type AuthSession = axum_login::AuthSession<AuthBackend>;
 
@@ -42,7 +40,10 @@ pub enum AuthError {
     InvalidPassword,
 
     #[error("Internal DB error")]
-    InternalDBError(#[from] DBError),
+    InternalDBError,
+
+    #[error("User ID not found")]
+    UserNotFound,
 }
 
 impl AuthBackend {
@@ -83,7 +84,9 @@ impl AuthnBackend for AuthBackend {
     ) -> Result<Option<Self::User>, AuthError> {
         match creds {
             Credentials::Password(password_creds) => {
-                let user = User::find_by_email(&self.pool, password_creds.email).await?;
+                let user = User::find_by_email(&self.pool, password_creds.email)
+                    .await
+                    .map_err(|_| AuthError::InternalDBError)?;
 
                 if let Some(user) = user {
                     tracing::info!("A user is authenticating: {}.", user.email);
@@ -110,6 +113,8 @@ impl AuthnBackend for AuthBackend {
 
     /// Retrieves a user by ID from the database.
     async fn get_user(&self, user_id: &UserId<Self>) -> Result<Option<Self::User>, Self::Error> {
-        Ok(User::find_by_id(&self.pool, *user_id).await?)
+        User::find_by_id(&self.pool, *user_id)
+            .await
+            .map_err(|_| AuthError::UserNotFound)
     }
 }
