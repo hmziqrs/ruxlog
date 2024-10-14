@@ -1,36 +1,64 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_garde::WithValidation;
 use axum_macros::debug_handler;
+use serde_json::json;
 
 use crate::{
     db::models::user::{NewUser, User},
     modules::auth_v1::validator::{V1LoginPayload, V1RegisterPayload},
+    services::auth::{AuthSession, Credentials},
     AppState,
 };
 
 #[debug_handler]
+pub async fn log_out(mut auth: AuthSession) -> impl IntoResponse {
+    match auth.logout().await {
+        Ok(_) => (StatusCode::OK, Json(json!({"message": "Logged out"}))),
+        Err(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"message": "An error occurred while logging out"})),
+        ),
+    }
+}
+
+#[debug_handler]
 pub async fn log_in(
-    state: State<AppState>,
+    _state: State<AppState>,
+    mut auth: AuthSession,
     WithValidation(payload): WithValidation<Json<V1LoginPayload>>,
 ) -> impl IntoResponse {
-    println!("ok");
     let payload = payload.into_inner();
-    println!("login v2 #{:?}", payload);
-    let user = User::find_by_email(state.db_pool.clone(), payload.email.as_str()).await;
-    return (StatusCode::INSUFFICIENT_STORAGE, "q eqweqwe").into_response();
+    let user = auth
+        .authenticate(Credentials::Password(payload.clone()))
+        .await;
 
     match user {
-        Ok(_) => {
-            return (StatusCode::OK, "q eqweqwe").into_response();
-        }
-        Err(err) => {
-            return (
-                StatusCode::NOT_FOUND,
-                format!("Failed to find user: {:?}", err),
-            )
-                .into_response();
-        }
-    };
+        Ok(Some(user)) => match auth.login(&user).await {
+            Ok(_) => (StatusCode::OK, Json(json!(user))),
+            Err(err) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": err.to_string(),
+                    "message": "An error occurred while logging in",
+                })),
+            ),
+        },
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": "User not found",
+                "message": "No user with this email exists",
+            })),
+        ),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": err.to_string(),
+                "message": "An error occurred while fetching the user",
+            })),
+        ),
+    }
+    .into_response()
 }
 
 #[debug_handler]
@@ -38,24 +66,22 @@ pub async fn register(
     state: State<AppState>,
     WithValidation(payload): WithValidation<Json<V1RegisterPayload>>,
 ) -> impl IntoResponse {
-    println!("ok");
     let payload = payload.into_inner();
-    println!("register v2 #{:?}", payload);
-
     let new_user = NewUser {
         name: payload.name.clone(),
         email: payload.email.clone(),
         password: payload.password.clone(),
     };
-    let user = User::create(state.db_pool.clone(), new_user).await;
-    println!("user: {:?}", user);
+    let user = User::create(&state.db_pool, new_user).await;
 
     match user {
-        Ok(user) => (StatusCode::CREATED, Json(user)).into_response(),
+        Ok(user) => (StatusCode::CREATED, Json(json!(user))),
         Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to create user: {:?}", err),
-        )
-            .into_response(),
-    };
+            StatusCode::CONFLICT,
+            Json(json!({
+                "error": err.to_string(),
+                "message": "Failed to create user",
+            })),
+        ),
+    }
 }

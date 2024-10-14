@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::AppState;
 
-#[derive(Debug, Deserialize, Serialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Serialize, Validate)]
 #[garde(context(AppState))]
 pub struct V1LoginPayload {
     #[garde(email)]

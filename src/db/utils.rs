@@ -10,7 +10,7 @@ pub fn combine_errors<S>(
     Ok(value)
 }
 
-async fn execute_db_operation<F, T>(pool: &Pool, operation: F) -> Result<T, DBError>
+pub async fn execute_db_operation<F, T>(pool: &Pool, operation: F) -> Result<T, DBError>
 where
     F: FnOnce(&mut PgConnection) -> Result<T, diesel::result::Error> + Send + 'static,
     T: Send + 'static,
