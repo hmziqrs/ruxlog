@@ -4,9 +4,14 @@ mod router;
 pub mod services;
 pub mod state;
 
-use axum::http::HeaderValue;
+use axum::{
+    http::{HeaderValue, StatusCode},
+    response::IntoResponse,
+    Json,
+};
 use axum_login::AuthManagerLayerBuilder;
-use std::{env, sync::Arc, time::Duration};
+use serde_json::json;
+use std::{env, net::SocketAddr, sync::Arc, time::Duration};
 use time;
 use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tower_http::{compression::CompressionLayer, cors::CorsLayer, limit::RequestBodyLimitLayer};
@@ -63,19 +68,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let request_size = RequestBodyLimitLayer::new(1024 * 512);
     let governor_conf = Arc::new(
         GovernorConfigBuilder::default()
-            .per_second(3)
-            .burst_size(5)
+            .per_second(4)
+            .burst_size(25)
+            .error_handler(|e| {
+                let status = StatusCode::TOO_MANY_REQUESTS;
+                let body = e.to_string();
+                (
+                    status,
+                    Json(json!({"error": "Too many requests", "message": body})),
+                )
+                    .into_response()
+            })
             .finish()
             .unwrap(),
     );
-    // let governor_limiter = governor_conf.limiter().clone();
-    // let interval = Duration::from_secs(60);
-    // // a separate background task to clean up
-    // std::thread::spawn(move || loop {
-    //     std::thread::sleep(interval);
-    //     tracing::info!("rate limiting storage size: {}", &governor_limiter.len());
-    //     governor_limiter.retain_recent();
-    // });
+    let governor_limiter = governor_conf.limiter().clone();
+    let interval = Duration::from_secs(60);
+    // a separate background task to clean up
+    std::thread::spawn(move || loop {
+        std::thread::sleep(interval);
+        tracing::info!("rate limiting storage size: {}", governor_limiter.len());
+        governor_limiter.retain_recent();
+    });
+
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
     let app = router::router()
@@ -83,17 +98,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(auth_layer)
         .layer(cors)
         .layer(compression)
-        // .layer(GovernorLayer {
-        //     config: governor_conf,
-        // })
+        .layer(GovernorLayer {
+            config: governor_conf,
+        })
         .with_state(state);
 
     let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port = env::var("PORT").unwrap_or_else(|_| "8888".to_string());
     let address = format!("{}:{}", host, port);
+    let address = address.parse::<std::net::SocketAddr>()?;
     tracing::info!("Listening on http://{}", address);
     let listener = tokio::net::TcpListener::bind(address).await?;
-    axum::serve(listener, app).await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await?;
 
     redis_connection.await??;
 
