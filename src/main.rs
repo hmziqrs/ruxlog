@@ -16,7 +16,7 @@ use time;
 use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tower_http::{compression::CompressionLayer, cors::CorsLayer, limit::RequestBodyLimitLayer};
 
-use axum_csrf::{CsrfConfig, CsrfLayer, Key as CsrfKey};
+// use axum_csrf::{CsrfConfig, CsrfLayer, Key as CsrfKey};
 use axum_extra::extract::cookie::SameSite;
 use services::{auth::AuthBackend, redis::init_redis_store};
 pub use state::AppState;
@@ -43,7 +43,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_thread_names(true)
         .init();
 
-    let cookie_key_str = env::var("COOKIE_KEY").expect("SESSION_KEY must be set");
+    let cookie_key_str = env::var("COOKIE_KEY").expect("COOKIE_KEY must be set");
+    // let csrf_key_str = env::var("CSRF_KEY").expect("CSRF_KEY must be set");
 
     tracing::info!("Starting server.");
     let pool = db::connect::get_pool().await;
@@ -55,11 +56,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let session_store = RedisStore::new(redis_pool);
     let cookie_key_byes = hex_to_512bit_key(&cookie_key_str);
     let cookie_key = Key::from(&cookie_key_byes);
-    let csrf_key = CsrfKey::from(&cookie_key_byes);
-    let csrf_config = CsrfConfig::default()
-        .with_key(Some(csrf_key))
-        .with_secure(true)
-        .with_cookie_same_site(SameSite::Strict);
+    // let csrf_key_byes = hex_to_512bit_key(&csrf_key_str);
+    // let csrf_key = CsrfKey::from(&csrf_key_byes);
+    // let csrf_config = CsrfConfig::default()
+    //     .with_key(Some(csrf_key))
+    //     .with_secure(true)
+    //     .with_cookie_same_site(SameSite::Strict);
     // .with_cookie_domain(Some("127.0.0.1"));
 
     let session_layer = SessionManagerLayer::new(session_store)
@@ -106,7 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(auth_layer)
         .layer(cors)
         .layer(compression)
-        .layer(CsrfLayer::new(csrf_config))
+        // .layer(CsrfLayer::new(csrf_config))
         .layer(GovernorLayer {
             config: governor_conf,
         })
