@@ -89,26 +89,16 @@ impl AuthnBackend for AuthBackend {
                     .map_err(|_| AuthError::InternalDBError)?;
 
                 if let Some(user) = user {
-                    tracing::info!("A user is authenticating: {}.", &user.email);
-
-                    // Offload the password verification to a blocking task.
                     let password = user.password.clone();
                     let password_valid = task::spawn_blocking(move || {
-                        println!("creds:{}", &password_creds.password);
-                        println!("psw:{}", &password);
                         Self::check_password(password_creds.password, &password)
                     })
                     .await
                     .map_err(|_| AuthError::InvalidPassword)??;
 
-                    println!("password_valid {}", password_valid);
-
                     if password_valid {
-                        println!("User authenticated successfully");
                         Ok(Some(user))
                     } else {
-                        println!("User else bro");
-
                         Ok(None)
                     }
                 } else {

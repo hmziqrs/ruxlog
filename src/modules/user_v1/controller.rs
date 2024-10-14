@@ -12,11 +12,8 @@ use crate::{
 };
 
 #[debug_handler]
-pub async fn get_profile(
-    state: State<AppState>,
-    headers: TypedHeader<Cookie>,
-) -> impl IntoResponse {
-    let user_id = extract_user_id_from_headers(headers); // Placeholder function
+pub async fn get_profile(state: State<AppState>) -> impl IntoResponse {
+    let user_id = Some(1);
     if let Some(user_id) = user_id {
         let user = User::find_by_id(&state.db_pool, user_id).await;
         match user {
@@ -59,10 +56,9 @@ pub async fn get_profile(
 #[debug_handler]
 pub async fn update_profile(
     state: State<AppState>,
-    headers: TypedHeader<Cookie>,
     WithValidation(payload): WithValidation<Json<V1UpdateProfilePayload>>,
 ) -> impl IntoResponse {
-    let user_id = extract_user_id_from_headers(headers);
+    let user_id = Some(1);
     if let Some(user_id) = user_id {
         let payload = payload.into_inner();
         let updated_user = User::update(
@@ -100,11 +96,4 @@ pub async fn update_profile(
         })),
     )
         .into_response()
-}
-
-// Placeholder function for extracting user_id from a token
-fn extract_user_id_from_headers(headers: TypedHeader<Cookie>) -> Option<i32> {
-    let user_id = headers.get("session_id")?;
-    user_id.parse::<i32>().ok()
-    // Some(1)
 }

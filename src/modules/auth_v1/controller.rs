@@ -37,12 +37,21 @@ pub async fn log_in(
     let user = auth
         .authenticate(Credentials::Password(payload.clone()))
         .await;
-    println!("User: {:?}", user);
 
     match user {
         Ok(Some(user)) => {
             // Set the session ID in a cookie
-            (StatusCode::OK, Json(json!(user))).into_response()
+            match auth.login(&user).await {
+                Ok(_) => (StatusCode::OK, Json(json!(user))).into_response(),
+                Err(err) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "error": err.to_string(),
+                        "message": "An error occurred while logging in",
+                    })),
+                )
+                    .into_response(),
+            }
         }
         Ok(None) => (
             StatusCode::NOT_FOUND,

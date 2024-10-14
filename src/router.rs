@@ -5,8 +5,11 @@ use axum::{
     routing::{self, get, post, put},
     Router,
 };
+use axum_login::login_required;
 use serde_json::json;
 use tower_http::trace::TraceLayer;
+
+use crate::services::auth::AuthBackend;
 
 use super::{
     modules::{auth_v1, user_v1},
@@ -20,7 +23,8 @@ pub fn router() -> Router<AppState> {
 
     let user_v1_routes = Router::new()
         .route("/get", get(user_v1::controller::get_profile))
-        .route("/profile", put(user_v1::controller::update_profile));
+        .route("/profile", put(user_v1::controller::update_profile))
+        .route_layer(login_required!(AuthBackend));
 
     Router::new()
         .route("/", routing::get(handler))
