@@ -6,7 +6,7 @@ use serde_json::json;
 use crate::{
     db::models::user::{NewUser, User},
     modules::auth_v1::validator::{V1LoginPayload, V1RegisterPayload},
-    services::auth::{self, AuthSession, Credentials},
+    services::auth::{AuthSession, Credentials},
     AppState,
 };
 

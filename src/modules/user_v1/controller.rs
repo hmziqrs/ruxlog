@@ -1,5 +1,4 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
-use axum_extra::{headers::Cookie, TypedHeader};
 use axum_garde::WithValidation;
 use axum_macros::debug_handler;
 use serde_json::json;

@@ -11,7 +11,7 @@ use time;
 use axum_extra::extract::cookie::SameSite;
 use services::{auth::AuthBackend, redis::init_redis_store};
 pub use state::AppState;
-use tower_sessions::{cookie::Key, Expiry, SessionManagerLayer};
+use tower_sessions::{Expiry, SessionManagerLayer};
 use tower_sessions_redis_store::RedisStore;
 
 #[tokio::main]
