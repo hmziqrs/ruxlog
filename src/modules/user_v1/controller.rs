@@ -8,49 +8,25 @@ use super::validator::V1UpdateProfilePayload;
 
 use crate::{
     db::models::user::{UpdateUser, User},
+    services::auth::AuthSession,
     AppState,
 };
 
 #[debug_handler]
-pub async fn get_profile(state: State<AppState>) -> impl IntoResponse {
-    let user_id = Some(1);
-    if let Some(user_id) = user_id {
-        let user = User::find_by_id(&state.db_pool, user_id).await;
-        match user {
-            Ok(Some(user)) => {
-                return (StatusCode::OK, Json(json!(user))).into_response();
-            }
-            Ok(None) => {
-                return (
-                    StatusCode::NOT_FOUND,
-                    Json(json!({
-                        "error": "User not found",
-                        "message": "No user with this ID exists",
-                    })),
-                )
-                    .into_response();
-            }
-            Err(err) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "error": err.to_string(),
-                        "message": "An error occurred while fetching the user",
-                    })),
-                )
-                    .into_response();
-            }
-        }
-    }
+pub async fn get_profile(auth: AuthSession) -> impl IntoResponse {
+    println!("{:?}", &auth.user);
 
-    (
-        StatusCode::UNAUTHORIZED,
-        Json(json!({
-            "error": "Unauthorized",
-            "message": "You must be logged in to access this resource",
-        })),
-    )
-        .into_response()
+    match auth.user {
+        Some(user) => (StatusCode::OK, Json(json!({"data": user}))).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": "User not found",
+                "message": "No user with this ID exists",
+            })),
+        )
+            .into_response(),
+    }
 }
 
 #[debug_handler]

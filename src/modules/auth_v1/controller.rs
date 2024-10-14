@@ -6,30 +6,24 @@ use serde_json::json;
 use crate::{
     db::models::user::{NewUser, User},
     modules::auth_v1::validator::{V1LoginPayload, V1RegisterPayload},
-    services::auth::{AuthSession, Credentials},
+    services::auth::{self, AuthSession, Credentials},
     AppState,
 };
 
 #[debug_handler]
-pub async fn log_out() -> impl IntoResponse {
-    // Clear the session cookie
-    (
-        StatusCode::OK,
-        Json(json!({
-            "message": "Logged out successfully",
-        })),
-    )
-        .into_response()
-
-    // response.headers_mut().append(
-    //     axum::http::header::SET_COOKIE,
-    //     axum::http::HeaderValue::from_str("session_id=; Path=/; Max-Age=0; HttpOnly").unwrap(),
-    // );
+pub async fn log_out(mut auth: AuthSession) -> impl IntoResponse {
+    match auth.logout().await {
+        Ok(_) => (StatusCode::OK, Json(json!({"message": "Logged out"}))),
+        Err(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"message": "An error occurred while logging out"})),
+        ),
+    }
 }
 
 #[debug_handler]
 pub async fn log_in(
-    state: State<AppState>,
+    _state: State<AppState>,
     mut auth: AuthSession,
     WithValidation(payload): WithValidation<Json<V1LoginPayload>>,
 ) -> impl IntoResponse {
@@ -39,37 +33,32 @@ pub async fn log_in(
         .await;
 
     match user {
-        Ok(Some(user)) => {
-            // Set the session ID in a cookie
-            match auth.login(&user).await {
-                Ok(_) => (StatusCode::OK, Json(json!(user))).into_response(),
-                Err(err) => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "error": err.to_string(),
-                        "message": "An error occurred while logging in",
-                    })),
-                )
-                    .into_response(),
-            }
-        }
+        Ok(Some(user)) => match auth.login(&user).await {
+            Ok(_) => (StatusCode::OK, Json(json!(user))),
+            Err(err) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": err.to_string(),
+                    "message": "An error occurred while logging in",
+                })),
+            ),
+        },
         Ok(None) => (
             StatusCode::NOT_FOUND,
             Json(json!({
                 "error": "User not found",
                 "message": "No user with this email exists",
             })),
-        )
-            .into_response(),
+        ),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({
                 "error": err.to_string(),
                 "message": "An error occurred while fetching the user",
             })),
-        )
-            .into_response(),
+        ),
     }
+    .into_response()
 }
 
 #[debug_handler]

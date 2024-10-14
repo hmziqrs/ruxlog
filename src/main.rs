@@ -31,12 +31,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (redis_pool, redis_connection) = init_redis_store().await?;
     tracing::info!("Redis successfully established.");
     let session_store = RedisStore::new(redis_pool);
-    let key = Key::generate();
+    // let key = Key::generate();
     let session_layer = SessionManagerLayer::new(session_store)
         .with_expiry(Expiry::OnInactivity(time::Duration::hours(24)))
         .with_same_site(SameSite::Strict)
-        .with_secure(true)
-        .with_private(key);
+        .with_secure(true);
+    // .with_private(key);
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
     let app = router::router().layer(auth_layer).with_state(state);
 
