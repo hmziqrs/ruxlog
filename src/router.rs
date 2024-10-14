@@ -19,6 +19,7 @@ use super::{
 pub fn router() -> Router<AppState> {
     let auth_v1_routes = Router::new()
         .route("/register", post(auth_v1::controller::register))
+        .route("/log_out", post(auth_v1::controller::log_out))
         .route("/log_in", post(auth_v1::controller::log_in));
 
     let user_v1_routes = Router::new()
