@@ -21,7 +21,14 @@ tower-livereload = "0.9.4"
 tokio = { version = "1.40.0", features = ["full"] }
 serde = { version = "1.0.210", features = ["derive"] }
 # validator = { version = "0.16.1", features = ["derive"] }
-tower-http = { version = "0.6.1", features = ["trace"] }
+tower-http = { version = "0.6.1", features = [
+    "trace",
+    "compression-gzip",
+    "cors",
+    "limit",
+    "fs",
+] }
+tower_governor = "0.4.2"
 tower-sessions-core = "0.13"
 tower-sessions-redis-store = "0.14.0"
 tower-sessions = { version = "0.13", features = ["private"] }
@@ -39,3 +46,6 @@ thiserror = "1.0.64"
 md5 = "0.7.0"
 password-auth = "1.0.0"
 time = "0.3.36"
+governor = "0.6.3"
+hex = "0.4.3"
+sha2 = "0.10.8"

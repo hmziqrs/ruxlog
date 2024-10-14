@@ -4,15 +4,29 @@ mod router;
 pub mod services;
 pub mod state;
 
+use axum::http::HeaderValue;
 use axum_login::AuthManagerLayerBuilder;
-use std::env;
+use std::{env, sync::Arc, time::Duration};
 use time;
+use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
+use tower_http::{compression::CompressionLayer, cors::CorsLayer, limit::RequestBodyLimitLayer};
 
 use axum_extra::extract::cookie::SameSite;
 use services::{auth::AuthBackend, redis::init_redis_store};
 pub use state::AppState;
-use tower_sessions::{Expiry, SessionManagerLayer};
+use tower_sessions::{cookie::Key, Expiry, SessionManagerLayer};
 use tower_sessions_redis_store::RedisStore;
+
+fn hex_to_512bit_key(hex: &str) -> [u8; 64] {
+    use sha2::{Digest, Sha512};
+    let bytes = hex::decode(hex).expect("Invalid hex string");
+    let mut hasher = Sha512::new();
+    hasher.update(bytes);
+    let result = hasher.finalize();
+    let mut array = [0u8; 64];
+    array.copy_from_slice(&result);
+    array
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -23,6 +37,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_thread_names(true)
         .init();
 
+    let cookie_key = env::var("COOKIE_KEY").expect("SESSION_KEY must be set");
+
     tracing::info!("Starting server.");
     let pool = db::connect::get_pool().await;
     tracing::info!("Postgres connection established.");
@@ -31,16 +47,47 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (redis_pool, redis_connection) = init_redis_store().await?;
     tracing::info!("Redis successfully established.");
     let session_store = RedisStore::new(redis_pool);
-    // let key = Key::generate();
+    let cookie_key_byes = hex_to_512bit_key(&cookie_key);
+    let key = Key::from(&cookie_key_byes);
     let session_layer = SessionManagerLayer::new(session_store)
         .with_expiry(Expiry::OnInactivity(time::Duration::hours(24)))
         .with_same_site(SameSite::Strict)
-        .with_secure(true);
-    // .with_private(key);
+        .with_secure(true)
+        .with_private(key);
+    let compression = CompressionLayer::new();
+    let cors = CorsLayer::new()
+        .allow_origin("*".parse::<HeaderValue>()?)
+        // .allow_credentials(true)
+        // .allow_origin("http://localhost:8000".parse::<HeaderValue>()?)
+        .max_age(Duration::from_secs(3600));
+    let request_size = RequestBodyLimitLayer::new(1024 * 512);
+    let governor_conf = Arc::new(
+        GovernorConfigBuilder::default()
+            .per_second(3)
+            .burst_size(5)
+            .finish()
+            .unwrap(),
+    );
+    // let governor_limiter = governor_conf.limiter().clone();
+    // let interval = Duration::from_secs(60);
+    // // a separate background task to clean up
+    // std::thread::spawn(move || loop {
+    //     std::thread::sleep(interval);
+    //     tracing::info!("rate limiting storage size: {}", &governor_limiter.len());
+    //     governor_limiter.retain_recent();
+    // });
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
-    let app = router::router().layer(auth_layer).with_state(state);
 
-    // run our app with hyper, listening globally on port 3000
+    let app = router::router()
+        .layer(request_size)
+        .layer(auth_layer)
+        .layer(cors)
+        .layer(compression)
+        // .layer(GovernorLayer {
+        //     config: governor_conf,
+        // })
+        .with_state(state);
+
     let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port = env::var("PORT").unwrap_or_else(|_| "8888".to_string());
     let address = format!("{}:{}", host, port);
