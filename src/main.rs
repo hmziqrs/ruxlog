@@ -16,6 +16,7 @@ use time;
 use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tower_http::{compression::CompressionLayer, cors::CorsLayer, limit::RequestBodyLimitLayer};
 
+use axum_csrf::{CsrfConfig, CsrfLayer, Key as CsrfKey};
 use axum_extra::extract::cookie::SameSite;
 use services::{auth::AuthBackend, redis::init_redis_store};
 pub use state::AppState;
@@ -42,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_thread_names(true)
         .init();
 
-    let cookie_key = env::var("COOKIE_KEY").expect("SESSION_KEY must be set");
+    let cookie_key_str = env::var("COOKIE_KEY").expect("SESSION_KEY must be set");
 
     tracing::info!("Starting server.");
     let pool = db::connect::get_pool().await;
@@ -52,13 +53,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (redis_pool, redis_connection) = init_redis_store().await?;
     tracing::info!("Redis successfully established.");
     let session_store = RedisStore::new(redis_pool);
-    let cookie_key_byes = hex_to_512bit_key(&cookie_key);
-    let key = Key::from(&cookie_key_byes);
+    let cookie_key_byes = hex_to_512bit_key(&cookie_key_str);
+    let cookie_key = Key::from(&cookie_key_byes);
+    let csrf_key = CsrfKey::from(&cookie_key_byes);
+    let csrf_config = CsrfConfig::default()
+        .with_key(Some(csrf_key))
+        .with_secure(true)
+        .with_cookie_same_site(SameSite::Strict);
+    // .with_cookie_domain(Some("127.0.0.1"));
+
     let session_layer = SessionManagerLayer::new(session_store)
         .with_expiry(Expiry::OnInactivity(time::Duration::hours(24)))
         .with_same_site(SameSite::Strict)
         .with_secure(true)
-        .with_private(key);
+        .with_private(cookie_key);
     let compression = CompressionLayer::new();
     let cors = CorsLayer::new()
         .allow_origin("*".parse::<HeaderValue>()?)
@@ -98,6 +106,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(auth_layer)
         .layer(cors)
         .layer(compression)
+        .layer(CsrfLayer::new(csrf_config))
         .layer(GovernorLayer {
             config: governor_conf,
         })

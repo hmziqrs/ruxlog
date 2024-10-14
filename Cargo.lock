@@ -115,9 +115,9 @@ dependencies = [
 
 [[package]]
 name = "async-trait"
-version = "0.1.77"
+version = "0.1.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c980ee35e870bd1a4d2c8294d4c04d0499e67bca1e4b5cefcc693c2fa00caea9"
+checksum = "721cae7de5c34fbb2acd27e21e6d2cf7b886dce0c27388d46c4e6c47ea4318dd"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -259,6 +259,7 @@ dependencies = [
  "axum-login",
  "axum-macros",
  "axum-valid",
+ "axum_csrf",
  "axum_garde",
  "chrono",
  "deadpool-diesel",
@@ -284,6 +285,26 @@ dependencies = [
  "tower_governor",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "axum_csrf"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1222c5f1302e23ff8f82deb58efc06f75ad1cc68bc789da46010a9cbcf92183c"
+dependencies = [
+ "async-trait",
+ "axum-core",
+ "base64ct",
+ "cookie",
+ "hmac",
+ "http",
+ "rand",
+ "sha2",
+ "thiserror",
+ "time",
+ "tower-layer",
+ "tower-service",
 ]
 
 [[package]]
