@@ -5,7 +5,7 @@ use password_auth::verify_password;
 use serde::Deserialize;
 use tokio::task;
 
-use crate::db::models::user::User;
+use crate::{db::models::user::User, modules::auth_v1::validator::V1LoginPayload};
 
 pub type AuthSession = axum_login::AuthSession<AuthBackend>;
 
@@ -62,15 +62,15 @@ impl AuthBackend {
 
 #[derive(Debug, Clone, Deserialize)]
 pub enum Credentials {
-    Password(PasswordCreds),
+    Password(V1LoginPayload),
     // OAuth(OAuthCreds),
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct PasswordCreds {
-    pub email: String,
-    pub password: String,
-}
+// #[derive(Debug, Clone, Deserialize)]
+// pub struct PasswordCreds {
+//     pub email: String,
+//     pub password: String,
+// }
 
 #[async_trait]
 impl AuthnBackend for AuthBackend {
@@ -81,7 +81,7 @@ impl AuthnBackend for AuthBackend {
     async fn authenticate(
         &self,
         creds: Self::Credentials,
-    ) -> Result<Option<Self::User>, AuthError> {
+    ) -> Result<Option<Self::User>, Self::Error> {
         match creds {
             Credentials::Password(password_creds) => {
                 let user = User::find_by_email(&self.pool, password_creds.email)
@@ -89,19 +89,26 @@ impl AuthnBackend for AuthBackend {
                     .map_err(|_| AuthError::InternalDBError)?;
 
                 if let Some(user) = user {
-                    tracing::info!("A user is authenticating: {}.", user.email);
+                    tracing::info!("A user is authenticating: {}.", &user.email);
 
                     // Offload the password verification to a blocking task.
                     let password = user.password.clone();
                     let password_valid = task::spawn_blocking(move || {
+                        println!("creds:{}", &password_creds.password);
+                        println!("psw:{}", &password);
                         Self::check_password(password_creds.password, &password)
                     })
                     .await
                     .map_err(|_| AuthError::InvalidPassword)??;
 
+                    println!("password_valid {}", password_valid);
+
                     if password_valid {
+                        println!("User authenticated successfully");
                         Ok(Some(user))
                     } else {
+                        println!("User else bro");
+
                         Ok(None)
                     }
                 } else {

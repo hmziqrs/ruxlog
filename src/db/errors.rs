@@ -8,6 +8,9 @@ pub enum DBError {
     #[error("Database connection error")]
     UnknownError(#[from] InteractError),
 
+    #[error("Password hashing error")]
+    PasswordHashError,
+
     #[error("Database query error {0:?}")]
     QueryError(#[from] diesel::result::Error),
 }

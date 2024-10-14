@@ -5,6 +5,7 @@ use axum::{http::StatusCode, Json};
 use deadpool_diesel::postgres::Pool;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
+use tokio::task;
 
 use crate::db::{
     errors::DBError,
@@ -60,6 +61,15 @@ impl User {
 
     pub async fn create(pool: &Pool, new_user: NewUser) -> Result<Self, DBError> {
         use crate::db::schema::users::dsl::*;
+        let pass = new_user.password.clone();
+        let hash = task::spawn_blocking(move || password_auth::generate_hash(pass))
+            .await
+            .map_err(|_| DBError::PasswordHashError);
+
+        let new_user = NewUser {
+            password: hash?,
+            ..new_user
+        };
 
         execute_db_operation(pool, move |conn| {
             diesel::insert_into(schema::users::table)

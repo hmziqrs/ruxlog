@@ -6,62 +6,43 @@ use serde_json::json;
 use crate::{
     db::models::user::{NewUser, User},
     modules::auth_v1::validator::{V1LoginPayload, V1RegisterPayload},
+    services::auth::{AuthSession, Credentials},
     AppState,
 };
 
 #[debug_handler]
 pub async fn log_out() -> impl IntoResponse {
     // Clear the session cookie
-    let mut response = (
+    (
         StatusCode::OK,
         Json(json!({
             "message": "Logged out successfully",
         })),
     )
-        .into_response();
+        .into_response()
 
-    response.headers_mut().append(
-        axum::http::header::SET_COOKIE,
-        axum::http::HeaderValue::from_str("session_id=; Path=/; Max-Age=0; HttpOnly").unwrap(),
-    );
-
-    response
+    // response.headers_mut().append(
+    //     axum::http::header::SET_COOKIE,
+    //     axum::http::HeaderValue::from_str("session_id=; Path=/; Max-Age=0; HttpOnly").unwrap(),
+    // );
 }
 
 #[debug_handler]
 pub async fn log_in(
     state: State<AppState>,
+    mut auth: AuthSession,
     WithValidation(payload): WithValidation<Json<V1LoginPayload>>,
 ) -> impl IntoResponse {
     let payload = payload.into_inner();
-    let user = User::find_by_email(&state.db_pool, payload.email).await;
+    let user = auth
+        .authenticate(Credentials::Password(payload.clone()))
+        .await;
+    println!("User: {:?}", user);
 
     match user {
         Ok(Some(user)) => {
-            if user.password == payload.password {
-                // Set the session ID in a cookie
-                let mut response = (StatusCode::OK, Json(json!(user))).into_response();
-
-                response.headers_mut().append(
-                    axum::http::header::SET_COOKIE,
-                    axum::http::HeaderValue::from_str(&format!(
-                        "session_id={}; Path=/; HttpOnly",
-                        user.id
-                    ))
-                    .unwrap(),
-                );
-
-                response
-            } else {
-                (
-                    StatusCode::UNAUTHORIZED,
-                    Json(json!({
-                        "error": "Invalid credentials",
-                        "message": "The provided password is incorrect",
-                    })),
-                )
-                    .into_response()
-            }
+            // Set the session ID in a cookie
+            (StatusCode::OK, Json(json!(user))).into_response()
         }
         Ok(None) => (
             StatusCode::NOT_FOUND,
