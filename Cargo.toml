@@ -39,7 +39,7 @@ diesel = { version = "2.2.4", features = ["postgres"] }
 deadpool-diesel = { version = "0.6.1", features = ["postgres"] }
 diesel_migrations = "2.2.0"
 dotenv = "0.15.0"
-chrono = "0.4.38"
+chrono = { version = "0.4.19", features = ["serde"] }
 axum-macros = "0.4.2"
 axum_garde = "0.20.0"
 thiserror = "1.0.64"

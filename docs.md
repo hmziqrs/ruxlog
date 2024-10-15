@@ -3,3 +3,6 @@ diesel_ext -m -d "Queryable, Identifiable, Selectable, Debug, PartialEq" > src/d
 diesel migration run
 
 diesel migration revert -a
+
+
+diesel migration generate --diff-schema email_verification
