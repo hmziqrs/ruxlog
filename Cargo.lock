@@ -261,6 +261,7 @@ dependencies = [
  "axum-valid",
  "axum_csrf",
  "axum_garde",
+ "base64 0.22.1",
  "chrono",
  "deadpool-diesel",
  "diesel",

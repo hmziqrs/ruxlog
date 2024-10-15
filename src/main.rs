@@ -1,4 +1,6 @@
+pub mod constants;
 pub mod db;
+pub mod middlewares;
 pub mod modules;
 mod router;
 pub mod services;
@@ -6,6 +8,7 @@ pub mod state;
 
 use axum::{
     http::{HeaderValue, StatusCode},
+    middleware,
     response::IntoResponse,
     Json,
 };
@@ -104,14 +107,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
     let app = router::router()
-        .layer(request_size)
         .layer(auth_layer)
-        .layer(cors)
-        .layer(compression)
-        // .layer(CsrfLayer::new(csrf_config))
         .layer(GovernorLayer {
             config: governor_conf,
         })
+        .layer(compression)
+        .layer(cors)
+        .layer(request_size)
+        .layer(middleware::from_fn(middlewares::static_csrf::csrf_gaurd))
         .with_state(state);
 
     let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
