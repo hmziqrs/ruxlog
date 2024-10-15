@@ -1,6 +1,7 @@
 use axum::{
     extract::State,
     http::StatusCode,
+    middleware,
     response::{IntoResponse, Json},
     routing::{self, get, post, put},
     Router,
@@ -9,6 +10,7 @@ use axum_login::login_required;
 use serde_json::json;
 use tower_http::trace::TraceLayer;
 
+use crate::middlewares::user_status;
 use crate::services::auth::AuthBackend;
 
 use super::{
@@ -25,6 +27,7 @@ pub fn router() -> Router<AppState> {
     let user_v1_routes = Router::new()
         .route("/get", get(user_v1::controller::get_profile))
         .route("/profile", put(user_v1::controller::update_profile))
+        .route_layer(middleware::from_fn(user_status::only_unverified))
         .route_layer(login_required!(AuthBackend));
 
     // let csrf_v1_routes: Router<AppState> =

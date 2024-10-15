@@ -13,8 +13,6 @@ use crate::{
 
 #[debug_handler]
 pub async fn get_profile(auth: AuthSession) -> impl IntoResponse {
-    println!("{:?}", &auth.user);
-
     match auth.user {
         Some(user) => (StatusCode::OK, Json(json!({"data": user}))).into_response(),
         None => (

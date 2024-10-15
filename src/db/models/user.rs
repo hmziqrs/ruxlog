@@ -21,8 +21,8 @@ pub struct User {
     pub email: String,
     #[serde(skip_serializing)]
     pub password: String,
-    pub is_verified: bool,
     pub avatar: Option<String>,
+    pub is_verified: bool,
 }
 
 #[derive(Insertable, Deserialize, Debug)]
