@@ -10,9 +10,10 @@ use axum::{
     http::{HeaderValue, StatusCode},
     middleware,
     response::IntoResponse,
-    Json,
+    routing, Json,
 };
 use axum_login::AuthManagerLayerBuilder;
+use modules::csrf_v1;
 use serde_json::json;
 use std::{env, net::SocketAddr, sync::Arc, time::Duration};
 use time;
@@ -115,6 +116,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(cors)
         .layer(request_size)
         .layer(middleware::from_fn(middlewares::static_csrf::csrf_gaurd))
+        .route(
+            "/csrf/v1/generate",
+            routing::post(csrf_v1::controller::generate),
+        )
         .with_state(state);
 
     let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());

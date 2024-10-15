@@ -10,7 +10,7 @@ use axum_login::login_required;
 use serde_json::json;
 use tower_http::trace::TraceLayer;
 
-use crate::{middlewares, modules::csrf_v1, services::auth::AuthBackend};
+use crate::{modules::csrf_v1, services::auth::AuthBackend};
 
 use super::{
     modules::{auth_v1, user_v1},
@@ -40,7 +40,6 @@ pub fn router() -> Router<AppState> {
         .nest("/user/v1", user_v1_routes)
         // .nest("/csrf/v1", csrf_v1_routes)
         .layer(TraceLayer::new_for_http())
-        .route("/csrf/v1/generate", post(csrf_v1::controller::generate))
 }
 
 async fn handler(s: State<AppState>) -> impl IntoResponse {
