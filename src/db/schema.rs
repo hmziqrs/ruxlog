@@ -1,13 +1,4 @@
-diesel::table! {
-    users (id) {
-        id -> Int4,
-        name -> Varchar,
-        email -> Varchar,
-        password -> Varchar,
-        avatar -> Nullable<Varchar>,
-        is_verified -> Bool,
-    }
-}
+// @generated automatically by Diesel CLI.
 
 diesel::table! {
     email_verifications (id) {
@@ -20,6 +11,20 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    users (id) {
+        id -> Int4,
+        name -> Varchar,
+        email -> Varchar,
+        password -> Varchar,
+        avatar -> Nullable<Varchar>,
+        is_verified -> Bool,
+    }
+}
+
 diesel::joinable!(email_verifications -> users (user_id));
 
-diesel::allow_tables_to_appear_in_same_query!(users, email_verifications);
+diesel::allow_tables_to_appear_in_same_query!(
+    email_verifications,
+    users,
+);
