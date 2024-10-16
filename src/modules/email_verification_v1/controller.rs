@@ -9,7 +9,7 @@ use crate::{
     AppState,
 };
 
-use super::validator::V1VerifyPayload;
+use super::{abuse_limiter::email_abuse_limiter, validator::V1VerifyPayload};
 
 #[debug_handler]
 pub async fn verify(
@@ -81,7 +81,10 @@ pub async fn resend(state: State<AppState>, auth: AuthSession) -> impl IntoRespo
                 )
                     .into_response();
             }
-            println!("Resending verification code");
+            match email_abuse_limiter(&state.redis_pool, &user_id).await {
+                Ok(_) => (),
+                Err(response) => return response,
+            }
             match EmailVerification::regenerate(pool, user_id).await {
                 Ok(_) => (
                     StatusCode::OK,

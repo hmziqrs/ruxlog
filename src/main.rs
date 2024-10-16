@@ -54,8 +54,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pool = db::connect::get_pool().await;
     tracing::info!("Postgres connection established.");
     let backend = AuthBackend::new(&pool);
-    let state = AppState { db_pool: pool };
     let (redis_pool, redis_connection) = init_redis_store().await?;
+    let state = AppState {
+        db_pool: pool,
+        redis_pool: redis_pool.clone(),
+    };
+
     tracing::info!("Redis successfully established.");
     let session_store = RedisStore::new(redis_pool);
     let cookie_key_byes = hex_to_512bit_key(&cookie_key_str);
