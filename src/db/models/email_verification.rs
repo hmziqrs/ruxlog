@@ -63,6 +63,14 @@ impl RegenerateEmailVerification {
             updated_at: now,
         }
     }
+
+    pub fn from_new(new: &NewEmailVerification) -> Self {
+        RegenerateEmailVerification {
+            user_id: new.user_id,
+            code: new.code.clone(),
+            updated_at: new.updated_at,
+        }
+    }
 }
 
 impl EmailVerification {
@@ -87,33 +95,40 @@ impl EmailVerification {
     pub async fn regenerate(pool: &Pool, db_user_id: i32) -> Result<Self, DBError> {
         use crate::db::schema::email_verifications::dsl::*;
 
-        let updated_verification = RegenerateEmailVerification::new(db_user_id);
+        let new_verification = NewEmailVerification::new(db_user_id);
 
         execute_db_operation(pool, move |conn| {
-            diesel::update(email_verifications.filter(user_id.eq(db_user_id)))
-                .set(&updated_verification)
+            diesel::insert_into(email_verifications)
+                .values(&new_verification)
+                .on_conflict(user_id)
+                .do_update()
+                .set(RegenerateEmailVerification::from_new(&new_verification))
                 .returning(EmailVerification::as_returning())
                 .get_result(conn)
         })
         .await
     }
 
-    pub async fn find_by_user_id(pool: &Pool, db_user_id: i32) -> Result<Self, DBError> {
+    pub async fn find_by_user_id(pool: &Pool, db_user_id: i32) -> Result<Option<Self>, DBError> {
         use crate::db::schema::email_verifications::dsl::*;
 
         execute_db_operation(pool, move |conn| {
             email_verifications
                 .filter(user_id.eq(db_user_id))
                 .first(conn)
+                .optional()
         })
         .await
     }
 
-    pub async fn find_by_code(pool: &Pool, code: &str) -> Result<Self, DBError> {
+    pub async fn find_by_code(pool: &Pool, code: &str) -> Result<Option<Self>, DBError> {
         use crate::db::schema::email_verifications::dsl::*;
 
         execute_db_operation(pool, move |conn| {
-            email_verifications.filter(code.eq(code)).first(conn)
+            email_verifications
+                .filter(code.eq(code))
+                .first(conn)
+                .optional()
         })
         .await
     }
@@ -122,13 +137,14 @@ impl EmailVerification {
         pool: &Pool,
         db_user_id: i32,
         code: &str,
-    ) -> Result<Self, DBError> {
+    ) -> Result<Option<Self>, DBError> {
         use crate::db::schema::email_verifications::dsl::*;
 
         execute_db_operation(pool, move |conn| {
             email_verifications
                 .filter(user_id.eq(db_user_id).and(code.eq(code)))
                 .first(conn)
+                .optional()
         })
         .await
     }
