@@ -63,3 +63,50 @@ pub async fn verify(
             .into_response(),
     }
 }
+
+#[debug_handler]
+pub async fn resend(state: State<AppState>, auth: AuthSession) -> impl IntoResponse {
+    let pool = &state.db_pool;
+    let user_id = auth.user.unwrap().id;
+
+    match EmailVerification::find_by_user_id(pool, user_id).await {
+        Ok(verification) => {
+            if verification.is_in_delay() {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "error": "Request failed",
+                        "message": "Please wait before requesting a new verification code",
+                    })),
+                )
+                    .into_response();
+            }
+            println!("Resending verification code");
+            match EmailVerification::regenerate(pool, user_id).await {
+                Ok(_) => (
+                    StatusCode::OK,
+                    Json(json!({
+                        "message": "Verification code resent successfully",
+                    })),
+                )
+                    .into_response(),
+                Err(err) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "error": err.to_string(),
+                        "message": "Failed to resend verification code",
+                    })),
+                )
+                    .into_response(),
+            }
+        }
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": err.to_string(),
+                "message": "Request failed",
+            })),
+        )
+            .into_response(),
+    }
+}

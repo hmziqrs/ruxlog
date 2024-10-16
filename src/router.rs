@@ -43,7 +43,7 @@ pub fn router() -> Router<AppState> {
 
     let email_verification_v1_routes = Router::new()
         .route("/verify", post(email_verification_v1::controller::verify))
-        .route("/resend", post(email_verification_v1::controller::verify))
+        .route("/resend", post(email_verification_v1::controller::resend))
         .route_layer(middleware::from_fn(user_status::only_unverified))
         .route_layer(login_required!(AuthBackend));
 

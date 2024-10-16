@@ -38,7 +38,7 @@ pub struct NewEmailVerification {
 
 #[derive(AsChangeset, Deserialize, Debug)]
 #[diesel(table_name = schema::email_verifications)]
-pub struct UpdateEmailVerification {
+pub struct RegenerateEmailVerification {
     pub user_id: i32,
     pub code: String,
     pub expires_at: NaiveDateTime,
@@ -58,10 +58,10 @@ impl NewEmailVerification {
     }
 }
 
-impl UpdateEmailVerification {
+impl RegenerateEmailVerification {
     pub fn new(user_id: i32) -> Self {
         let now = Utc::now().naive_utc();
-        UpdateEmailVerification {
+        RegenerateEmailVerification {
             user_id,
             code: EmailVerification::generate_code(),
             expires_at: now + EmailVerification::EXPIRY_TIME,
@@ -89,14 +89,13 @@ impl EmailVerification {
         Ok(email)
     }
 
-    pub async fn update(pool: &Pool, db_user_id: i32) -> Result<Self, DBError> {
+    pub async fn regenerate(pool: &Pool, db_user_id: i32) -> Result<Self, DBError> {
         use crate::db::schema::email_verifications::dsl::*;
 
-        let new_code = Self::generate_code();
-        let updated_verification = UpdateEmailVerification::new(db_user_id);
+        let updated_verification = RegenerateEmailVerification::new(db_user_id);
 
         execute_db_operation(pool, move |conn| {
-            diesel::update(email_verifications.filter(user_id.eq(user_id)))
+            diesel::update(email_verifications.filter(user_id.eq(db_user_id)))
                 .set(&updated_verification)
                 .returning(EmailVerification::as_returning())
                 .get_result(conn)
@@ -190,12 +189,17 @@ impl EmailVerification {
         Utc::now().naive_utc() > self.expires_at
     }
 
+    pub fn is_in_delay(&self) -> bool {
+        Utc::now().naive_utc() < self.updated_at + Self::DELAY_TIME
+    }
+
     pub fn generate_code() -> String {
         rand::thread_rng()
             .sample_iter(&Alphanumeric)
             .take(6)
             .map(char::from)
-            .collect()
+            .collect::<String>()
+            .to_lowercase()
     }
 
     pub async fn send_email(&self, email: &str) -> Result<(), DBError> {
