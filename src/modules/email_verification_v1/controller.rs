@@ -5,11 +5,25 @@ use serde_json::json;
 
 use crate::{
     db::models::{email_verification::EmailVerification, user::User},
-    services::auth::AuthSession,
+    services::{abuse_limiter, auth::AuthSession},
     AppState,
 };
 
-use super::{abuse_limiter::email_abuse_limiter, validator::V1VerifyPayload};
+use super::validator::V1VerifyPayload;
+// temp_block_attempts: usize,
+// temp_block_range: usize,
+// temp_block_duration: usize,
+// block_retry_limit: usize,
+// block_range: usize,
+// block_duration: usize,
+const ABUSE_LIMITER_CONFIG: abuse_limiter::AbuseLimiterConfig = abuse_limiter::AbuseLimiterConfig {
+    temp_block_attempts: 3,
+    temp_block_range: 360,
+    temp_block_duration: 3600,
+    block_retry_limit: 5,
+    block_range: 900,
+    block_duration: 86400,
+};
 
 #[debug_handler]
 pub async fn verify(
@@ -71,17 +85,19 @@ pub async fn resend(state: State<AppState>, auth: AuthSession) -> impl IntoRespo
 
     match EmailVerification::find_by_user_id(pool, user_id).await {
         Ok(verification) => {
-            if verification.is_in_delay() {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "error": "Request failed",
-                        "message": "Please wait before requesting a new verification code",
-                    })),
-                )
-                    .into_response();
-            }
-            match email_abuse_limiter(&state.redis_pool, &user_id).await {
+            // if verification.is_in_delay() {
+            //     return (
+            //         StatusCode::INTERNAL_SERVER_ERROR,
+            //         Json(json!({
+            //             "error": "Request failed",
+            //             "message": "Please wait 1 minute before requesting a new verification code",
+            //         })),
+            //     )
+            //         .into_response();
+            // }
+            let key_prefix = format!("email_verification:{}", user_id);
+            match abuse_limiter::limiter(&state.redis_pool, &key_prefix, ABUSE_LIMITER_CONFIG).await
+            {
                 Ok(_) => (),
                 Err(response) => return response,
             }
