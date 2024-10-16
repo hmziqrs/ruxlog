@@ -9,13 +9,23 @@ use fred::{
 };
 use serde_json::json;
 
-const ATTEMPT_LIMIT_6_MINUTES: usize = 3;
-const ATTEMPT_LIMIT_15_MINUTES: usize = 5;
-const BLOCK_DURATION_1_HOUR: usize = 3600; // in seconds
-const BLOCK_DURATION_24_HOURS: usize = 86400; // in seconds
+// const ATTEMPT_LIMIT_6_MINUTES: usize = 3;
+// const ATTEMPT_LIMIT_15_MINUTES: usize = 5;
+// const BLOCK_DURATION_1_HOUR: usize = 3600; // in seconds
+// const BLOCK_DURATION_24_HOURS: usize = 86400; // in seconds
 
-pub async fn email_abuse_limiter(redis_pool: &RedisPool, user_id: &i32) -> Result<(), Response> {
-    let block_key = format!("user:{}:email_verification_abuse", user_id);
+pub struct AbuseLimiterConfig {
+    key_prefix: String,
+    temp_block_attempts: usize,
+    temp_block_range: usize,
+    temp_block_duration: usize,
+    block_retry_limit: usize,
+    block_range: usize,
+    block_duration: usize,
+}
+
+pub async fn limiter(redis_pool: &RedisPool, config: AbuseLimiterConfig) -> Result<(), Response> {
+    let block_key = format!("abuse_limiter:block:{}", config.key_prefix);
     let is_blocked: Option<String> = redis_pool.get(&block_key).await.unwrap();
     if let Some(blocked_until) = is_blocked {
         let blocked_until: usize = blocked_until.parse().unwrap();
@@ -35,7 +45,7 @@ pub async fn email_abuse_limiter(redis_pool: &RedisPool, user_id: &i32) -> Resul
     }
 
     // Track the number of attempts
-    let attempt_key = format!("user:{}:attempts", user_id);
+    let attempt_key = format!("abuse_limiter:attempts:{}", config.key_prefix);
     let current_time = chrono::Utc::now().timestamp() as usize;
     let _: () = redis_pool
         .zadd(
@@ -49,36 +59,35 @@ pub async fn email_abuse_limiter(redis_pool: &RedisPool, user_id: &i32) -> Resul
         .await
         .unwrap();
     let _: () = redis_pool
-        .expire(&attempt_key, BLOCK_DURATION_24_HOURS as i64)
+        .expire(&attempt_key, config.block_duration as i64)
         .await
         .unwrap();
 
-    // Get the number of attempts in the last 6 minutes and 15 minutes
-    let attempts_6_minutes: usize = redis_pool
+    let temp_block_attempts: usize = redis_pool
         .zcount(
             &attempt_key,
-            (current_time - 360) as f64,
+            (current_time - config.temp_block_range) as f64,
             current_time as f64,
         )
         .await
         .unwrap();
-    let attempts_15_minutes: usize = redis_pool
+    let block_attempts: usize = redis_pool
         .zcount(
             &attempt_key,
-            (current_time - 900) as f64,
+            (current_time - config.block_range) as f64,
             current_time as f64,
         )
         .await
         .unwrap();
 
     // Block the user if the limits are exceeded
-    if attempts_6_minutes > ATTEMPT_LIMIT_6_MINUTES {
-        let block_until = current_time + BLOCK_DURATION_1_HOUR;
+    if temp_block_attempts > config.temp_block_attempts {
+        let block_until = current_time + config.temp_block_duration;
         let _: () = redis_pool
             .set(
                 &block_key,
                 block_until as i64,
-                Some(Expiration::EX(BLOCK_DURATION_1_HOUR as i64)),
+                Some(Expiration::EX(config.temp_block_duration as i64)),
                 None,
                 false,
             )
@@ -93,13 +102,13 @@ pub async fn email_abuse_limiter(redis_pool: &RedisPool, user_id: &i32) -> Resul
         ).into_response());
     }
 
-    if attempts_15_minutes > ATTEMPT_LIMIT_15_MINUTES {
-        let block_until = current_time + BLOCK_DURATION_24_HOURS;
+    if block_attempts > config.block_retry_limit {
+        let block_until = current_time + config.block_duration;
         let _: () = redis_pool
             .set(
                 &block_key,
                 block_until as i64,
-                Some(Expiration::EX(BLOCK_DURATION_24_HOURS as i64)),
+                Some(Expiration::EX(config.block_duration as i64)),
                 None,
                 false,
             )
