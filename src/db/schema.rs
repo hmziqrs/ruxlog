@@ -5,7 +5,6 @@ diesel::table! {
         id -> Int4,
         user_id -> Int4,
         code -> Varchar,
-        expires_at -> Timestamp,
         created_at -> Timestamp,
         updated_at -> Timestamp,
     }
@@ -22,9 +21,16 @@ diesel::table! {
     }
 }
 
+// diesel::table! {
+//     forgot_passwords (id) {
+//         id -> Int4,
+//         user_id -> Int4,
+//         code -> Varchar,
+//         created_at -> Timestamp,
+//         updated_at -> Timestamp,
+//     }
+// }
+
 diesel::joinable!(email_verifications -> users (user_id));
 
-diesel::allow_tables_to_appear_in_same_query!(
-    email_verifications,
-    users,
-);
+diesel::allow_tables_to_appear_in_same_query!(email_verifications, users,);

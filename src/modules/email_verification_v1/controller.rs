@@ -10,12 +10,7 @@ use crate::{
 };
 
 use super::validator::V1VerifyPayload;
-// temp_block_attempts: usize,
-// temp_block_range: usize,
-// temp_block_duration: usize,
-// block_retry_limit: usize,
-// block_range: usize,
-// block_duration: usize,
+
 const ABUSE_LIMITER_CONFIG: abuse_limiter::AbuseLimiterConfig = abuse_limiter::AbuseLimiterConfig {
     temp_block_attempts: 3,
     temp_block_range: 360,

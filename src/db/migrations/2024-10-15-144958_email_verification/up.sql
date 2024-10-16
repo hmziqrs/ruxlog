@@ -6,7 +6,6 @@ CREATE TABLE "email_verifications"(
 	"id" SERIAL NOT NULL PRIMARY KEY,
 	"user_id" INT4 NOT NULL,
 	"code" VARCHAR NOT NULL,
-	"expires_at" TIMESTAMP NOT NULL,
 	"created_at" TIMESTAMP NOT NULL,
 	"updated_at" TIMESTAMP NOT NULL,
 	FOREIGN KEY ("user_id") REFERENCES "users"("id"),

@@ -21,7 +21,6 @@ pub struct EmailVerification {
     pub id: i32,
     pub user_id: i32,
     pub code: String,
-    pub expires_at: NaiveDateTime,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
@@ -31,7 +30,6 @@ pub struct EmailVerification {
 pub struct NewEmailVerification {
     pub user_id: i32,
     pub code: String,
-    pub expires_at: NaiveDateTime,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
@@ -41,7 +39,6 @@ pub struct NewEmailVerification {
 pub struct RegenerateEmailVerification {
     pub user_id: i32,
     pub code: String,
-    pub expires_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
 
@@ -51,7 +48,6 @@ impl NewEmailVerification {
         NewEmailVerification {
             user_id,
             code: EmailVerification::generate_code(),
-            expires_at: now + EmailVerification::EXPIRY_TIME,
             created_at: now,
             updated_at: now,
         }
@@ -64,7 +60,6 @@ impl RegenerateEmailVerification {
         RegenerateEmailVerification {
             user_id,
             code: EmailVerification::generate_code(),
-            expires_at: now + EmailVerification::EXPIRY_TIME,
             updated_at: now,
         }
     }
@@ -186,7 +181,7 @@ impl EmailVerification {
     }
 
     pub fn is_expired(&self) -> bool {
-        Utc::now().naive_utc() > self.expires_at
+        Utc::now().naive_utc() > self.updated_at + Self::EXPIRY_TIME
     }
 
     pub fn is_in_delay(&self) -> bool {
