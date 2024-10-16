@@ -21,8 +21,13 @@ use super::{
 pub fn router() -> Router<AppState> {
     let auth_v1_routes = Router::new()
         .route("/register", post(auth_v1::controller::register))
-        .route("/log_out", post(auth_v1::controller::log_out))
-        .route("/log_in", post(auth_v1::controller::log_in));
+        .route("/log_in", post(auth_v1::controller::log_in))
+        .route_layer(middleware::from_fn(user_status::only_unauthenticated))
+        .merge(
+            Router::new()
+                .route("/log_out", post(auth_v1::controller::log_out))
+                .route_layer(middleware::from_fn(user_status::only_authenticated)),
+        );
 
     let user_v1_routes = Router::new()
         .route("/update", put(user_v1::controller::update_profile))
