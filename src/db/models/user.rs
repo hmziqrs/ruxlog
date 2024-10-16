@@ -42,6 +42,12 @@ pub struct UpdateUser {
     pub password: Option<String>,
 }
 
+#[derive(Deserialize, Debug, Insertable, AsChangeset)]
+#[diesel(table_name = schema::users)]
+pub struct VerifiedUser {
+    is_verified: bool,
+}
+
 impl User {
     pub async fn find_by_id(pool: &Pool, user_id: i32) -> Result<Option<Self>, DBError> {
         use crate::db::schema::users::dsl::*;
@@ -95,6 +101,18 @@ impl User {
         execute_db_operation(pool, move |conn| {
             diesel::update(users.filter(id.eq(user_id)))
                 .set(&payload)
+                .returning(User::as_returning())
+                .get_result(conn)
+        })
+        .await
+    }
+
+    pub async fn verify(pool: &Pool, user_id: i32) -> Result<Self, DBError> {
+        use crate::db::schema::users::dsl::*;
+
+        execute_db_operation(pool, move |conn| {
+            diesel::update(users.filter(id.eq(user_id)))
+                .set(VerifiedUser { is_verified: true })
                 .returning(User::as_returning())
                 .get_result(conn)
         })

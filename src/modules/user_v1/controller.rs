@@ -28,15 +28,15 @@ pub async fn get_profile(auth: AuthSession) -> impl IntoResponse {
 
 #[debug_handler]
 pub async fn update_profile(
+    auth: AuthSession,
     state: State<AppState>,
     WithValidation(payload): WithValidation<Json<V1UpdateProfilePayload>>,
 ) -> impl IntoResponse {
-    let user_id = Some(1);
-    if let Some(user_id) = user_id {
+    if let Some(user) = auth.user {
         let payload = payload.into_inner();
         let updated_user = User::update(
             &state.db_pool,
-            user_id,
+            user.id,
             UpdateUser {
                 name: payload.name,
                 email: payload.email,
@@ -60,7 +60,6 @@ pub async fn update_profile(
             }
         }
     }
-
     (
         StatusCode::UNAUTHORIZED,
         Json(json!({

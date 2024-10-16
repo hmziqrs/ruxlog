@@ -79,9 +79,7 @@ impl EmailVerification {
         auth_user_id: i32,
     ) -> Result<Self, diesel::result::Error> {
         use crate::db::schema::email_verifications::dsl::*;
-        println!("EMAIL VERIFICATION CREATE QUERY {}", &auth_user_id);
         let new_verification = NewEmailVerification::new(auth_user_id);
-        println!("new {:?}", &new_verification);
 
         let email = diesel::insert_into(email_verifications)
             .values(&new_verification)
