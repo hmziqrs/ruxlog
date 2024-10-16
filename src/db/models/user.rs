@@ -9,6 +9,7 @@ use tokio::task;
 
 use crate::db::{
     errors::DBError,
+    models::email_verification::EmailVerification,
     schema,
     utils::{combine_errors, execute_db_operation},
 };
@@ -65,18 +66,25 @@ impl User {
         let pass = new_user.password.clone();
         let hash = task::spawn_blocking(move || password_auth::generate_hash(pass))
             .await
-            .map_err(|_| DBError::PasswordHashError);
+            .map_err(|_| DBError::PasswordHashError)?;
 
         let new_user = NewUser {
-            password: hash?,
+            password: hash,
             ..new_user
         };
 
         execute_db_operation(pool, move |conn| {
-            diesel::insert_into(schema::users::table)
-                .values(new_user)
-                .returning(User::as_returning())
-                .get_result(conn)
+            conn.build_transaction();
+            conn.transaction(|conn| {
+                let user = diesel::insert_into(schema::users::table)
+                    .values(new_user)
+                    .returning(User::as_returning())
+                    .get_result(conn)?;
+                println!("User ID: {}", user.id);
+                EmailVerification::create_query(conn, user.id)?;
+
+                Ok(user)
+            })
         })
         .await
     }

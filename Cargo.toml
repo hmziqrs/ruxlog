@@ -35,7 +35,7 @@ tower-sessions = { version = "0.13", features = ["private"] }
 tracing-subscriber = "0.3.18"
 tracing = "0.1.40"
 garde = { version = "0.20.0", features = ["full"] }
-diesel = { version = "2.2.4", features = ["postgres"] }
+diesel = { version = "2.2.4", features = ["postgres", "chrono"] }
 deadpool-diesel = { version = "0.6.1", features = ["postgres"] }
 diesel_migrations = "2.2.0"
 dotenv = "0.15.0"
@@ -51,3 +51,4 @@ hex = "0.4.3"
 sha2 = "0.10.8"
 axum_csrf = { version = "0.10.0", features = ["layer"] }
 base64 = "0.22.1"
+rand = "0.8.5"

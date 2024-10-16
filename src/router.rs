@@ -25,9 +25,9 @@ pub fn router() -> Router<AppState> {
         .route("/log_in", post(auth_v1::controller::log_in));
 
     let user_v1_routes = Router::new()
+        .route("/update", put(user_v1::controller::update_profile))
+        .route_layer(middleware::from_fn(user_status::only_verified))
         .route("/get", get(user_v1::controller::get_profile))
-        .route("/profile", put(user_v1::controller::update_profile))
-        .route_layer(middleware::from_fn(user_status::only_unverified))
         .route_layer(login_required!(AuthBackend));
 
     // let csrf_v1_routes: Router<AppState> =

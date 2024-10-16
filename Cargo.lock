@@ -272,6 +272,7 @@ dependencies = [
  "hex",
  "md5",
  "password-auth",
+ "rand",
  "serde",
  "serde_json",
  "sha2",
@@ -687,6 +688,7 @@ checksum = "158fe8e2e68695bd615d7e4f3227c0727b151330d3e253b525086c348d055d5e"
 dependencies = [
  "bitflags 2.6.0",
  "byteorder",
+ "chrono",
  "diesel_derives",
  "itoa",
  "pq-sys",
