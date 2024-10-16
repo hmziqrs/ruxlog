@@ -12,6 +12,7 @@ use axum::{
     response::IntoResponse,
     routing, Json,
 };
+use axum_client_ip::SecureClientIpSource;
 use axum_login::AuthManagerLayerBuilder;
 use modules::csrf_v1;
 use serde_json::json;
@@ -112,6 +113,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
     let app = router::router()
+        .layer(SecureClientIpSource::ConnectInfo.into_extension())
         .layer(auth_layer)
         .layer(GovernorLayer {
             config: governor_conf,

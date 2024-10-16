@@ -11,10 +11,10 @@ use serde_json::json;
 use tower_http::trace::TraceLayer;
 
 use crate::middlewares::user_status;
-use crate::{modules::email_verification_v1, services::auth::AuthBackend};
+use crate::services::auth::AuthBackend;
 
 use super::{
-    modules::{auth_v1, user_v1},
+    modules::{auth_v1, email_verification_v1, forgot_password_v1, user_v1},
     AppState,
 };
 
@@ -47,11 +47,17 @@ pub fn router() -> Router<AppState> {
         .route_layer(middleware::from_fn(user_status::only_unverified))
         .route_layer(login_required!(AuthBackend));
 
+    let forgot_password_routes = Router::new()
+        .route("/request", post(forgot_password_v1::controller::generate))
+        // .route("/reset", post(forgot_password::controller::reset))
+        .route_layer(middleware::from_fn(user_status::only_unauthenticated));
+
     Router::new()
         .route("/", routing::get(handler))
         .nest("/auth/v1", auth_v1_routes)
         .nest("/user/v1", user_v1_routes)
         .nest("/email_verification/v1", email_verification_v1_routes)
+        .nest("/forgot_password/v1", forgot_password_routes)
         // .nest("/csrf/v1", csrf_v1_routes)
         .layer(TraceLayer::new_for_http())
 }

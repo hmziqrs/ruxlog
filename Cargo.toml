@@ -53,3 +53,4 @@ axum_csrf = { version = "0.10.0", features = ["layer"] }
 base64 = "0.22.1"
 rand = "0.8.5"
 fred = "9.2.1"
+axum-client-ip = "0.6.1"
