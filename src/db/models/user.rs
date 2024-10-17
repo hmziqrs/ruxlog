@@ -9,7 +9,8 @@ use tokio::task;
 
 use crate::db::{
     errors::DBError,
-    schema,
+    models::{email_verification::EmailVerification, forgot_password::ForgotPassword},
+    schema::{self},
     utils::{combine_errors, execute_db_operation},
 };
 
@@ -22,6 +23,7 @@ pub struct User {
     #[serde(skip_serializing)]
     pub password: String,
     pub avatar: Option<String>,
+    pub is_verified: bool,
 }
 
 #[derive(Insertable, Deserialize, Debug)]
@@ -37,7 +39,18 @@ pub struct NewUser {
 pub struct UpdateUser {
     pub name: Option<String>,
     pub email: Option<String>,
-    pub password: Option<String>,
+}
+
+#[derive(Deserialize, Debug, Insertable, AsChangeset)]
+#[diesel(table_name = schema::users)]
+pub struct ChangePasswordUser {
+    pub password: String,
+}
+
+#[derive(Deserialize, Debug, Insertable, AsChangeset)]
+#[diesel(table_name = schema::users)]
+pub struct VerifiedUser {
+    is_verified: bool,
 }
 
 impl User {
@@ -59,23 +72,50 @@ impl User {
         .await
     }
 
+    pub async fn find_by_email_and_forgot_password(
+        pool: &Pool,
+        user_email: String,
+        otp_code: String,
+    ) -> Result<Option<(Self, ForgotPassword)>, DBError> {
+        use crate::db::schema::forgot_password::dsl as fp;
+        use crate::db::schema::users::dsl::*;
+
+        execute_db_operation(pool, move |conn| {
+            users
+                .inner_join(fp::forgot_password)
+                .filter(email.eq(user_email))
+                .filter(fp::code.eq(otp_code))
+                .select((User::as_select(), ForgotPassword::as_select()))
+                .first(conn)
+                .optional()
+        })
+        .await
+    }
+
     pub async fn create(pool: &Pool, new_user: NewUser) -> Result<Self, DBError> {
         use crate::db::schema::users::dsl::*;
         let pass = new_user.password.clone();
         let hash = task::spawn_blocking(move || password_auth::generate_hash(pass))
             .await
-            .map_err(|_| DBError::PasswordHashError);
+            .map_err(|_| DBError::PasswordHashError)?;
 
         let new_user = NewUser {
-            password: hash?,
+            password: hash,
             ..new_user
         };
 
         execute_db_operation(pool, move |conn| {
-            diesel::insert_into(schema::users::table)
-                .values(new_user)
-                .returning(User::as_returning())
-                .get_result(conn)
+            conn.build_transaction();
+            conn.transaction(|conn| {
+                let user = diesel::insert_into(schema::users::table)
+                    .values(new_user)
+                    .returning(User::as_returning())
+                    .get_result(conn)?;
+                println!("User ID: {}", user.id);
+                EmailVerification::create_query(conn, user.id)?;
+
+                Ok(user)
+            })
         })
         .await
     }
@@ -86,6 +126,40 @@ impl User {
         execute_db_operation(pool, move |conn| {
             diesel::update(users.filter(id.eq(user_id)))
                 .set(&payload)
+                .returning(User::as_returning())
+                .get_result(conn)
+        })
+        .await
+    }
+
+    pub async fn change_password(
+        pool: &Pool,
+        db_user_id: i32,
+        new_pasword: String,
+    ) -> Result<Self, DBError> {
+        use crate::db::schema::users::dsl::*;
+
+        let hash = task::spawn_blocking(move || password_auth::generate_hash(new_pasword))
+            .await
+            .map_err(|_| DBError::PasswordHashError)?;
+
+        let payload = ChangePasswordUser { password: hash };
+
+        execute_db_operation(pool, move |conn| {
+            diesel::update(users.filter(id.eq(db_user_id)))
+                .set(&payload)
+                .returning(User::as_returning())
+                .get_result(conn)
+        })
+        .await
+    }
+
+    pub async fn verify(pool: &Pool, user_id: i32) -> Result<Self, DBError> {
+        use crate::db::schema::users::dsl::*;
+
+        execute_db_operation(pool, move |conn| {
+            diesel::update(users.filter(id.eq(user_id)))
+                .set(VerifiedUser { is_verified: true })
                 .returning(User::as_returning())
                 .get_result(conn)
         })

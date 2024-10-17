@@ -165,6 +165,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "axum-client-ip"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9eefda7e2b27e1bda4d6fa8a06b50803b8793769045918bc37ad062d48a6efac"
+dependencies = [
+ "axum",
+ "forwarded-header-value",
+ "serde",
+]
+
+[[package]]
 name = "axum-core"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -255,6 +266,7 @@ name = "axum_auth"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "axum-client-ip",
  "axum-extra",
  "axum-login",
  "axum-macros",
@@ -267,11 +279,13 @@ dependencies = [
  "diesel",
  "diesel_migrations",
  "dotenv",
+ "fred",
  "garde",
  "governor",
  "hex",
  "md5",
  "password-auth",
+ "rand",
  "serde",
  "serde_json",
  "sha2",
@@ -463,6 +477,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-targets 0.52.6",
 ]
@@ -686,6 +701,7 @@ checksum = "158fe8e2e68695bd615d7e4f3227c0727b151330d3e253b525086c348d055d5e"
 dependencies = [
  "bitflags 2.6.0",
  "byteorder",
+ "chrono",
  "diesel_derives",
  "itoa",
  "pq-sys",

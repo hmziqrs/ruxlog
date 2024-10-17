@@ -3,6 +3,8 @@
 #![allow(unused)]
 #![allow(clippy::all)]
 
+
+use chrono::NaiveDateTime;
 #[derive(Queryable, Identifiable, Selectable, Debug, PartialEq)]
 pub struct User {
     pub id: i32,
@@ -10,4 +12,16 @@ pub struct User {
     pub email: String,
     pub password: String,
     pub avatar: Option<String>,
+    pub is_verified: bool,
 }
+
+#[derive(Queryable, Identifiable, Selectable, Debug, PartialEq)]
+pub struct EmailVerification {
+    pub id: i32,
+    pub user_id: i32,
+    pub code: String,
+    pub expires_at: NaiveDateTime,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+}
+
