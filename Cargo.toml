@@ -54,3 +54,6 @@ base64 = "0.22.1"
 rand = "0.8.5"
 fred = "9.2.1"
 axum-client-ip = "0.6.1"
+lettre = { version = "0.11.9", features = ["default", "tokio1-native-tls"] }
+
+# lettre = "0.11.9"

@@ -56,9 +56,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Postgres connection established.");
     let backend = AuthBackend::new(&pool);
     let (redis_pool, redis_connection) = init_redis_store().await?;
+    let mailer = services::smtp::create_connection().await;
     let state = AppState {
         db_pool: pool,
         redis_pool: redis_pool.clone(),
+        mailer,
     };
 
     tracing::info!("Redis successfully established.");
