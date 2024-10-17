@@ -11,6 +11,7 @@ use tokio::task;
 
 use crate::db::{
     errors::DBError,
+    models::forgot_password,
     schema,
     utils::{combine_errors, execute_db_operation},
 };
@@ -176,6 +177,19 @@ impl ForgotPassword {
         })
         .await
         .map(|_| ())
+    }
+
+    pub fn delete_query(
+        conn: &mut PgConnection,
+        auth_user_id: i32,
+    ) -> Result<(), diesel::result::Error> {
+        use crate::db::schema::forgot_password::dsl::*;
+
+        diesel::delete(forgot_password)
+            .filter(user_id.eq(auth_user_id))
+            .execute(conn)?;
+
+        Ok(())
     }
 
     pub fn is_expired(&self) -> bool {

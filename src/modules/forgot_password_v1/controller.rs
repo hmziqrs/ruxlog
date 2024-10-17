@@ -146,7 +146,7 @@ pub async fn verify(
     (
         StatusCode::OK,
         Json(json!({
-            "message": "Email verified successfully",
+            "message": "code verified successfully",
         })),
     )
         .into_response()

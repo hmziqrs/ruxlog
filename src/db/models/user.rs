@@ -105,7 +105,6 @@ impl User {
         };
 
         execute_db_operation(pool, move |conn| {
-            conn.build_transaction();
             conn.transaction(|conn| {
                 let user = diesel::insert_into(schema::users::table)
                     .values(new_user)
@@ -136,7 +135,7 @@ impl User {
         pool: &Pool,
         db_user_id: i32,
         new_pasword: String,
-    ) -> Result<Self, DBError> {
+    ) -> Result<(), DBError> {
         use crate::db::schema::users::dsl::*;
 
         let hash = task::spawn_blocking(move || password_auth::generate_hash(new_pasword))
@@ -146,10 +145,15 @@ impl User {
         let payload = ChangePasswordUser { password: hash };
 
         execute_db_operation(pool, move |conn| {
-            diesel::update(users.filter(id.eq(db_user_id)))
-                .set(&payload)
-                .returning(User::as_returning())
-                .get_result(conn)
+            conn.transaction(|conn| {
+                diesel::update(users.filter(id.eq(db_user_id)))
+                    .set(&payload)
+                    .returning(User::as_returning())
+                    .get_result(conn)?;
+
+                ForgotPassword::delete_query(conn, db_user_id)?;
+                Ok(())
+            })
         })
         .await
     }
