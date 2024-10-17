@@ -49,7 +49,8 @@ pub fn router() -> Router<AppState> {
 
     let forgot_password_routes = Router::new()
         .route("/request", post(forgot_password_v1::controller::generate))
-        // .route("/reset", post(forgot_password::controller::reset))
+        .route("/verify", post(forgot_password_v1::controller::verify))
+        .route("/reset", post(forgot_password_v1::controller::reset))
         .route_layer(middleware::from_fn(user_status::only_unauthenticated));
 
     Router::new()

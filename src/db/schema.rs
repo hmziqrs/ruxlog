@@ -34,8 +34,6 @@ diesel::table! {
 diesel::joinable!(email_verifications -> users (user_id));
 diesel::joinable!(forgot_password -> users (user_id));
 
-diesel::allow_tables_to_appear_in_same_query!(
-    email_verifications,
-    forgot_password,
-    users,
-);
+diesel::allow_tables_to_appear_in_same_query!(email_verifications, users,);
+
+diesel::allow_tables_to_appear_in_same_query!(forgot_password, users,);

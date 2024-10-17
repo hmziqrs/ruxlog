@@ -40,7 +40,6 @@ pub async fn update_profile(
             UpdateUser {
                 name: payload.name,
                 email: payload.email,
-                password: payload.password,
             },
         )
         .await;

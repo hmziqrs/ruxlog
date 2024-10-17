@@ -1,20 +1,16 @@
-use std::fmt::format;
-
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
-use axum_client_ip::{InsecureClientIp, SecureClientIp};
+use axum_client_ip::SecureClientIp;
 use axum_garde::WithValidation;
 use axum_macros::debug_handler;
 use serde_json::json;
 
 use crate::{
-    db::models::{
-        email_verification::EmailVerification, forgot_password::ForgotPassword, user::User,
-    },
-    services::{abuse_limiter, auth::AuthSession},
+    db::models::{forgot_password::ForgotPassword, user::User},
+    services::abuse_limiter,
     AppState,
 };
 
-use super::validator::{V1GeneratePayload, V1VerifyPayload};
+use super::validator::{V1GeneratePayload, V1ResetPayload, V1VerifyPayload};
 
 const ABUSE_LIMITER_CONFIG: abuse_limiter::AbuseLimiterConfig = abuse_limiter::AbuseLimiterConfig {
     temp_block_attempts: 3,
@@ -114,68 +110,115 @@ pub async fn generate(
 #[debug_handler]
 pub async fn verify(
     state: State<AppState>,
-    auth: AuthSession,
     WithValidation(payload): WithValidation<Json<V1VerifyPayload>>,
 ) -> impl IntoResponse {
     let pool = &state.db_pool;
-    let user_id = auth.user.unwrap().id;
 
-    let verification_result =
-        EmailVerification::find_by_user_id_and_code(pool, user_id, &payload.code).await;
+    let result =
+        User::find_by_email_and_forgot_password(pool, payload.email.clone(), payload.code.clone())
+            .await;
 
-    match verification_result {
-        Ok(verification) => match verification {
-            Some(verification) => {
-                if verification.is_expired() {
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        Json(json!({
-                            "error": "Code expired",
-                            "message": "The verification code has expired",
-                        })),
-                    )
-                        .into_response();
-                }
-            }
-            None => {
+    match result {
+        Ok(Some((_, verification))) => {
+            if verification.is_expired() {
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(json!({
-                        "error": "Code not found",
-                        "message": "The provided verification code is invalid",
+                        "error": "Code expired",
+                        "message": "The verification code has expired",
                     })),
                 )
                     .into_response();
             }
-        },
-        Err(_) => {
+        }
+        Err(_) | Ok(None) => {
             return (
                 StatusCode::BAD_REQUEST,
                 Json(json!({
-                    "error": "Invalid code",
-                    "message": "The provided verification code is invalid",
+                    "error": "Invalid request",
+                    "message": "Email or code is invalid",
                 })),
             )
                 .into_response();
         }
     }
 
-    let update_user = User::verify(pool, user_id).await;
-    match update_user {
-        Ok(_) => (
-            StatusCode::OK,
+    (
+        StatusCode::OK,
+        Json(json!({
+            "message": "Email verified successfully",
+        })),
+    )
+        .into_response()
+}
+
+#[debug_handler]
+pub async fn reset(
+    state: State<AppState>,
+    WithValidation(payload): WithValidation<Json<V1ResetPayload>>,
+) -> impl IntoResponse {
+    if payload.password != payload.confirm_password {
+        return (
+            StatusCode::BAD_REQUEST,
             Json(json!({
-                "message": "Email verified successfully",
+                "error": "Invalid request",
+                "message": "Password and confirm password do not match",
             })),
         )
-            .into_response(),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "error": err.to_string(),
-                "message": "Failed to update user verification status",
-            })),
-        )
-            .into_response(),
+            .into_response();
+    }
+
+    let pool = &state.db_pool;
+
+    let result =
+        User::find_by_email_and_forgot_password(pool, payload.email.clone(), payload.code.clone())
+            .await;
+
+    match &result {
+        Ok(Some((_, verification))) => {
+            if verification.is_expired() {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "error": "Code expired",
+                        "message": "The verification code has expired",
+                    })),
+                )
+                    .into_response();
+            }
+        }
+        Err(_) | Ok(None) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": "Invalid request",
+                    "message": "Email or code is invalid",
+                })),
+            )
+                .into_response();
+        }
+    }
+    // SAFETY: `result` is checked to be `Some` above
+    let user_id = result.unwrap().unwrap().0.id;
+    match User::change_password(pool, user_id, payload.password.clone()).await {
+        Ok(_) => {
+            return (
+                StatusCode::OK,
+                Json(json!({
+                    "message": "Password reset successfully",
+                })),
+            )
+                .into_response()
+        }
+        Err(err) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "error": err.to_string(),
+                    "message": "Failed to reset password",
+                })),
+            )
+                .into_response();
+        }
     }
 }

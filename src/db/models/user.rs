@@ -9,8 +9,8 @@ use tokio::task;
 
 use crate::db::{
     errors::DBError,
-    models::email_verification::EmailVerification,
-    schema,
+    models::{email_verification::EmailVerification, forgot_password::ForgotPassword},
+    schema::{self},
     utils::{combine_errors, execute_db_operation},
 };
 
@@ -39,7 +39,12 @@ pub struct NewUser {
 pub struct UpdateUser {
     pub name: Option<String>,
     pub email: Option<String>,
-    pub password: Option<String>,
+}
+
+#[derive(Deserialize, Debug, Insertable, AsChangeset)]
+#[diesel(table_name = schema::users)]
+pub struct ChangePasswordUser {
+    pub password: String,
 }
 
 #[derive(Deserialize, Debug, Insertable, AsChangeset)]
@@ -63,6 +68,26 @@ impl User {
 
         execute_db_operation(pool, move |conn| {
             users.filter(email.eq(user_email)).first(conn).optional()
+        })
+        .await
+    }
+
+    pub async fn find_by_email_and_forgot_password(
+        pool: &Pool,
+        user_email: String,
+        otp_code: String,
+    ) -> Result<Option<(Self, ForgotPassword)>, DBError> {
+        use crate::db::schema::forgot_password::dsl as fp;
+        use crate::db::schema::users::dsl::*;
+
+        execute_db_operation(pool, move |conn| {
+            users
+                .inner_join(fp::forgot_password)
+                .filter(email.eq(user_email))
+                .filter(fp::code.eq(otp_code))
+                .select((User::as_select(), ForgotPassword::as_select()))
+                .first(conn)
+                .optional()
         })
         .await
     }
@@ -100,6 +125,28 @@ impl User {
 
         execute_db_operation(pool, move |conn| {
             diesel::update(users.filter(id.eq(user_id)))
+                .set(&payload)
+                .returning(User::as_returning())
+                .get_result(conn)
+        })
+        .await
+    }
+
+    pub async fn change_password(
+        pool: &Pool,
+        db_user_id: i32,
+        new_pasword: String,
+    ) -> Result<Self, DBError> {
+        use crate::db::schema::users::dsl::*;
+
+        let hash = task::spawn_blocking(move || password_auth::generate_hash(new_pasword))
+            .await
+            .map_err(|_| DBError::PasswordHashError)?;
+
+        let payload = ChangePasswordUser { password: hash };
+
+        execute_db_operation(pool, move |conn| {
+            diesel::update(users.filter(id.eq(db_user_id)))
                 .set(&payload)
                 .returning(User::as_returning())
                 .get_result(conn)
