@@ -2,15 +2,10 @@ use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_macros::debug_handler;
 use axum_valid::Valid;
 use serde_json::json;
-use thiserror;
-use validator::{ValidationError, ValidationErrors, ValidationErrorsKind};
 
 use crate::{
     db::models::user::{NewUser, User},
-    modules::auth_v1::{
-        valid::ValidError,
-        validator::{V1LoginPayload, V1RegisterPayload},
-    },
+    modules::auth_v1::validator::{V1LoginPayload, V1RegisterPayload},
     services::auth::{AuthSession, Credentials},
     AppState,
 };
