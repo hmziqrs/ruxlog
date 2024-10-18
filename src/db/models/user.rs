@@ -110,7 +110,6 @@ impl User {
                     .values(new_user)
                     .returning(User::as_returning())
                     .get_result(conn)?;
-                println!("User ID: {}", user.id);
                 EmailVerification::create_query(conn, user.id)?;
 
                 Ok(user)

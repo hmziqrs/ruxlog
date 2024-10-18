@@ -61,26 +61,25 @@ pub async fn log_in(
 
 #[debug_handler]
 pub async fn register(
-    _state: State<AppState>,
+    state: State<AppState>,
     payload: Valid<Json<V1RegisterPayload>>,
 ) -> impl IntoResponse {
     let payload = payload.into_inner().0;
-    let _new_user = NewUser {
+    let new_user = NewUser {
         name: payload.name.clone(),
         email: payload.email.clone(),
         password: payload.password.clone(),
     };
-    (StatusCode::CREATED, Json(json!(payload)).into_response())
-    // let user = User::create(&state.db_pool, new_user).await;
+    let user = User::create(&state.db_pool, new_user).await;
 
-    // match user {
-    //     Ok(user) => (StatusCode::CREATED, Json(json!(user))),
-    //     Err(err) => (
-    //         StatusCode::CONFLICT,
-    //         Json(json!({
-    //             "error": err.to_string(),
-    //             "message": "Failed to create user",
-    //         })),
-    //     ),
-    // }
+    match user {
+        Ok(user) => (StatusCode::CREATED, Json(json!(user))),
+        Err(err) => (
+            StatusCode::CONFLICT,
+            Json(json!({
+                "error": err.to_string(),
+                "message": "Failed to create user",
+            })),
+        ),
+    }
 }
