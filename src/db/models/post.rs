@@ -5,6 +5,7 @@ use axum::{http::StatusCode, Json};
 use chrono::{Duration, NaiveDateTime, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::prelude::*;
+use diesel::query_dsl::methods::FindDsl;
 use diesel::QueryDsl;
 use rand::{distributions::Alphanumeric, Rng};
 use serde::{Deserialize, Serialize};
@@ -74,6 +75,16 @@ pub struct Pagination {
     pub per_page: i64,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum SortBy {
+    Title,
+    UpdatedAt,
+    PublishedAt,
+    ViewCount,
+    LikesCount,
+}
+
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct PostQuery {
     pub pagination: Option<Pagination>,
@@ -81,7 +92,7 @@ pub struct PostQuery {
     pub category_id: Option<i32>,
     pub is_published: Option<bool>,
     pub search: Option<String>,
-    pub sort_by: Option<String>,
+    pub sort_by: Option<SortBy>,
     pub sort_order: Option<String>,
 }
 
@@ -105,6 +116,72 @@ impl Post {
         execute_db_operation(pool, move |conn| {
             posts.load::<Post>(conn).map_err(Into::into)
         })
+        .await
+    }
+
+    pub async fn find_posts_with_query(
+        pool: &Pool,
+        query: PostQuery,
+    ) -> Result<(Vec<Self>), DBError> {
+        use crate::db::schema::posts::dsl::*;
+        use diesel::dsl::count_star;
+        use diesel::dsl::{count, sql};
+        use diesel::sql_types::Bool;
+
+        execute_db_operation(
+            pool,
+            move |conn| -> Result<Vec<Post>, diesel::result::Error> {
+                let mut query_builder = posts.into_boxed();
+
+                // Apply filters
+                if let Some(author_id_filter) = query.author_id {
+                    query_builder = query_builder.filter(author_id.eq(author_id_filter));
+                }
+                if let Some(category_id_filter) = query.category_id {
+                    query_builder = query_builder.filter(category_id.eq(category_id_filter));
+                }
+                if let Some(is_published_filter) = query.is_published {
+                    query_builder = query_builder.filter(is_published.eq(is_published_filter));
+                }
+                if let Some(search_term) = query.search {
+                    let search_pattern = format!("%{}%", search_term.to_lowercase());
+                    query_builder = query_builder.filter(
+                        title
+                            .ilike(search_pattern.clone())
+                            .or(content.ilike(search_pattern)),
+                    );
+                }
+
+                query_builder = match query.sort_by {
+                    Some(SortBy::Title) => query_builder.order(title.asc()),
+                    Some(SortBy::UpdatedAt) => query_builder.order(updated_at.desc()),
+                    Some(SortBy::PublishedAt) => {
+                        query_builder.order(published_at.desc().nulls_last())
+                    }
+                    Some(SortBy::ViewCount) => query_builder.order(view_count.desc()),
+                    Some(SortBy::LikesCount) => query_builder.order(likes_count.desc()),
+                    None => query_builder.order(created_at.desc()),
+                };
+
+                // Apply secondary sorting for consistency
+                query_builder = match query.sort_order.as_deref() {
+                    Some("asc") => query_builder.then_order_by(id.asc()),
+                    _ => query_builder.then_order_by(id.desc()),
+                };
+
+                // Apply pagination
+                if let Some(pagination) = query.pagination {
+                    query_builder = query_builder
+                        .limit(pagination.per_page)
+                        .offset((pagination.page - 1) * pagination.per_page);
+                }
+
+                // Execute query
+                let items = query_builder.load::<Post>(conn)?;
+
+                return Ok(items);
+            },
+        )
         .await
     }
 
@@ -157,7 +234,7 @@ impl Post {
         per_page: i64,
     ) -> Result<(Vec<Self>, i64), DBError> {
         use crate::db::schema::posts::dsl::*;
-        use diesel::pg::expression::dsl::any;
+        use diesel::expression_methods::ExpressionMethods;
 
         let search_pattern = format!("%{}%", search_term.to_lowercase());
 
