@@ -6,7 +6,7 @@ use serde_json::json;
 
 use crate::{
     db::models::{forgot_password::ForgotPassword, user::User},
-    services::abuse_limiter,
+    services::{abuse_limiter, mail::send_forgot_password_email},
     AppState,
 };
 
@@ -88,14 +88,35 @@ pub async fn generate(
         }
     }
 
-    match ForgotPassword::generate(pool, user_id).await {
-        Ok(_) => (
-            StatusCode::OK,
-            Json(json!({
-                "message": "Verification code sent to your email successfully",
-            })),
-        )
-            .into_response(),
+    let result = ForgotPassword::generate(pool, user_id).await;
+
+    match result {
+        Ok(result) => {
+            let mailer = &state.mailer;
+            let code = result.code;
+
+            match send_forgot_password_email(&mailer, "test@hello.xyz", &code).await {
+                Ok(()) => {
+                    return (
+                        StatusCode::OK,
+                        Json(json!({
+                            "message": "Verification code sent to your email successfully",
+                        })),
+                    )
+                        .into_response();
+                }
+                Err(err) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({
+                            "error": err.to_string(),
+                            "message": "Failed to send verification code",
+                        })),
+                    )
+                        .into_response();
+                }
+            }
+        }
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({
@@ -208,7 +229,7 @@ pub async fn reset(
                     "message": "Password reset successfully",
                 })),
             )
-                .into_response()
+                .into_response();
         }
         Err(err) => {
             return (
