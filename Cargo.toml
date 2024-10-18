@@ -12,9 +12,12 @@ rustflags = '-L /opt/homebrew/opt/libpq/lib -L /opt/homebrew/lib'
 axum = "0.7.7"
 axum-extra = { version = "0.9.4", features = ["typed-header", "cookie"] }
 axum-login = "0.16.0"
+validator = { version = "0.18.1", features = ["derive"] }
 axum-valid = { version = "0.20.0", default-features = false, features = [
-    "garde",
     "basic",
+    "garde",
+    "validator",
+    "into_json",
 ] }
 serde_json = "1.0.128"
 tower-livereload = "0.9.4"
@@ -55,5 +58,6 @@ rand = "0.8.5"
 fred = "9.2.1"
 axum-client-ip = "0.6.1"
 lettre = { version = "0.11.9", features = ["default", "tokio1-native-tls"] }
+regex = "1.11.0"
 
 # lettre = "0.11.9"

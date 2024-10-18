@@ -1,11 +1,16 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
-use axum_garde::WithValidation;
 use axum_macros::debug_handler;
+use axum_valid::Valid;
 use serde_json::json;
+use thiserror;
+use validator::{ValidationError, ValidationErrors, ValidationErrorsKind};
 
 use crate::{
     db::models::user::{NewUser, User},
-    modules::auth_v1::validator::{V1LoginPayload, V1RegisterPayload},
+    modules::auth_v1::{
+        valid::ValidError,
+        validator::{V1LoginPayload, V1RegisterPayload},
+    },
     services::auth::{AuthSession, Credentials},
     AppState,
 };
@@ -25,12 +30,10 @@ pub async fn log_out(mut auth: AuthSession) -> impl IntoResponse {
 pub async fn log_in(
     _state: State<AppState>,
     mut auth: AuthSession,
-    WithValidation(payload): WithValidation<Json<V1LoginPayload>>,
+    payload: Valid<Json<V1LoginPayload>>,
 ) -> impl IntoResponse {
-    let payload = payload.into_inner();
-    let user = auth
-        .authenticate(Credentials::Password(payload.clone()))
-        .await;
+    let payload = payload.into_inner().0;
+    let user = auth.authenticate(Credentials::Password(payload)).await;
 
     match user {
         Ok(Some(user)) => match auth.login(&user).await {
@@ -63,25 +66,26 @@ pub async fn log_in(
 
 #[debug_handler]
 pub async fn register(
-    state: State<AppState>,
-    WithValidation(payload): WithValidation<Json<V1RegisterPayload>>,
+    _state: State<AppState>,
+    payload: Valid<Json<V1RegisterPayload>>,
 ) -> impl IntoResponse {
-    let payload = payload.into_inner();
-    let new_user = NewUser {
+    let payload = payload.into_inner().0;
+    let _new_user = NewUser {
         name: payload.name.clone(),
         email: payload.email.clone(),
         password: payload.password.clone(),
     };
-    let user = User::create(&state.db_pool, new_user).await;
+    (StatusCode::CREATED, Json(json!(payload)).into_response())
+    // let user = User::create(&state.db_pool, new_user).await;
 
-    match user {
-        Ok(user) => (StatusCode::CREATED, Json(json!(user))),
-        Err(err) => (
-            StatusCode::CONFLICT,
-            Json(json!({
-                "error": err.to_string(),
-                "message": "Failed to create user",
-            })),
-        ),
-    }
+    // match user {
+    //     Ok(user) => (StatusCode::CREATED, Json(json!(user))),
+    //     Err(err) => (
+    //         StatusCode::CONFLICT,
+    //         Json(json!({
+    //             "error": err.to_string(),
+    //             "message": "Failed to create user",
+    //         })),
+    //     ),
+    // }
 }

@@ -1,24 +1,30 @@
-use garde::{self, Validate};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
+use validator::{Validate, ValidationError};
 
-use crate::AppState;
+fn validate_email(email: &str) -> Result<(), ValidationError> {
+    let email_regex = Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{1,}$").unwrap();
+    if email_regex.is_match(email) {
+        Ok(())
+    } else {
+        Err(ValidationError::new("Invalid email format"))
+    }
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize, Validate)]
-#[garde(context(AppState))]
 pub struct V1LoginPayload {
-    #[garde(email)]
+    #[validate(email)]
     pub email: String,
-    #[garde(length(min = 1))]
+    #[validate(length(min = 1))]
     pub password: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
-#[garde(context(AppState))]
 pub struct V1RegisterPayload {
-    #[garde(length(min = 1))]
+    #[validate(length(min = 1))]
     pub name: String,
-    #[garde(email)]
+    #[validate(email, custom(function = "validate_email"))]
     pub email: String,
-    #[garde(length(min = 1))]
+    #[validate(length(min = 1))]
     pub password: String,
 }
