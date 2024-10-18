@@ -59,5 +59,3 @@ fred = "9.2.1"
 axum-client-ip = "0.6.1"
 lettre = { version = "0.11.9", features = ["default", "tokio1-native-tls"] }
 regex = "1.11.0"
-
-# lettre = "0.11.9"
