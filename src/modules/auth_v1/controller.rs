@@ -1,6 +1,6 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
-use axum_garde::WithValidation;
 use axum_macros::debug_handler;
+use axum_valid::Valid;
 use serde_json::json;
 
 use crate::{
@@ -25,12 +25,10 @@ pub async fn log_out(mut auth: AuthSession) -> impl IntoResponse {
 pub async fn log_in(
     _state: State<AppState>,
     mut auth: AuthSession,
-    WithValidation(payload): WithValidation<Json<V1LoginPayload>>,
+    payload: Valid<Json<V1LoginPayload>>,
 ) -> impl IntoResponse {
-    let payload = payload.into_inner();
-    let user = auth
-        .authenticate(Credentials::Password(payload.clone()))
-        .await;
+    let payload = payload.into_inner().0;
+    let user = auth.authenticate(Credentials::Password(payload)).await;
 
     match user {
         Ok(Some(user)) => match auth.login(&user).await {
@@ -64,9 +62,9 @@ pub async fn log_in(
 #[debug_handler]
 pub async fn register(
     state: State<AppState>,
-    WithValidation(payload): WithValidation<Json<V1RegisterPayload>>,
+    payload: Valid<Json<V1RegisterPayload>>,
 ) -> impl IntoResponse {
-    let payload = payload.into_inner();
+    let payload = payload.into_inner().0;
     let new_user = NewUser {
         name: payload.name.clone(),
         email: payload.email.clone(),
