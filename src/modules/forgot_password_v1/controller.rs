@@ -2,12 +2,11 @@ use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_client_ip::SecureClientIp;
 use axum_garde::WithValidation;
 use axum_macros::debug_handler;
-use lettre::{AsyncTransport, Message};
 use serde_json::json;
 
 use crate::{
     db::models::{forgot_password::ForgotPassword, user::User},
-    services::abuse_limiter,
+    services::{abuse_limiter, mail::send_forgot_password_email},
     AppState,
 };
 
@@ -95,32 +94,28 @@ pub async fn generate(
         Ok(result) => {
             let mailer = &state.mailer;
             let code = result.code;
-            let email = Message::builder()
-                .from("NoBody <nobody@domain.tld>".parse().unwrap())
-                .reply_to("Yuin <yuin@domain.tld>".parse().unwrap())
-                .to("Hei <hei@domain.tld>".parse().unwrap())
-                .subject("Happy new async year")
-                // .header(ContentType::TEXT_PLAIN)
-                .body(format!("verification code {}", code))
-                .unwrap();
 
-            mailer.send(email).await.unwrap();
-
-            // // Create the email message
-            // let email = Message::builder()
-            //     .from(from.parse()?)
-            //     .to(to.parse()?)
-            //     .subject(subject)
-            //     .body(body)?;
-            // mailer.send(email);
-
-            return (
-                StatusCode::OK,
-                Json(json!({
-                    "message": "Verification code sent to your email successfully",
-                })),
-            )
-                .into_response();
+            match send_forgot_password_email(&mailer, "test@hello.xyz", &code).await {
+                Ok(()) => {
+                    return (
+                        StatusCode::OK,
+                        Json(json!({
+                            "message": "Verification code sent to your email successfully",
+                        })),
+                    )
+                        .into_response();
+                }
+                Err(err) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({
+                            "error": err.to_string(),
+                            "message": "Failed to send verification code",
+                        })),
+                    )
+                        .into_response();
+                }
+            }
         }
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
