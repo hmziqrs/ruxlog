@@ -1,6 +1,20 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
+    categories (id) {
+        id -> Int4,
+        name -> Varchar,
+        slug -> Varchar,
+        parent_id -> Nullable<Int4>,
+        description -> Nullable<Text>,
+        cover_image -> Nullable<Varchar>,
+        logo_image -> Nullable<Varchar>,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
     email_verifications (id) {
         id -> Int4,
         user_id -> Int4,
@@ -67,11 +81,13 @@ diesel::joinable!(forgot_password -> users (user_id));
 diesel::joinable!(posts -> users (author_id));
 diesel::joinable!(post_comments -> posts (post_id));
 diesel::joinable!(post_comments -> users (user_id));
+diesel::joinable!(posts -> categories (category_id));
 
-diesel::allow_tables_to_appear_in_same_query!(email_verifications, users,);
-
-diesel::allow_tables_to_appear_in_same_query!(forgot_password, users,);
-
-diesel::allow_tables_to_appear_in_same_query!(posts, users);
-diesel::allow_tables_to_appear_in_same_query!(post_comments, users);
-diesel::allow_tables_to_appear_in_same_query!(post_comments, posts);
+diesel::allow_tables_to_appear_in_same_query!(
+    categories,
+    email_verifications,
+    forgot_password,
+    users,
+    posts,
+    post_comments,
+);
