@@ -282,12 +282,13 @@ impl Post {
     pub async fn update(
         pool: &Pool,
         post_id: i32,
+        filter_user_id: i32,
         update_post: UpdatePost,
     ) -> Result<Option<Self>, DBError> {
         use crate::db::schema::posts::dsl::*;
 
         execute_db_operation(pool, move |conn| {
-            diesel::update(posts.filter(id.eq(post_id)))
+            diesel::update(posts.filter(id.eq(post_id).and(author_id.eq(filter_user_id))))
                 .set(&update_post)
                 .returning(Self::as_returning())
                 .get_result(conn)
@@ -296,13 +297,12 @@ impl Post {
         .await
     }
 
-    pub async fn delete(pool: &Pool, post_id: i32) -> Result<(), DBError> {
+    pub async fn delete(pool: &Pool, filter_user_id: i32, post_id: i32) -> Result<usize, DBError> {
         use crate::db::schema::posts::dsl::*;
 
         execute_db_operation(pool, move |conn| {
-            diesel::delete(posts.filter(id.eq(post_id)))
+            diesel::delete(posts.filter(id.eq(post_id).and(author_id.eq(filter_user_id))))
                 .execute(conn)
-                .map(|_| ())
         })
         .await
     }

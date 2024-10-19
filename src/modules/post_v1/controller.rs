@@ -77,10 +77,10 @@ pub async fn update(
     let user = auth.user.unwrap();
     let update_post = payload.into_inner().0.into_update_post(user.id);
 
-    match Post::update(&state.db_pool, post_id, update_post).await {
+    match Post::update(&state.db_pool, post_id, user.id, update_post).await {
         Ok(Some(post)) => (StatusCode::OK, Json(json!(post))).into_response(),
         Ok(None) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
+            StatusCode::NOT_FOUND,
             Json(json!({
                 "error": "requested failed",
                 "message": "Post does not exist",
@@ -101,13 +101,30 @@ pub async fn update(
 #[debug_handler]
 pub async fn delete(
     State(state): State<AppState>,
-    // auth: AuthSession,
+    auth: AuthSession,
     Path(post_id): Path<i32>,
 ) -> impl IntoResponse {
-    match Post::delete(&state.db_pool, post_id).await {
-        Ok(_) => (
+    let user = auth.user.unwrap();
+    match Post::delete(&state.db_pool, user.id, post_id).await {
+        Ok(1) => (
             StatusCode::OK,
             Json(json!({ "message": "Post deleted successfully" })),
+        )
+            .into_response(),
+        Ok(0) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": "request failed",
+                "message": "Post does not exist",
+            })),
+        )
+            .into_response(),
+        Ok(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": "unexpected result",
+                "message": "Internal server error occurred while deleting post",
+            })),
         )
             .into_response(),
         Err(err) => (
