@@ -1,7 +1,7 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_client_ip::SecureClientIp;
-use axum_garde::WithValidation;
 use axum_macros::debug_handler;
+use axum_valid::Valid;
 use serde_json::json;
 
 use crate::{
@@ -25,7 +25,7 @@ const ABUSE_LIMITER_CONFIG: abuse_limiter::AbuseLimiterConfig = abuse_limiter::A
 pub async fn generate(
     state: State<AppState>,
     secure_ip: SecureClientIp,
-    WithValidation(payload): WithValidation<Json<V1GeneratePayload>>,
+    Valid(payload): Valid<Json<V1GeneratePayload>>,
 ) -> impl IntoResponse {
     let ip = secure_ip.0.to_string();
     let key_prefix = format!("forgot_password:{}", ip);
@@ -131,7 +131,7 @@ pub async fn generate(
 #[debug_handler]
 pub async fn verify(
     state: State<AppState>,
-    WithValidation(payload): WithValidation<Json<V1VerifyPayload>>,
+    Valid(payload): Valid<Json<V1VerifyPayload>>,
 ) -> impl IntoResponse {
     let pool = &state.db_pool;
 
@@ -176,7 +176,7 @@ pub async fn verify(
 #[debug_handler]
 pub async fn reset(
     state: State<AppState>,
-    WithValidation(payload): WithValidation<Json<V1ResetPayload>>,
+    Valid(payload): Valid<Json<V1ResetPayload>>,
 ) -> impl IntoResponse {
     if payload.password != payload.confirm_password {
         return (

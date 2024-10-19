@@ -1,6 +1,6 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
-use axum_garde::WithValidation;
 use axum_macros::debug_handler;
+use axum_valid::Valid;
 use serde_json::json;
 
 use crate::{
@@ -24,7 +24,7 @@ const ABUSE_LIMITER_CONFIG: abuse_limiter::AbuseLimiterConfig = abuse_limiter::A
 pub async fn verify(
     state: State<AppState>,
     auth: AuthSession,
-    WithValidation(payload): WithValidation<Json<V1VerifyPayload>>,
+    Valid(payload): Valid<Json<V1VerifyPayload>>,
 ) -> impl IntoResponse {
     let pool = &state.db_pool;
     let user_id = auth.user.unwrap().id;

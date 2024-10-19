@@ -15,7 +15,6 @@ axum-login = "0.16.0"
 validator = { version = "0.18.1", features = ["derive"] }
 axum-valid = { version = "0.20.0", default-features = false, features = [
     "basic",
-    "garde",
     "validator",
     "into_json",
 ] }
@@ -37,14 +36,12 @@ tower-sessions-redis-store = "0.14.0"
 tower-sessions = { version = "0.13", features = ["private"] }
 tracing-subscriber = "0.3.18"
 tracing = "0.1.40"
-garde = { version = "0.20.0", features = ["full"] }
 diesel = { version = "2.2.4", features = ["postgres", "chrono"] }
 deadpool-diesel = { version = "0.6.1", features = ["postgres"] }
 diesel_migrations = "2.2.0"
 dotenv = "0.15.0"
 chrono = { version = "0.4.19", features = ["serde"] }
 axum-macros = "0.4.2"
-axum_garde = "0.20.0"
 thiserror = "1.0.64"
 md5 = "0.7.0"
 password-auth = "1.0.0"

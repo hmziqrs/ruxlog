@@ -4,7 +4,8 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use axum_garde::WithValidation;
+use axum_valid::Valid;
+
 use axum_macros::debug_handler;
 use serde_json::json;
 
@@ -20,7 +21,7 @@ use super::validator::{V1CreatePostPayload, V1PostQueryParams, V1UpdatePostPaylo
 pub async fn create_post(
     State(state): State<AppState>,
     auth: AuthSession,
-    WithValidation(payload): WithValidation<Json<V1CreatePostPayload>>,
+    Valid(payload): Valid<Json<V1CreatePostPayload>>,
 ) -> impl IntoResponse {
     let user = auth.user.unwrap();
     let new_post = NewPost {
@@ -55,11 +56,11 @@ pub async fn update_post(
     State(state): State<AppState>,
     auth: AuthSession,
     Path(post_id): Path<i32>,
-    WithValidation(payload): WithValidation<Json<V1UpdatePostPayload>>,
+    Valid(payload): Valid<Json<V1UpdatePostPayload>>,
 ) -> impl IntoResponse {
     let user = auth.user.unwrap();
     let update_post = UpdatePost {
-        title: payload.title,
+        title: payload.title.clone(),
         content: payload.content,
         author_id: Some(user.id),
         published_at: payload.published_at,
@@ -150,7 +151,7 @@ pub async fn find_all_posts(State(state): State<AppState>) -> impl IntoResponse 
 #[debug_handler]
 pub async fn find_posts_with_query(
     State(state): State<AppState>,
-    WithValidation(query): WithValidation<Query<V1PostQueryParams>>,
+    Valid(query): Valid<Query<V1PostQueryParams>>,
 ) -> impl IntoResponse {
     let post_query = PostQuery {
         pagination: query.page.and_then(|page| {
@@ -182,7 +183,7 @@ pub async fn find_posts_with_query(
 #[debug_handler]
 pub async fn find_paginated_posts(
     State(state): State<AppState>,
-    WithValidation(query): WithValidation<Query<V1PostQueryParams>>,
+    Valid(query): Valid<Query<V1PostQueryParams>>,
 ) -> impl IntoResponse {
     let page = query.page.unwrap_or(1);
     let per_page = query.per_page.unwrap_or(10);
@@ -212,7 +213,7 @@ pub async fn find_paginated_posts(
 #[debug_handler]
 pub async fn find_published_posts(
     State(state): State<AppState>,
-    WithValidation(query): WithValidation<Query<V1PostQueryParams>>,
+    Valid(query): Valid<Query<V1PostQueryParams>>,
 ) -> impl IntoResponse {
     let page = query.page.unwrap_or(1);
     let per_page = query.per_page.unwrap_or(10);
@@ -242,7 +243,7 @@ pub async fn find_published_posts(
 #[debug_handler]
 pub async fn search_posts(
     State(state): State<AppState>,
-    WithValidation(query): WithValidation<Query<V1PostQueryParams>>,
+    Valid(query): Valid<Query<V1PostQueryParams>>,
 ) -> impl IntoResponse {
     let page = query.page.unwrap_or(1);
     let per_page = query.per_page.unwrap_or(10);
