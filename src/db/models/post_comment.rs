@@ -41,7 +41,7 @@ pub struct NewPostComment {
 #[diesel(table_name = schema::post_comments)]
 pub struct UpdatePostComment {
     pub content: Option<String>,
-    pub likes_count: Option<i32>,
+    pub updated_at: NaiveDateTime,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
