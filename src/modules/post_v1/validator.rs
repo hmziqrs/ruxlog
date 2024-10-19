@@ -1,8 +1,9 @@
+// use bool;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::db::models::post::{Pagination, SortBy};
+use crate::db::models::post::{NewPost, Pagination, SortBy};
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1CreatePostPayload {
@@ -11,6 +12,7 @@ pub struct V1CreatePostPayload {
     #[validate(length(min = 1))]
     pub content: String,
     pub published_at: Option<NaiveDateTime>,
+    #[serde(default = "bool::default")]
     pub is_published: bool,
     #[validate(length(min = 1, max = 255))]
     pub slug: String,
@@ -18,6 +20,24 @@ pub struct V1CreatePostPayload {
     pub excerpt: Option<String>,
     pub featured_image_url: Option<String>,
     pub category_id: Option<i32>,
+}
+
+impl V1CreatePostPayload {
+    pub fn into_new_post(self, author_id: i32) -> NewPost {
+        NewPost {
+            title: self.title,
+            content: self.content,
+            author_id,
+            published_at: self.published_at,
+            is_published: self.is_published,
+            slug: self.slug,
+            excerpt: self.excerpt,
+            featured_image_url: self.featured_image_url,
+            category_id: self.category_id,
+            view_count: 0,
+            likes_count: 0,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Validate)]

@@ -30,7 +30,7 @@ pub async fn get_profile(auth: AuthSession) -> impl IntoResponse {
 pub async fn update_profile(
     auth: AuthSession,
     state: State<AppState>,
-    Valid(payload): Valid<Json<V1UpdateProfilePayload>>,
+    payload: Valid<Json<V1UpdateProfilePayload>>,
 ) -> impl IntoResponse {
     if let Some(user) = auth.user {
         let payload = payload.into_inner();
@@ -38,8 +38,8 @@ pub async fn update_profile(
             &state.db_pool,
             user.id,
             UpdateUser {
-                name: payload.name,
-                email: payload.email,
+                name: payload.name.clone(),
+                email: payload.email.clone(),
             },
         )
         .await;
