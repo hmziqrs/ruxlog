@@ -5,6 +5,26 @@
 
 
 use chrono::NaiveDateTime;
+use chrono::DateTime;
+use chrono::offset::Utc;
+#[derive(Queryable, Identifiable, Selectable, Debug, PartialEq)]
+pub struct EmailVerification {
+    pub id: i32,
+    pub user_id: i32,
+    pub code: String,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+}
+
+#[derive(Queryable, Identifiable, Selectable, Debug, PartialEq)]
+pub struct ForgotPassword {
+    pub id: i32,
+    pub user_id: i32,
+    pub code: String,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+}
+
 #[derive(Queryable, Identifiable, Selectable, Debug, PartialEq)]
 pub struct User {
     pub id: i32,
@@ -16,12 +36,20 @@ pub struct User {
 }
 
 #[derive(Queryable, Identifiable, Selectable, Debug, PartialEq)]
-pub struct EmailVerification {
+pub struct Post {
     pub id: i32,
-    pub user_id: i32,
-    pub code: String,
-    pub expires_at: NaiveDateTime,
+    pub title: String,
+    pub content: String,
+    pub author_id: i32,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
+    pub published_at: Option<DateTime<Utc>>,
+    pub is_published: bool,
+    pub slug: String,
+    pub excerpt: Option<String>,
+    pub featured_image_url: Option<String>,
+    pub category_id: Option<i32>,
+    pub view_count: i32,
+    pub likes_count: i32,
 }
 

@@ -10,8 +10,8 @@ use axum_login::login_required;
 use serde_json::json;
 use tower_http::trace::TraceLayer;
 
-use crate::middlewares::user_status;
 use crate::services::auth::AuthBackend;
+use crate::{middlewares::user_status, modules::post_v1};
 
 use super::{
     modules::{auth_v1, email_verification_v1, forgot_password_v1, user_v1},
@@ -47,18 +47,34 @@ pub fn router() -> Router<AppState> {
         .route_layer(middleware::from_fn(user_status::only_unverified))
         .route_layer(login_required!(AuthBackend));
 
-    let forgot_password_routes = Router::new()
+    let forgot_password_v1_routes = Router::new()
         .route("/request", post(forgot_password_v1::controller::generate))
         .route("/verify", post(forgot_password_v1::controller::verify))
         .route("/reset", post(forgot_password_v1::controller::reset))
         .route_layer(middleware::from_fn(user_status::only_unauthenticated));
+
+    let post_v1_routes = Router::new()
+        .route("/create", post(post_v1::controller::create))
+        .route("/update/:post_id", post(post_v1::controller::update))
+        .route("/delete/:post_id", post(post_v1::controller::delete))
+        .route(
+            "/view/:id_or_slug",
+            post(post_v1::controller::find_by_id_or_slug),
+        )
+        .route(
+            "/view/published",
+            post(post_v1::controller::find_published_posts),
+        )
+        .route_layer(middleware::from_fn(user_status::only_verified))
+        .route_layer(login_required!(AuthBackend));
 
     Router::new()
         .route("/", routing::get(handler))
         .nest("/auth/v1", auth_v1_routes)
         .nest("/user/v1", user_v1_routes)
         .nest("/email_verification/v1", email_verification_v1_routes)
-        .nest("/forgot_password/v1", forgot_password_routes)
+        .nest("/forgot_password/v1", forgot_password_v1_routes)
+        .nest("/post/v1", post_v1_routes)
         // .nest("/csrf/v1", csrf_v1_routes)
         .layer(TraceLayer::new_for_http())
 }

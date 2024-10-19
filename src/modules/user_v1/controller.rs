@@ -1,6 +1,6 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
-use axum_garde::WithValidation;
 use axum_macros::debug_handler;
+use axum_valid::Valid;
 use serde_json::json;
 
 use super::validator::V1UpdateProfilePayload;
@@ -30,7 +30,7 @@ pub async fn get_profile(auth: AuthSession) -> impl IntoResponse {
 pub async fn update_profile(
     auth: AuthSession,
     state: State<AppState>,
-    WithValidation(payload): WithValidation<Json<V1UpdateProfilePayload>>,
+    payload: Valid<Json<V1UpdateProfilePayload>>,
 ) -> impl IntoResponse {
     if let Some(user) = auth.user {
         let payload = payload.into_inner();
@@ -38,8 +38,8 @@ pub async fn update_profile(
             &state.db_pool,
             user.id,
             UpdateUser {
-                name: payload.name,
-                email: payload.email,
+                name: payload.name.clone(),
+                email: payload.email.clone(),
             },
         )
         .await;
