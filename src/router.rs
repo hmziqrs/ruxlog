@@ -56,8 +56,12 @@ pub fn router() -> Router<AppState> {
     let post_v1_routes = Router::new()
         .route("/create", post(post_v1::controller::create))
         .route(
-            "/find/:id_or_slug",
+            "/view/:id_or_slug",
             post(post_v1::controller::find_by_id_or_slug),
+        )
+        .route(
+            "/view/published",
+            post(post_v1::controller::find_published_posts),
         )
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend));

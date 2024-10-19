@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
@@ -10,12 +10,12 @@ use axum_macros::debug_handler;
 use serde_json::json;
 
 use crate::{
-    db::models::post::{Post, PostQuery, UpdatePost},
+    db::models::post::{Post, PostQuery},
     services::auth::AuthSession,
     AppState,
 };
 
-use super::validator::{V1CreatePostPayload, V1PostQueryParams, V1UpdatePostPayload};
+use super::validator::{V1CreatePostPayload, V1PostQueryParams};
 
 #[debug_handler]
 pub async fn create(
@@ -126,29 +126,6 @@ pub async fn find_by_id_or_slug(
 // }
 
 // #[debug_handler]
-// pub async fn find_post_by_id(
-//     State(state): State<AppState>,
-//     Path(post_id): Path<i32>,
-// ) -> impl IntoResponse {
-//     match Post::find_by_id(&state.db_pool, post_id).await {
-//         Ok(Some(post)) => (StatusCode::OK, Json(json!(post))).into_response(),
-//         Ok(None) => (
-//             StatusCode::NOT_FOUND,
-//             Json(json!({ "message": "Post not found" })),
-//         )
-//             .into_response(),
-//         Err(err) => (
-//             StatusCode::INTERNAL_SERVER_ERROR,
-//             Json(json!({
-//                 "error": err.to_string(),
-//                 "message": "Failed to fetch post",
-//             })),
-//         )
-//             .into_response(),
-//     }
-// }
-
-// #[debug_handler]
 // pub async fn find_all_posts(State(state): State<AppState>) -> impl IntoResponse {
 //     match Post::find_all(&state.db_pool).await {
 //         Ok(posts) => (StatusCode::OK, Json(json!(posts))).into_response(),
@@ -169,11 +146,7 @@ pub async fn find_by_id_or_slug(
 //     Valid(query): Valid<Query<V1PostQueryParams>>,
 // ) -> impl IntoResponse {
 //     let post_query = PostQuery {
-//         pagination: query.page.and_then(|page| {
-//             query
-//                 .per_page
-//                 .map(|per_page| crate::db::models::post::Pagination { page, per_page })
-//         }),
+//         page_no: query.page,
 //         author_id: query.author_id,
 //         category_id: query.category_id,
 //         is_published: query.is_published,
@@ -225,35 +198,33 @@ pub async fn find_by_id_or_slug(
 //     }
 // }
 
-// #[debug_handler]
-// pub async fn find_published_posts(
-//     State(state): State<AppState>,
-//     Valid(query): Valid<Query<V1PostQueryParams>>,
-// ) -> impl IntoResponse {
-//     let page = query.page.unwrap_or(1);
-//     let per_page = query.per_page.unwrap_or(10);
+#[debug_handler]
+pub async fn find_published_posts(
+    State(state): State<AppState>,
+    Valid(query): Valid<Query<V1PostQueryParams>>,
+) -> impl IntoResponse {
+    let page = query.page.unwrap_or(1);
 
-//     match Post::find_published_paginated(&state.db_pool, page, per_page).await {
-//         Ok((posts, total)) => (
-//             StatusCode::OK,
-//             Json(json!({
-//                 "data": posts,
-//                 "total": total,
-//                 "page": page,
-//                 "per_page": per_page,
-//             })),
-//         )
-//             .into_response(),
-//         Err(err) => (
-//             StatusCode::INTERNAL_SERVER_ERROR,
-//             Json(json!({
-//                 "error": err.to_string(),
-//                 "message": "Failed to fetch published posts",
-//             })),
-//         )
-//             .into_response(),
-//     }
-// }
+    match Post::find_published_paginated(&state.db_pool, page).await {
+        Ok((posts, total)) => (
+            StatusCode::OK,
+            Json(json!({
+                "data": posts,
+                "total": total,
+                "page": page,
+            })),
+        )
+            .into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": err.to_string(),
+                "message": "Failed to fetch published posts",
+            })),
+        )
+            .into_response(),
+    }
+}
 
 // #[debug_handler]
 // pub async fn search_posts(

@@ -3,7 +3,7 @@ use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::db::models::post::{NewPost, Pagination, SortBy};
+use crate::db::models::post::{NewPost, PostSortBy};
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1CreatePostPayload {
@@ -59,11 +59,10 @@ pub struct V1UpdatePostPayload {
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1PostQueryParams {
     pub page: Option<i64>,
-    pub per_page: Option<i64>,
     pub author_id: Option<i32>,
     pub category_id: Option<i32>,
     pub is_published: Option<bool>,
     pub search: Option<String>,
-    pub sort_by: Option<SortBy>,
+    pub sort_by: Option<PostSortBy>,
     pub sort_order: Option<String>,
 }

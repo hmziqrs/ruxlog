@@ -69,15 +69,9 @@ pub struct UpdatePost {
     pub likes_count: Option<i32>,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq)]
-pub struct Pagination {
-    pub page: i64,
-    pub per_page: i64,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub enum SortBy {
+pub enum PostSortBy {
     Title,
     UpdatedAt,
     PublishedAt,
@@ -87,14 +81,16 @@ pub enum SortBy {
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct PostQuery {
-    pub pagination: Option<Pagination>,
+    pub page_no: Option<i64>,
     pub author_id: Option<i32>,
     pub category_id: Option<i32>,
     pub is_published: Option<bool>,
     pub search: Option<String>,
-    pub sort_by: Option<SortBy>,
+    pub sort_by: Option<PostSortBy>,
     pub sort_order: Option<String>,
 }
+
+const PER_PAGE: i64 = 12;
 
 impl Post {
     pub async fn find_by_id(pool: &Pool, post_id: i32) -> Result<Option<Self>, DBError> {
@@ -166,13 +162,13 @@ impl Post {
                 }
 
                 query_builder = match query.sort_by {
-                    Some(SortBy::Title) => query_builder.order(title.asc()),
-                    Some(SortBy::UpdatedAt) => query_builder.order(updated_at.desc()),
-                    Some(SortBy::PublishedAt) => {
+                    Some(PostSortBy::Title) => query_builder.order(title.asc()),
+                    Some(PostSortBy::UpdatedAt) => query_builder.order(updated_at.desc()),
+                    Some(PostSortBy::PublishedAt) => {
                         query_builder.order(published_at.desc().nulls_last())
                     }
-                    Some(SortBy::ViewCount) => query_builder.order(view_count.desc()),
-                    Some(SortBy::LikesCount) => query_builder.order(likes_count.desc()),
+                    Some(PostSortBy::ViewCount) => query_builder.order(view_count.desc()),
+                    Some(PostSortBy::LikesCount) => query_builder.order(likes_count.desc()),
                     None => query_builder.order(created_at.desc()),
                 };
 
@@ -183,10 +179,10 @@ impl Post {
                 };
 
                 // Apply pagination
-                if let Some(pagination) = query.pagination {
+                if let Some(page_no) = query.page_no {
                     query_builder = query_builder
-                        .limit(pagination.per_page)
-                        .offset((pagination.page - 1) * pagination.per_page);
+                        .limit(PER_PAGE)
+                        .offset((page_no - 1) * PER_PAGE);
                 }
 
                 // Execute query
@@ -198,19 +194,15 @@ impl Post {
         .await
     }
 
-    pub async fn find_paginated(
-        pool: &Pool,
-        page: i64,
-        per_page: i64,
-    ) -> Result<(Vec<Self>, i64), DBError> {
+    pub async fn find_paginated(pool: &Pool, page: i64) -> Result<(Vec<Self>, i64), DBError> {
         use crate::db::schema::posts::dsl::*;
 
         execute_db_operation(pool, move |conn| {
             let total = posts.count().get_result(conn)?;
             let items = posts
                 .order(created_at.desc())
-                .limit(per_page)
-                .offset((page - 1) * per_page)
+                .limit(PER_PAGE)
+                .offset((page - 1) * PER_PAGE)
                 .load::<Post>(conn)?;
             Ok((items, total))
         })
@@ -220,7 +212,6 @@ impl Post {
     pub async fn find_published_paginated(
         pool: &Pool,
         page: i64,
-        per_page: i64,
     ) -> Result<(Vec<Self>, i64), DBError> {
         use crate::db::schema::posts::dsl::*;
 
@@ -231,9 +222,10 @@ impl Post {
                 .get_result(conn)?;
             let items = posts
                 .filter(is_published.eq(true))
-                .order(published_at.desc())
-                .limit(per_page)
-                .offset((page - 1) * per_page)
+                .order(updated_at.desc())
+                // .order(published_at.desc())
+                .limit(PER_PAGE)
+                .offset((page - 1) * PER_PAGE)
                 .load::<Post>(conn)?;
             Ok((items, total))
         })
@@ -244,7 +236,6 @@ impl Post {
         pool: &Pool,
         search_term: &str,
         page: i64,
-        per_page: i64,
     ) -> Result<(Vec<Self>, i64), DBError> {
         use crate::db::schema::posts::dsl::*;
         use diesel::expression_methods::ExpressionMethods;
@@ -268,8 +259,8 @@ impl Post {
                         .or(content.ilike(search_pattern.clone())),
                 )
                 .order(created_at.desc())
-                .limit(per_page)
-                .offset((page - 1) * per_page)
+                .limit(PER_PAGE)
+                .offset((page - 1) * PER_PAGE)
                 .load::<Post>(conn)?;
 
             Ok((items, total))
