@@ -98,28 +98,28 @@ pub async fn update(
     }
 }
 
-// #[debug_handler]
-// pub async fn delete_post(
-//     State(state): State<AppState>,
-//     auth: AuthSession,
-//     Path(post_id): Path<i32>,
-// ) -> impl IntoResponse {
-//     match Post::delete(&state.db_pool, post_id).await {
-//         Ok(_) => (
-//             StatusCode::OK,
-//             Json(json!({ "message": "Post deleted successfully" })),
-//         )
-//             .into_response(),
-//         Err(err) => (
-//             StatusCode::INTERNAL_SERVER_ERROR,
-//             Json(json!({
-//                 "error": err.to_string(),
-//                 "message": "Failed to delete post",
-//             })),
-//         )
-//             .into_response(),
-//     }
-// }
+#[debug_handler]
+pub async fn delete(
+    State(state): State<AppState>,
+    // auth: AuthSession,
+    Path(post_id): Path<i32>,
+) -> impl IntoResponse {
+    match Post::delete(&state.db_pool, post_id).await {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(json!({ "message": "Post deleted successfully" })),
+        )
+            .into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": err.to_string(),
+                "message": "Failed to delete post",
+            })),
+        )
+            .into_response(),
+    }
+}
 
 // #[debug_handler]
 // pub async fn find_all_posts(State(state): State<AppState>) -> impl IntoResponse {

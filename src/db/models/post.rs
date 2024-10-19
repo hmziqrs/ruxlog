@@ -303,7 +303,6 @@ impl Post {
             diesel::delete(posts.filter(id.eq(post_id)))
                 .execute(conn)
                 .map(|_| ())
-                .map_err(Into::into)
         })
         .await
     }
