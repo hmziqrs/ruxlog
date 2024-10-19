@@ -50,9 +50,23 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    post_comments (id) {
+        id -> Int4,
+        post_id -> Int4,
+        user_id -> Int4,
+        content -> Text,
+        likes_count -> Int4,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
 diesel::joinable!(email_verifications -> users (user_id));
 diesel::joinable!(forgot_password -> users (user_id));
 diesel::joinable!(posts -> users (author_id));
+diesel::joinable!(post_comments -> posts (post_id));
+diesel::joinable!(post_comments -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(email_verifications, users,);
 

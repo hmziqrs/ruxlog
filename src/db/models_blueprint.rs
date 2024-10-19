@@ -53,3 +53,14 @@ pub struct Post {
     pub likes_count: i32,
 }
 
+#[derive(Queryable, Identifiable, Selectable, Debug, PartialEq)]
+pub struct PostComment {
+    pub id: i32,
+    pub post_id: i32,
+    pub user_id: i32,
+    pub content: String,
+    pub likes_count: i32,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+}
+
