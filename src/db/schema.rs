@@ -73,3 +73,5 @@ diesel::allow_tables_to_appear_in_same_query!(email_verifications, users,);
 diesel::allow_tables_to_appear_in_same_query!(forgot_password, users,);
 
 diesel::allow_tables_to_appear_in_same_query!(posts, users);
+diesel::allow_tables_to_appear_in_same_query!(post_comments, users);
+diesel::allow_tables_to_appear_in_same_query!(post_comments, posts);
