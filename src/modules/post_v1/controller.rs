@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
@@ -10,7 +10,7 @@ use axum_macros::debug_handler;
 use serde_json::json;
 
 use crate::{
-    db::models::post::{NewPost, Post, PostQuery, UpdatePost},
+    db::models::post::{Post, PostQuery, UpdatePost},
     services::auth::AuthSession,
     AppState,
 };
@@ -33,6 +33,33 @@ pub async fn create(
             Json(json!({
                 "error": err.to_string(),
                 "message": "Failed to create post",
+            })),
+        )
+            .into_response(),
+    }
+}
+
+#[debug_handler]
+pub async fn find_by_id_or_slug(
+    State(state): State<AppState>,
+    Path(slug_or_id): Path<String>,
+) -> impl IntoResponse {
+    let query = match slug_or_id.parse::<i32>() {
+        Ok(id) => Post::find_by_id(&state.db_pool, id).await,
+        Err(_) => Post::find_by_slug(&state.db_pool, slug_or_id).await,
+    };
+    match query {
+        Ok(Some(post)) => (StatusCode::OK, Json(json!(post))).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "message": "Post not found" })),
+        )
+            .into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": err.to_string(),
+                "message": "Failed to fetch post",
             })),
         )
             .into_response(),

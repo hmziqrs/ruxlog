@@ -110,6 +110,19 @@ impl Post {
         .await
     }
 
+    pub async fn find_by_slug(pool: &Pool, post_slug: String) -> Result<Option<Self>, DBError> {
+        use crate::db::schema::posts::dsl::*;
+
+        execute_db_operation(pool, move |conn| {
+            posts
+                .filter(slug.eq(post_slug))
+                .first::<Post>(conn)
+                .optional()
+                .map_err(Into::into)
+        })
+        .await
+    }
+
     pub async fn find_all(pool: &Pool) -> Result<Vec<Self>, DBError> {
         use crate::db::schema::posts::dsl::*;
 
