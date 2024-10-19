@@ -3,7 +3,7 @@ use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::db::models::post::{NewPost, PostSortBy};
+use crate::db::models::post::{NewPost, PostSortBy, UpdatePost};
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1CreatePostPayload {
@@ -54,6 +54,25 @@ pub struct V1UpdatePostPayload {
     pub excerpt: Option<Option<String>>,
     pub featured_image_url: Option<Option<String>>,
     pub category_id: Option<Option<i32>>,
+}
+
+impl V1UpdatePostPayload {
+    pub fn into_update_post(self, author_id: i32) -> UpdatePost {
+        UpdatePost {
+            title: self.title,
+            content: self.content,
+            author_id: Some(author_id),
+            published_at: self.published_at,
+            updated_at: chrono::Utc::now().naive_utc(),
+            is_published: self.is_published,
+            slug: self.slug,
+            excerpt: self.excerpt,
+            featured_image_url: self.featured_image_url,
+            category_id: self.category_id,
+            view_count: None,
+            likes_count: None,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Validate)]

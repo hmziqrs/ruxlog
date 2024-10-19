@@ -275,7 +275,6 @@ impl Post {
             diesel::insert_into(posts)
                 .values(&new_post)
                 .get_result(conn)
-                .map_err(Into::into)
         })
         .await
     }
@@ -284,14 +283,15 @@ impl Post {
         pool: &Pool,
         post_id: i32,
         update_post: UpdatePost,
-    ) -> Result<Self, DBError> {
+    ) -> Result<Option<Self>, DBError> {
         use crate::db::schema::posts::dsl::*;
 
         execute_db_operation(pool, move |conn| {
             diesel::update(posts.filter(id.eq(post_id)))
                 .set(&update_post)
+                .returning(Self::as_returning())
                 .get_result(conn)
-                .map_err(Into::into)
+                .optional()
         })
         .await
     }

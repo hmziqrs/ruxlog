@@ -55,6 +55,7 @@ pub fn router() -> Router<AppState> {
 
     let post_v1_routes = Router::new()
         .route("/create", post(post_v1::controller::create))
+        .route("/update/:post_id", post(post_v1::controller::update))
         .route(
             "/view/:id_or_slug",
             post(post_v1::controller::find_by_id_or_slug),

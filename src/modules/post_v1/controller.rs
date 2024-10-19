@@ -11,6 +11,7 @@ use serde_json::json;
 
 use crate::{
     db::models::post::{Post, PostQuery},
+    modules::post_v1::validator::V1UpdatePostPayload,
     services::auth::AuthSession,
     AppState,
 };
@@ -66,41 +67,36 @@ pub async fn find_by_id_or_slug(
     }
 }
 
-// #[debug_handler]
-// pub async fn update_post(
-//     State(state): State<AppState>,
-//     auth: AuthSession,
-//     Path(post_id): Path<i32>,
-//     Valid(payload): Valid<Json<V1UpdatePostPayload>>,
-// ) -> impl IntoResponse {
-//     let user = auth.user.unwrap();
-//     let update_post = UpdatePost {
-//         title: payload.title.clone(),
-//         content: payload.content,
-//         author_id: Some(user.id),
-//         published_at: payload.published_at,
-//         updated_at: chrono::Utc::now().naive_utc(),
-//         is_published: payload.is_published,
-//         slug: payload.slug,
-//         excerpt: payload.excerpt,
-//         featured_image_url: payload.featured_image_url,
-//         category_id: payload.category_id,
-//         view_count: None,
-//         likes_count: None,
-//     };
+#[debug_handler]
+pub async fn update(
+    State(state): State<AppState>,
+    auth: AuthSession,
+    Path(post_id): Path<i32>,
+    payload: Valid<Json<V1UpdatePostPayload>>,
+) -> impl IntoResponse {
+    let user = auth.user.unwrap();
+    let update_post = payload.into_inner().0.into_update_post(user.id);
 
-//     match Post::update(&state.db_pool, post_id, update_post).await {
-//         Ok(post) => (StatusCode::OK, Json(json!(post))).into_response(),
-//         Err(err) => (
-//             StatusCode::INTERNAL_SERVER_ERROR,
-//             Json(json!({
-//                 "error": err.to_string(),
-//                 "message": "Failed to update post",
-//             })),
-//         )
-//             .into_response(),
-//     }
-// }
+    match Post::update(&state.db_pool, post_id, update_post).await {
+        Ok(Some(post)) => (StatusCode::OK, Json(json!(post))).into_response(),
+        Ok(None) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": "requested failed",
+                "message": "Post does not exist",
+            })),
+        )
+            .into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": err.to_string(),
+                "message": "Failed to update post",
+            })),
+        )
+            .into_response(),
+    }
+}
 
 // #[debug_handler]
 // pub async fn delete_post(
