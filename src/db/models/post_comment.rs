@@ -79,25 +79,31 @@ impl PostComment {
     pub async fn update(
         pool: &Pool,
         comment_id: i32,
+        filter_user_id: i32,
         update_comment: UpdatePostComment,
-    ) -> Result<Self, DBError> {
+    ) -> Result<Option<Self>, DBError> {
         use crate::db::schema::post_comments::dsl::*;
 
         execute_db_operation(pool, move |conn| {
-            diesel::update(post_comments.filter(id.eq(comment_id)))
+            diesel::update(post_comments.filter(id.eq(comment_id).and(user_id.eq(filter_user_id))))
                 .set(&update_comment)
+                .returning(Self::as_returning())
                 .get_result(conn)
+                .optional()
         })
         .await
     }
 
-    pub async fn delete(pool: &Pool, comment_id: i32) -> Result<(), DBError> {
+    pub async fn delete(
+        pool: &Pool,
+        comment_id: i32,
+        filter_user_id: i32,
+    ) -> Result<usize, DBError> {
         use crate::db::schema::post_comments::dsl::*;
 
         execute_db_operation(pool, move |conn| {
-            diesel::delete(post_comments.filter(id.eq(comment_id)))
+            diesel::delete(post_comments.filter(id.eq(comment_id).and(user_id.eq(filter_user_id))))
                 .execute(conn)
-                .map(|_| ())
         })
         .await
     }

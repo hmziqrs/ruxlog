@@ -123,7 +123,7 @@ pub async fn delete(
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({
                 "error": "unexpected result",
-                "message": "Unexpected number of posts deleted",
+                "message": "Internal server error occurred while deleting post",
             })),
         )
             .into_response(),

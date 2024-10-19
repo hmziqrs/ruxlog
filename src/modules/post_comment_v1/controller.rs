@@ -43,10 +43,19 @@ pub async fn update(
     Path(comment_id): Path<i32>,
     payload: Valid<Json<V1UpdatePostCommentPayload>>,
 ) -> impl IntoResponse {
+    let user = auth.user.unwrap();
     let update_comment = payload.into_inner().0.into_update_post_comment();
 
-    match PostComment::update(&state.db_pool, comment_id, update_comment).await {
-        Ok(comment) => (StatusCode::OK, Json(json!(comment))).into_response(),
+    match PostComment::update(&state.db_pool, comment_id, user.id, update_comment).await {
+        Ok(Some(comment)) => (StatusCode::OK, Json(json!(comment))).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": "request failed",
+                "message": "Comment does not exist",
+            })),
+        )
+            .into_response(),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({
@@ -61,12 +70,30 @@ pub async fn update(
 #[debug_handler]
 pub async fn delete(
     State(state): State<AppState>,
+    auth: AuthSession,
     Path(comment_id): Path<i32>,
 ) -> impl IntoResponse {
-    match PostComment::delete(&state.db_pool, comment_id).await {
-        Ok(_) => (
+    let user = auth.user.unwrap();
+    match PostComment::delete(&state.db_pool, comment_id, user.id).await {
+        Ok(1) => (
             StatusCode::OK,
             Json(json!({ "message": "Comment deleted successfully" })),
+        )
+            .into_response(),
+        Ok(0) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": "request failed",
+                "message": "Comment does not exist",
+            })),
+        )
+            .into_response(),
+        Ok(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": "unexpected result",
+                "message": "Internal server error occurred while deleting comment",
+            })),
         )
             .into_response(),
         Err(err) => (
@@ -150,8 +177,6 @@ pub async fn list_by_post(
     Valid(query): Valid<Query<V1PostCommentQueryParams>>,
 ) -> impl IntoResponse {
     let page = query.page.unwrap_or(1);
-
-    println!("post_id {}", post_id);
 
     match PostComment::list_by_post(&state.db_pool, post_id, page).await {
         Ok((comments, total)) => (
