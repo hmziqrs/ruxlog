@@ -151,6 +151,8 @@ pub async fn list_by_post(
 ) -> impl IntoResponse {
     let page = query.page.unwrap_or(1);
 
+    println!("post_id {}", post_id);
+
     match PostComment::list_by_post(&state.db_pool, post_id, page).await {
         Ok((comments, total)) => (
             StatusCode::OK,

@@ -105,7 +105,7 @@ pub fn router() -> Router<AppState> {
         .nest("/email_verification/v1", email_verification_v1_routes)
         .nest("/forgot_password/v1", forgot_password_v1_routes)
         .nest("/post/v1", post_v1_routes)
-        .nest("/post/comments/v1", post_comment_v1_routes)
+        .nest("/post/comment/v1", post_comment_v1_routes)
         // .nest("/csrf/v1", csrf_v1_routes)
         .layer(TraceLayer::new_for_http())
 }

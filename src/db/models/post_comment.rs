@@ -169,18 +169,18 @@ impl PostComment {
 
     pub async fn list_by_post(
         pool: &Pool,
-        post_id: i32,
+        query_post_id: i32,
         page: i64,
     ) -> Result<(Vec<Self>, i64), DBError> {
         use crate::db::schema::post_comments::dsl::*;
 
         execute_db_operation(pool, move |conn| {
             let total = post_comments
-                .filter(post_id.eq(post_id))
+                .filter(post_id.eq(query_post_id))
                 .count()
                 .get_result(conn)?;
             let items = post_comments
-                .filter(post_id.eq(post_id))
+                .filter(post_id.eq(query_post_id))
                 .order(created_at.desc())
                 .limit(MAX_PER_PAGE)
                 .offset((page - 1) * MAX_PER_PAGE)
