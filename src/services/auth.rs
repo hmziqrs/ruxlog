@@ -1,10 +1,11 @@
 use std::collections::HashSet;
 
-use axum::async_trait;
+use axum::{async_trait, http::StatusCode, response::IntoResponse, Json};
 use axum_login::{AuthUser, AuthnBackend, AuthzBackend, UserId};
 use deadpool_diesel::postgres::Pool;
 use password_auth::verify_password;
 use serde::Deserialize;
+use serde_json::json;
 use tokio::task;
 
 use crate::{
@@ -49,6 +50,9 @@ pub enum AuthError {
 
     #[error("User ID not found")]
     UserNotFound,
+
+    #[error("Unauthorized! access denied")]
+    UnAuthorized,
 }
 
 impl AuthBackend {
@@ -80,8 +84,24 @@ impl AuthzBackend for AuthBackend {
         user: &Self::User,
     ) -> Result<HashSet<Self::Permission>, Self::Error> {
         let permissions = vec![UserRole::from_str(&user.role).unwrap()];
-        println!("{:?}", permissions);
         Ok(permissions.into_iter().collect())
+    }
+
+    async fn has_perm(
+        &self,
+        user: &Self::User,
+        perm: Self::Permission,
+    ) -> Result<bool, Self::Error> {
+        match UserRole::from_str(&user.role) {
+            Ok(user_perm) => {
+                if user_perm.to_i32() >= perm.to_i32() {
+                    Ok(true)
+                } else {
+                    Ok(false)
+                }
+            }
+            Err(_) => Err(AuthError::UnAuthorized),
+        }
     }
 }
 

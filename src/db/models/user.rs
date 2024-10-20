@@ -39,7 +39,16 @@ impl UserRole {
 }
 
 impl UserRole {
-    // Method to convert UserRole to String
+    pub fn to_i32(&self) -> i32 {
+        match self {
+            UserRole::SuperAdmin => 4,
+            UserRole::Admin => 3,
+            UserRole::Moderator => 2,
+            UserRole::Author => 1,
+            UserRole::User => 0,
+        }
+    }
+
     pub fn to_string(&self) -> String {
         match self {
             UserRole::SuperAdmin => "super-admin".to_string(),
