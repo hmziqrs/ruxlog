@@ -35,17 +35,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    users (id) {
-        id -> Int4,
-        name -> Varchar,
-        email -> Varchar,
-        password -> Varchar,
-        avatar -> Nullable<Varchar>,
-        is_verified -> Bool,
-    }
-}
-
-diesel::table! {
     posts (id) {
         id -> Int4,
         title -> Varchar,
@@ -61,6 +50,7 @@ diesel::table! {
         category_id -> Nullable<Int4>,
         view_count -> Int4,
         likes_count -> Int4,
+        tag_ids -> Array<Int4>,
     }
 }
 
@@ -73,6 +63,29 @@ diesel::table! {
         likes_count -> Int4,
         created_at -> Timestamp,
         updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    tags (id) {
+        id -> Int4,
+        name -> Varchar,
+        slug -> Varchar,
+        description -> Nullable<Text>,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+
+    }
+}
+
+diesel::table! {
+    users (id) {
+        id -> Int4,
+        name -> Varchar,
+        email -> Varchar,
+        password -> Varchar,
+        avatar -> Nullable<Varchar>,
+        is_verified -> Bool,
     }
 }
 
@@ -90,4 +103,5 @@ diesel::allow_tables_to_appear_in_same_query!(
     users,
     posts,
     post_comments,
+    tags,
 );

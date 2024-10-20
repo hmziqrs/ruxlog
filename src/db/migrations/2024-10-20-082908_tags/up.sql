@@ -1,0 +1,14 @@
+-- Your SQL goes here
+
+CREATE TABLE tags (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR NOT NULL,
+    slug VARCHAR NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE posts
+ADD COLUMN tag_ids INTEGER[] DEFAULT '{}';
