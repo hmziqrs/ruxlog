@@ -1,11 +1,17 @@
-use axum::async_trait;
-use axum_login::{AuthUser, AuthnBackend, UserId};
+use std::collections::HashSet;
+
+use axum::{async_trait, http::StatusCode, response::IntoResponse, Json};
+use axum_login::{AuthUser, AuthnBackend, AuthzBackend, UserId};
 use deadpool_diesel::postgres::Pool;
 use password_auth::verify_password;
 use serde::Deserialize;
+use serde_json::json;
 use tokio::task;
 
-use crate::{db::models::user::User, modules::auth_v1::validator::V1LoginPayload};
+use crate::{
+    db::models::user::{User, UserRole},
+    modules::auth_v1::validator::V1LoginPayload,
+};
 
 pub type AuthSession = axum_login::AuthSession<AuthBackend>;
 
@@ -19,6 +25,19 @@ impl std::fmt::Debug for AuthBackend {
         f.debug_struct("AuthBackend")
             .field("pool", &"Pool{...}")
             .finish()
+    }
+}
+
+impl IntoResponse for AuthError {
+    fn into_response(self) -> axum::http::Response<axum::body::Body> {
+        let status = match self {
+            AuthError::InvalidPassword => StatusCode::UNAUTHORIZED,
+            AuthError::InternalDBError => StatusCode::INTERNAL_SERVER_ERROR,
+            AuthError::UserNotFound => StatusCode::NOT_FOUND,
+            AuthError::UnAuthorized => StatusCode::UNAUTHORIZED,
+        };
+
+        (status, Json(json!({ "error": self.to_string() }))).into_response()
     }
 }
 
@@ -44,6 +63,9 @@ pub enum AuthError {
 
     #[error("User ID not found")]
     UserNotFound,
+
+    #[error("Unauthorized! access denied")]
+    UnAuthorized,
 }
 
 impl AuthBackend {
@@ -66,10 +88,34 @@ pub enum Credentials {
     // OAuth(OAuthCreds),
 }
 
-// #[derive(Debug, Clone, Deserialize)]
-// pub struct PasswordCreds {
-//     pub email: String,
-//     pub password: String,
+// #[async_trait]
+// impl AuthzBackend for AuthBackend {
+//     type Permission = UserRole;
+
+//     async fn get_user_permissions(
+//         &self,
+//         user: &Self::User,
+//     ) -> Result<HashSet<Self::Permission>, Self::Error> {
+//         let permissions = vec![UserRole::from_str(&user.role).unwrap()];
+//         Ok(permissions.into_iter().collect())
+//     }
+
+//     async fn has_perm(
+//         &self,
+//         user: &Self::User,
+//         perm: Self::Permission,
+//     ) -> Result<bool, Self::Error> {
+//         match UserRole::from_str(&user.role) {
+//             Ok(user_perm) => {
+//                 if user_perm.to_i32() >= perm.to_i32() {
+//                     Ok(true)
+//                 } else {
+//                     Ok(false)
+//                 }
+//             }
+//             Err(_) => Err(AuthError::UnAuthorized),
+//         }
+//     }
 // }
 
 #[async_trait]

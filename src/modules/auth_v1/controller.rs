@@ -69,6 +69,7 @@ pub async fn register(
         name: payload.name.clone(),
         email: payload.email.clone(),
         password: payload.password.clone(),
+        role: "user".to_string(),
     };
     let user = User::create(&state.db_pool, new_user).await;
 
