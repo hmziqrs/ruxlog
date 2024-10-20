@@ -88,35 +88,35 @@ pub enum Credentials {
     // OAuth(OAuthCreds),
 }
 
-#[async_trait]
-impl AuthzBackend for AuthBackend {
-    type Permission = UserRole;
+// #[async_trait]
+// impl AuthzBackend for AuthBackend {
+//     type Permission = UserRole;
 
-    async fn get_user_permissions(
-        &self,
-        user: &Self::User,
-    ) -> Result<HashSet<Self::Permission>, Self::Error> {
-        let permissions = vec![UserRole::from_str(&user.role).unwrap()];
-        Ok(permissions.into_iter().collect())
-    }
+//     async fn get_user_permissions(
+//         &self,
+//         user: &Self::User,
+//     ) -> Result<HashSet<Self::Permission>, Self::Error> {
+//         let permissions = vec![UserRole::from_str(&user.role).unwrap()];
+//         Ok(permissions.into_iter().collect())
+//     }
 
-    async fn has_perm(
-        &self,
-        user: &Self::User,
-        perm: Self::Permission,
-    ) -> Result<bool, Self::Error> {
-        match UserRole::from_str(&user.role) {
-            Ok(user_perm) => {
-                if user_perm.to_i32() >= perm.to_i32() {
-                    Ok(true)
-                } else {
-                    Ok(false)
-                }
-            }
-            Err(_) => Err(AuthError::UnAuthorized),
-        }
-    }
-}
+//     async fn has_perm(
+//         &self,
+//         user: &Self::User,
+//         perm: Self::Permission,
+//     ) -> Result<bool, Self::Error> {
+//         match UserRole::from_str(&user.role) {
+//             Ok(user_perm) => {
+//                 if user_perm.to_i32() >= perm.to_i32() {
+//                     Ok(true)
+//                 } else {
+//                     Ok(false)
+//                 }
+//             }
+//             Err(_) => Err(AuthError::UnAuthorized),
+//         }
+//     }
+// }
 
 #[async_trait]
 impl AuthnBackend for AuthBackend {

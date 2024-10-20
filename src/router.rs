@@ -6,12 +6,12 @@ use axum::{
     routing::{self, get, post, put},
     Router,
 };
-use axum_login::{login_required, permission_required, predicate_required};
+use axum_login::{login_required, permission_required};
 use serde_json::json;
 use tower_http::trace::TraceLayer;
 
 use crate::{
-    middlewares::user_status,
+    middlewares::{user_permission, user_status},
     modules::{category_v1, post_v1, tag_v1},
 };
 use crate::{modules::post_comment_v1, services::auth::AuthBackend};
@@ -116,9 +116,10 @@ pub fn router() -> Router<AppState> {
             "/delete/:category_id",
             post(category_v1::controller::delete),
         )
+        .route_layer(middleware::from_fn(user_permission::admin))
         .route_layer(middleware::from_fn(user_status::only_verified))
-        // .route_layer(login_required!(AuthBackend))
-        .route_layer(permission_required!(AuthBackend, "user"));
+        .route_layer(login_required!(AuthBackend));
+    // .route_layer(permission_required!(AuthBackend, "user"));
 
     let tag_v1_routes = Router::new()
         .route("/create", post(tag_v1::controller::create))

@@ -25,6 +25,7 @@ pub async fn only_verified(
     }
     Ok(next.run(request).await)
 }
+
 pub async fn only_unverified(
     auth: AuthSession,
     request: Request,
