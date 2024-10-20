@@ -12,7 +12,7 @@ use tower_http::trace::TraceLayer;
 
 use crate::{
     middlewares::user_status,
-    modules::{category_v1, post_v1},
+    modules::{category_v1, post_v1, tag_v1},
 };
 use crate::{modules::post_comment_v1, services::auth::AuthBackend};
 
@@ -119,6 +119,16 @@ pub fn router() -> Router<AppState> {
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend));
 
+    let tag_v1_routes = Router::new()
+        .route("/create", post(tag_v1::controller::create))
+        .route("/update/:tag_id", post(tag_v1::controller::update))
+        .route("/delete/:tag_id", post(tag_v1::controller::delete))
+        .route("/view/:tag_id", get(tag_v1::controller::find_by_id))
+        .route("/list", get(tag_v1::controller::find_all))
+        .route("/list/query", get(tag_v1::controller::find_with_query))
+        .route_layer(middleware::from_fn(user_status::only_verified))
+        .route_layer(login_required!(AuthBackend));
+
     Router::new()
         .route("/", routing::get(handler))
         .nest("/auth/v1", auth_v1_routes)
@@ -128,6 +138,7 @@ pub fn router() -> Router<AppState> {
         .nest("/post/v1", post_v1_routes)
         .nest("/post/comment/v1", post_comment_v1_routes)
         .nest("/category/v1", category_v1_routes)
+        .nest("/tag/v1", tag_v1_routes)
         .layer(TraceLayer::new_for_http())
 }
 
