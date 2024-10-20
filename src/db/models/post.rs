@@ -34,6 +34,7 @@ pub struct Post {
     pub category_id: Option<i32>,
     pub view_count: i32,
     pub likes_count: i32,
+    pub tag_ids: Vec<i32>,
 }
 
 #[derive(Insertable, Deserialize, Debug)]
@@ -50,6 +51,7 @@ pub struct NewPost {
     pub category_id: Option<i32>,
     pub view_count: i32,
     pub likes_count: i32,
+    pub tag_ids: Vec<i32>,
 }
 
 #[derive(AsChangeset, Deserialize, Debug)]
@@ -67,6 +69,7 @@ pub struct UpdatePost {
     pub category_id: Option<Option<i32>>,
     pub view_count: Option<i32>,
     pub likes_count: Option<i32>,
+    pub tag_ids: Option<Vec<i32>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
