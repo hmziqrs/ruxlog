@@ -10,10 +10,8 @@ use axum_macros::debug_handler;
 use serde_json::json;
 
 use crate::{
-    db::models::post::{Post, PostQuery},
-    modules::post_v1::validator::V1UpdatePostPayload,
-    services::auth::AuthSession,
-    AppState,
+    db::models::post::Post, modules::post_v1::validator::V1UpdatePostPayload,
+    services::auth::AuthSession, AppState,
 };
 
 use super::validator::{V1CreatePostPayload, V1PostQueryParams};

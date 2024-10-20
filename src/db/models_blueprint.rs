@@ -8,6 +8,19 @@ use chrono::NaiveDateTime;
 use chrono::DateTime;
 use chrono::offset::Utc;
 #[derive(Queryable, Identifiable, Selectable, Debug, PartialEq)]
+pub struct Category {
+    pub id: i32,
+    pub name: String,
+    pub slug: String,
+    pub parent_id: Option<i32>,
+    pub description: Option<String>,
+    pub cover_image: Option<String>,
+    pub logo_image: Option<String>,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+}
+
+#[derive(Queryable, Identifiable, Selectable, Debug, PartialEq)]
 pub struct EmailVerification {
     pub id: i32,
     pub user_id: i32,
