@@ -1,11 +1,16 @@
+use std::collections::HashSet;
+
 use axum::async_trait;
-use axum_login::{AuthUser, AuthnBackend, UserId};
+use axum_login::{AuthUser, AuthnBackend, AuthzBackend, UserId};
 use deadpool_diesel::postgres::Pool;
 use password_auth::verify_password;
 use serde::Deserialize;
 use tokio::task;
 
-use crate::{db::models::user::User, modules::auth_v1::validator::V1LoginPayload};
+use crate::{
+    db::models::user::{User, UserRole},
+    modules::auth_v1::validator::V1LoginPayload,
+};
 
 pub type AuthSession = axum_login::AuthSession<AuthBackend>;
 
@@ -66,11 +71,18 @@ pub enum Credentials {
     // OAuth(OAuthCreds),
 }
 
-// #[derive(Debug, Clone, Deserialize)]
-// pub struct PasswordCreds {
-//     pub email: String,
-//     pub password: String,
-// }
+#[async_trait]
+impl AuthzBackend for AuthBackend {
+    type Permission = UserRole;
+
+    async fn get_user_permissions(
+        &self,
+        user: &Self::User,
+    ) -> Result<HashSet<Self::Permission>, Self::Error> {
+        let permissions = vec![user.role];
+        Ok(permissions.into_iter().collect())
+    }
+}
 
 #[async_trait]
 impl AuthnBackend for AuthBackend {

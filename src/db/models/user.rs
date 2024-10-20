@@ -1,6 +1,8 @@
 #![allow(unused)]
 #![allow(clippy::all)]
 
+use std::str::FromStr;
+
 use axum::{http::StatusCode, Json};
 use deadpool_diesel::postgres::Pool;
 use diesel::prelude::*;
@@ -13,6 +15,54 @@ use crate::db::{
     schema::{self},
     utils::{combine_errors, execute_db_operation},
 };
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum UserRole {
+    SuperAdmin,
+    Admin,
+    Moderator,
+    Author,
+    User,
+}
+
+impl UserRole {
+    // Method to convert UserRole to String
+    pub fn to_string(&self) -> String {
+        match self {
+            UserRole::SuperAdmin => "super-admin".to_string(),
+            UserRole::Admin => "admin".to_string(),
+            UserRole::Moderator => "moderator".to_string(),
+            UserRole::Author => "author".to_string(),
+            UserRole::User => "user".to_string(),
+        }
+    }
+}
+
+impl FromStr for UserRole {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "super-admin" => Ok(UserRole::SuperAdmin),
+            "admin" => Ok(UserRole::Admin),
+            "moderator" => Ok(UserRole::Moderator),
+            "author" => Ok(UserRole::Author),
+            "user" => Ok(UserRole::User),
+            _ => Err(format!("Invalid role: {}", s)),
+        }
+    }
+}
+
+impl From<UserRole> for i32 {
+    fn from(role: UserRole) -> Self {
+        match role {
+            UserRole::SuperAdmin => 4,
+            UserRole::Admin => 3,
+            UserRole::Moderator => 2,
+            UserRole::Author => 1,
+            UserRole::User => 0,
+        }
+    }
+}
 
 #[derive(Queryable, Clone, Debug, Selectable, Identifiable, Serialize, PartialEq)]
 #[diesel(table_name = schema::users)]
@@ -24,6 +74,7 @@ pub struct User {
     pub password: String,
     pub avatar: Option<String>,
     pub is_verified: bool,
+    pub role: UserRole,
 }
 
 #[derive(Insertable, Deserialize, Debug)]

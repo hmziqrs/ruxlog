@@ -6,7 +6,7 @@ use axum::{
     routing::{self, get, post, put},
     Router,
 };
-use axum_login::login_required;
+use axum_login::{login_required, permission_required};
 use serde_json::json;
 use tower_http::trace::TraceLayer;
 
@@ -117,7 +117,8 @@ pub fn router() -> Router<AppState> {
             post(category_v1::controller::delete),
         )
         .route_layer(middleware::from_fn(user_status::only_verified))
-        .route_layer(login_required!(AuthBackend));
+        .route_layer(login_required!(AuthBackend))
+        .route_layer(permission_required!(AuthBackend, "manage_categories"));
 
     let tag_v1_routes = Router::new()
         .route("/create", post(tag_v1::controller::create))
