@@ -86,7 +86,7 @@ impl EmailVerification {
 
         let email = diesel::insert_into(email_verifications)
             .values(&new_verification)
-            .returning(EmailVerification::as_returning())
+            .returning(Self::as_returning())
             .get_result(conn)?;
 
         Ok(email)
