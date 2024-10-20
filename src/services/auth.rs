@@ -79,7 +79,8 @@ impl AuthzBackend for AuthBackend {
         &self,
         user: &Self::User,
     ) -> Result<HashSet<Self::Permission>, Self::Error> {
-        let permissions = vec![user.role];
+        let permissions = vec![UserRole::from_str(&user.role).unwrap()];
+        println!("{:?}", permissions);
         Ok(permissions.into_iter().collect())
     }
 }
