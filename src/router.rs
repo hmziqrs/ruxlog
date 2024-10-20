@@ -6,7 +6,7 @@ use axum::{
     routing::{self, get, post, put},
     Router,
 };
-use axum_login::{login_required, permission_required};
+use axum_login::{login_required, permission_required, predicate_required};
 use serde_json::json;
 use tower_http::trace::TraceLayer;
 

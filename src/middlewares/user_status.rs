@@ -71,3 +71,29 @@ pub async fn only_authenticated(
     }
     Ok(next.run(request).await)
 }
+
+// pub fn has_permission(
+//     required_permission: String,
+// ) -> impl Fn(AuthSession, Request, Next) -> impl Future<Output = Result<Response, Response>> {
+//     move |auth: AuthSession, request: Request, next: Next| async move {
+//         let perm = UserRole::from_str(&required_permission).unwrap().to_i32();
+//         if let Some(user) = auth.user {
+//             let user_perm = UserRole::from_str(&user.role).unwrap().to_i32();
+//             if user_perm >= perm {
+//                 Ok(next.run(request).await)
+//             } else {
+//                 Ok((
+//                     StatusCode::FORBIDDEN,
+//                     Json(json!({"message": "Permission denied"})),
+//                 )
+//                     .into_response())
+//             }
+//         } else {
+//             Ok((
+//                 StatusCode::UNAUTHORIZED,
+//                 Json(json!({"message": "Authentication required"})),
+//             )
+//                 .into_response())
+//         }
+//     }
+// }

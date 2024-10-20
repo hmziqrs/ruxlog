@@ -28,6 +28,19 @@ impl std::fmt::Debug for AuthBackend {
     }
 }
 
+impl IntoResponse for AuthError {
+    fn into_response(self) -> axum::http::Response<axum::body::Body> {
+        let status = match self {
+            AuthError::InvalidPassword => StatusCode::UNAUTHORIZED,
+            AuthError::InternalDBError => StatusCode::INTERNAL_SERVER_ERROR,
+            AuthError::UserNotFound => StatusCode::NOT_FOUND,
+            AuthError::UnAuthorized => StatusCode::UNAUTHORIZED,
+        };
+
+        (status, Json(json!({ "error": self.to_string() }))).into_response()
+    }
+}
+
 impl AuthUser for User {
     type Id = i32;
 
