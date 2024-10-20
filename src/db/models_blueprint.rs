@@ -39,16 +39,6 @@ pub struct ForgotPassword {
 }
 
 #[derive(Queryable, Identifiable, Selectable, Debug, PartialEq)]
-pub struct User {
-    pub id: i32,
-    pub name: String,
-    pub email: String,
-    pub password: String,
-    pub avatar: Option<String>,
-    pub is_verified: bool,
-}
-
-#[derive(Queryable, Identifiable, Selectable, Debug, PartialEq)]
 pub struct Post {
     pub id: i32,
     pub title: String,
@@ -64,6 +54,7 @@ pub struct Post {
     pub category_id: Option<i32>,
     pub view_count: i32,
     pub likes_count: i32,
+    pub tag_ids: Vec<i32>,
 }
 
 #[derive(Queryable, Identifiable, Selectable, Debug, PartialEq)]
@@ -75,5 +66,25 @@ pub struct PostComment {
     pub likes_count: i32,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
+}
+
+#[derive(Queryable, Identifiable, Selectable, Debug, PartialEq)]
+pub struct Tag {
+    pub id: i32,
+    pub name: String,
+    pub slug: String,
+    pub description: Option<String>,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+}
+
+#[derive(Queryable, Identifiable, Selectable, Debug, PartialEq)]
+pub struct User {
+    pub id: i32,
+    pub name: String,
+    pub email: String,
+    pub password: String,
+    pub avatar: Option<String>,
+    pub is_verified: bool,
 }
 

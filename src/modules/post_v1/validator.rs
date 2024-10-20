@@ -20,6 +20,8 @@ pub struct V1CreatePostPayload {
     pub excerpt: Option<String>,
     pub featured_image_url: Option<String>,
     pub category_id: Option<i32>,
+    #[serde(default = "Vec::new")]
+    pub tag_ids: Vec<i32>,
 }
 
 impl V1CreatePostPayload {
@@ -36,6 +38,7 @@ impl V1CreatePostPayload {
             category_id: self.category_id,
             view_count: 0,
             likes_count: 0,
+            tag_ids: self.tag_ids,
         }
     }
 }
@@ -54,6 +57,7 @@ pub struct V1UpdatePostPayload {
     pub excerpt: Option<Option<String>>,
     pub featured_image_url: Option<Option<String>>,
     pub category_id: Option<Option<i32>>,
+    pub tag_ids: Option<Vec<i32>>,
 }
 
 impl V1UpdatePostPayload {
@@ -71,6 +75,7 @@ impl V1UpdatePostPayload {
             category_id: self.category_id,
             view_count: None,
             likes_count: None,
+            tag_ids: self.tag_ids,
         }
     }
 }
