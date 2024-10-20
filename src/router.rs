@@ -10,7 +10,10 @@ use axum_login::login_required;
 use serde_json::json;
 use tower_http::trace::TraceLayer;
 
-use crate::{middlewares::user_status, modules::post_v1};
+use crate::{
+    middlewares::user_status,
+    modules::{category_v1, post_v1},
+};
 use crate::{modules::post_comment_v1, services::auth::AuthBackend};
 
 use super::{
@@ -98,6 +101,24 @@ pub fn router() -> Router<AppState> {
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend));
 
+    let category_v1_routes = Router::new()
+        .route("/create", post(category_v1::controller::create))
+        .route(
+            "/view/:category_id",
+            get(category_v1::controller::get_category_by_id),
+        )
+        .route("/list", get(category_v1::controller::get_categories))
+        .route(
+            "/update/:category_id",
+            post(category_v1::controller::update),
+        )
+        .route(
+            "/delete/:category_id",
+            post(category_v1::controller::delete),
+        )
+        .route_layer(middleware::from_fn(user_status::only_verified))
+        .route_layer(login_required!(AuthBackend));
+
     Router::new()
         .route("/", routing::get(handler))
         .nest("/auth/v1", auth_v1_routes)
@@ -106,7 +127,7 @@ pub fn router() -> Router<AppState> {
         .nest("/forgot_password/v1", forgot_password_v1_routes)
         .nest("/post/v1", post_v1_routes)
         .nest("/post/comment/v1", post_comment_v1_routes)
-        // .nest("/csrf/v1", csrf_v1_routes)
+        .nest("/category/v1", category_v1_routes)
         .layer(TraceLayer::new_for_http())
 }
 

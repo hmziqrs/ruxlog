@@ -8,7 +8,7 @@ use axum_macros::debug_handler;
 use axum_valid::Valid;
 use serde_json::json;
 
-use crate::{db::models::category::Category, services::auth::AuthSession, AppState};
+use crate::{db::models::category::Category, AppState};
 
 use super::validator::{V1CategoryQueryParams, V1CreateCategoryPayload, V1UpdateCategoryPayload};
 
