@@ -7,7 +7,7 @@ pub mod services;
 pub mod state;
 
 use axum::{
-    http::{HeaderValue, StatusCode},
+    http::{HeaderName, HeaderValue, StatusCode},
     middleware,
     response::IntoResponse,
     routing, Json,
@@ -19,7 +19,11 @@ use serde_json::json;
 use std::{env, net::SocketAddr, sync::Arc, time::Duration};
 use time;
 use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
-use tower_http::{compression::CompressionLayer, cors::CorsLayer, limit::RequestBodyLimitLayer};
+use tower_http::{
+    compression::CompressionLayer,
+    cors::{AllowHeaders, CorsLayer},
+    limit::RequestBodyLimitLayer,
+};
 
 // use axum_csrf::{CsrfConfig, CsrfLayer, Key as CsrfKey};
 use axum_extra::extract::cookie::SameSite;
@@ -82,10 +86,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_private(cookie_key);
     let compression = CompressionLayer::new();
     let cors = CorsLayer::new()
-        .allow_origin("*".parse::<HeaderValue>()?)
+        .allow_methods([
+            axum::http::Method::GET,
+            axum::http::Method::POST,
+            axum::http::Method::PUT,
+            axum::http::Method::DELETE,
+            axum::http::Method::OPTIONS,
+        ])
+        .allow_headers(vec![
+            HeaderName::from_static("csrf-token"),
+            axum::http::header::ACCEPT,
+            axum::http::header::CONTENT_TYPE,
+            axum::http::header::ACCEPT_ENCODING,
+            axum::http::header::CONTENT_ENCODING,
+        ])
+        // .allow_headers(tower_http::cors::Any)
+        // .expose_headers(tower_http::cors::Any)
+        // .allow_origin(tower_http::cors::Any)
+        .allow_origin("http://127.0.0.1:3000".parse::<HeaderValue>()?)
+        .allow_origin("http://localhost:3000".parse::<HeaderValue>()?)
+        .allow_credentials(true)
+        // .allow_headers()
+        // .allow_origin("*".parse::<HeaderValue>()?)
         // .allow_credentials(true)
         // .allow_origin("http://localhost:8000".parse::<HeaderValue>()?)
-        .max_age(Duration::from_secs(3600));
+        .max_age(Duration::from_secs(360));
     let request_size = RequestBodyLimitLayer::new(1024 * 512);
     let governor_conf = Arc::new(
         GovernorConfigBuilder::default()
@@ -121,13 +146,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             config: governor_conf,
         })
         .layer(compression)
-        .layer(cors)
         .layer(request_size)
         .layer(middleware::from_fn(middlewares::static_csrf::csrf_gaurd))
         .route(
             "/csrf/v1/generate",
             routing::post(csrf_v1::controller::generate),
         )
+        .layer(cors)
         .with_state(state);
 
     let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
