@@ -94,6 +94,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_expiry(Expiry::OnInactivity(time::Duration::hours(24)))
         .with_same_site(SameSite::Lax)
         .with_secure(true)
+        .with_http_only(false)
         // .with_http_only(true)
         .with_private(cookie_key);
     let compression = CompressionLayer::new();
