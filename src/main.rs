@@ -21,7 +21,7 @@ use time;
 use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tower_http::{
     compression::CompressionLayer,
-    cors::{AllowHeaders, CorsLayer},
+    cors::{AllowHeaders, AllowOrigin, CorsLayer},
     limit::RequestBodyLimitLayer,
 };
 
@@ -51,6 +51,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_thread_ids(true)
         .with_thread_names(true)
         .init();
+
+    let allowed_origins = [
+        "http://127.0.0.1:3000",
+        "http://localhost:3000",
+        "https://yourdomain.com",
+        "https://subdomain1.yourdomain.com",
+        "https://subdomain2.yourdomain.com",
+    ]
+    .iter()
+    // .join(", ")
+    .map(|origin| origin.parse::<HeaderValue>().unwrap());
 
     let cookie_key_str = env::var("COOKIE_KEY").expect("COOKIE_KEY must be set");
     // let csrf_key_str = env::var("CSRF_KEY").expect("CSRF_KEY must be set");
@@ -104,8 +115,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // .allow_headers(tower_http::cors::Any)
         // .expose_headers(tower_http::cors::Any)
         // .allow_origin(tower_http::cors::Any)
-        .allow_origin("http://127.0.0.1:3000".parse::<HeaderValue>()?)
         // .allow_origin("http://localhost:3000".parse::<HeaderValue>()?)
+        // .allow_origin(allowed_origins)
+        .allow_origin(AllowOrigin::list(allowed_origins))
+        // .allow_origin("http://127.0.0.1:3000".parse::<HeaderValue>()?)
         .allow_credentials(true)
         // .allow_headers()
         // .allow_origin("*".parse::<HeaderValue>()?)
