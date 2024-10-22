@@ -81,8 +81,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let session_layer = SessionManagerLayer::new(session_store)
         .with_expiry(Expiry::OnInactivity(time::Duration::hours(24)))
-        .with_same_site(SameSite::Strict)
+        .with_same_site(SameSite::Lax)
         .with_secure(true)
+        // .with_http_only(true)
         .with_private(cookie_key);
     let compression = CompressionLayer::new();
     let cors = CorsLayer::new()
@@ -104,7 +105,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // .expose_headers(tower_http::cors::Any)
         // .allow_origin(tower_http::cors::Any)
         .allow_origin("http://127.0.0.1:3000".parse::<HeaderValue>()?)
-        .allow_origin("http://localhost:3000".parse::<HeaderValue>()?)
+        // .allow_origin("http://localhost:3000".parse::<HeaderValue>()?)
         .allow_credentials(true)
         // .allow_headers()
         // .allow_origin("*".parse::<HeaderValue>()?)
