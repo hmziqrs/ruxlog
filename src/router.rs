@@ -6,7 +6,7 @@ use axum::{
     routing::{self, get, post, put},
     Router,
 };
-use axum_login::{login_required, permission_required};
+use axum_login::login_required;
 use serde_json::json;
 use tower_http::trace::TraceLayer;
 
@@ -65,7 +65,7 @@ pub fn router() -> Router<AppState> {
             post(post_v1::controller::find_by_id_or_slug),
         )
         .route(
-            "/view/published",
+            "/list/published",
             post(post_v1::controller::find_published_posts),
         )
         .route_layer(middleware::from_fn(user_status::only_verified))
