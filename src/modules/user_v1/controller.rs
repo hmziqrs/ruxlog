@@ -14,7 +14,7 @@ use crate::{
 #[debug_handler]
 pub async fn get_profile(auth: AuthSession) -> impl IntoResponse {
     match auth.user {
-        Some(user) => (StatusCode::OK, Json(json!({"data": user}))).into_response(),
+        Some(user) => (StatusCode::OK, Json(user)).into_response(),
         None => (
             StatusCode::NOT_FOUND,
             Json(json!({
