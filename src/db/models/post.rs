@@ -7,9 +7,9 @@ use super::{category::Category, tag::Tag, user::User};
 use axum::{http::StatusCode, Json};
 use chrono::{Duration, NaiveDateTime, Utc};
 use deadpool_diesel::postgres::Pool;
-use diesel::prelude::*;
 use diesel::query_dsl::methods::FindDsl;
 use diesel::QueryDsl;
+use diesel::{debug_query, prelude::*};
 use rand::{distributions::Alphanumeric, Rng};
 use serde::{Deserialize, Serialize};
 use tokio::task;
@@ -169,7 +169,6 @@ impl Post {
         query: PostQuery,
     ) -> Result<Vec<PostWithRelations>, DBError> {
         use crate::db::schema::{categories, posts, tags, users};
-        use diesel::dsl::any;
 
         execute_db_operation(pool, move |conn| {
             let mut query_builder = posts::table
@@ -242,7 +241,7 @@ impl Post {
 
             let tags_map: HashMap<i32, Tag> = if !all_tag_ids.is_empty() {
                 tags::table
-                    .filter(tags::id.eq(any(all_tag_ids)))
+                    .filter(tags::dsl::id.eq_any(all_tag_ids))
                     .load::<Tag>(conn)?
                     .into_iter()
                     .map(|tag| (tag.id, tag))
@@ -250,6 +249,8 @@ impl Post {
             } else {
                 HashMap::new()
             };
+
+            println!("{:?}", tags_map);
 
             // Transform the results into PostWithRelations
             let posts_with_relations = results
