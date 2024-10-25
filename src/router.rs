@@ -68,6 +68,10 @@ pub fn router() -> Router<AppState> {
             "/list/published",
             post(post_v1::controller::find_published_posts),
         )
+        .route(
+            "/list/query",
+            post(post_v1::controller::find_posts_with_query),
+        )
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend));
 

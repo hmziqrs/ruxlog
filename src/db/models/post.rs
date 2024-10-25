@@ -91,6 +91,7 @@ pub struct PostQuery {
     pub search: Option<String>,
     pub sort_by: Option<PostSortBy>,
     pub sort_order: Option<String>,
+    pub tag_ids: Option<Vec<i32>>,
 }
 
 const PER_PAGE: i64 = 12;
@@ -140,6 +141,8 @@ impl Post {
         use diesel::dsl::{count, sql};
         use diesel::sql_types::Bool;
 
+        println!("{:?}", query.tag_ids);
+
         execute_db_operation(
             pool,
             move |conn| -> Result<Vec<Post>, diesel::result::Error> {
@@ -164,6 +167,12 @@ impl Post {
                     );
                 }
 
+                if let Some(tag_ids_filter) = query.tag_ids {
+                    if !tag_ids_filter.is_empty() {
+                        query_builder = query_builder.filter(tag_ids.overlaps_with(tag_ids_filter));
+                    }
+                }
+
                 query_builder = match query.sort_by {
                     Some(PostSortBy::Title) => query_builder.order(title.asc()),
                     Some(PostSortBy::UpdatedAt) => query_builder.order(updated_at.desc()),
@@ -181,12 +190,9 @@ impl Post {
                     _ => query_builder.then_order_by(id.desc()),
                 };
 
-                // Apply pagination
-                if let Some(page_no) = query.page_no {
-                    query_builder = query_builder
-                        .limit(PER_PAGE)
-                        .offset((page_no - 1) * PER_PAGE);
-                }
+                query_builder = query_builder
+                    .limit(PER_PAGE)
+                    .offset((query.page_no.unwrap_or(1) - 1) * PER_PAGE);
 
                 // Execute query
                 let items = query_builder.load::<Post>(conn)?;

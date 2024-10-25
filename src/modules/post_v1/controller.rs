@@ -151,33 +151,25 @@ pub async fn delete(
 //     }
 // }
 
-// #[debug_handler]
-// pub async fn find_posts_with_query(
-//     State(state): State<AppState>,
-//     Valid(query): Valid<Query<V1PostQueryParams>>,
-// ) -> impl IntoResponse {
-//     let post_query = PostQuery {
-//         page_no: query.page,
-//         author_id: query.author_id,
-//         category_id: query.category_id,
-//         is_published: query.is_published,
-//         search: query.search,
-//         sort_by: query.sort_by,
-//         sort_order: query.sort_order,
-//     };
+#[debug_handler]
+pub async fn find_posts_with_query(
+    State(state): State<AppState>,
+    query: Valid<Json<V1PostQueryParams>>,
+) -> impl IntoResponse {
+    let post_query = query.into_inner().0.into_post_query();
 
-//     match Post::find_posts_with_query(&state.db_pool, post_query).await {
-//         Ok(posts) => (StatusCode::OK, Json(json!(posts))).into_response(),
-//         Err(err) => (
-//             StatusCode::INTERNAL_SERVER_ERROR,
-//             Json(json!({
-//                 "error": err.to_string(),
-//                 "message": "Failed to fetch posts",
-//             })),
-//         )
-//             .into_response(),
-//     }
-// }
+    match Post::find_posts_with_query(&state.db_pool, post_query).await {
+        Ok(posts) => (StatusCode::OK, Json(json!(posts))).into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": err.to_string(),
+                "message": "Failed to fetch posts",
+            })),
+        )
+            .into_response(),
+    }
+}
 
 // #[debug_handler]
 // pub async fn find_paginated_posts(
