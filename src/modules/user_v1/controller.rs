@@ -40,6 +40,7 @@ pub async fn update_profile(
             UpdateUser {
                 name: payload.name.clone(),
                 email: payload.email.clone(),
+                updated_at: chrono::Utc::now().naive_utc(),
             },
         )
         .await;

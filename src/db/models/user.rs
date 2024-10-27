@@ -1,12 +1,12 @@
 #![allow(unused)]
 #![allow(clippy::all)]
 
-use std::str::FromStr;
-
 use axum::{http::StatusCode, Json};
+use chrono::NaiveDateTime;
 use deadpool_diesel::postgres::Pool;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use tokio::task;
 
 use crate::db::{
@@ -104,6 +104,8 @@ pub struct User {
     pub avatar: Option<String>,
     pub is_verified: bool,
     pub role: String,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 }
 
 #[derive(Insertable, Deserialize, Debug)]
@@ -120,19 +122,37 @@ pub struct NewUser {
 pub struct UpdateUser {
     pub name: Option<String>,
     pub email: Option<String>,
+    pub updated_at: NaiveDateTime,
 }
 
 #[derive(Deserialize, Debug, Insertable, AsChangeset)]
 #[diesel(table_name = schema::users)]
 pub struct ChangePasswordUser {
     pub password: String,
+    pub updated_at: NaiveDateTime,
 }
 
 #[derive(Deserialize, Debug, Insertable, AsChangeset)]
 #[diesel(table_name = schema::users)]
 pub struct VerifiedUser {
     is_verified: bool,
+    updated_at: NaiveDateTime,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct AdminUserQuery {
+    pub page_no: Option<i64>,
+    pub email: Option<String>,
+    pub name: Option<String>,
+    pub role: Option<String>,
+    pub status: Option<bool>,
+    pub created_at: Option<NaiveDateTime>,
+    pub updated_at: Option<NaiveDateTime>,
+    pub sort_by: Option<Vec<String>>,
+    pub sort_order: Option<String>,
+}
+
+const ADMIN_PER_PAGE: i64 = 20;
 
 impl User {
     pub async fn find_by_id(pool: &Pool, user_id: i32) -> Result<Option<Self>, DBError> {
@@ -222,7 +242,10 @@ impl User {
             .await
             .map_err(|_| DBError::PasswordHashError)?;
 
-        let payload = ChangePasswordUser { password: hash };
+        let payload = ChangePasswordUser {
+            password: hash,
+            updated_at: chrono::Utc::now().naive_utc(),
+        };
 
         execute_db_operation(pool, move |conn| {
             conn.transaction(|conn| {
@@ -243,7 +266,10 @@ impl User {
 
         execute_db_operation(pool, move |conn| {
             diesel::update(users.filter(id.eq(user_id)))
-                .set(VerifiedUser { is_verified: true })
+                .set(VerifiedUser {
+                    is_verified: true,
+                    updated_at: chrono::Utc::now().naive_utc(),
+                })
                 .returning(User::as_returning())
                 .get_result(conn)
         })
@@ -272,5 +298,132 @@ impl User {
 
     pub fn is_super_admin(&self) -> bool {
         self.get_role().to_i32() >= UserRole::SuperAdmin.to_i32()
+    }
+
+    pub async fn admin_create(pool: &Pool, new_user: NewUser) -> Result<Self, DBError> {
+        use crate::db::schema::users::dsl::*;
+        let pass = new_user.password.clone();
+        let hash = task::spawn_blocking(move || password_auth::generate_hash(pass))
+            .await
+            .map_err(|_| DBError::PasswordHashError)?;
+
+        let new_user = NewUser {
+            password: hash,
+            ..new_user
+        };
+
+        execute_db_operation(pool, move |conn| {
+            diesel::insert_into(users)
+                .values(&new_user)
+                .returning(User::as_returning())
+                .get_result(conn)
+        })
+        .await
+    }
+
+    pub async fn admin_delete(pool: &Pool, user_id: i32) -> Result<usize, DBError> {
+        use crate::db::schema::users::dsl::*;
+
+        execute_db_operation(pool, move |conn| {
+            diesel::delete(users.filter(id.eq(user_id))).execute(conn)
+        })
+        .await
+    }
+
+    pub async fn admin_update(
+        pool: &Pool,
+        user_id: i32,
+        payload: UpdateUser,
+    ) -> Result<Self, DBError> {
+        use crate::db::schema::users::dsl::*;
+
+        execute_db_operation(pool, move |conn| {
+            diesel::update(users.filter(id.eq(user_id)))
+                .set(&payload)
+                .returning(User::as_returning())
+                .get_result(conn)
+        })
+        .await
+    }
+
+    pub async fn admin_change_password(
+        pool: &Pool,
+        user_id: i32,
+        new_password: String,
+    ) -> Result<(), DBError> {
+        use crate::db::schema::users::dsl::*;
+
+        let hash = task::spawn_blocking(move || password_auth::generate_hash(new_password))
+            .await
+            .map_err(|_| DBError::PasswordHashError)?;
+
+        let payload = ChangePasswordUser {
+            password: hash,
+            updated_at: chrono::Utc::now().naive_utc(),
+        };
+
+        execute_db_operation(pool, move |conn| {
+            diesel::update(users.filter(id.eq(user_id)))
+                .set(&payload)
+                .execute(conn)
+        })
+        .await
+        .map(|_| ())
+    }
+
+    pub async fn admin_list(pool: &Pool, query: AdminUserQuery) -> Result<Vec<Self>, DBError> {
+        use crate::db::schema::users::dsl::*;
+
+        execute_db_operation(pool, move |conn| {
+            let mut query_builder = users.into_boxed();
+
+            if let Some(email_filter) = query.email {
+                query_builder = query_builder.filter(email.ilike(format!("%{}%", email_filter)));
+            }
+            if let Some(name_filter) = query.name {
+                query_builder = query_builder.filter(name.ilike(format!("%{}%", name_filter)));
+            }
+            if let Some(role_filter) = query.role {
+                query_builder = query_builder.filter(role.eq(role_filter));
+            }
+            if let Some(status_filter) = query.status {
+                query_builder = query_builder.filter(is_verified.eq(status_filter));
+            }
+            if let Some(created_at_filter) = query.created_at {
+                query_builder = query_builder.filter(created_at.eq(created_at_filter));
+            }
+            if let Some(updated_at_filter) = query.updated_at {
+                query_builder = query_builder.filter(updated_at.eq(updated_at_filter));
+            }
+
+            if let Some(sort_by_fields) = query.sort_by {
+                for field in sort_by_fields {
+                    query_builder = match field.as_str() {
+                        "email" => query_builder.then_order_by(email.asc()),
+                        "name" => query_builder.then_order_by(name.asc()),
+                        "role" => query_builder.then_order_by(role.asc()),
+                        "status" => query_builder.then_order_by(is_verified.asc()),
+                        "created_at" => query_builder.then_order_by(created_at.asc()),
+                        "updated_at" => query_builder.then_order_by(updated_at.asc()),
+                        _ => query_builder,
+                    };
+                }
+            }
+
+            query_builder = match query.sort_order.as_deref() {
+                Some("asc") => query_builder.then_order_by(id.asc()),
+                _ => query_builder.then_order_by(id.desc()),
+            };
+
+            let page = query.page_no.unwrap_or(1);
+            // let total = query_builder.count().get_result(conn)?;
+            let items = query_builder
+                .limit(ADMIN_PER_PAGE)
+                .offset((page - 1) * ADMIN_PER_PAGE)
+                .load::<User>(conn)?;
+
+            Ok(items)
+        })
+        .await
     }
 }
