@@ -126,7 +126,7 @@ pub struct PostQuery {
     pub tag_ids: Option<Vec<i32>>,
 }
 
-const PER_PAGE: i64 = 12;
+const PER_PAGE: i64 = 16;
 
 impl Post {
     pub async fn find_by_id_or_slug(
