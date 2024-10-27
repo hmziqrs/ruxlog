@@ -129,37 +129,77 @@ pub struct PostQuery {
 const PER_PAGE: i64 = 12;
 
 impl Post {
-    pub async fn find_by_id(pool: &Pool, post_id: i32) -> Result<Option<Self>, DBError> {
+    pub async fn find_by_id_or_slug(
+        pool: &Pool,
+        post_id: Option<i32>,
+        post_slug: Option<String>,
+    ) -> Result<Option<PostWithRelations>, DBError> {
         use crate::db::schema::posts::dsl::*;
+        use crate::db::schema::{categories, posts, tags, users};
 
         execute_db_operation(pool, move |conn| {
-            posts
-                .filter(id.eq(post_id))
-                .first::<Post>(conn)
-                .optional()
-                .map_err(Into::into)
-        })
-        .await
-    }
+            let mut query_builder = posts::table
+                .left_join(categories::table)
+                .inner_join(users::table)
+                .into_boxed();
 
-    pub async fn find_by_slug(pool: &Pool, post_slug: String) -> Result<Option<Self>, DBError> {
-        use crate::db::schema::posts::dsl::*;
+            query_builder = match (post_id, post_slug) {
+                (Some(post_id), _) => query_builder.filter(posts::dsl::id.eq(post_id)),
+                (_, Some(post_slug)) => query_builder.filter(posts::dsl::slug.eq(post_slug)),
+                _ => return Ok(None),
+            };
 
-        execute_db_operation(pool, move |conn| {
-            posts
-                .filter(slug.eq(post_slug))
-                .first::<Post>(conn)
-                .optional()
-                .map_err(Into::into)
-        })
-        .await
-    }
+            let result: Option<(Post, Option<Category>, User)> = query_builder
+                .select((
+                    Post::as_select(),
+                    Option::<Category>::as_select(),
+                    User::as_select(),
+                ))
+                .first(conn)
+                .optional()?;
 
-    pub async fn find_all(pool: &Pool) -> Result<Vec<Self>, DBError> {
-        use crate::db::schema::posts::dsl::*;
+            if let Some((post, category, author)) = result {
+                // Get all relevant tags
+                let tags_map: HashMap<i32, Tag> = if !post.tag_ids.is_empty() {
+                    tags::table
+                        .filter(tags::dsl::id.eq_any(&post.tag_ids))
+                        .load::<Tag>(conn)?
+                        .into_iter()
+                        .map(|tag| (tag.id, tag))
+                        .collect()
+                } else {
+                    HashMap::new()
+                };
 
-        execute_db_operation(pool, move |conn| {
-            posts.load::<Post>(conn).map_err(Into::into)
+                // Transform the result into PostWithRelations
+                let post_with_relations = PostWithRelations {
+                    post: post.clone(),
+                    category: category.map(|c| PostCategory {
+                        id: c.id,
+                        name: c.name,
+                    }),
+                    tags: post
+                        .tag_ids
+                        .iter()
+                        .filter_map(|&tag_id| {
+                            tags_map.get(&tag_id).map(|tag| PostTag {
+                                id: tag.id,
+                                name: tag.name.clone(),
+                            })
+                        })
+                        .collect(),
+                    author: PostAuthor {
+                        id: author.id,
+                        name: author.name,
+                        email: author.email,
+                        avatar: author.avatar,
+                    },
+                };
+
+                Ok(Some(post_with_relations))
+            } else {
+                Ok(None)
+            }
         })
         .await
     }
@@ -167,6 +207,7 @@ impl Post {
     pub async fn find_posts_with_query(
         pool: &Pool,
         query: PostQuery,
+        user: User,
     ) -> Result<Vec<PostWithRelations>, DBError> {
         use crate::db::schema::{categories, posts, tags, users};
 
@@ -177,9 +218,15 @@ impl Post {
                 .into_boxed();
 
             // Apply existing filters
-            if let Some(author_id_filter) = query.author_id {
-                query_builder = query_builder.filter(posts::author_id.eq(author_id_filter));
+            // Mod and above can see all posts by all authors
+            if user.is_mod() {
+                if let Some(author_id_filter) = query.author_id {
+                    query_builder = query_builder.filter(posts::author_id.eq(author_id_filter));
+                }
+            } else {
+                query_builder = query_builder.filter(posts::author_id.eq(user.id));
             }
+
             if let Some(category_id_filter) = query.category_id {
                 query_builder = query_builder.filter(posts::category_id.eq(category_id_filter));
             }
@@ -250,8 +297,6 @@ impl Post {
                 HashMap::new()
             };
 
-            println!("{:?}", tags_map);
-
             // Transform the results into PostWithRelations
             let posts_with_relations = results
                 .into_iter()
@@ -285,21 +330,6 @@ impl Post {
         .await
     }
 
-    pub async fn find_paginated(pool: &Pool, page: i64) -> Result<(Vec<Self>, i64), DBError> {
-        use crate::db::schema::posts::dsl::*;
-
-        execute_db_operation(pool, move |conn| {
-            let total = posts.count().get_result(conn)?;
-            let items = posts
-                .order(created_at.desc())
-                .limit(PER_PAGE)
-                .offset((page - 1) * PER_PAGE)
-                .load::<Post>(conn)?;
-            Ok((items, total))
-        })
-        .await
-    }
-
     pub async fn find_published_paginated(
         pool: &Pool,
         page: i64,
@@ -323,42 +353,6 @@ impl Post {
         .await
     }
 
-    pub async fn search_paginated(
-        pool: &Pool,
-        search_term: &str,
-        page: i64,
-    ) -> Result<(Vec<Self>, i64), DBError> {
-        use crate::db::schema::posts::dsl::*;
-        use diesel::expression_methods::ExpressionMethods;
-
-        let search_pattern = format!("%{}%", search_term.to_lowercase());
-
-        execute_db_operation(pool, move |conn| {
-            let total = posts
-                .filter(
-                    title
-                        .ilike(search_pattern.clone())
-                        .or(content.ilike(search_pattern.clone())),
-                )
-                .count()
-                .get_result(conn)?;
-
-            let items = posts
-                .filter(
-                    title
-                        .ilike(search_pattern.clone())
-                        .or(content.ilike(search_pattern.clone())),
-                )
-                .order(created_at.desc())
-                .limit(PER_PAGE)
-                .offset((page - 1) * PER_PAGE)
-                .load::<Post>(conn)?;
-
-            Ok((items, total))
-        })
-        .await
-    }
-
     pub async fn create(pool: &Pool, new_post: NewPost) -> Result<Self, DBError> {
         use crate::db::schema::posts::dsl::*;
 
@@ -373,27 +367,39 @@ impl Post {
     pub async fn update(
         pool: &Pool,
         post_id: i32,
-        filter_user_id: i32,
+        user: User,
         update_post: UpdatePost,
     ) -> Result<Option<Self>, DBError> {
         use crate::db::schema::posts::dsl::*;
 
         execute_db_operation(pool, move |conn| {
-            diesel::update(posts.filter(id.eq(post_id).and(author_id.eq(filter_user_id))))
-                .set(&update_post)
-                .returning(Self::as_returning())
-                .get_result(conn)
-                .optional()
+            if !user.is_mod() {
+                return diesel::update(posts.filter(id.eq(post_id).and(author_id.eq(user.id))))
+                    .set(&update_post)
+                    .returning(Self::as_returning())
+                    .get_result(conn)
+                    .optional();
+            } else {
+                return diesel::update(posts.filter(id.eq(post_id)))
+                    .set(&update_post)
+                    .returning(Self::as_returning())
+                    .get_result(conn)
+                    .optional();
+            }
         })
         .await
     }
 
-    pub async fn delete(pool: &Pool, filter_user_id: i32, post_id: i32) -> Result<usize, DBError> {
+    pub async fn delete(pool: &Pool, user: User, post_id: i32) -> Result<usize, DBError> {
         use crate::db::schema::posts::dsl::*;
 
         execute_db_operation(pool, move |conn| {
-            diesel::delete(posts.filter(id.eq(post_id).and(author_id.eq(filter_user_id))))
-                .execute(conn)
+            if !user.is_mod() {
+                diesel::delete(posts.filter(id.eq(post_id).and(author_id.eq(user.id))))
+                    .execute(conn)
+            } else {
+                diesel::delete(posts.filter(id.eq(post_id))).execute(conn)
+            }
         })
         .await
     }
