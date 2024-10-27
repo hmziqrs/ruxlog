@@ -44,9 +44,10 @@ pub async fn find_by_id_or_slug(
     Path(slug_or_id): Path<String>,
 ) -> impl IntoResponse {
     let query = match slug_or_id.parse::<i32>() {
-        Ok(id) => Post::find_by_id(&state.db_pool, id).await,
-        Err(_) => Post::find_by_slug(&state.db_pool, slug_or_id).await,
+        Ok(id) => Post::find_by_id_or_slug(&state.db_pool, Some(id), None).await,
+        Err(_) => Post::find_by_id_or_slug(&state.db_pool, None, Some(slug_or_id)).await,
     };
+
     match query {
         Ok(Some(post)) => (StatusCode::OK, Json(json!(post))).into_response(),
         Ok(None) => (
@@ -75,7 +76,7 @@ pub async fn update(
     let user = auth.user.unwrap();
     let update_post = payload.into_inner().0.into_update_post(user.id);
 
-    match Post::update(&state.db_pool, post_id, user.id, update_post).await {
+    match Post::update(&state.db_pool, post_id, user, update_post).await {
         Ok(Some(post)) => (StatusCode::OK, Json(json!(post))).into_response(),
         Ok(None) => (
             StatusCode::NOT_FOUND,
@@ -103,7 +104,7 @@ pub async fn delete(
     Path(post_id): Path<i32>,
 ) -> impl IntoResponse {
     let user = auth.user.unwrap();
-    match Post::delete(&state.db_pool, user.id, post_id).await {
+    match Post::delete(&state.db_pool, user, post_id).await {
         Ok(1) => (
             StatusCode::OK,
             Json(json!({ "message": "Post deleted successfully" })),
@@ -136,78 +137,26 @@ pub async fn delete(
     }
 }
 
-// #[debug_handler]
-// pub async fn find_all_posts(State(state): State<AppState>) -> impl IntoResponse {
-//     match Post::find_all(&state.db_pool).await {
-//         Ok(posts) => (StatusCode::OK, Json(json!(posts))).into_response(),
-//         Err(err) => (
-//             StatusCode::INTERNAL_SERVER_ERROR,
-//             Json(json!({
-//                 "error": err.to_string(),
-//                 "message": "Failed to fetch posts",
-//             })),
-//         )
-//             .into_response(),
-//     }
-// }
+#[debug_handler]
+pub async fn find_posts_with_query(
+    State(state): State<AppState>,
+    auth: AuthSession,
+    query: Valid<Json<V1PostQueryParams>>,
+) -> impl IntoResponse {
+    let post_query = query.into_inner().0.into_post_query();
 
-// #[debug_handler]
-// pub async fn find_posts_with_query(
-//     State(state): State<AppState>,
-//     Valid(query): Valid<Query<V1PostQueryParams>>,
-// ) -> impl IntoResponse {
-//     let post_query = PostQuery {
-//         page_no: query.page,
-//         author_id: query.author_id,
-//         category_id: query.category_id,
-//         is_published: query.is_published,
-//         search: query.search,
-//         sort_by: query.sort_by,
-//         sort_order: query.sort_order,
-//     };
-
-//     match Post::find_posts_with_query(&state.db_pool, post_query).await {
-//         Ok(posts) => (StatusCode::OK, Json(json!(posts))).into_response(),
-//         Err(err) => (
-//             StatusCode::INTERNAL_SERVER_ERROR,
-//             Json(json!({
-//                 "error": err.to_string(),
-//                 "message": "Failed to fetch posts",
-//             })),
-//         )
-//             .into_response(),
-//     }
-// }
-
-// #[debug_handler]
-// pub async fn find_paginated_posts(
-//     State(state): State<AppState>,
-//     Valid(query): Valid<Query<V1PostQueryParams>>,
-// ) -> impl IntoResponse {
-//     let page = query.page.unwrap_or(1);
-//     let per_page = query.per_page.unwrap_or(10);
-
-//     match Post::find_paginated(&state.db_pool, page, per_page).await {
-//         Ok((posts, total)) => (
-//             StatusCode::OK,
-//             Json(json!({
-//                 "data": posts,
-//                 "total": total,
-//                 "page": page,
-//                 "per_page": per_page,
-//             })),
-//         )
-//             .into_response(),
-//         Err(err) => (
-//             StatusCode::INTERNAL_SERVER_ERROR,
-//             Json(json!({
-//                 "error": err.to_string(),
-//                 "message": "Failed to fetch paginated posts",
-//             })),
-//         )
-//             .into_response(),
-//     }
-// }
+    match Post::find_posts_with_query(&state.db_pool, post_query, auth.user.unwrap()).await {
+        Ok(posts) => (StatusCode::OK, Json(json!(posts))).into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": err.to_string(),
+                "message": "Failed to fetch posts",
+            })),
+        )
+            .into_response(),
+    }
+}
 
 #[debug_handler]
 pub async fn find_published_posts(
@@ -236,34 +185,3 @@ pub async fn find_published_posts(
             .into_response(),
     }
 }
-
-// #[debug_handler]
-// pub async fn search_posts(
-//     State(state): State<AppState>,
-//     Valid(query): Valid<Query<V1PostQueryParams>>,
-// ) -> impl IntoResponse {
-//     let page = query.page.unwrap_or(1);
-//     let per_page = query.per_page.unwrap_or(10);
-//     let search_term = query.search.unwrap_or_default();
-
-//     match Post::search_paginated(&state.db_pool, &search_term, page, per_page).await {
-//         Ok((posts, total)) => (
-//             StatusCode::OK,
-//             Json(json!({
-//                 "data": posts,
-//                 "total": total,
-//                 "page": page,
-//                 "per_page": per_page,
-//             })),
-//         )
-//             .into_response(),
-//         Err(err) => (
-//             StatusCode::INTERNAL_SERVER_ERROR,
-//             Json(json!({
-//                 "error": err.to_string(),
-//                 "message": "Failed to search posts",
-//             })),
-//         )
-//             .into_response(),
-//     }
-// }

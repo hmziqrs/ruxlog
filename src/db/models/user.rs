@@ -249,4 +249,28 @@ impl User {
         })
         .await
     }
+
+    pub fn get_role(&self) -> UserRole {
+        UserRole::from_str(&self.role).unwrap()
+    }
+
+    pub fn is_user(&self) -> bool {
+        self.get_role().to_i32() >= UserRole::User.to_i32()
+    }
+
+    pub fn is_author(&self) -> bool {
+        self.get_role().to_i32() >= UserRole::Author.to_i32()
+    }
+
+    pub fn is_mod(&self) -> bool {
+        self.get_role().to_i32() >= UserRole::Moderator.to_i32()
+    }
+
+    pub fn is_admin(&self) -> bool {
+        self.get_role().to_i32() >= UserRole::Admin.to_i32()
+    }
+
+    pub fn is_super_admin(&self) -> bool {
+        self.get_role().to_i32() >= UserRole::SuperAdmin.to_i32()
+    }
 }
