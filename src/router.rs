@@ -127,6 +127,15 @@ pub fn router() -> Router<AppState> {
         .route_layer(login_required!(AuthBackend))
         .route("/list", get(tag_v1::controller::find_all));
 
+    let admin_user_v1_routes = Router::new()
+        .route("/list", post(user_v1::controller::admin_list))
+        .route("/view/:user_id", get(user_v1::controller::admin_view))
+        .route("/update/:user_id", post(user_v1::controller::admin_update))
+        .route("/delete/:user_id", post(user_v1::controller::admin_delete))
+        .route_layer(middleware::from_fn(user_permission::admin))
+        .route_layer(middleware::from_fn(user_status::only_verified))
+        .route_layer(login_required!(AuthBackend));
+
     Router::new()
         .route("/", routing::get(handler))
         .nest("/auth/v1", auth_v1_routes)
@@ -137,6 +146,7 @@ pub fn router() -> Router<AppState> {
         .nest("/post/comment/v1", post_comment_v1_routes)
         .nest("/category/v1", category_v1_routes)
         .nest("/tag/v1", tag_v1_routes)
+        .nest("/admin/user/v1", admin_user_v1_routes)
         .layer(TraceLayer::new_for_http())
 }
 

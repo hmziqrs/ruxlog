@@ -40,7 +40,11 @@ tower-sessions-redis-store = "0.14.0"
 tower-sessions = { version = "0.13", features = ["private"] }
 tracing-subscriber = "0.3.18"
 tracing = "0.1.40"
-diesel = { version = "2.2.4", features = ["postgres", "chrono"] }
+diesel = { version = "2.2.4", features = [
+    "postgres",
+    "chrono",
+    "i-implement-a-third-party-backend-and-opt-into-breaking-changes",
+] }
 deadpool-diesel = { version = "0.6.1", features = ["postgres"] }
 diesel_migrations = "2.2.0"
 dotenv = "0.15.0"

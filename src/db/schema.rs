@@ -87,6 +87,8 @@ diesel::table! {
         avatar -> Nullable<Varchar>,
         is_verified -> Bool,
         role -> Varchar,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
     }
 }
 
