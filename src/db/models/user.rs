@@ -1,20 +1,22 @@
 #![allow(unused)]
 #![allow(clippy::all)]
 
-use axum::{http::StatusCode, Json};
-use chrono::NaiveDateTime;
-use deadpool_diesel::postgres::Pool;
-use diesel::prelude::*;
-use serde::{Deserialize, Serialize};
-use std::str::FromStr;
-use tokio::task;
-
 use crate::db::{
     errors::DBError,
     models::{email_verification::EmailVerification, forgot_password::ForgotPassword},
     schema::{self},
     utils::{combine_errors, execute_db_operation},
 };
+use axum::{http::StatusCode, Json};
+use chrono::NaiveDateTime;
+use deadpool_diesel::postgres::Pool;
+use diesel::{
+    associations::HasTable, dsl::count_star, prelude::*, query_builder::QueryFragment,
+    sql_types::BigInt,
+};
+use serde::{Deserialize, Serialize};
+use std::{borrow::BorrowMut, str::FromStr};
+use tokio::task;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum UserRole {
@@ -373,6 +375,7 @@ impl User {
 
     pub async fn admin_list(pool: &Pool, query: AdminUserQuery) -> Result<Vec<Self>, DBError> {
         use crate::db::schema::users::dsl::*;
+        use diesel::dsl::sql;
 
         execute_db_operation(pool, move |conn| {
             let mut query_builder = users.into_boxed();
@@ -415,14 +418,19 @@ impl User {
                 _ => query_builder.then_order_by(id.desc()),
             };
 
-            let page = query.page_no.unwrap_or(1);
-            // let total = query_builder.count().get_result(conn)?;
-            let items = query_builder
-                .limit(ADMIN_PER_PAGE)
-                .offset((page - 1) * ADMIN_PER_PAGE)
-                .load::<User>(conn)?;
+            // let page = query.page_no.unwrap_or(1);
+            // let per_page = ADMIN_PER_PAGE;
+            // let offset = (page - 1) * per_page;
 
-            Ok(items)
+            // let items = query_builder
+            //     .select((users::all_columns(), sql::<BigInt>("count(*) OVER()")))
+            //     .limit(per_page)
+            //     .offset(offset)
+            //     .load::<(User, i64)>(conn)?;
+            // println!("{:?}", items);
+            // // let users: Vec<User> = items.into_iter().map(|(user, _)| user).collect();
+
+            Ok(vec![])
         })
         .await
     }
