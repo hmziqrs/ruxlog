@@ -64,7 +64,7 @@ pub async fn update_profile(
 #[debug_handler]
 pub async fn admin_create(
     State(state): State<AppState>,
-    payload: Valid<Json<AdminCreateUser>>,
+    payload: Valid<Json<V1AdminCreateUserPayload>>,
 ) -> impl IntoResponse {
     let payload = payload.into_inner().0.into_new_user();
 
@@ -97,7 +97,7 @@ pub async fn admin_delete(
 pub async fn admin_update(
     State(state): State<AppState>,
     Path(user_id): Path<i32>,
-    payload: Valid<Json<AdminUpdateUser>>,
+    payload: Valid<Json<V1AdminUpdateUserPayload>>,
 ) -> impl IntoResponse {
     let payload = payload.into_inner().0.into_update_user();
 

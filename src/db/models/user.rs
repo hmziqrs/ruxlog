@@ -154,6 +154,29 @@ pub struct AdminUserQuery {
     pub sort_order: Option<String>,
 }
 
+#[derive(Deserialize, Debug, Insertable, AsChangeset)]
+#[diesel(table_name = schema::users)]
+pub struct AdminCreateUser {
+    pub name: String,
+    pub email: String,
+    pub password: String,
+    pub role: String,
+    pub avatar: Option<String>,
+    pub is_verified: Option<bool>,
+}
+
+#[derive(Deserialize, Debug, Insertable, AsChangeset)]
+#[diesel(table_name = schema::users)]
+pub struct AdminUpdateUser {
+    pub name: Option<String>,
+    pub email: Option<String>,
+    pub password: Option<String>,
+    pub role: Option<String>,
+    pub avatar: Option<String>,
+    pub is_verified: Option<bool>,
+    pub updated_at: NaiveDateTime,
+}
+
 const ADMIN_PER_PAGE: i64 = 20;
 
 impl User {
@@ -302,14 +325,14 @@ impl User {
         self.get_role().to_i32() >= UserRole::SuperAdmin.to_i32()
     }
 
-    pub async fn admin_create(pool: &Pool, new_user: NewUser) -> Result<Self, DBError> {
+    pub async fn admin_create(pool: &Pool, new_user: AdminCreateUser) -> Result<Self, DBError> {
         use crate::db::schema::users::dsl::*;
         let pass = new_user.password.clone();
         let hash = task::spawn_blocking(move || password_auth::generate_hash(pass))
             .await
             .map_err(|_| DBError::PasswordHashError)?;
 
-        let new_user = NewUser {
+        let new_user = AdminCreateUser {
             password: hash,
             ..new_user
         };
@@ -335,9 +358,17 @@ impl User {
     pub async fn admin_update(
         pool: &Pool,
         user_id: i32,
-        payload: UpdateUser,
+        mut payload: AdminUpdateUser,
     ) -> Result<Option<Self>, DBError> {
         use crate::db::schema::users::dsl::*;
+
+        if let Some(pswd) = payload.password {
+            let hash = task::spawn_blocking(move || password_auth::generate_hash(pswd))
+                .await
+                .map_err(|_| DBError::PasswordHashError)?;
+
+            payload.password = Some(hash);
+        }
 
         execute_db_operation(pool, move |conn| {
             diesel::update(users.filter(id.eq(user_id)))

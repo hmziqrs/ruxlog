@@ -1,17 +1,12 @@
-use std::collections::HashSet;
-
 use axum::{async_trait, http::StatusCode, response::IntoResponse, Json};
-use axum_login::{AuthUser, AuthnBackend, AuthzBackend, UserId};
+use axum_login::{AuthUser, AuthnBackend, UserId};
 use deadpool_diesel::postgres::Pool;
 use password_auth::verify_password;
 use serde::Deserialize;
 use serde_json::json;
 use tokio::task;
 
-use crate::{
-    db::models::user::{User, UserRole},
-    modules::auth_v1::validator::V1LoginPayload,
-};
+use crate::{db::models::user::User, modules::auth_v1::validator::V1LoginPayload};
 
 pub type AuthSession = axum_login::AuthSession<AuthBackend>;
 

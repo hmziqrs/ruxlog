@@ -21,7 +21,7 @@ use time;
 use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tower_http::{
     compression::CompressionLayer,
-    cors::{AllowHeaders, AllowOrigin, CorsLayer},
+    cors::{AllowOrigin, CorsLayer},
     limit::RequestBodyLimitLayer,
 };
 
