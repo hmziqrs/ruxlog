@@ -73,6 +73,19 @@ impl RegenerateEmailVerification {
     }
 }
 
+#[derive(Clone, Debug, Serialize, PartialEq)]
+pub struct AdminEmailVerificationQuery {
+    pub page_no: Option<i64>,
+    pub user_id: Option<i32>,
+    pub code: Option<String>,
+    pub created_at: Option<NaiveDateTime>,
+    pub updated_at: Option<NaiveDateTime>,
+    pub sort_by: Option<Vec<String>>,
+    pub sort_order: Option<String>,
+}
+
+const ADMIN_PER_PAGE: i64 = 20;
+
 impl EmailVerification {
     const DELAY_TIME: Duration = Duration::minutes(1);
     const EXPIRY_TIME: Duration = Duration::hours(3);
@@ -109,42 +122,30 @@ impl EmailVerification {
         .await
     }
 
-    pub async fn find_by_user_id(pool: &Pool, db_user_id: i32) -> Result<Option<Self>, DBError> {
-        use crate::db::schema::email_verifications::dsl::*;
-
-        execute_db_operation(pool, move |conn| {
-            email_verifications
-                .filter(user_id.eq(db_user_id))
-                .first(conn)
-                .optional()
-        })
-        .await
-    }
-
-    pub async fn find_by_code(pool: &Pool, code: &str) -> Result<Option<Self>, DBError> {
-        use crate::db::schema::email_verifications::dsl::*;
-
-        execute_db_operation(pool, move |conn| {
-            email_verifications
-                .filter(code.eq(code))
-                .first(conn)
-                .optional()
-        })
-        .await
-    }
-
-    pub async fn find_by_user_id_and_code(
+    pub async fn find_by_user_id_or_code(
         pool: &Pool,
-        db_user_id: i32,
-        code: &str,
+        db_user_id: Option<i32>,
+        db_code: Option<String>,
     ) -> Result<Option<Self>, DBError> {
         use crate::db::schema::email_verifications::dsl::*;
 
         execute_db_operation(pool, move |conn| {
-            email_verifications
-                .filter(user_id.eq(db_user_id).and(code.eq(code)))
-                .first(conn)
-                .optional()
+            let mut query_builder = email_verifications.into_boxed();
+
+            match (db_user_id, db_code) {
+                (Some(dbuid), Some(dcode)) => {
+                    query_builder = query_builder.filter(user_id.eq(dbuid).and(code.eq(dcode)));
+                }
+                (Some(dbuid), None) => {
+                    query_builder = query_builder.filter(user_id.eq(dbuid));
+                }
+                (None, Some(dcode)) => {
+                    query_builder = query_builder.filter(code.eq(dcode));
+                }
+                (None, None) => return Ok(None),
+            }
+
+            query_builder.first(conn).optional()
         })
         .await
     }

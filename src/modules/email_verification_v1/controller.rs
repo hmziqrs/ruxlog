@@ -30,7 +30,8 @@ pub async fn verify(
     let user_id = auth.user.unwrap().id;
 
     let verification_result =
-        EmailVerification::find_by_user_id_and_code(pool, user_id, &payload.code).await;
+        EmailVerification::find_by_user_id_or_code(pool, Some(user_id), Some(payload.code.clone()))
+            .await;
 
     match verification_result {
         Ok(verification) => match verification {
@@ -94,7 +95,7 @@ pub async fn resend(state: State<AppState>, auth: AuthSession) -> impl IntoRespo
     let pool = &state.db_pool;
     let user_id = auth.user.unwrap().id;
 
-    match EmailVerification::find_by_user_id(pool, user_id).await {
+    match EmailVerification::find_by_user_id_or_code(pool, Some(user_id), None).await {
         Ok(verification) => {
             if let Some(verification) = verification {
                 if verification.is_in_delay() {
