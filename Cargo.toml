@@ -47,6 +47,7 @@ diesel = { version = "2.2.4", features = [
 ] }
 deadpool-diesel = { version = "0.6.1", features = ["postgres"] }
 diesel_migrations = "2.2.0"
+diesel-derive-enum = { version = "2.1.0", features = ["postgres"] }
 dotenv = "0.15.0"
 chrono = { version = "0.4.19", features = ["serde"] }
 axum-macros = "0.4.2"

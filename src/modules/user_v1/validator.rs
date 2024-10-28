@@ -1,8 +1,10 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use validator::Validate;
+use validator::{Validate, ValidationError};
 
-use crate::db::models::user::{AdminCreateUser, AdminUpdateUser, AdminUserQuery, UpdateUser};
+use crate::db::models::user::{
+    AdminCreateUser, AdminUpdateUser, AdminUserQuery, UpdateUser, UserRole,
+};
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1UpdateProfilePayload {
@@ -30,13 +32,26 @@ pub struct V1AdminCreateUserPayload {
     pub name: String,
     #[validate(email)]
     pub email: String,
-    #[validate(length(min = 8))]
-    pub password: String,
     #[validate(length(min = 1))]
+    pub password: String,
+    #[serde(default = "default_role")]
+    #[validate(custom(function = "validate_role"))]
     pub role: String,
     pub avatar: Option<String>,
     #[serde(default = "bool::default")]
     pub is_verified: bool,
+}
+
+fn default_role() -> String {
+    "user".to_string()
+}
+
+fn validate_role(role: &str) -> Result<(), ValidationError> {
+    if UserRole::from_str(role).is_ok() {
+        Ok(())
+    } else {
+        Err(ValidationError::new("invalid_role"))
+    }
 }
 
 impl V1AdminCreateUserPayload {
@@ -62,7 +77,7 @@ pub struct V1AdminUpdateUserPayload {
     #[validate(length(min = 1))]
     pub password: Option<String>,
     pub is_verified: Option<bool>,
-    #[validate(length(min = 1))]
+    #[validate(custom(function = "validate_role"))]
     pub role: Option<String>,
 }
 
@@ -91,6 +106,7 @@ pub struct V1AdminUserQueryParams {
     pub page_no: Option<i64>,
     pub email: Option<String>,
     pub name: Option<String>,
+    #[validate(custom(function = "validate_role"))]
     pub role: Option<String>,
     pub status: Option<bool>,
     pub created_at: Option<NaiveDateTime>,

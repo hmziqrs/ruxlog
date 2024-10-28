@@ -130,6 +130,7 @@ pub fn router() -> Router<AppState> {
     let admin_user_v1_routes = Router::new()
         .route("/list", post(user_v1::controller::admin_list))
         .route("/view/:user_id", get(user_v1::controller::admin_view))
+        .route("/create", post(user_v1::controller::admin_create))
         .route("/update/:user_id", post(user_v1::controller::admin_update))
         .route("/delete/:user_id", post(user_v1::controller::admin_delete))
         .route_layer(middleware::from_fn(user_permission::admin))
