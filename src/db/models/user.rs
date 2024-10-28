@@ -141,7 +141,7 @@ pub struct VerifiedUser {
     updated_at: NaiveDateTime,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct AdminUserQuery {
     pub page_no: Option<i64>,
     pub email: Option<String>,
@@ -336,7 +336,7 @@ impl User {
         pool: &Pool,
         user_id: i32,
         payload: UpdateUser,
-    ) -> Result<Self, DBError> {
+    ) -> Result<Option<Self>, DBError> {
         use crate::db::schema::users::dsl::*;
 
         execute_db_operation(pool, move |conn| {
@@ -344,6 +344,7 @@ impl User {
                 .set(&payload)
                 .returning(User::as_returning())
                 .get_result(conn)
+                .optional()
         })
         .await
     }
@@ -371,6 +372,15 @@ impl User {
         })
         .await
         .map(|_| ())
+    }
+
+    pub async fn admin_view(pool: &Pool, user_id: i32) -> Result<Option<Self>, DBError> {
+        use crate::db::schema::users::dsl::*;
+
+        execute_db_operation(pool, move |conn| {
+            users.filter(id.eq(user_id)).get_result(conn).optional()
+        })
+        .await
     }
 
     pub async fn admin_list(pool: &Pool, query: AdminUserQuery) -> Result<Vec<Self>, DBError> {
@@ -418,19 +428,15 @@ impl User {
                 _ => query_builder.then_order_by(id.desc()),
             };
 
-            // let page = query.page_no.unwrap_or(1);
-            // let per_page = ADMIN_PER_PAGE;
-            // let offset = (page - 1) * per_page;
+            let page = query.page_no.unwrap_or(1);
 
-            // let items = query_builder
-            //     .select((users::all_columns(), sql::<BigInt>("count(*) OVER()")))
-            //     .limit(per_page)
-            //     .offset(offset)
-            //     .load::<(User, i64)>(conn)?;
-            // println!("{:?}", items);
-            // // let users: Vec<User> = items.into_iter().map(|(user, _)| user).collect();
+            let items = query_builder
+                .select(users::all_columns())
+                .limit(ADMIN_PER_PAGE)
+                .offset((page - 1) * ADMIN_PER_PAGE)
+                .load::<User>(conn)?;
 
-            Ok(vec![])
+            Ok(items)
         })
         .await
     }
