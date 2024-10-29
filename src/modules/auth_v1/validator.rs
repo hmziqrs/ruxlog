@@ -2,6 +2,8 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use validator::{Validate, ValidationError};
 
+use crate::db::models::user::{NewUser, UserRole};
+
 fn validate_email(email: &str) -> Result<(), ValidationError> {
     let email_regex = Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{1,}$").unwrap();
     if email_regex.is_match(email) {
@@ -27,4 +29,15 @@ pub struct V1RegisterPayload {
     pub email: String,
     #[validate(length(min = 1))]
     pub password: String,
+}
+
+impl V1RegisterPayload {
+    pub fn into_new_user(self) -> NewUser {
+        NewUser {
+            name: self.name,
+            email: self.email,
+            password: self.password,
+            role: UserRole::User,
+        }
+    }
 }

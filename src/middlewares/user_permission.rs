@@ -21,23 +21,14 @@ fn check_user_role(user: Option<User>, req_role: UserRole) -> Result<bool, Respo
             .into_response()
     })?;
 
-    match UserRole::from_str(&user.role) {
-        Ok(user_role) => {
-            if user_role.to_i32() >= req_role.to_i32() {
-                Ok(true)
-            } else {
-                Err((
-                    StatusCode::UNAUTHORIZED,
-                    Json(json!({"message": "Unauthorized"})),
-                )
-                    .into_response())
-            }
-        }
-        Err(_) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"message": "Internal server error"})),
+    if user.role.to_i32() >= req_role.to_i32() {
+        Ok(true)
+    } else {
+        Err((
+            StatusCode::UNAUTHORIZED,
+            Json(json!({"message": "Unauthorized"})),
         )
-            .into_response()),
+            .into_response())
     }
 }
 

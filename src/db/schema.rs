@@ -1,5 +1,11 @@
 // @generated automatically by Diesel CLI.
 
+pub mod sql_types {
+    #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "user_role"))]
+    pub struct UserRole;
+}
+
 diesel::table! {
     categories (id) {
         id -> Int4,
@@ -79,6 +85,9 @@ diesel::table! {
 }
 
 diesel::table! {
+    use diesel::sql_types::*;
+    use super::sql_types::UserRole;
+
     users (id) {
         id -> Int4,
         name -> Varchar,
@@ -86,7 +95,7 @@ diesel::table! {
         password -> Varchar,
         avatar -> Nullable<Varchar>,
         is_verified -> Bool,
-        role -> Varchar,
+        role -> UserRole,
         created_at -> Timestamp,
         updated_at -> Timestamp,
     }

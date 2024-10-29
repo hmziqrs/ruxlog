@@ -60,7 +60,7 @@ impl V1AdminCreateUserPayload {
             name: self.name,
             email: self.email,
             password: self.password,
-            role: self.role,
+            role: UserRole::from_str(&self.role).unwrap(),
             avatar: self.avatar,
             is_verified: Some(self.is_verified),
         }
@@ -89,7 +89,7 @@ impl V1AdminUpdateUserPayload {
             avatar: self.avatar,
             password: self.password,
             is_verified: self.is_verified,
-            role: self.role,
+            role: self.role.and_then(|r| UserRole::from_str(&r).ok()),
             updated_at: chrono::Utc::now().naive_utc(),
         }
     }
@@ -121,7 +121,7 @@ impl V1AdminUserQueryParams {
             page_no: self.page_no,
             email: self.email,
             name: self.name,
-            role: self.role,
+            role: self.role.and_then(|r| UserRole::from_str(&r).ok()),
             status: self.status,
             created_at: self.created_at,
             updated_at: self.updated_at,

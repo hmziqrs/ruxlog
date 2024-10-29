@@ -4,7 +4,7 @@ use axum_valid::Valid;
 use serde_json::json;
 
 use crate::{
-    db::models::user::{NewUser, User},
+    db::models::user::User,
     modules::auth_v1::validator::{V1LoginPayload, V1RegisterPayload},
     services::auth::{AuthSession, Credentials},
     AppState,
@@ -64,16 +64,9 @@ pub async fn register(
     state: State<AppState>,
     payload: Valid<Json<V1RegisterPayload>>,
 ) -> impl IntoResponse {
-    let payload = payload.into_inner().0;
-    let new_user = NewUser {
-        name: payload.name.clone(),
-        email: payload.email.clone(),
-        password: payload.password.clone(),
-        role: "user".to_string(),
-    };
-    let user = User::create(&state.db_pool, new_user).await;
+    let payload = payload.into_inner().0.into_new_user();
 
-    match user {
+    match User::create(&state.db_pool, payload).await {
         Ok(user) => (StatusCode::CREATED, Json(json!(user))),
         Err(err) => (
             StatusCode::CONFLICT,

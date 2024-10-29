@@ -18,7 +18,11 @@ use serde::{Deserialize, Serialize};
 use std::{borrow::BorrowMut, str::FromStr};
 use tokio::task;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, diesel_derive_enum::DbEnum,
+)]
+#[ExistingTypePath = "crate::db::schema::sql_types::UserRole"]
+#[serde(rename_all = "kebab-case")]
 pub enum UserRole {
     SuperAdmin,
     Admin,
@@ -105,7 +109,8 @@ pub struct User {
     pub password: String,
     pub avatar: Option<String>,
     pub is_verified: bool,
-    pub role: String,
+    // pub role: String,
+    pub role: UserRole,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
@@ -116,7 +121,7 @@ pub struct NewUser {
     pub name: String,
     pub email: String,
     pub password: String,
-    pub role: String,
+    pub role: UserRole,
 }
 
 #[derive(Deserialize, Debug, Insertable, AsChangeset)]
@@ -146,7 +151,7 @@ pub struct AdminUserQuery {
     pub page_no: Option<i64>,
     pub email: Option<String>,
     pub name: Option<String>,
-    pub role: Option<String>,
+    pub role: Option<UserRole>,
     pub status: Option<bool>,
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
@@ -160,7 +165,7 @@ pub struct AdminCreateUser {
     pub name: String,
     pub email: String,
     pub password: String,
-    pub role: String,
+    pub role: UserRole,
     pub avatar: Option<String>,
     pub is_verified: Option<bool>,
 }
@@ -171,7 +176,7 @@ pub struct AdminUpdateUser {
     pub name: Option<String>,
     pub email: Option<String>,
     pub password: Option<String>,
-    pub role: Option<String>,
+    pub role: Option<UserRole>,
     pub avatar: Option<String>,
     pub is_verified: Option<bool>,
     pub updated_at: NaiveDateTime,
@@ -302,7 +307,8 @@ impl User {
     }
 
     pub fn get_role(&self) -> UserRole {
-        UserRole::from_str(&self.role).unwrap()
+        self.role
+        // UserRole::from_str(&self.role).unwrap()
     }
 
     pub fn is_user(&self) -> bool {
