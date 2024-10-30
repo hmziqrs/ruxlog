@@ -54,6 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let allowed_origins = [
         "http://127.0.0.1:3000",
+        "http://127.0.0.1:3333",
         "http://localhost:3000",
         "https://yourdomain.com",
         "https://subdomain1.yourdomain.com",
@@ -91,7 +92,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // .with_cookie_domain(Some("127.0.0.1"));
 
     let session_layer = SessionManagerLayer::new(session_store)
-        .with_expiry(Expiry::OnInactivity(time::Duration::hours(24)))
+        .with_expiry(Expiry::OnInactivity(time::Duration::hours(24 * 14)))
         .with_same_site(SameSite::Lax)
         .with_secure(true)
         .with_http_only(false)
@@ -170,7 +171,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(cors)
         .with_state(state);
 
-    let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port = env::var("PORT").unwrap_or_else(|_| "8888".to_string());
     let address = format!("{}:{}", host, port);
     let address = address.parse::<std::net::SocketAddr>()?;

@@ -24,7 +24,9 @@ pub async fn get_pool() -> Pool {
     })
     .await
     {
-        Ok(_) => {}
+        Ok(_) => {
+            println!("Database connection working");
+        }
         Err(e) => {
             panic!("Failed to connect to database: {:?}", e)
         }
