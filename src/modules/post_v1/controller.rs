@@ -171,6 +171,7 @@ pub async fn find_published_posts(
             Json(json!({
                 "data": posts,
                 "total": total,
+                "per_page": Post::PER_PAGE,
                 "page": page,
             })),
         )

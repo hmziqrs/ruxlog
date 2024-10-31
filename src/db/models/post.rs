@@ -126,9 +126,8 @@ pub struct PostQuery {
     pub tag_ids: Option<Vec<i32>>,
 }
 
-const PER_PAGE: i64 = 16;
-
 impl Post {
+    pub const PER_PAGE: i64 = 16;
     pub async fn find_by_id_or_slug(
         pool: &Pool,
         post_id: Option<i32>,
@@ -268,8 +267,8 @@ impl Post {
 
             // Apply pagination
             query_builder = query_builder
-                .limit(PER_PAGE)
-                .offset((query.page_no.unwrap_or(1) - 1) * PER_PAGE);
+                .limit(Self::PER_PAGE)
+                .offset((query.page_no.unwrap_or(1) - 1) * Self::PER_PAGE);
 
             // Execute the query and get posts with joined data
             let results: Vec<(Post, Option<Category>, User)> = query_builder
@@ -333,22 +332,76 @@ impl Post {
     pub async fn find_published_paginated(
         pool: &Pool,
         page: i64,
-    ) -> Result<(Vec<Self>, i64), DBError> {
+    ) -> Result<(Vec<PostWithRelations>, i64), DBError> {
         use crate::db::schema::posts::dsl::*;
+        use crate::db::schema::{categories, posts, tags, users};
 
         execute_db_operation(pool, move |conn| {
             let total = posts
                 .filter(is_published.eq(true))
                 .count()
                 .get_result(conn)?;
-            let items = posts
+
+            let results: Vec<(Post, Option<Category>, User)> = posts::table
+                .left_join(categories::table)
+                .inner_join(users::table)
                 .filter(is_published.eq(true))
                 .order(updated_at.desc())
-                // .order(published_at.desc())
-                .limit(PER_PAGE)
-                .offset((page - 1) * PER_PAGE)
-                .load::<Post>(conn)?;
-            Ok((items, total))
+                .limit(Self::PER_PAGE)
+                .offset((page - 1) * Self::PER_PAGE)
+                .select((
+                    Post::as_select(),
+                    Option::<Category>::as_select(),
+                    User::as_select(),
+                ))
+                .load(conn)?;
+
+            // Get all relevant tags
+            let all_tag_ids: Vec<i32> = results
+                .iter()
+                .flat_map(|(post, _, _)| post.tag_ids.clone())
+                .collect();
+
+            let tags_map: HashMap<i32, Tag> = if !all_tag_ids.is_empty() {
+                tags::table
+                    .filter(tags::dsl::id.eq_any(all_tag_ids))
+                    .load::<Tag>(conn)?
+                    .into_iter()
+                    .map(|tag| (tag.id, tag))
+                    .collect()
+            } else {
+                HashMap::new()
+            };
+
+            // Transform the results into PostWithRelations
+            let posts_with_relations = results
+                .into_iter()
+                .map(|(post, category, author)| PostWithRelations {
+                    post: post.clone(),
+                    category: category.map(|c| PostCategory {
+                        id: c.id,
+                        name: c.name,
+                    }),
+                    tags: post
+                        .tag_ids
+                        .iter()
+                        .filter_map(|&tag_id| {
+                            tags_map.get(&tag_id).map(|tag| PostTag {
+                                id: tag.id,
+                                name: tag.name.clone(),
+                            })
+                        })
+                        .collect(),
+                    author: PostAuthor {
+                        id: author.id,
+                        name: author.name,
+                        email: author.email,
+                        avatar: author.avatar,
+                    },
+                })
+                .collect();
+
+            Ok((posts_with_relations, total))
         })
         .await
     }

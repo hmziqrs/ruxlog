@@ -3,7 +3,6 @@ use deadpool_diesel::Runtime;
 use diesel::prelude::*;
 
 use std::env;
-use std::time::Duration;
 
 use crate::db::utils::execute_db_operation;
 
@@ -15,7 +14,6 @@ pub async fn get_pool() -> Pool {
     let manager = Manager::new(db_url, Runtime::Tokio1);
     let pool = Pool::builder(manager)
         .runtime(Runtime::Tokio1)
-        .create_timeout(Option::Some(Duration::from_secs(15)))
         .build()
         .expect("Failed to create pool.");
 

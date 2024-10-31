@@ -15,6 +15,17 @@ pub struct AuthBackend {
     pub pool: Pool,
 }
 
+impl AuthBackend {
+    pub fn new(pool: &Pool) -> Self {
+        Self { pool: pool.clone() }
+    }
+    fn check_password(password: String, hash: &str) -> Result<bool, AuthError> {
+        verify_password(password, hash)
+            .map(|_| true)
+            .map_err(|_| AuthError::InvalidPassword)
+    }
+}
+
 impl std::fmt::Debug for AuthBackend {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AuthBackend")
@@ -30,6 +41,7 @@ impl IntoResponse for AuthError {
             AuthError::InternalDBError => StatusCode::INTERNAL_SERVER_ERROR,
             AuthError::UserNotFound => StatusCode::NOT_FOUND,
             AuthError::UnAuthorized => StatusCode::UNAUTHORIZED,
+            // AuthError::DBXError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
         (status, Json(json!({ "error": self.to_string() }))).into_response()
@@ -59,59 +71,16 @@ pub enum AuthError {
     #[error("User ID not found")]
     UserNotFound,
 
-    #[error("Unauthorized! access denied")]
+    #[error("Unauthorized access denied")]
     UnAuthorized,
-}
-
-impl AuthBackend {
-    /// Create a new backend instance.
-    pub fn new(pool: &Pool) -> Self {
-        Self { pool: pool.clone() }
-    }
-
-    /// Verify a password against a hash.
-    fn check_password(password: String, hash: &str) -> Result<bool, AuthError> {
-        verify_password(password, hash)
-            .map(|_| true)
-            .map_err(|_| AuthError::InvalidPassword)
-    }
+    // #[error("Database error: {0:?}")]
+    // DBXError(#[from] crate::db::errors::DBError),
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub enum Credentials {
     Password(V1LoginPayload),
-    // OAuth(OAuthCreds),
 }
-
-// #[async_trait]
-// impl AuthzBackend for AuthBackend {
-//     type Permission = UserRole;
-
-//     async fn get_user_permissions(
-//         &self,
-//         user: &Self::User,
-//     ) -> Result<HashSet<Self::Permission>, Self::Error> {
-//         let permissions = vec![UserRole::from_str(&user.role).unwrap()];
-//         Ok(permissions.into_iter().collect())
-//     }
-
-//     async fn has_perm(
-//         &self,
-//         user: &Self::User,
-//         perm: Self::Permission,
-//     ) -> Result<bool, Self::Error> {
-//         match UserRole::from_str(&user.role) {
-//             Ok(user_perm) => {
-//                 if user_perm.to_i32() >= perm.to_i32() {
-//                     Ok(true)
-//                 } else {
-//                     Ok(false)
-//                 }
-//             }
-//             Err(_) => Err(AuthError::UnAuthorized),
-//         }
-//     }
-// }
 
 #[async_trait]
 impl AuthnBackend for AuthBackend {
@@ -125,11 +94,14 @@ impl AuthnBackend for AuthBackend {
     ) -> Result<Option<Self::User>, Self::Error> {
         match creds {
             Credentials::Password(password_creds) => {
-                let user = User::find_by_email(&self.pool, password_creds.email)
-                    .await
-                    .map_err(|_| AuthError::InternalDBError)?;
+                let user = User::find_by_email(&self.pool, password_creds.email).await;
 
-                if let Some(user) = user {
+                if let Err(err) = user {
+                    eprintln!("Error: {:?}", err);
+                    return Err(AuthError::InternalDBError);
+                }
+
+                if let Ok(Some(user)) = user {
                     let password = user.password.clone();
                     let password_valid = task::spawn_blocking(move || {
                         Self::check_password(password_creds.password, &password)
@@ -151,8 +123,12 @@ impl AuthnBackend for AuthBackend {
 
     /// Retrieves a user by ID from the database.
     async fn get_user(&self, user_id: &UserId<Self>) -> Result<Option<Self::User>, Self::Error> {
-        User::find_by_id(&self.pool, *user_id)
-            .await
-            .map_err(|_| AuthError::UserNotFound)
+        match User::find_by_id(&self.pool, *user_id).await {
+            Ok(user) => Ok(user),
+            Err(err) => {
+                eprintln!("get_user Error: {:?}", err);
+                Err(AuthError::InternalDBError)
+            }
+        }
     }
 }
