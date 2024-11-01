@@ -56,6 +56,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "http://127.0.0.1:3000",
         "http://127.0.0.1:3333",
         "http://localhost:3000",
+        "http://192.168.0.210:3333",
+        "http://192.168.0.210:3000",
         "https://yourdomain.com",
         "https://subdomain1.yourdomain.com",
         "https://subdomain2.yourdomain.com",
