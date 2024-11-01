@@ -28,8 +28,8 @@ impl PostView {
         execute_db_operation(pool, move |conn| {
             diesel::insert_into(post_views)
                 .values(&new_view)
+                .returning(Self::as_returning())
                 .get_result(conn)
-            // .returning(Self::as_returning())
         })
         .await
     }
