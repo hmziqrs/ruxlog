@@ -39,6 +39,14 @@ diesel::table! {
         updated_at -> Timestamp,
     }
 }
+diesel::table! {
+    post_views (id) {
+        id -> Int4,
+        user_id -> Int4,
+        post_id -> Int4,
+        created_at -> Timestamp,
+    }
+}
 
 diesel::table! {
     posts (id) {
