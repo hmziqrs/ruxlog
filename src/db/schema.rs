@@ -115,6 +115,8 @@ diesel::joinable!(posts -> users (author_id));
 diesel::joinable!(post_comments -> posts (post_id));
 diesel::joinable!(post_comments -> users (user_id));
 diesel::joinable!(posts -> categories (category_id));
+diesel::joinable!(post_views -> posts (post_id));
+diesel::joinable!(post_views -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     categories,
@@ -124,4 +126,5 @@ diesel::allow_tables_to_appear_in_same_query!(
     posts,
     post_comments,
     tags,
+    post_views,
 );
