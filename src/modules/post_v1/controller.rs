@@ -186,3 +186,27 @@ pub async fn find_published_posts(
             .into_response(),
     }
 }
+
+#[debug_handler]
+pub async fn track_view(
+    State(state): State<AppState>,
+    auth: AuthSession,
+    Path(post_id): Path<i32>,
+) -> impl IntoResponse {
+    let user_id: Option<i32> = auth.user.map(|user| user.id);
+    match Post::increment_view_count(&state.db_pool, post_id, user_id).await {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(json!({ "message": "View tracked successfully" })),
+        )
+            .into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": err.to_string(),
+                "message": "Failed to track view",
+            })),
+        )
+            .into_response(),
+    }
+}

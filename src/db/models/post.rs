@@ -14,6 +14,7 @@ use rand::{distributions::Alphanumeric, Rng};
 use serde::{Deserialize, Serialize};
 use tokio::task;
 
+use crate::db::models::post_view::PostView;
 use crate::db::{
     errors::DBError,
     schema,
@@ -455,5 +456,24 @@ impl Post {
             }
         })
         .await
+    }
+
+    pub async fn increment_view_count(
+        pool: &Pool,
+        q_post_id: i32,
+        q_user_id: Option<i32>,
+    ) -> Result<(), DBError> {
+        use crate::db::schema::posts::dsl::*;
+
+        execute_db_operation(pool, move |conn| {
+            conn.transaction(|conn| {
+                PostView::create_query(conn, q_post_id, q_user_id)?;
+                diesel::update(posts.filter(id.eq_all(q_post_id)))
+                    .set(view_count.eq(view_count + 1))
+                    .execute(conn)
+            })
+        })
+        .await
+        .map(|_| ())
     }
 }

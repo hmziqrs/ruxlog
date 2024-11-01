@@ -68,6 +68,10 @@ pub fn router() -> Router<AppState> {
         .route(
             "/list/published",
             post(post_v1::controller::find_published_posts),
+        )
+        .route(
+            "/track_view/:post_id",
+            post(post_v1::controller::track_view),
         );
 
     let post_comment_v1_routes = Router::new()
