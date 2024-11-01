@@ -28,19 +28,22 @@ impl PostView {
         execute_db_operation(pool, move |conn| {
             diesel::insert_into(post_views)
                 .values(&new_view)
-                // .returning(Self::as_returning())
                 .get_result(conn)
+            // .returning(Self::as_returning())
         })
         .await
     }
 
     pub fn create_query(
         conn: &mut PgConnection,
-        post_id: i32,
-        user_id: Option<i32>,
+        q_post_id: i32,
+        q_user_id: Option<i32>,
     ) -> Result<Self, diesel::result::Error> {
-        let new_view = NewPostView { post_id, user_id };
         use crate::db::schema::post_views::dsl::*;
+        let new_view = NewPostView {
+            post_id: q_post_id,
+            user_id: q_user_id,
+        };
 
         let view = diesel::insert_into(post_views)
             .values(&new_view)
