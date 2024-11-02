@@ -158,9 +158,6 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
     let mut authors: Vec<User> = vec![];
     let mut author_page: i64 = 1;
     let mut fetch_authors = true;
-    let mut users: Vec<User> = vec![];
-    let mut user_page: i64 = 1;
-    let mut fetch_users = true;
 
     loop {
         if fetch_authors {
@@ -185,40 +182,6 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
                     }
 
                     authors.extend(res);
-                }
-                Err(_) => {
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(json!({
-                            "message": "Failed to fetch authors"
-                        })),
-                    )
-                        .into_response();
-                }
-            };
-        }
-        if fetch_users {
-            let user_query = AdminUserQuery {
-                page_no: Some(user_page),
-                email: None,
-                name: None,
-                role: Some(UserRole::User),
-                status: None,
-                created_at: None,
-                updated_at: None,
-                sort_by: None,
-                sort_order: None,
-            };
-            match User::admin_list(&state.db_pool, user_query).await {
-                Ok(res) => {
-                    let len = res.len() as i64;
-                    if len == User::ADMIN_PER_PAGE {
-                        user_page += 1;
-                    } else {
-                        fetch_users = false;
-                    }
-
-                    users.extend(res);
                 }
                 Err(_) => {
                     return (
@@ -293,10 +256,102 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
             "tags": tags,
             "categories": categories,
             "authors": authors,
-            "users": users,
         })),
     )
         .into_response()
+}
+
+#[debug_handler]
+pub async fn seed_post_comments(
+    State(state): State<AppState>,
+    _auth: AuthSession,
+) -> impl IntoResponse {
+    let mut users: Vec<User> = vec![];
+    let mut user_page: i64 = 1;
+    let mut fetch_users = true;
+
+    loop {
+        if fetch_users {
+            let user_query = AdminUserQuery {
+                page_no: Some(user_page),
+                email: None,
+                name: None,
+                role: Some(UserRole::User),
+                status: None,
+                created_at: None,
+                updated_at: None,
+                sort_by: None,
+                sort_order: None,
+            };
+            match User::admin_list(&state.db_pool, user_query).await {
+                Ok(res) => {
+                    let len = res.len() as i64;
+                    if len == User::ADMIN_PER_PAGE {
+                        user_page += 1;
+                    } else {
+                        fetch_users = false;
+                    }
+
+                    users.extend(res);
+                }
+                Err(_) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({
+                            "message": "Failed to fetch authors"
+                        })),
+                    )
+                        .into_response();
+                }
+            };
+        }
+        if !fetch_users {
+            break;
+        }
+    }
+
+    let posts = match Post::find_all(&state.db_pool).await {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                StatusCode::OK,
+                Json(json!({
+                    "message": "Posts seeded successfully",
+                })),
+            )
+                .into_response();
+        }
+    };
+    let mut rng = StdRng::seed_from_u64(100);
+    for user in users {
+        let posts_ratio = posts.len() / 10;
+        let posts_amount = rng.gen_range(posts_ratio..posts.len());
+        let post_ids: Vec<i32> = posts
+            .choose_multiple(&mut rng, posts_amount)
+            .cloned()
+            .map(|t| t.id)
+            .collect();
+
+        for post_id in post_ids {
+            let content: String = l::Sentences(EN, 1..5).fake::<Vec<String>>().join(" ");
+            let new_comment = NewPostComment {
+                post_id,
+                user_id: user.id,
+                content,
+            };
+            if let Err(err) = PostComment::create(&state.db_pool, new_comment).await {
+                println!("Error creating comment: {:?}", err);
+            }
+        }
+    }
+
+    return (
+        StatusCode::OK,
+        Json(json!({
+            "message": "Posts seeded successfully",
+        })),
+    )
+        .into_response();
 }
 
 #[debug_handler]

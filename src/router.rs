@@ -153,6 +153,10 @@ pub fn router() -> Router<AppState> {
             post(seed_v1::controller::seed_categories),
         )
         .route("/seed_posts", post(seed_v1::controller::seed_posts))
+        .route(
+            "/seed_post_comments",
+            post(seed_v1::controller::seed_post_comments),
+        )
         .route("/seed", post(seed_v1::controller::seed));
 
     Router::new()

@@ -507,4 +507,10 @@ impl Post {
 
         Ok(res)
     }
+
+    pub async fn find_all(pool: &Pool) -> Result<Vec<Self>, DBError> {
+        use crate::db::schema::posts::dsl::*;
+
+        execute_db_operation(pool, move |conn| posts.load::<Self>(conn)).await
+    }
 }
