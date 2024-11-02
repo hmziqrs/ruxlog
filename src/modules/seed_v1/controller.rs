@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_macros::debug_handler;
 use fake::faker::internet::en::*;
@@ -45,6 +47,83 @@ pub struct FakeUser {
 //     // #[dummy(faker = "Paragraphs(1..5)")]
 //     // content: String,
 // }
+//
+#[debug_handler]
+pub async fn seed_tags(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
+    let mut tags: Vec<Tag> = vec![];
+    let mut fake_tags_set: HashSet<String> = HashSet::new();
+
+    // Create 50 fake tags
+    for _ in 0..50 {
+        let fake_tag = l::Word(EN).fake::<String>();
+        fake_tags_set.insert(fake_tag);
+    }
+
+    for tag in fake_tags_set {
+        let new_tag = NewTag {
+            name: tag.clone(),
+            slug: tag.to_lowercase(),
+            description: None,
+        };
+
+        match Tag::create(&state.db_pool, new_tag).await {
+            Ok(tag) => tags.push(tag),
+            Err(err) => {
+                println!("Error creating tag: {:?}", err);
+            }
+        }
+    }
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "message": "Tags seeded successfully",
+            "data": tags,
+        })),
+    )
+        .into_response()
+}
+
+#[debug_handler]
+pub async fn seed_categories(
+    State(state): State<AppState>,
+    _auth: AuthSession,
+) -> impl IntoResponse {
+    let mut fakes: Vec<Category> = vec![];
+    let mut fake_set: HashSet<String> = HashSet::new();
+
+    for _ in 0..10 {
+        let fake = l::Word(EN).fake::<String>();
+        fake_set.insert(fake);
+    }
+
+    for cat in fake_set {
+        let new_cat = NewCategory {
+            name: cat.clone(),
+            slug: cat.to_lowercase(),
+            parent_id: None,
+            description: None,
+            logo_image: None,
+            cover_image: None,
+        };
+
+        match Category::create(&state.db_pool, new_cat).await {
+            Ok(tag) => fakes.push(tag),
+            Err(err) => {
+                println!("Error creating tag: {:?}", err);
+            }
+        }
+    }
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "message": "Categories seeded successfully",
+            "data": fakes,
+        })),
+    )
+        .into_response()
+}
 
 #[debug_handler]
 pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
@@ -52,7 +131,6 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
     let mut fake_users: Vec<User> = vec![];
     let mut fake_posts: Vec<Post> = vec![];
 
-    // Create 50 fake users (25 users, 25 authors)
     for _ in 0..50 {
         let user: FakeUser = Faker.fake_with_rng(&mut rng);
         let new_user = AdminCreateUser {

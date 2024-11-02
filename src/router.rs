@@ -146,7 +146,9 @@ pub fn router() -> Router<AppState> {
         .route("/pool_stats", post(super_admin_v1::controller::pool_stats))
         .route("/pool_close", post(super_admin_v1::controller::close));
 
-    let seed_routes = Router::new().route("/seed", post(seed_v1::controller::seed));
+    let seed_routes = Router::new()
+        .route("/seed_tags", post(seed_v1::controller::seed_tags))
+        .route("/seed", post(seed_v1::controller::seed));
 
     Router::new()
         .route("/", routing::get(handler))
