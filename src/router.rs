@@ -148,6 +148,11 @@ pub fn router() -> Router<AppState> {
 
     let seed_routes = Router::new()
         .route("/seed_tags", post(seed_v1::controller::seed_tags))
+        .route(
+            "/seed_categories",
+            post(seed_v1::controller::seed_categories),
+        )
+        .route("/seed_posts", post(seed_v1::controller::seed_posts))
         .route("/seed", post(seed_v1::controller::seed));
 
     Router::new()

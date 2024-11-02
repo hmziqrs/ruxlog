@@ -12,6 +12,8 @@ use serde_json::json;
 #[derive(Debug, Dummy)]
 struct FakeWord(#[dummy(faker = "Word()")] String);
 
+use crate::db::models::post::PostQuery;
+use crate::db::models::user::AdminUserQuery;
 use crate::{
     db::models::{
         category::{Category, NewCategory},
@@ -120,6 +122,128 @@ pub async fn seed_categories(
         Json(json!({
             "message": "Categories seeded successfully",
             "data": fakes,
+        })),
+    )
+        .into_response()
+}
+
+#[debug_handler]
+pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
+    let tags = match Tag::find_all(&state.db_pool).await {
+        Ok(t) => t,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "message": "Failed to fetch tags"
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    let cats = match Category::find_all(&state.db_pool).await {
+        Ok(c) => c,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "message": "Failed to fetch categories"
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    let mut authors: Vec<User> = vec![];
+    let mut users: Vec<User> = vec![];
+    let mut author_page: i64 = 1;
+    let mut user_page: i64 = 1;
+    let mut fetch_authors = true;
+    let mut fetch_users = true;
+
+    loop {
+        if fetch_authors {
+            let author_query = AdminUserQuery {
+                page_no: Some(author_page),
+                email: None,
+                name: None,
+                role: Some(UserRole::Author),
+                status: None,
+                created_at: None,
+                updated_at: None,
+                sort_by: None,
+                sort_order: None,
+            };
+            match User::admin_list(&state.db_pool, author_query).await {
+                Ok(res) => {
+                    let len = res.len() as i64;
+                    if len == User::ADMIN_PER_PAGE {
+                        author_page += 1;
+                    } else {
+                        fetch_authors = false;
+                    }
+
+                    authors.extend(res);
+                }
+                Err(_) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({
+                            "message": "Failed to fetch authors"
+                        })),
+                    )
+                        .into_response();
+                }
+            };
+        }
+        if fetch_users {
+            let user_query = AdminUserQuery {
+                page_no: Some(user_page),
+                email: None,
+                name: None,
+                role: Some(UserRole::User),
+                status: None,
+                created_at: None,
+                updated_at: None,
+                sort_by: None,
+                sort_order: None,
+            };
+            match User::admin_list(&state.db_pool, user_query).await {
+                Ok(res) => {
+                    let len = res.len() as i64;
+                    if len == User::ADMIN_PER_PAGE {
+                        user_page += 1;
+                    } else {
+                        fetch_users = false;
+                    }
+
+                    users.extend(res);
+                }
+                Err(_) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({
+                            "message": "Failed to fetch authors"
+                        })),
+                    )
+                        .into_response();
+                }
+            };
+        }
+        if !fetch_authors && !fetch_users {
+            break;
+        }
+    }
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "message": "Posts seeded successfully",
+            "tags": tags,
+            "categories": cats,
+            "authors": authors,
+            "users": users,
         })),
     )
         .into_response()

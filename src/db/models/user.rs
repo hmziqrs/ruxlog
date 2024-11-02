@@ -182,9 +182,8 @@ pub struct AdminUpdateUser {
     pub updated_at: NaiveDateTime,
 }
 
-const ADMIN_PER_PAGE: i64 = 20;
-
 impl User {
+    pub const ADMIN_PER_PAGE: i64 = 20;
     pub async fn find_by_id(pool: &Pool, user_id: i32) -> Result<Option<Self>, DBError> {
         use crate::db::schema::users::dsl::*;
 
@@ -469,8 +468,8 @@ impl User {
 
             let items = query_builder
                 .select(users::all_columns())
-                .limit(ADMIN_PER_PAGE)
-                .offset((page - 1) * ADMIN_PER_PAGE)
+                .limit(Self::ADMIN_PER_PAGE)
+                .offset((page - 1) * Self::ADMIN_PER_PAGE)
                 .load::<User>(conn)?;
 
             Ok(items)
