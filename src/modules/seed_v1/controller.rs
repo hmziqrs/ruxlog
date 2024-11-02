@@ -9,6 +9,7 @@ use fake::faker::internet::en::*;
 use fake::faker::lorem::en::*;
 use fake::faker::lorem::raw as l;
 use fake::faker::name::en::*;
+use fake::locales::EN;
 use serde_json::json;
 
 #[derive(Debug, Dummy)]
@@ -17,7 +18,7 @@ struct FakeWord(#[dummy(faker = "Word()")] String);
 use crate::{
     db::models::{
         category::{Category, NewCategory},
-        post::{NewPost, Post, PostSortBy},
+        post::{NewPost, Post},
         post_comment::{NewPostComment, PostComment},
         tag::{NewTag, Tag},
         user::{AdminCreateUser, User, UserRole},
@@ -61,7 +62,7 @@ pub async fn seed(State(state): State<AppState>, auth: AuthSession) -> impl Into
         let user: FakeUser = Faker.fake_with_rng(&mut rng);
         let new_user = AdminCreateUser {
             name: user.name,
-            email: user.email,
+            email: user.email.clone(),
             password: user.email,
             role: if rng.gen_bool(0.5) {
                 UserRole::Author
@@ -128,18 +129,17 @@ pub async fn seed(State(state): State<AppState>, auth: AuthSession) -> impl Into
         if user.role == UserRole::Author {
             let num_posts = rng.gen_range(2..16);
             for _ in 0..num_posts {
-                // let post: FakePost = Faker.fake_with_rng(&mut rng);
-                let category_id = categories.choose(&mut rng).map(|c| c.id).or(None);
+                let category_id = categories.choose(&mut rng).map(|c| c.id);
                 let tag_ids: Vec<i32> = tags
                     .choose_multiple(&mut rng, rng.gen_range(1..4))
-                    .iter()
+                    .cloned()
                     .map(|t| t.id)
                     .collect();
-                let post_title = l::Sentence(fake::locales::EN, 1..2).fake();
-                let post_excerpt = l::Words(fake::locales::EN, 1..8).fake();
-                let post_content = l::Paragraphs(fake::locales::EN, 1..8).fake();
+                let post_title: String = l::Sentence(EN, 1..2).fake();
+                let post_excerpt = l::Words(EN, 1..8).fake::<Vec<String>>().join(" ");
+                let post_content: String = l::Paragraph(EN, 1..8).fake::<String>();
                 let new_post = NewPost {
-                    title: post_title,
+                    title: post_title.clone(),
                     excerpt: Some(post_excerpt),
                     content: post_content,
                     author_id: user.id,
@@ -169,46 +169,14 @@ pub async fn seed(State(state): State<AppState>, auth: AuthSession) -> impl Into
         }
     }
 
-    // // Create comments for users
-    // let posts = Post::find_posts_with_query(
-    //     &state.db_pool,
-    //     PostQuery {
-    //         page_no: None,
-    //         author_id: None,
-    //         category_id: None,
-    //         is_published: None,
-    //         search: None,
-    //         sort_by: Some(PostSortBy::PublishedAt),
-    //         sort_order: None,
-    //         tag_ids: None,
-    //     },
-    //     auth.user.unwrap(),
-    // )
-    // .await;
-
-    // let posts = match posts {
-    //     Ok(posts) => posts,
-    //     Err(err) => {
-    //         println!("Error fetching posts: {:?}", err);
-    //         return (
-    //             StatusCode::INTERNAL_SERVER_ERROR,
-    //             Json(json!({
-    //                 "error": err.to_string(),
-    //                 "message": "Failed to seed data",
-    //             })),
-    //         )
-    //             .into_response();
-    //     }
-    // };
-
     for user in fake_users.iter() {
         if user.role == UserRole::User {
             let num_comments = rng.gen_range(1..4);
             for _ in 0..num_comments {
                 let post = fake_posts.choose(&mut rng).unwrap();
-                let content = Faker.fake::<Sentence>();
+                let content: String = l::Sentence(EN, 1..2).fake::<String>();
                 let new_comment = NewPostComment {
-                    post_id: post.post.id,
+                    post_id: post.id,
                     user_id: user.id,
                     content,
                 };

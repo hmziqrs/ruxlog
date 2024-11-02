@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::db::{errors::DBError, schema, utils::execute_db_operation};
 
-#[derive(Queryable, Identifiable, Selectable, Debug, PartialEq, Serialize)]
+#[derive(Queryable, Identifiable, Selectable, Debug, PartialEq, Serialize, Clone)]
 #[diesel(table_name = schema::tags)]
 pub struct Tag {
     pub id: i32,
