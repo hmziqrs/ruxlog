@@ -1,9 +1,4 @@
-use axum::{
-    extract::{Path, Query, State},
-    http::StatusCode,
-    response::IntoResponse,
-    Json,
-};
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_macros::debug_handler;
 use fake::faker::internet::en::*;
 use fake::faker::lorem::en::*;
@@ -52,7 +47,7 @@ pub struct FakeUser {
 // }
 
 #[debug_handler]
-pub async fn seed(State(state): State<AppState>, auth: AuthSession) -> impl IntoResponse {
+pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
     let mut rng = StdRng::seed_from_u64(42);
     let mut fake_users: Vec<User> = vec![];
     let mut fake_posts: Vec<Post> = vec![];
@@ -130,8 +125,9 @@ pub async fn seed(State(state): State<AppState>, auth: AuthSession) -> impl Into
             let num_posts = rng.gen_range(2..16);
             for _ in 0..num_posts {
                 let category_id = categories.choose(&mut rng).map(|c| c.id);
+                let tags_amount = rng.gen_range(1..4);
                 let tag_ids: Vec<i32> = tags
-                    .choose_multiple(&mut rng, rng.gen_range(1..4))
+                    .choose_multiple(&mut rng, tags_amount)
                     .cloned()
                     .map(|t| t.id)
                     .collect();
