@@ -142,7 +142,7 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
         }
     };
 
-    let cats = match Category::find_all(&state.db_pool).await {
+    let categories = match Category::find_all(&state.db_pool).await {
         Ok(c) => c,
         Err(_) => {
             return (
@@ -156,10 +156,10 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
     };
 
     let mut authors: Vec<User> = vec![];
-    let mut users: Vec<User> = vec![];
     let mut author_page: i64 = 1;
-    let mut user_page: i64 = 1;
     let mut fetch_authors = true;
+    let mut users: Vec<User> = vec![];
+    let mut user_page: i64 = 1;
     let mut fetch_users = true;
 
     loop {
@@ -231,8 +231,58 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
                 }
             };
         }
-        if !fetch_authors && !fetch_users {
+        if !fetch_authors {
             break;
+        }
+    }
+
+    let mut slugs_set: HashSet<String> = HashSet::new();
+    let mut rng = StdRng::seed_from_u64(4999);
+
+    for user in authors.iter() {
+        let num_posts = rng.gen_range(1..16);
+        for _ in 0..num_posts {
+            let post_title: String = l::Sentences(EN, 2..5).fake::<Vec<String>>().join(" ");
+            let post_slug = post_title.to_lowercase().replace(' ', "-");
+            if slugs_set.contains(&post_slug) {
+                continue;
+            } else {
+                slugs_set.insert(post_slug.clone());
+            }
+            let category_id = categories.choose(&mut rng).map(|c| c.id);
+            let tags_amount = rng.gen_range(1..10);
+            let tag_ids: Vec<i32> = tags
+                .choose_multiple(&mut rng, tags_amount)
+                .cloned()
+                .map(|t| t.id)
+                .collect();
+            let post_excerpt = l::Words(EN, 1..8).fake::<Vec<String>>().join(" ");
+            let post_content: String = l::Paragraphs(EN, 1..8).fake::<Vec<String>>().join(" ");
+            let is_published = rng.gen_bool(0.8);
+            let new_post = NewPost {
+                title: post_title.clone(),
+                excerpt: Some(post_excerpt),
+                content: post_content,
+                author_id: user.id,
+                published_at: if is_published {
+                    Some(chrono::Utc::now().naive_utc())
+                } else {
+                    None
+                },
+                is_published,
+                slug: post_slug,
+                featured_image_url: None,
+                category_id,
+                view_count: 0,
+                likes_count: 0,
+                tag_ids,
+            };
+
+            // println!("{:?}", new_post);
+
+            if let Err(err) = Post::create(&state.db_pool, new_post).await {
+                println!("Error creating post: {:?}", err);
+            }
         }
     }
 
@@ -241,7 +291,7 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
         Json(json!({
             "message": "Posts seeded successfully",
             "tags": tags,
-            "categories": cats,
+            "categories": categories,
             "authors": authors,
             "users": users,
         })),
