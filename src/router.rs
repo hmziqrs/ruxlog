@@ -12,7 +12,7 @@ use tower_http::trace::TraceLayer;
 
 use crate::{
     middlewares::{user_permission, user_status},
-    modules::{category_v1, post_v1, super_admin_v1, tag_v1},
+    modules::{category_v1, post_v1, seed_v1, super_admin_v1, tag_v1},
 };
 use crate::{modules::post_comment_v1, services::auth::AuthBackend};
 
@@ -69,6 +69,7 @@ pub fn router() -> Router<AppState> {
             "/list/published",
             post(post_v1::controller::find_published_posts),
         )
+        .route("/sitemap", post(post_v1::controller::sitemap))
         .route(
             "/track_view/:post_id",
             post(post_v1::controller::track_view),
@@ -145,6 +146,19 @@ pub fn router() -> Router<AppState> {
         .route("/pool_stats", post(super_admin_v1::controller::pool_stats))
         .route("/pool_close", post(super_admin_v1::controller::close));
 
+    let seed_routes = Router::new()
+        .route("/seed_tags", post(seed_v1::controller::seed_tags))
+        .route(
+            "/seed_categories",
+            post(seed_v1::controller::seed_categories),
+        )
+        .route("/seed_posts", post(seed_v1::controller::seed_posts))
+        .route(
+            "/seed_post_comments",
+            post(seed_v1::controller::seed_post_comments),
+        )
+        .route("/seed", post(seed_v1::controller::seed));
+
     Router::new()
         .route("/", routing::get(handler))
         .nest("/auth/v1", auth_v1_routes)
@@ -157,6 +171,7 @@ pub fn router() -> Router<AppState> {
         .nest("/tag/v1", tag_v1_routes)
         .nest("/admin/user/v1", admin_user_v1_routes)
         .nest("/super_admin/v1", super_admin_routes)
+        .nest("/admin/seed/v1", seed_routes)
         .layer(TraceLayer::new_for_http())
 }
 

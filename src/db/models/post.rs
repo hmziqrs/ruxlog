@@ -42,6 +42,13 @@ pub struct Post {
 }
 
 #[derive(Debug, Serialize)]
+pub struct PostSitemap {
+    pub slug: String,
+    pub updated_at: NaiveDateTime,
+    pub published_at: NaiveDateTime,
+}
+
+#[derive(Debug, Serialize)]
 pub struct PostCategory {
     pub id: i32,
     pub name: String,
@@ -475,5 +482,35 @@ impl Post {
         })
         .await
         .map(|_| ())
+    }
+
+    pub async fn sitemap(pool: &Pool) -> Result<Vec<PostSitemap>, DBError> {
+        use crate::db::schema::posts::dsl::*;
+
+        let res = execute_db_operation(pool, move |conn| {
+            // only select slug, updated_at, and published_at
+            crate::db::schema::posts::table
+                .filter(is_published.eq(true))
+                .select((slug, updated_at, published_at))
+                .load::<(String, NaiveDateTime, Option<NaiveDateTime>)>(conn)
+                .map(|res| {
+                    res.into_iter()
+                        .map(|obj| PostSitemap {
+                            slug: obj.0,
+                            updated_at: obj.1,
+                            published_at: obj.2.unwrap_or(obj.1),
+                        })
+                        .collect()
+                })
+        })
+        .await?;
+
+        Ok(res)
+    }
+
+    pub async fn find_all(pool: &Pool) -> Result<Vec<Self>, DBError> {
+        use crate::db::schema::posts::dsl::*;
+
+        execute_db_operation(pool, move |conn| posts.load::<Self>(conn)).await
     }
 }

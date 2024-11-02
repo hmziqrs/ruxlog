@@ -16,6 +16,7 @@ axum-extra = { version = "0.9.4", features = [
     "query",
 ] }
 axum-login = "0.16.0"
+fake = { version = "3.0.0", features = ["derive"] }
 validator = { version = "0.18.1", features = ["derive"] }
 axum-valid = { version = "0.20.0", default-features = false, features = [
     "basic",

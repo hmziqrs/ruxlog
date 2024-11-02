@@ -210,3 +210,18 @@ pub async fn track_view(
             .into_response(),
     }
 }
+
+#[debug_handler]
+pub async fn sitemap(State(state): State<AppState>) -> impl IntoResponse {
+    match Post::sitemap(&state.db_pool).await {
+        Ok(posts) => (StatusCode::OK, Json(posts)).into_response(),
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": err.to_string(),
+                "message": "Failed to fetch posts",
+            })),
+        )
+            .into_response(),
+    }
+}

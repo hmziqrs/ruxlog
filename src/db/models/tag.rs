@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::db::{errors::DBError, schema, utils::execute_db_operation};
 
-#[derive(Queryable, Identifiable, Selectable, Debug, PartialEq, Serialize)]
+#[derive(Queryable, Identifiable, Selectable, Debug, PartialEq, Serialize, Clone)]
 #[diesel(table_name = schema::tags)]
 pub struct Tag {
     pub id: i32,
@@ -82,7 +82,7 @@ impl Tag {
         use crate::db::schema::tags::dsl::*;
 
         execute_db_operation(pool, move |conn| {
-            tags.filter(id.eq(tag_id)).first::<Tag>(conn).optional()
+            tags.filter(id.eq(tag_id)).first::<Self>(conn).optional()
         })
         .await
     }
@@ -90,7 +90,7 @@ impl Tag {
     pub async fn find_all(pool: &Pool) -> Result<Vec<Self>, DBError> {
         use crate::db::schema::tags::dsl::*;
 
-        execute_db_operation(pool, move |conn| tags.load::<Tag>(conn).map_err(Into::into)).await
+        execute_db_operation(pool, move |conn| tags.load::<Self>(conn)).await
     }
 
     pub async fn find_with_query(pool: &Pool, query: TagQuery) -> Result<Vec<Self>, DBError> {

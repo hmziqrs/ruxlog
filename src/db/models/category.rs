@@ -123,4 +123,9 @@ impl Category {
         })
         .await
     }
+
+    pub async fn find_all(pool: &Pool) -> Result<Vec<Self>, DBError> {
+        use crate::db::schema::categories::dsl::*;
+        execute_db_operation(pool, move |conn| categories.load::<Self>(conn)).await
+    }
 }
