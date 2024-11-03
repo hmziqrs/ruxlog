@@ -1,8 +1,15 @@
 # Axum Auth Project
 
+This project started as a boilerplate to learn rust and have a good starting point for future projects.
+But I pivioted to a blog application with all the features which I will require in future projects.
+And it is easier to implement features when it solves a real problem rather than a problem which may or may not arise.
+At the moment project isn't complete I will be adding more features and imrpovements as I learn more about rust.
+
+> Sending mails is not implemented yet, because amazon didn't approved my SES however SMTP is tested via mailtrap and it is working fine. I will revisit this feature later when then project is more stable.
+
 ## Overview
 
-This project is a comprehensive web application built using the Rust programming language and the Axum web framework. It provides a robust authentication and authorization system, including features such as user registration, login, email verification, password reset, and role-based access control. The project also includes functionalities for managing posts, categories, tags, and comments, along with rate limiting and abuse prevention mechanisms.
+This project is a comprehensive web application built using the Rust programming language and the Axum web framework. It provides a authentication and authorization system, including features such as user registration, login, email verification, password reset, and role-based access control. The project also includes functionalities for managing posts, categories, tags, and comments, along with rate limiting and abuse prevention mechanisms.
 
 ## Table of Contents
 
@@ -220,7 +227,3 @@ Contributions are welcome! Please open an issue or submit a pull request on GitH
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
----
-
-This README provides a detailed overview of the Axum Auth project, including its features, structure, installation steps, configuration, usage, API endpoints, database migrations, middlewares, services, state management, and contribution guidelines.
