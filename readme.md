@@ -3,7 +3,7 @@
 This project started as a boilerplate to learn rust and have a good starting point for future projects.
 But I pivioted to a blog application with all the features which I will require in future projects.
 And it is easier to implement features when it solves a real problem rather than a problem which may or may not arise.
-At the moment project isn't complete I will be adding more features and imrpovements as I learn more about rust.
+At the moment project isn't complete and not stable I will be adding more features and imrpovements as I learn more about rust and system design.
 
 > Sending mails is not implemented yet, because amazon didn't approved my SES however SMTP is tested via mailtrap and it is working fine. I will revisit this feature later when then project is more stable.
 
