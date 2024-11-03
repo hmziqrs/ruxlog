@@ -58,9 +58,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "http://localhost:3000",
         "http://192.168.0.101:3333",
         "http://192.168.0.101:3000",
-        "https://yourdomain.com",
-        "https://subdomain1.yourdomain.com",
-        "https://subdomain2.yourdomain.com",
+        "https://hzmiqrs.com",
+        "https://hmziq.rs",
+        "https://blog.hmziq.rs",
     ]
     .iter()
     // .join(", ")
