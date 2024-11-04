@@ -49,7 +49,7 @@ cat > apps/static-site/index.html << 'EOF'
 </html>
 EOF
 
-# Clone rust-rxpy if not already cloned
+# Check rust-rxpy status
 if [ ! -d "libs/rust-rxpy" ]; then
     echo "Cloning rust-rxpy..."
     cd libs
@@ -57,8 +57,13 @@ if [ ! -d "libs/rust-rxpy" ]; then
     cd rust-rxpy
     cargo build --release
     cd ../..
+elif [ ! -f "libs/rust-rxpy/target/release/rxpy" ]; then
+    echo "Building rust-rxpy..."
+    cd libs/rust-rxpy
+    cargo build --release
+    cd ../..
 else
-    echo "rust-rxpy already cloned"
+    echo "rust-rxpy is already built"
 fi
 
 # Create symlink to rxpy
@@ -93,14 +98,6 @@ cd ../../
 nohup rxpy --config configs/rxpt-config.toml > logs/rxpy.log 2>&1 &
 
 echo "Setup completed successfully!"
-```
-
-To use this script:
-
-1. Save it as `setup-server.sh`
-2. Make it executable:
-```bash
-chmod +x setup-server.sh
-```
-
-3. Run it with sudo (needed for the symlink creation):
+echo "You can monitor the logs with:"
+echo "tail -f logs/simple-http-server.log"
+echo "tail -f logs/rxpy.log"
