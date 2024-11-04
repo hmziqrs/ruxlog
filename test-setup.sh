@@ -5,6 +5,22 @@ set -e
 
 echo "Starting server setup..."
 
+# Install build essentials and C compiler
+echo "Installing build dependencies..."
+if [ -f /etc/debian_version ]; then
+    # Debian/Ubuntu
+    sudo apt-get update
+    sudo apt-get install -y build-essential pkg-config
+elif [ -f /etc/redhat-release ]; then
+    # CentOS/RHEL
+    sudo yum groupinstall -y "Development Tools"
+    sudo yum install -y gcc
+elif [ -f /etc/arch-release ]; then
+    # Arch Linux
+    sudo pacman -Sy base-devel
+fi
+
+
 # Source bashrc to ensure environment variables are set
 if [ -f "$HOME/.bashrc" ]; then
     echo "Sourcing ~/.bashrc..."
