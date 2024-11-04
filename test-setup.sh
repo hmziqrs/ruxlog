@@ -5,6 +5,18 @@ set -e
 
 echo "Starting server setup..."
 
+# Source bashrc to ensure environment variables are set
+if [ -f "$HOME/.bashrc" ]; then
+    echo "Sourcing ~/.bashrc..."
+    source "$HOME/.bashrc"
+fi
+
+# Source cargo environment specifically
+if [ -f "$HOME/.cargo/env" ]; then
+    echo "Sourcing cargo environment..."
+    source "$HOME/.cargo/env"
+fi
+
 # Function to check if a command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
@@ -15,6 +27,9 @@ if ! command_exists cargo; then
     echo "Installing Rust..."
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
     source "$HOME/.cargo/env"
+    source "$HOME/.bashrc"
+    # Reload shell environment
+    exec $SHELL
 else
     echo "Rust is already installed"
 fi
