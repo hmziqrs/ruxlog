@@ -5,20 +5,44 @@ set -e
 
 echo "Starting server setup..."
 
-# Install build essentials and C compiler
-echo "Installing build dependencies..."
+# Install build essentials and dependencies
+echo "Installing build dependencies and OpenSSL..."
 if [ -f /etc/debian_version ]; then
     # Debian/Ubuntu
     sudo apt-get update
-    sudo apt-get install -y build-essential pkg-config
+    sudo apt-get install -y \
+        build-essential \
+        pkg-config \
+        openssl \
+        libssl-dev \
+        perl \
+        make \
+        gcc
 elif [ -f /etc/redhat-release ]; then
     # CentOS/RHEL
     sudo yum groupinstall -y "Development Tools"
-    sudo yum install -y gcc
+    sudo yum install -y \
+        gcc \
+        openssl \
+        openssl-devel \
+        perl \
+        make
 elif [ -f /etc/arch-release ]; then
     # Arch Linux
-    sudo pacman -Sy base-devel
+    sudo pacman -Sy \
+        base-devel \
+        openssl
 fi
+
+# Verify OpenSSL installation
+if ! command -v openssl &> /dev/null; then
+    echo "OpenSSL installation failed"
+    exit 1
+else
+    echo "OpenSSL installed successfully"
+    openssl version
+fi
+
 
 
 # Source bashrc to ensure environment variables are set
