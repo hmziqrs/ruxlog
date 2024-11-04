@@ -9,53 +9,94 @@ echo "Starting server setup..."
 command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
+# Function to check if package is installed (Debian/Ubuntu)
+is_pkg_installed() {
+    dpkg -l "$1" | grep -q '^ii'
+}
 
+# Function to check if package group is installed (RHEL/CentOS)
+is_group_installed() {
+    yum grouplist installed | grep -q "$1"
+}
 
 # Install git if not installed
 if ! command_exists git; then
     echo "Installing git..."
     if [ -f /etc/debian_version ]; then
-        # Debian/Ubuntu
         sudo apt-get update
         sudo apt-get install -y git
     elif [ -f /etc/redhat-release ]; then
-        # CentOS/RHEL
         sudo yum install -y git
     elif [ -f /etc/arch-release ]; then
-        # Arch Linux
         sudo pacman -Sy git
     fi
 else
     echo "git is already installed"
 fi
 
-# Install build essentials and dependencies
-echo "Installing build dependencies and OpenSSL..."
+# Install build dependencies based on distribution
 if [ -f /etc/debian_version ]; then
     # Debian/Ubuntu
-    sudo apt-get update
-    sudo apt-get install -y \
-        build-essential \
-        pkg-config \
-        openssl \
-        libssl-dev \
-        perl \
-        make \
-        gcc
+    if ! is_pkg_installed build-essential; then
+        echo "Installing build-essential..."
+        sudo apt-get update
+        sudo apt-get install -y build-essential
+    else
+        echo "build-essential is already installed"
+    fi
+
+    if ! is_pkg_installed libssl-dev; then
+        echo "Installing OpenSSL development packages..."
+        sudo apt-get install -y openssl libssl-dev
+    else
+        echo "OpenSSL development packages are already installed"
+    fi
+
+    # Additional packages
+    for pkg in pkg-config perl make gcc; do
+        if ! is_pkg_installed $pkg; then
+            echo "Installing $pkg..."
+            sudo apt-get install -y $pkg
+        else
+            echo "$pkg is already installed"
+        fi
+    done
+
 elif [ -f /etc/redhat-release ]; then
     # CentOS/RHEL
-    sudo yum groupinstall -y "Development Tools"
-    sudo yum install -y \
-        gcc \
-        openssl \
-        openssl-devel \
-        perl \
-        make
+    if ! is_group_installed "Development Tools"; then
+        echo "Installing Development Tools..."
+        sudo yum groupinstall -y "Development Tools"
+    else
+        echo "Development Tools are already installed"
+    fi
+
+    # Check individual packages
+    for pkg in gcc openssl openssl-devel perl make; do
+        if ! rpm -q $pkg >/dev/null 2>&1; then
+            echo "Installing $pkg..."
+            sudo yum install -y $pkg
+        else
+            echo "$pkg is already installed"
+        fi
+    done
+
 elif [ -f /etc/arch-release ]; then
     # Arch Linux
-    sudo pacman -Sy \
-        base-devel \
-        openssl
+    # Note: Arch handles dependencies differently, but we'll still check
+    if ! pacman -Qi base-devel >/dev/null 2>&1; then
+        echo "Installing base-devel..."
+        sudo pacman -Sy base-devel
+    else
+        echo "base-devel is already installed"
+    fi
+
+    if ! pacman -Qi openssl >/dev/null 2>&1; then
+        echo "Installing openssl..."
+        sudo pacman -Sy openssl
+    else
+        echo "openssl is already installed"
+    fi
 fi
 
 # Verify OpenSSL installation
@@ -63,11 +104,9 @@ if ! command -v openssl &> /dev/null; then
     echo "OpenSSL installation failed"
     exit 1
 else
-    echo "OpenSSL installed successfully"
+    echo "OpenSSL is properly installed"
     openssl version
 fi
-
-
 
 # Source bashrc to ensure environment variables are set
 if [ -f "$HOME/.bashrc" ]; then
