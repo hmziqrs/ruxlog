@@ -162,27 +162,27 @@ cat > apps/static-site/index.html << 'EOF'
 </html>
 EOF
 
-# Check rust-rxpy status
-if [ ! -d "libs/rust-rxpy" ]; then
-    echo "Cloning rust-rxpy..."
+# Check rust-rpxy status
+if [ ! -d "libs/rust-rpxy" ]; then
+    echo "Cloning rust-rpxy..."
     cd libs
-    git clone https://github.com/rust-rxpy/rust-rxpy.git
-    cd rust-rxpy
+    git clone http://github.com/junkurihara/rust-rpxy.git
+    cd rust-rpxy
     cargo build --release
     cd ../..
-elif [ ! -f "libs/rust-rxpy/target/release/rxpy" ]; then
-    echo "Building rust-rxpy..."
-    cd libs/rust-rxpy
+elif [ ! -f "libs/rust-rpxy/target/release/rpxy" ]; then
+echo "Building rust-rpxy..."
+cd libs/rust-rpxy
     cargo build --release
     cd ../..
 else
-    echo "rust-rxpy is already built"
+    echo "rust-rpxy is already built"
 fi
 
-# Create symlink to rxpy
-if [ ! -f "/usr/local/bin/rxpy" ]; then
-    echo "Creating symlink for rxpy..."
-    sudo ln -s "$(pwd)/libs/rust-rxpy/target/release/rxpy" /usr/local/bin/rxpy
+# Create symlink to rpxy
+if [ ! -f "/usr/local/bin/rpxy" ]; then
+    echo "Creating symlink for rpxy..."
+    sudo ln -s "$(pwd)/libs/rust-rpxy/target/release/rpxy" /usr/local/bin/rpxy
 fi
 
 # Create rxpt-config.toml
@@ -198,19 +198,19 @@ EOF
 
 # Kill existing processes if running
 pkill simple-http-server || true
-pkill rxpy || true
+pkill rpxy || true
 
 # Start simple-http-server in background
 echo "Starting simple-http-server..."
 cd apps/static-site
 nohup simple-http-server -p 2345 > ../../logs/simple-http-server.log 2>&1 &
 
-# Start rxpy in background
-echo "Starting rxpy..."
+# Start rpxy in background
+echo "Starting rpxy..."
 cd ../../
-nohup rxpy --config configs/rxpt-config.toml > logs/rxpy.log 2>&1 &
+nohup rpxy --config configs/rxpt-config.toml > logs/rpxy.log 2>&1 &
 
 echo "Setup completed successfully!"
 echo "You can monitor the logs with:"
 echo "tail -f logs/simple-http-server.log"
-echo "tail -f logs/rxpy.log"
+echo "tail -f logs/rpxy.log"
