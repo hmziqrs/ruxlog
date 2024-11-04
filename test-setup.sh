@@ -5,6 +5,30 @@ set -e
 
 echo "Starting server setup..."
 
+# Function to check if a command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+
+# Install git if not installed
+if ! command_exists git; then
+    echo "Installing git..."
+    if [ -f /etc/debian_version ]; then
+        # Debian/Ubuntu
+        sudo apt-get update
+        sudo apt-get install -y git
+    elif [ -f /etc/redhat-release ]; then
+        # CentOS/RHEL
+        sudo yum install -y git
+    elif [ -f /etc/arch-release ]; then
+        # Arch Linux
+        sudo pacman -Sy git
+    fi
+else
+    echo "git is already installed"
+fi
+
 # Install build essentials and dependencies
 echo "Installing build dependencies and OpenSSL..."
 if [ -f /etc/debian_version ]; then
@@ -56,11 +80,6 @@ if [ -f "$HOME/.cargo/env" ]; then
     echo "Sourcing cargo environment..."
     source "$HOME/.cargo/env"
 fi
-
-# Function to check if a command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
 
 # Install Rust if not installed
 if ! command_exists cargo; then
