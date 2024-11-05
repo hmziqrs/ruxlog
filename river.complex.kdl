@@ -1,0 +1,33 @@
+system {
+    threads-per-service 8
+    daemonize true
+    pid-file "/tmp/river.pid"
+    upgrade-socket "/tmp/river-upgrade.sock"
+}
+
+services {
+    TestServer {
+        listeners {
+            "0.0.0.0:8001"  // Handle HTTP
+            "0.0.0.0:4001" cert-path="/path/to/test.hmziq.rs.crt" key-path="/path/to/test.hmziq.rs.key" offer-h2=true  // Handle HTTPS
+        }
+        connectors {
+            "127.0.0.1:2345" proto="h1-only"  // Your test server
+        }
+    }
+
+    BlogServer {
+        listeners {
+            "0.0.0.0:8002"  // Handle HTTP
+            "0.0.0.0:4002" cert-path="/path/to/blog.hmziq.rs.crt" key-path="/path/to/blog.hmziq.rs.key" offer-h2=true  // Handle HTTPS
+        }
+        connectors {
+            load-balance {
+                selection "RoundRobin"
+                discovery "Static"
+                health-check "None"
+            }
+            "127.0.0.1:2222" proto="h1-only"  // Your blog server
+        }
+    }
+}
