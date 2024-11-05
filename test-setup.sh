@@ -5,8 +5,8 @@ set -e
 
 echo "Starting server setup..."
 
-GIT_USER_NAME="hmziqrs"
-GIT_USER_EMAIL="hmziqrs@gmail.com"
+GIT_USER_NAME="USERNAME"
+GIT_USER_EMAIL="email@gmail.com"
 
 # Function to check if a command exists
 command_exists() {
