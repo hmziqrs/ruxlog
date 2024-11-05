@@ -1,0 +1,17 @@
+system {
+    daemonize true
+    pid-file "/tmp/river.pid"
+    upgrade-socket "/tmp/river-upgrade.sock"
+}
+
+services {
+    SimpleProxy {
+        listeners {
+            "0.0.0.0:80"
+            "0.0.0.0:443" cert-path="/etc/letsencrypt/live/hmziq.rs/fullchain.pem" key-path="/etc/letsencrypt/live/hmziq.rs/privkey.pem" offer-h2=true
+        }
+        connectors {
+            "0.0.0.0:2345"
+        }
+    }
+}

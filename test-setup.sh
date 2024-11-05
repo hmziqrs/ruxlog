@@ -222,13 +222,15 @@ pkill rpxy || true
 
 # Start simple-http-server in background
 echo "Starting simple-http-server..."
-cd apps/static-site
-nohup simple-http-server -p 2345 > ../../logs/simple-http-server.log 2>&1 &
+nohup simple-http-server -i -p 2345 ~/apps/static-site > ~/logs/simple-http-server.log 2>&1 &
+nohup simple-http-server -i -p 2222 ~/apps/static-blog > ~/logs/static-blog.log 2>&1 &
 
 # Start rpxy in background
 echo "Starting rpxy..."
 cd ../../
 nohup rpxy --config configs/rxpt-config.toml > logs/rpxy.log 2>&1 &
+
+nohup river --config-kdl ~/configs/river.kdl > ~/logs/river.log 2>&1 &
 
 echo "Setup completed successfully!"
 echo "You can monitor the logs with:"
