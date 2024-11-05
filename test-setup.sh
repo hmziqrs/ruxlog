@@ -5,6 +5,9 @@ set -e
 
 echo "Starting server setup..."
 
+GIT_USER_NAME="hmziqrs"
+GIT_USER_EMAIL="hmziqrs@gmail.com"
+
 # Function to check if a command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
@@ -30,8 +33,22 @@ if ! command_exists git; then
     elif [ -f /etc/arch-release ]; then
         sudo pacman -Sy git
     fi
+
+    # Configure git globally after installation
+    echo "Configuring git globally..."
+    git config --global user.name "$GIT_USER_NAME"
+    git config --global user.email "$GIT_USER_EMAIL"
 else
     echo "git is already installed"
+
+    # Check if git config exists, if not configure it
+    if [ -z "$(git config --global user.name)" ] || [ -z "$(git config --global user.email)" ]; then
+        echo "Configuring git globally..."
+        git config --global user.name "$GIT_USER_NAME"
+        git config --global user.email "$GIT_USER_EMAIL"
+    else
+        echo "git is already configured globally"
+    fi
 fi
 
 # Install build dependencies based on distribution
@@ -168,11 +185,14 @@ if [ ! -d "libs/rust-rpxy" ]; then
     cd libs
     git clone http://github.com/junkurihara/rust-rpxy.git
     cd rust-rpxy
+    git submodule update --init
     cargo build --release
     cd ../..
 elif [ ! -f "libs/rust-rpxy/target/release/rpxy" ]; then
-echo "Building rust-rpxy..."
-cd libs/rust-rpxy
+    echo "Building rust-rpxy..."
+    cd libs/rust-rpxy
+    git pull
+    git submodule update --init
     cargo build --release
     cd ../..
 else
