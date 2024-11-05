@@ -1,7 +1,8 @@
 1. First, start the initial instance:
 
 ```bash
-river --config-kdl ~/configs/river.kdl --daemonize --pidfile /tmp/river.pid
+sudo river --config-kdl ~/configs/river.kdl.https
+river --config-kdl ~/configs/river.kdl.https --daemonize --pidfile /tmp/river.pid
 ```
 
 2. When you need to hot reload (e.g., after making config changes), start the new instance:

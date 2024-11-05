@@ -1,0 +1,29 @@
+system {
+//    threads-per-service 8
+//    daemonize true
+//    pid-file "/tmp/river.pid"
+//    upgrade-socket "/tmp/river-upgrade.sock"
+}
+
+services {
+    "test.hmziq.rs" {
+        listeners {
+            "0.0.0.0:443" cert-path="/etc/letsencrypt/live/hmziq.rs/fullchain.pem" key-path="/etc/letsencrypt/live/hmziq.rs/privkey.pem" offer-h2=true // Handle HTTPS
+        }
+        connectors {
+            "127.0.0.1:2345"
+            // "127.0.0.1:2345" tls-sni="test.hmziq.rs" proto="h2-or-h1"
+        }
+    }
+
+    "blog.hmziq.rs" {
+        listeners {
+            "0.0.0.0:443" cert-path="/etc/letsencrypt/live/hmziq.rs/fullchain.pem" key-path="/etc/letsencrypt/live/hmziq.rs/privkey.pem" offer-h2=true // Handle HTTPS
+        }
+        connectors {
+            "127.0.0.1:2222"
+            // "127.0.0.1:2222" tls-sni="blog.hmziq.rs" proto="h2-or-h1"
+        }
+
+    }
+}
