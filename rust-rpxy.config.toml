@@ -1,0 +1,15 @@
+listen_port = 80
+listen_port_tls = 443
+
+default_app = "test"
+
+[apps.test]
+server_name = "test.hmziq.rs"
+reverse_proxy = [{ upstream = [{ location = '0.0.0.0:2345' }] }]
+tls = { tls_cert_path = '/etc/letsencrypt/live/hmziq.rs/fullchain.pem', tls_cert_key_path = '/etc/letsencrypt/live/hmziq.rs/privkey.pem' }
+
+
+[apps.blog]
+server_name = "blog.hmziq.rs"
+reverse_proxy = [{ upstream = [{ location = '0.0.0.0:2222' }] }]
+tls = { tls_cert_path = '/etc/letsencrypt/live/hmziq.rs/fullchain.pem', tls_cert_key_path = '/etc/letsencrypt/live/hmziq.rs/privkey.pem' }
