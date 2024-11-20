@@ -2,11 +2,7 @@ use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_macros::debug_handler;
 use serde_json::json;
 
-use crate::{
-    db::models::user::User,
-    services::auth::{AuthSession, Credentials},
-    AppState,
-};
+use crate::AppState;
 #[debug_handler]
 pub async fn pool_stats(state: State<AppState>) -> impl IntoResponse {
     let pool = &state.db_pool;
@@ -16,7 +12,7 @@ pub async fn pool_stats(state: State<AppState>) -> impl IntoResponse {
     println!("pool.manager: {:?}", pool.manager());
     println!("pool.timeouts: {:?}", pool.timeouts());
     match pool.get().await {
-        Ok(conn) => {
+        Ok(_) => {
             println!("pool get: {:?}", true);
         }
         Err(e) => {

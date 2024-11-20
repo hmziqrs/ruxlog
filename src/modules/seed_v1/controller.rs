@@ -12,7 +12,6 @@ use serde_json::json;
 #[derive(Debug, Dummy)]
 struct FakeWord(#[dummy(faker = "Word()")] String);
 
-use crate::db::models::post::PostQuery;
 use crate::db::models::user::AdminUserQuery;
 use crate::{
     db::models::{
@@ -312,7 +311,7 @@ pub async fn seed_post_comments(
 
     let posts = match Post::find_all(&state.db_pool).await {
         Ok(p) => p,
-        Err(e) => {
+        Err(_) => {
             return (
                 StatusCode::OK,
                 Json(json!({
