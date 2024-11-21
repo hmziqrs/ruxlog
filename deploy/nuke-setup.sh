@@ -6,15 +6,17 @@ set -e
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Configuration variables - MAKE SURE THESE MATCH YOUR ORIGINAL DEPLOYMENT
+# Configuration variables - CHANGE THESE to match your setup
 DOMAIN="your-domain.com"
 API_SUBDOMAIN="api.$DOMAIN"
 DB_USER="bloguser"
 DB_NAME="blogdb"
 APP_USER=$USER
 APP_DIR="/home/$APP_USER/apps/blog"
+REPO_URL="your-git-repo-url"
 
 # Function to log messages
 log() {
@@ -25,72 +27,117 @@ error() {
     echo -e "${RED}[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $1${NC}"
 }
 
+warning() {
+    echo -e "${YELLOW}[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $1${NC}"
+}
+
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
     error "Please run as root"
     exit 1
 fi
 
-# 1. Stop and remove services
-log "Stopping and removing services..."
+# Prompt for confirmation
+read -p "This script will undo all changes made by the installation script. Are you sure? (y/n): " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    exit 1
+fi
+
+# 1. Stop and disable services
+log "Stopping and disabling services..."
 systemctl stop blog-backend
 systemctl disable blog-backend
+systemctl stop fail2ban
+systemctl disable fail2ban
+
+# 2. Remove systemd service configuration
+log "Removing systemd service configuration..."
 rm -f /etc/systemd/system/blog-backend.service
 systemctl daemon-reload
 
-# 2. Remove Nginx configuration
-log "Removing Nginx configuration..."
-rm -f /etc/nginx/sites-enabled/blog-backend
-rm -f /etc/nginx/sites-available/blog-backend
-systemctl restart nginx
-
-# 3. Remove SSL certificates
-log "Removing SSL certificates..."
-certbot delete --cert-name $API_SUBDOMAIN
-
-# 4. Remove PostgreSQL database and user
-log "Removing PostgreSQL database and user..."
+# 3. Remove PostgreSQL user and database
+log "Removing PostgreSQL user and database..."
 sudo -u postgres psql -c "DROP DATABASE IF EXISTS $DB_NAME;"
 sudo -u postgres psql -c "DROP USER IF EXISTS $DB_USER;"
 
-# 5. Reset Redis configuration
-log "Resetting Redis configuration..."
+# 4. Revert Redis configuration
+log "Reverting Redis configuration..."
 if [ -f /etc/redis/redis.conf.backup ]; then
     mv /etc/redis/redis.conf.backup /etc/redis/redis.conf
-else
-    error "Redis backup configuration not found"
+    rm -f /etc/redis/users.acl
+    systemctl restart redis-server
 fi
-rm -f /etc/redis/users.acl
-systemctl restart redis-server
 
-# 6. Remove application directory
+# 5. Remove application directory
 log "Removing application directory..."
 rm -rf $APP_DIR
 
-# 7. Remove backup and maintenance scripts
-log "Removing backup and maintenance scripts..."
+# 6. Remove backup scripts and backups
+log "Removing backup scripts and backups..."
 rm -f /home/$APP_USER/backup-blog.sh
-rm -f /home/$APP_USER/maintain.sh
 rm -rf /home/$APP_USER/backups
+
+# 7. Remove maintenance script
+log "Removing maintenance script..."
+rm -f /home/$APP_USER/maintain.sh
 
 # 8. Remove cron jobs
 log "Removing cron jobs..."
-crontab -l | grep -v "backup-blog.sh" | grep -v "maintain.sh" | crontab -
+CRONJOBS=$(crontab -l | grep -v "/home/$APP_USER/backup-blog.sh" | grep -v "/home/$APP_USER/maintain.sh")
+echo "$CRONJOBS" | crontab -
 
-# 9. Optional: Remove installed packages
-# Note: This might remove packages that were installed for other purposes
-read -p "Do you want to remove installed packages? (y/n) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]
-then
-    log "Removing installed packages..."
-    apt remove -y build-essential curl git pkg-config libssl-dev postgresql postgresql-contrib redis-server nginx fail2ban htop python3-certbot-nginx
-    apt autoremove -y
+# 9. Remove Nginx configuration
+log "Removing Nginx configuration..."
+rm -f /etc/nginx/sites-available/blog-backend
+rm -f /etc/nginx/sites-enabled/blog-backend
+rm -f /etc/nginx/sites-enabled/default
+nginx -t
+systemctl restart nginx
+
+# 10. Remove SSL certificates
+log "Removing SSL certificates..."
+certbot delete --cert-name $API_SUBDOMAIN --non-interactive
+
+# 11. Uninstall packages
+log "Uninstalling packages..."
+apt remove -y build-essential curl git pkg-config libssl-dev postgresql postgresql-contrib redis-server nginx fail2ban htop python3-certbot-nginx ufw
+apt autoremove -y
+
+# 12. Reset firewall rules
+log "Resetting firewall rules..."
+ufw disable
+ufw --force reset
+
+# 13. Remove Rust and Diesel CLI (if installed by the script)
+log "Removing Rust and Diesel CLI..."
+if [ -d "$HOME/.cargo" ]; then
+    rm -rf $HOME/.cargo
+    rm -rf $HOME/.rustup
 fi
 
-log "Uninstallation complete!"
-log "Note: Some system changes may remain. Manual verification is recommended."
-log "The following were not removed:"
-echo "- UFW rules (if you want to remove them, use 'ufw delete allow')"
-echo "- Rust installation (if you want to remove it, remove ~/.cargo and ~/.rustup)"
-echo "- Diesel CLI installation"
+# 14. Clean up log files and temporary files
+log "Cleaning up log files and temporary files..."
+rm -f /var/log/nginx/access.log /var/log/nginx/error.log
+rm -f /var/log/redis/redis-server.log
+journalctl --vacuum-time=1d
+
+# Final steps and summary
+log "Undo process complete! Summary of actions:"
+echo "-----------------------------------"
+echo "Removed services: blog-backend, fail2ban"
+echo "Deleted PostgreSQL user: $DB_USER and database: $DB_NAME"
+echo "Reverted Redis configuration"
+echo "Removed application directory: $APP_DIR"
+echo "Deleted backup scripts and backups"
+echo "Removed maintenance script"
+echo "Cleared cron jobs for backups and maintenance"
+echo "Removed Nginx configuration for $API_SUBDOMAIN"
+echo "Deleted SSL certificates for $API_SUBDOMAIN"
+echo "Uninstalled all installed packages"
+echo "Reset firewall rules"
+echo "Removed Rust and Diesel CLI (if installed by the script)"
+echo "Cleaned up log files and temporary files"
+echo "-----------------------------------"
+
+warning "Please verify that all changes have been undone as expected."

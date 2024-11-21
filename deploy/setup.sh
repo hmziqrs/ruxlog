@@ -15,6 +15,7 @@ API_SUBDOMAIN="api.$DOMAIN"
 DB_USER="bloguser"
 DB_PASSWORD="your_secure_db_password"
 DB_NAME="blogdb"
+REDIS_USERNAME="redisuser"
 REDIS_PASSWORD="your_secure_redis_password"
 SMTP_HOST="your_smtp_host"
 SMTP_USERNAME="your_smtp_username"
@@ -139,7 +140,7 @@ PORT=8888
 POSTGRE_DB_URL=postgres://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME
 
 # Redis
-REDIS_USERNAME=default
+REDIS_USERNAME=$REDIS_USERNAME
 REDIS_PASSWORD=$REDIS_PASSWORD
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
