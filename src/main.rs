@@ -54,7 +54,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let allowed_origins = [
         "http://127.0.0.1:3000",
+        "https://127.0.0.1:3000",
         "http://127.0.0.1:3333",
+        "https://127.0.0.1:3333",
         "http://localhost:3000",
         "http://192.168.0.101:3333",
         "http://192.168.0.101:3000",
@@ -130,39 +132,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // .allow_origin("http://localhost:8000".parse::<HeaderValue>()?)
         .max_age(Duration::from_secs(360));
     let request_size = RequestBodyLimitLayer::new(1024 * 512);
-    let governor_conf = Arc::new(
-        GovernorConfigBuilder::default()
-            .per_second(4)
-            .burst_size(25)
-            .error_handler(|e| {
-                let status = StatusCode::TOO_MANY_REQUESTS;
-                let body = e.to_string();
-                (
-                    status,
-                    Json(json!({"error": "Too many requests", "message": body})),
-                )
-                    .into_response()
-            })
-            .finish()
-            .unwrap(),
-    );
-    let governor_limiter = governor_conf.limiter().clone();
+    // let governor_conf = Arc::new(
+    //     GovernorConfigBuilder::default()
+    //         .per_second(4)
+    //         .burst_size(25)
+    //         .error_handler(|e| {
+    //             let status = StatusCode::TOO_MANY_REQUESTS;
+    //             let body = e.to_string();
+    //             (
+    //                 status,
+    //                 Json(json!({"error": "Too many requests", "message": body})),
+    //             )
+    //                 .into_response()
+    //         })
+    //         .finish()
+    //         .unwrap(),
+    // );
+    // let governor_limiter = governor_conf.limiter().clone();
     let interval = Duration::from_secs(60);
     // a separate background task to clean up
-    std::thread::spawn(move || loop {
-        std::thread::sleep(interval);
-        tracing::info!("rate limiting storage size: {}", governor_limiter.len());
-        governor_limiter.retain_recent();
-    });
+    // std::thread::spawn(move || loop {
+    //     std::thread::sleep(interval);
+    //     tracing::info!("rate limiting storage size: {}", governor_limiter.len());
+    //     governor_limiter.retain_recent();
+    // });
 
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
     let app = router::router()
         .layer(SecureClientIpSource::ConnectInfo.into_extension())
         .layer(auth_layer)
-        .layer(GovernorLayer {
-            config: governor_conf,
-        })
+        // .layer(GovernorLayer {
+        //     config: governor_conf,
+        // })
         .layer(compression)
         .layer(request_size)
         .layer(middleware::from_fn(middlewares::static_csrf::csrf_gaurd))

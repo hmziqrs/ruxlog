@@ -58,8 +58,8 @@ To set up the project locally, follow these steps:
 1. **Clone the repository:**
 
    ```sh
-   git clone https://github.com/your-username/axum-auth.git
-   cd axum-auth
+   git clone https://github.com/your-username/ruxlog-backend.git
+   cd ruxlog-backend
    ```
 
 2. **Install Rust and Cargo:**
