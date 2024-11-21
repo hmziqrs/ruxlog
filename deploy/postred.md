@@ -20,3 +20,23 @@ Important notes:
 - The script creates a backup of the original Redis configuration file
 - The script includes basic security settings for Redis
 - Make sure to change the default username and password in the configuration variables before running the script
+
+## Result:
+
+Database Name: blog
+Database User: myadmin
+Database Password: myadmin
+Database Connection URL: postgres://root:root@localhost:5432/blog
+
+Redis Host: 127.0.0.1
+Redis Port: 6379
+Redis Username: red
+Redis Password: red
+Redis Connection URL: redis://red:red@127.0.0.1:6379
+
+---
+
+Commands:
+psql -U root -d blog
+
+redis-cli -u "redis://red:red@127.0.0.1:6379"
