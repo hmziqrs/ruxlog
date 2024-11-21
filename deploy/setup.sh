@@ -68,9 +68,50 @@ sudo -u postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;"
 
 # 5. Configure Redis
 log "Configuring Redis..."
-sed -i "s/# requirepass foobared/requirepass $REDIS_PASSWORD/" /etc/redis/redis.conf
-sed -i "s/bind 127.0.0.1 ::1/bind 127.0.0.1/" /etc/redis/redis.conf
-systemctl restart redis
+# Backup original Redis configuration
+cp /etc/redis/redis.conf /etc/redis/redis.conf.backup
+
+# Create new Redis configuration with ACL support
+cat > /etc/redis/redis.conf << EOF
+bind 127.0.0.1
+port 6379
+daemonize yes
+supervised systemd
+pidfile /var/run/redis/redis-server.pid
+loglevel notice
+logfile /var/log/redis/redis-server.log
+databases 16
+always-show-logo no
+set-proc-title yes
+proc-title-template "{title} {listen-addr} {server-mode}"
+stop-writes-on-bgsave-error yes
+rdbcompression yes
+rdbchecksum yes
+dbfilename dump.rdb
+dir /var/lib/redis
+maxmemory-policy noeviction
+aclfile /etc/redis/users.acl
+EOF
+
+# Create ACL file for Redis users
+cat > /etc/redis/users.acl << EOF
+user default off
+user $REDIS_USERNAME on >$REDIS_PASSWORD allcommands allkeys
+EOF
+
+# Set proper permissions
+chown redis:redis /etc/redis/users.acl
+chmod 640 /etc/redis/users.acl
+
+# Restart Redis service
+systemctl restart redis-server
+
+# Test Redis connection
+sleep 2
+if ! redis-cli -u "redis://$REDIS_USERNAME:$REDIS_PASSWORD@127.0.0.1:6379" ping | grep -q "PONG"; then
+    error "Redis authentication test failed"
+    exit 1
+fi
 
 # 6. Install Rust and tools
 log "Installing Rust..."
@@ -126,7 +167,7 @@ Type=simple
 User=$APP_USER
 WorkingDirectory=$APP_DIR
 Environment="RUST_LOG=info"
-ExecStart=$APP_DIR/target/release/axum_auth
+ExecStart=$APP_DIR/target/release/ruxlog
 Restart=always
 RestartSec=5
 

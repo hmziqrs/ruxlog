@@ -277,50 +277,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "axum_auth"
-version = "0.1.0"
-dependencies = [
- "axum",
- "axum-client-ip",
- "axum-extra",
- "axum-login",
- "axum-macros",
- "axum-valid",
- "axum_csrf",
- "base64 0.22.1",
- "chrono",
- "deadpool-diesel",
- "diesel",
- "diesel-derive-enum",
- "diesel_migrations",
- "dotenv",
- "fake",
- "fred",
- "governor",
- "hex",
- "lettre",
- "md5",
- "password-auth",
- "rand",
- "regex",
- "serde",
- "serde_json",
- "sha2",
- "thiserror",
- "time",
- "tokio",
- "tower-http",
- "tower-livereload",
- "tower-sessions",
- "tower-sessions-core",
- "tower-sessions-redis-store",
- "tower_governor",
- "tracing",
- "tracing-subscriber",
- "validator",
-]
-
-[[package]]
 name = "axum_csrf"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2163,6 +2119,50 @@ name = "rustversion"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e819f2bc632f285be6d7cd36e25940d45b2391dd6d9b939e79de557f7014248"
+
+[[package]]
+name = "ruxlog"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "axum-client-ip",
+ "axum-extra",
+ "axum-login",
+ "axum-macros",
+ "axum-valid",
+ "axum_csrf",
+ "base64 0.22.1",
+ "chrono",
+ "deadpool-diesel",
+ "diesel",
+ "diesel-derive-enum",
+ "diesel_migrations",
+ "dotenv",
+ "fake",
+ "fred",
+ "governor",
+ "hex",
+ "lettre",
+ "md5",
+ "password-auth",
+ "rand",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "time",
+ "tokio",
+ "tower-http",
+ "tower-livereload",
+ "tower-sessions",
+ "tower-sessions-core",
+ "tower-sessions-redis-store",
+ "tower_governor",
+ "tracing",
+ "tracing-subscriber",
+ "validator",
+]
 
 [[package]]
 name = "ryu"

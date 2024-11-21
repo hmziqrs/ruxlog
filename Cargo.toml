@@ -1,5 +1,5 @@
 [package]
-name = "axum_auth"
+name = "ruxlog"
 version = "0.1.0"
 edition = "2021"
 
