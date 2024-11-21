@@ -58,7 +58,7 @@ fi
 # 2. Install Essential Packages
 if ! is_step_done "packages_installed"; then
     log "Installing essential packages..."
-    apt install -y build-essential curl git pkg-config libssl-dev postgresql postgresql-contrib redis-server nginx fail2ban htop python3-certbot-nginx ufw
+    apt install -y build-essential curl git pkg-config libssl-dev postgresql postgresql-contrib redis-server nginx fail2ban htop ufw
     echo "packages_installed" >> "$PROGRESS_FILE"
 fi
 
@@ -209,11 +209,19 @@ fi
 # 10. Configure Nginx
 if ! is_step_done "nginx_configured"; then
     log "Configuring Nginx..."
-    if [ ! -f /etc/nginx/sites-available/blog-backend ]; then
-        cat > /etc/nginx/sites-available/blog-backend << EOF
+    cat > /etc/nginx/sites-available/blog-backend << EOF
 server {
     listen 80;
     server_name $API_SUBDOMAIN;
+    return 301 https://\$host\$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name $API_SUBDOMAIN;
+
+    ssl_certificate /etc/ssl/certs/api.crt;
+    ssl_certificate_key /etc/ssl/certs/api.key;
 
     location / {
         proxy_pass http://127.0.0.1:8888;
@@ -227,22 +235,11 @@ server {
     }
 }
 EOF
-        ln -sf /etc/nginx/sites-available/blog-backend /etc/nginx/sites-enabled/
-        rm -f /etc/nginx/sites-enabled/default
-        nginx -t
-        systemctl restart nginx
-    fi
+    ln -sf /etc/nginx/sites-available/blog-backend /etc/nginx/sites-enabled/
+    rm -f /etc/nginx/sites-enabled/default
+    nginx -t
+    systemctl restart nginx
     echo "nginx_configured" >> "$PROGRESS_FILE"
-fi
-
-# 11. SSL Certificate
-if ! is_step_done "ssl_certificate_setup"; then
-    log "Setting up SSL certificate..."
-    if ! certbot --nginx -d $API_SUBDOMAIN --non-interactive --agree-tos --email admin@$DOMAIN; then
-        error "SSL certificate setup failed"
-        exit 1
-    fi
-    echo "ssl_certificate_setup" >> "$PROGRESS_FILE"
 fi
 
 # 12. Set up backup script
@@ -330,5 +327,5 @@ echo "Maintenance script: /home/$APP_USER/maintain.sh"
 echo "Logs can be viewed with: journalctl -u blog-backend -f"
 echo "-----------------------------------"
 
-warning "Please save these credentials securely and then delete them from this script!"
+warning "Please ensure your static SSL certificates are correctly placed and permissions are set."
 warning "Remember to update the DNS records for $API_SUBDOMAIN"

@@ -38,7 +38,7 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # Prompt for confirmation
-read -p "This script will undo all changes made by the installation script. Are you sure? (y/n): " -n 1 -r
+read -p "This script will undo changes made by the installation script. Are you sure? (y/n): " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 1
@@ -96,13 +96,23 @@ nginx -t
 systemctl restart nginx
 
 # 10. Remove SSL certificates
-log "Removing SSL certificates..."
-certbot delete --cert-name $API_SUBDOMAIN --non-interactive
+# Commented out to preserve certificates
+# log "Removing SSL certificates..."
+# certbot delete --cert-name $API_SUBDOMAIN --non-interactive
 
 # 11. Uninstall packages
-log "Uninstalling packages..."
-apt remove -y build-essential curl git pkg-config libssl-dev postgresql postgresql-contrib redis-server nginx fail2ban htop python3-certbot-nginx ufw
-apt autoremove -y
+log "Preparing to uninstall packages..."
+PACKAGES="build-essential curl git pkg-config libssl-dev postgresql postgresql-contrib redis-server nginx fail2ban htop python3-certbot-nginx ufw"
+echo "The following packages will be removed:"
+echo $PACKAGES
+read -p "Do you want to continue? (y/n): " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    apt remove -y $PACKAGES
+    apt autoremove -y
+else
+    log "Package uninstallation aborted."
+fi
 
 # 12. Reset firewall rules
 log "Resetting firewall rules..."
@@ -133,8 +143,8 @@ echo "Deleted backup scripts and backups"
 echo "Removed maintenance script"
 echo "Cleared cron jobs for backups and maintenance"
 echo "Removed Nginx configuration for $API_SUBDOMAIN"
-echo "Deleted SSL certificates for $API_SUBDOMAIN"
-echo "Uninstalled all installed packages"
+echo "Preserved SSL certificates for $API_SUBDOMAIN"
+echo "Uninstalled specified packages (if confirmed)"
 echo "Reset firewall rules"
 echo "Removed Rust and Diesel CLI (if installed by the script)"
 echo "Cleaned up log files and temporary files"
