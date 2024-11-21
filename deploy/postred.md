@@ -24,8 +24,8 @@ Important notes:
 ## Result:
 
 Database Name: blog
-Database User: myadmin
-Database Password: myadmin
+Database User: root
+Database Password: root
 Database Connection URL: postgres://root:root@localhost:5432/blog
 
 Redis Host: 127.0.0.1
