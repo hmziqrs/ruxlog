@@ -40,3 +40,7 @@ Commands:
 psql -U root -d blog
 
 redis-cli -u "redis://red:red@127.0.0.1:6379"
+
+---
+
+rm -rf ./postred-clean.sh && nano postred-clean.sh && chmod +x postred-clean.sh && sudo ./postred-clean.sh

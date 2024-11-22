@@ -13,11 +13,14 @@ NC='\033[0m' # No Color
 # Configuration variables - CHANGE THESE
 DOMAIN="hmziqrs.com"
 API_SUBDOMAIN="blog-api.$DOMAIN"
-DB_USER="broot"
+
+DB_USER="badmin"
 DB_PASSWORD="root"
 DB_NAME="blog"
+
 REDIS_USERNAME="red"
 REDIS_PASSWORD="red"
+
 SMTP_HOST="0.0.0.0"
 SMTP_USERNAME="sam"
 SMTP_PASSWORD="sam"
@@ -41,6 +44,18 @@ if [ "$EUID" -ne 0 ]; then
     error "Please run as root"
     exit 1
 fi
+
+
+# Function to detect distribution
+detect_distribution() {
+    if [ -f /etc/debian_version ]; then
+        echo "debian"
+    elif [ -f /etc/redhat-release ]; then
+        echo "redhat"
+    else
+        echo "unknown"
+    fi
+}
 
 # Function to check if a step is done
 is_step_done() {
@@ -74,20 +89,27 @@ if ! is_step_done "postgresql_configured"; then
         exit 1
     fi
 
-    # Check if PostgreSQL service is running
-    if ! systemctl is-active --quiet postgresql; then
-        log "Starting PostgreSQL service..."
-        sudo systemctl start postgresql
+    DISTRO=$(detect_distribution)
+
+    if [ "$DISTRO" = "debian" ]; then
+        PG_VERSION=$(psql --version | grep -oP '^\d+')
+        PG_DATA_DIR="/var/lib/postgresql/$PG_VERSION/main"
+        if [ ! -d "$PG_DATA_DIR" ]; then
+            sudo pg_createcluster $PG_VERSION main --start
+        fi
+    elif [ "$DISTRO" = "redhat" ]; then
+        PG_DATA_DIR="/var/lib/pgsql/data"
+        if [ ! -d "$PG_DATA_DIR" ]; then
+            sudo postgresql-setup initdb
+        fi
+    else
+        error "Unsupported distribution."
+        exit 1
     fi
 
-    # Ensure PostgreSQL service is enabled
+    # Ensure PostgreSQL service is enabled and started
     sudo systemctl enable postgresql
-
-    # Check if the PostgreSQL cluster is initialized
-    if [ ! -d /var/lib/postgresql/data ]; then
-        log "Initializing PostgreSQL cluster..."
-        sudo postgresql-setup initdb
-    fi
+    sudo systemctl start postgresql
 
     # Create the database user if it doesn't exist
     if ! sudo -u postgres psql -t -c "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'"; then
