@@ -1,4 +1,5 @@
 version: "0.1"
+name: ${PROJECT}
 
 services:
   postgres: # Will become myapp_postgres
@@ -13,12 +14,16 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "0.0.0.0:5432:5432"
+      - "0.0.0.0:5000:5432"
     networks:
       - network
-    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    # command: postgres -c config_file=/etc/postgresql/postgresql.conf
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rroot}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-rroot} -d ${POSTGRES_DB:-ruxlog}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
