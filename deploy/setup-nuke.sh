@@ -1,8 +1,6 @@
 #!/bin/bash
 
-# Exit on any error
-set -e
-
+# Don't exit on errors (removing the set -e)
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -46,108 +44,103 @@ fi
 
 # 1. Stop and disable services
 log "Stopping and disabling services..."
-systemctl stop blog-backend
-systemctl disable blog-backend
-systemctl stop fail2ban
-systemctl disable fail2ban
+systemctl stop blog-backend || warning "Failed to stop blog-backend service"
+systemctl disable blog-backend || warning "Failed to disable blog-backend service"
+systemctl stop fail2ban || warning "Failed to stop fail2ban"
+systemctl disable fail2ban || warning "Failed to disable fail2ban"
 
 # 2. Remove systemd service configuration
 log "Removing systemd service configuration..."
-rm -f /etc/systemd/system/blog-backend.service
-systemctl daemon-reload
+rm -f /etc/systemd/system/blog-backend.service || warning "Failed to remove service file"
+systemctl daemon-reload || warning "Failed to reload systemd daemon"
 
 # 3. Remove PostgreSQL user and database
 log "Removing PostgreSQL user and database..."
-sudo -u postgres psql -c "DROP DATABASE IF EXISTS $DB_NAME;"
-sudo -u postgres psql -c "DROP USER IF EXISTS $DB_USER;"
+sudo -u postgres psql -c "DROP DATABASE IF EXISTS $DB_NAME;" || warning "Failed to drop database"
+sudo -u postgres psql -c "DROP USER IF EXISTS $DB_USER;" || warning "Failed to drop user"
 
 # 4. Revert Redis configuration
 log "Reverting Redis configuration..."
 if [ -f /etc/redis/redis.conf.backup ]; then
-    mv /etc/redis/redis.conf.backup /etc/redis/redis.conf
-    rm -f /etc/redis/users.acl
-    systemctl restart redis-server
+    mv /etc/redis/redis.conf.backup /etc/redis/redis.conf || warning "Failed to restore Redis config"
+    rm -f /etc/redis/users.acl || warning "Failed to remove Redis ACL file"
+    systemctl restart redis-server || warning "Failed to restart Redis"
 fi
 
 # 5. Remove application directory
 log "Removing application directory..."
-rm -rf $APP_DIR
+rm -rf $APP_DIR || warning "Failed to remove application directory"
 
 # 6. Remove backup scripts and backups
 log "Removing backup scripts and backups..."
-rm -f /home/$APP_USER/backup-blog.sh
-rm -rf /home/$APP_USER/backups
+rm -f /home/$APP_USER/backup-blog.sh || warning "Failed to remove backup script"
+rm -rf /home/$APP_USER/backups || warning "Failed to remove backups directory"
 
 # 7. Remove maintenance script
 log "Removing maintenance script..."
-rm -f /home/$APP_USER/maintain.sh
+rm -f /home/$APP_USER/maintain.sh || warning "Failed to remove maintenance script"
 
 # 8. Remove cron jobs
 log "Removing cron jobs..."
-CRONJOBS=$(crontab -l | grep -v "/home/$APP_USER/backup-blog.sh" | grep -v "/home/$APP_USER/maintain.sh")
-echo "$CRONJOBS" | crontab -
+(crontab -l | grep -v "/home/$APP_USER/backup-blog.sh" | grep -v "/home/$APP_USER/maintain.sh" | crontab -) || warning "Failed to update crontab"
 
 # 9. Remove Nginx configuration
 log "Removing Nginx configuration..."
-rm -f /etc/nginx/sites-available/blog-backend
-rm -f /etc/nginx/sites-enabled/blog-backend
-rm -f /etc/nginx/sites-enabled/default
-nginx -t
-systemctl restart nginx
-
-# 10. Remove SSL certificates
-# Commented out to preserve certificates
-# log "Removing SSL certificates..."
-# certbot delete --cert-name $API_SUBDOMAIN --non-interactive
+rm -f /etc/nginx/sites-available/blog-backend || warning "Failed to remove Nginx config"
+rm -f /etc/nginx/sites-enabled/blog-backend || warning "Failed to remove Nginx symlink"
+rm -f /etc/nginx/sites-enabled/default || warning "Failed to remove default Nginx config"
+nginx -t || warning "Nginx configuration test failed"
+systemctl restart nginx || warning "Failed to restart Nginx"
 
 # 11. Uninstall packages
 log "Preparing to uninstall packages..."
-PACKAGES="build-essential curl git pkg-config libssl-dev postgresql postgresql-contrib redis-server nginx fail2ban htop python3-certbot-nginx ufw"
+PACKAGES="postgresql-contrib redis-server nginx fail2ban ufw"
 echo "The following packages will be removed:"
 echo $PACKAGES
 read -p "Do you want to continue? (y/n): " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    apt remove -y $PACKAGES
-    apt autoremove -y
+    apt remove -y $PACKAGES || warning "Failed to remove packages"
+    apt autoremove -y || warning "Failed to autoremove packages"
 else
     log "Package uninstallation aborted."
 fi
 
 # 12. Reset firewall rules
 log "Resetting firewall rules..."
-ufw disable
-ufw --force reset
+ufw disable || warning "Failed to disable UFW"
+ufw --force reset || warning "Failed to reset UFW rules"
 
-# 13. Remove Rust and Diesel CLI (if installed by the script)
+# 13. Remove Rust and Diesel CLI
 log "Removing Rust and Diesel CLI..."
 if [ -d "$HOME/.cargo" ]; then
-    rm -rf $HOME/.cargo
-    rm -rf $HOME/.rustup
+    rm -rf $HOME/.cargo || warning "Failed to remove Cargo"
+    rm -rf $HOME/.rustup || warning "Failed to remove Rustup"
 fi
 
 # 14. Clean up log files and temporary files
 log "Cleaning up log files and temporary files..."
-rm -f /var/log/nginx/access.log /var/log/nginx/error.log
-rm -f /var/log/redis/redis-server.log
-journalctl --vacuum-time=1d
+rm -f /var/log/nginx/access.log /var/log/nginx/error.log || warning "Failed to remove Nginx logs"
+rm -f /var/log/redis/redis-server.log || warning "Failed to remove Redis logs"
+journalctl --vacuum-time=1d || warning "Failed to clean journalctl logs"
 
 # Final steps and summary
 log "Undo process complete! Summary of actions:"
 echo "-----------------------------------"
-echo "Removed services: blog-backend, fail2ban"
-echo "Deleted PostgreSQL user: $DB_USER and database: $DB_NAME"
-echo "Reverted Redis configuration"
-echo "Removed application directory: $APP_DIR"
-echo "Deleted backup scripts and backups"
-echo "Removed maintenance script"
-echo "Cleared cron jobs for backups and maintenance"
-echo "Removed Nginx configuration for $API_SUBDOMAIN"
+echo "Attempted to remove services: blog-backend, fail2ban"
+echo "Attempted to delete PostgreSQL user: $DB_USER and database: $DB_NAME"
+echo "Attempted to revert Redis configuration"
+echo "Attempted to remove application directory: $APP_DIR"
+echo "Attempted to delete backup scripts and backups"
+echo "Attempted to remove maintenance script"
+echo "Attempted to clear cron jobs for backups and maintenance"
+echo "Attempted to remove Nginx configuration for $API_SUBDOMAIN"
 echo "Preserved SSL certificates for $API_SUBDOMAIN"
-echo "Uninstalled specified packages (if confirmed)"
-echo "Reset firewall rules"
-echo "Removed Rust and Diesel CLI (if installed by the script)"
-echo "Cleaned up log files and temporary files"
+echo "Attempted to uninstall specified packages (if confirmed)"
+echo "Attempted to reset firewall rules"
+echo "Attempted to remove Rust and Diesel CLI"
+echo "Attempted to clean up log files and temporary files"
 echo "-----------------------------------"
 
 warning "Please verify that all changes have been undone as expected."
+warning "Some operations might have failed - check the warnings above."
