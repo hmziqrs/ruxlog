@@ -1,0 +1,12 @@
+.vscode
+backups
+docker
+docs
+legacy
+target
+*.env
+.envrc
+.gitignore
+docker-compose.yml
+LICENSE
+readme.md

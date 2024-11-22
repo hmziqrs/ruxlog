@@ -44,6 +44,7 @@ tracing = "0.1.40"
 diesel = { version = "2.2.4", features = [
     "postgres",
     "chrono",
+    # "pq-sys",
     "i-implement-a-third-party-backend-and-opt-into-breaking-changes",
 ] }
 deadpool-diesel = { version = "0.6.1", features = ["postgres"] }
