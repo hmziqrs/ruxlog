@@ -32,7 +32,7 @@ services:
     user: postgres
 
   postgres_backup: # Will become myapp_backup
-    name: ${PROJECT}_postgres_backup
+    container_name: ${PROJECT}_postgres_backup
     image: prodrigestivill/postgres-backup-local
     restart: always
     volumes:
@@ -52,10 +52,10 @@ services:
   redis:
     image: redis:7.4.1-alpine
     container_name: ${PROJECT}_redis
-    command: redis-server --requirepass ${REDIS_PASSWORD} --user ${REDIS_USER} on >${REDIS_PASSWORD} ~* &* +@all
     environment:
       - REDIS_USER=${REDIS_USER:-rred}
       - REDIS_PASSWORD=${REDIS_PASSWORD:-red}
+    command: redis-server --requirepass ${REDIS_PASSWORD} --user ${REDIS_USER} on >${REDIS_PASSWORD} ~* &* +@all
     volumes:
       - redis_data:/data
     networks:
@@ -76,6 +76,34 @@ services:
       retries: 5
     security_opt:
       - no-new-privileges:true
+
+  redis_backup:
+    image: offen/docker-volume-backup
+    container_name: ${PROJECT}_redis_backup
+    restart: always
+    user: root # Required to access the volumes
+    volumes:
+      # Volume to backup
+      - redis_data:/backup/redis:ro # Read-only access
+      # Where to store the backups
+      - ./backups/redis:/archive # Local backup storage
+    environment:
+      # Backup schedule
+      - BACKUP_CRON_EXPRESSION=0 0 * * * # Daily at midnight
+      # Backup retention
+      - BACKUP_RETENTION_DAYS=7 # Keep backups for 7 days
+      # Backup naming
+      - BACKUP_PREFIX=${PROJECT}_redis # Prefix for backup files
+      - BACKUP_SUFFIX=%Y-%m-%d-%H-%M # Date format suffix
+      # - BACKUP_COMPRESSION=GZIP # Use GZIP compression
+      # Notification on failure (optional)
+      - NOTIFICATION_LEVEL=warning
+      # Stop Redis before backup (optional but recommended)
+      # - BACKUP_STOP_CONTAINER=${PROJECT}_redis
+    networks:
+      - network
+    depends_on:
+      - redis
 
 volumes:
   postgres_data:
