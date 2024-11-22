@@ -1,0 +1,62 @@
+version: "0.1"
+
+services:
+  ruxlog_postgres:
+    image: postgres:17
+    container_name: ruxlog_postgres_local
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rroot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-root}
+      POSTGRES_DB: ${POSTGRES_DB:-ruxlog}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Don't expose ports to the host in production unless necessary
+    # If your application is in Docker, use only networks
+    ports:
+      - "0.0.0.0:5432:5432" # If you must expose, bind to localhost
+    networks:
+      - ruxlog_local
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rroot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # deploy: # Add resource limits
+    #   resources:
+    #     limits:
+    #       memory: 1G
+    #     reservations:
+    #       memory: 512M
+    security_opt: # Add security options
+      - no-new-privileges:true
+    user: postgres # Explicitly set user
+
+volumes:
+  postgres_data:
+    name: postgres_prod_data
+    driver: local # Explicitly set volume driver
+
+networks:
+  ruxlog:
+    name: ruxlog_network
+    driver: bridge # Explicitly set network driver
+
+  postgres_backup:
+    image: prodrigestivill/postgres-backup-local
+    restart: always
+    volumes:
+      - /path/to/backup:/backups
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - SCHEDULE=@daily
+      - BACKUP_KEEP_DAYS=7
+      - BACKUP_KEEP_WEEKS=4
+      - BACKUP_KEEP_MONTHS=6
+    networks:
+      - postgres_network
