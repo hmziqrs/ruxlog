@@ -54,10 +54,28 @@ log "Removing systemd service configuration..."
 rm -f /etc/systemd/system/blog-backend.service || warning "Failed to remove service file"
 systemctl daemon-reload || warning "Failed to reload systemd daemon"
 
-# 3. Remove PostgreSQL user and database
-log "Removing PostgreSQL user and database..."
+# 3. Remove PostgreSQL completely
+log "Removing PostgreSQL completely..."
+# First stop the services
+systemctl stop postgresql || warning "Failed to stop PostgreSQL service"
+systemctl disable postgresql || warning "Failed to disable PostgreSQL service"
+
+# Drop database and user before removing PostgreSQL
 sudo -u postgres psql -c "DROP DATABASE IF EXISTS $DB_NAME;" || warning "Failed to drop database"
 sudo -u postgres psql -c "DROP USER IF EXISTS $DB_USER;" || warning "Failed to drop user"
+
+# Completely remove PostgreSQL packages and configurations
+apt purge -y postgresql* || warning "Failed to purge PostgreSQL packages"
+apt autoremove -y || warning "Failed to autoremove packages"
+apt autoclean || warning "Failed to autoclean packages"
+
+# Remove PostgreSQL directories and configurations
+rm -rf /etc/postgresql/ || warning "Failed to remove PostgreSQL config directory"
+rm -rf /var/lib/postgresql/ || warning "Failed to remove PostgreSQL data directory"
+rm -rf /var/log/postgresql/ || warning "Failed to remove PostgreSQL log directory"
+
+# Update the package list
+apt update || warning "Failed to update package list"
 
 # 4. Revert Redis configuration
 log "Reverting Redis configuration..."
@@ -93,15 +111,23 @@ nginx -t || warning "Nginx configuration test failed"
 systemctl restart nginx || warning "Failed to restart Nginx"
 
 # 11. Uninstall packages
+# 11. Uninstall packages
 log "Preparing to uninstall packages..."
-PACKAGES="postgresql-contrib redis-server nginx fail2ban ufw"
+PACKAGES="postgresql-contrib redis-server nginx fail2ban"
 echo "The following packages will be removed:"
 echo $PACKAGES
 read -p "Do you want to continue? (y/n): " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    apt remove -y $PACKAGES || warning "Failed to remove packages"
+    # Use purge instead of remove to completely remove packages and their configurations
+    apt purge -y $PACKAGES || warning "Failed to purge packages"
     apt autoremove -y || warning "Failed to autoremove packages"
+    apt autoclean || warning "Failed to autoclean packages"
+
+    # Remove remaining configuration directories
+    rm -rf /etc/nginx/ || warning "Failed to remove Nginx config directory"
+    rm -rf /etc/redis/ || warning "Failed to remove Redis config directory"
+    rm -rf /etc/fail2ban/ || warning "Failed to remove Fail2ban config directory"
 else
     log "Package uninstallation aborted."
 fi
