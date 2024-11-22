@@ -31,7 +31,8 @@ services:
       - no-new-privileges:true
     user: postgres
 
-  backup: # Will become myapp_backup
+  postgres_backup: # Will become myapp_backup
+    name: ${PROJECT}_postgres_backup
     image: prodrigestivill/postgres-backup-local
     restart: always
     volumes:
@@ -48,9 +49,40 @@ services:
     networks:
       - network
 
+  redis:
+    image: redis:7.4.1-alpine
+    container_name: ${PROJECT}_redis
+    command: redis-server --requirepass ${REDIS_PASSWORD} --user ${REDIS_USER} on >${REDIS_PASSWORD} ~* &* +@all
+    environment:
+      - REDIS_USER=${REDIS_USER:-rred}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-red}
+    volumes:
+      - redis_data:/data
+    networks:
+      - network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "redis-cli",
+          "--user",
+          "${REDIS_USER:-rred}",
+          "--pass",
+          "${REDIS_PASSWORD:-red}",
+          "ping",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+
 volumes:
   postgres_data:
     name: ${PROJECT}_postgres_data
+    driver: local
+  redis_data:
+    name: ${PROJECT}_redis_data
     driver: local
 
 networks:
