@@ -148,6 +148,8 @@ fi
 log "Cleaning up log files and temporary files..."
 rm -f /var/log/nginx/access.log /var/log/nginx/error.log || warning "Failed to remove Nginx logs"
 rm -f /var/log/redis/redis-server.log || warning "Failed to remove Redis logs"
+rm -f /var/log/setup_progress.txt || warning "Failed to remove setup progress file" # Added this line
+rm -rf /var/log/setup_progress.txt/var/log/setup_progress.txt || warning "Failed to remove setup progress file" # Added this line
 journalctl --vacuum-time=1d || warning "Failed to clean journalctl logs"
 
 # Final steps and summary

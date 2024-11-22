@@ -3,6 +3,8 @@
 # Exit on any error
 set -e
 
+source $HOME/.bashrc
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -22,7 +24,7 @@ SMTP_PASSWORD="sam"
 SMTP_PORT="587"
 APP_USER=$USER
 APP_DIR="/home/$APP_USER/apps/blog"
-REPO_URL="git@github.com:hmziqrs/ruxlog-backend.git"
+REPO_URL="https://github.com/hmziqrs/ruxlog-backend.git"
 PROGRESS_FILE="/var/log/setup_progress.txt"
 
 # Function to log messages
@@ -58,37 +60,55 @@ fi
 # 2. Install Essential Packages
 if ! is_step_done "packages_installed"; then
     log "Installing essential packages..."
-    apt install -y build-essential curl git pkg-config libssl-dev postgresql postgresql-contrib redis-server nginx fail2ban htop ufw
+    apt install -y build-essential curl git pkg-config libssl-dev postgresql libpq-dev postgresql-contrib redis-server nginx fail2ban htop ufw
     echo "packages_installed" >> "$PROGRESS_FILE"
 fi
 
-# Start PostgreSQL service
-log "Starting PostgreSQL service..."
-systemctl start postgresql
-systemctl enable postgresql
-sleep 5  # Wait for PostgreSQL to start completely
+# 3. Configure PostgreSQL
+if ! is_step_done "postgresql_configured"; then
+    log "Configuring PostgreSQL..."
 
+    # Check if PostgreSQL is installed
+    if ! dpkg -l | grep -q postgresql; then
+        error "PostgreSQL is not installed."
+        exit 1
+    fi
 
-# 3. Configure Firewall
+    # Check if PostgreSQL service is running
+    if ! systemctl is-active --quiet postgresql; then
+        log "Starting PostgreSQL service..."
+        sudo systemctl start postgresql
+    fi
+
+    # Ensure PostgreSQL service is enabled
+    sudo systemctl enable postgresql
+
+    # Check if the PostgreSQL cluster is initialized
+    if [ ! -d /var/lib/postgresql/data ]; then
+        log "Initializing PostgreSQL cluster..."
+        sudo postgresql-setup initdb
+    fi
+
+    # Create the database user if it doesn't exist
+    if ! sudo -u postgres psql -t -c "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'"; then
+        sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';"
+    fi
+
+    # Create the database if it doesn't exist
+    if ! sudo -u postgres psql -t -c "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'"; then
+        sudo -u postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;"
+    fi
+
+    echo "postgresql_configured" >> "$PROGRESS_FILE"
+fi
+
+# 4. Configure Firewall
 if ! is_step_done "firewall_configured"; then
     log "Configuring firewall..."
     ufw allow ssh
     ufw allow 'Nginx Full'
     ufw --force enable
     echo "firewall_configured" >> "$PROGRESS_FILE"
-fi
-
-# 4. Configure PostgreSQL
-if ! is_step_done "postgresql_configured"; then
-    log "Configuring PostgreSQL..."
-    # Check if user and database exist
-    if ! sudo -u postgres psql -t -c "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'"; then
-        sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';"
-    fi
-    if ! sudo -u postgres psql -t -c "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'"; then
-        sudo -u postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;"
-    fi
-    echo "postgresql_configured" >> "$PROGRESS_FILE"
 fi
 
 # 5. Configure Redis
@@ -171,6 +191,8 @@ PORT=8888
 
 # Database
 POSTGRE_DB_URL=postgres://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME
+DATABASE_URL=postgres://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME
+RUST_LOG=diesel_logger=debug
 
 # Redis
 REDIS_USERNAME=$REDIS_USERNAME
@@ -224,11 +246,8 @@ server {
 }
 
 server {
-    listen 443 ssl;
+    listen 80;
     server_name $API_SUBDOMAIN;
-
-    ssl_certificate /etc/ssl/certs/api.crt;
-    ssl_certificate_key /etc/ssl/certs/api.key;
 
     location / {
         proxy_pass http://127.0.0.1:8888;
@@ -249,7 +268,7 @@ EOF
     echo "nginx_configured" >> "$PROGRESS_FILE"
 fi
 
-# 12. Set up backup script
+# 11. Set up backup script
 if ! is_step_done "backup_script_setup"; then
     log "Setting up backup script..."
     mkdir -p /home/$APP_USER/backups
@@ -277,7 +296,7 @@ EOF
     echo "backup_script_setup" >> "$PROGRESS_FILE"
 fi
 
-# 13. Set up maintenance script
+# 12. Set up maintenance script
 if ! is_step_done "maintenance_script_setup"; then
     log "Setting up maintenance script..."
     if [ ! -f /home/$APP_USER/maintain.sh ]; then
@@ -296,20 +315,20 @@ EOF
     echo "maintenance_script_setup" >> "$PROGRESS_FILE"
 fi
 
-# 14. Build and start the application
+# 13. Build and start the application
 if ! is_step_done "app_built_and_started"; then
     log "Building application..."
     cd $APP_DIR
     cargo build --release
     log "Running database migrations..."
-    diesel migration run
+    diesel migration run --database-url postgres://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME
     log "Starting services..."
     systemctl enable blog-backend
     systemctl start blog-backend
     echo "app_built_and_started" >> "$PROGRESS_FILE"
 fi
 
-# 15. Configure fail2ban
+# 14. Configure fail2ban
 if ! is_step_done "fail2ban_configured"; then
     log "Configuring fail2ban..."
     systemctl enable fail2ban
@@ -333,6 +352,3 @@ echo "Backup script: /home/$APP_USER/backup-blog.sh"
 echo "Maintenance script: /home/$APP_USER/maintain.sh"
 echo "Logs can be viewed with: journalctl -u blog-backend -f"
 echo "-----------------------------------"
-
-warning "Please ensure your static SSL certificates are correctly placed and permissions are set."
-warning "Remember to update the DNS records for $API_SUBDOMAIN"
