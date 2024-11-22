@@ -9,20 +9,20 @@ GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
 # Configuration variables - CHANGE THESE
-DOMAIN="your-domain.com"
-API_SUBDOMAIN="api.$DOMAIN"
-DB_USER="bloguser"
-DB_PASSWORD="your_secure_db_password"
-DB_NAME="blogdb"
-REDIS_USERNAME="redisuser"
-REDIS_PASSWORD="your_secure_redis_password"
-SMTP_HOST="your_smtp_host"
-SMTP_USERNAME="your_smtp_username"
-SMTP_PASSWORD="your_smtp_password"
+DOMAIN="hmziqrs.com"
+API_SUBDOMAIN="blog-api.$DOMAIN"
+DB_USER="broot"
+DB_PASSWORD="root"
+DB_NAME="blog"
+REDIS_USERNAME="red"
+REDIS_PASSWORD="red"
+SMTP_HOST="0.0.0.0"
+SMTP_USERNAME="sam"
+SMTP_PASSWORD="sam"
 SMTP_PORT="587"
 APP_USER=$USER
 APP_DIR="/home/$APP_USER/apps/blog"
-REPO_URL="your-git-repo-url"
+REPO_URL="git@github.com:hmziqrs/ruxlog-backend.git"
 PROGRESS_FILE="/var/log/setup_progress.txt"
 
 # Function to log messages
@@ -61,6 +61,13 @@ if ! is_step_done "packages_installed"; then
     apt install -y build-essential curl git pkg-config libssl-dev postgresql postgresql-contrib redis-server nginx fail2ban htop ufw
     echo "packages_installed" >> "$PROGRESS_FILE"
 fi
+
+# Start PostgreSQL service
+log "Starting PostgreSQL service..."
+systemctl start postgresql
+systemctl enable postgresql
+sleep 5  # Wait for PostgreSQL to start completely
+
 
 # 3. Configure Firewall
 if ! is_step_done "firewall_configured"; then
