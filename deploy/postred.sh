@@ -9,140 +9,134 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Configuration variables - CHANGE THESE
+# Configuration variables
 DB_USER="badmin"
 DB_PASSWORD="root"
 DB_NAME="blog"
 REDIS_USERNAME="red"
 REDIS_PASSWORD="red"
+POSTGRES_VERSION="16"  # Updated to latest stable version
 
-# Temporary files and backup locations
-TEMP_DIR="/tmp/db_setup_backup"
-REDIS_CONF_BACKUP="/etc/redis/redis.conf.backup"
+# Logging functions
+log() { echo -e "${GREEN}[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $1${NC}"; }
+error() { echo -e "${RED}[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $1${NC}"; }
+warning() { echo -e "${YELLOW}[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $1${NC}"; }
 
-# Function to log messages
-log() {
-    echo -e "${GREEN}[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $1${NC}"
-}
-
-error() {
-    echo -e "${RED}[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $1${NC}"
-}
-
-warning() {
-    echo -e "${YELLOW}[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $1${NC}"
-}
-
-# Cleanup function
-cleanup() {
-    if [ $? -ne 0 ]; then
-        error "An error occurred during installation. Rolling back changes..."
-
-        # Restore Redis configuration if backup exists
-        if [ -f "$REDIS_CONF_BACKUP" ]; then
-            log "Restoring Redis configuration..."
-            mv "$REDIS_CONF_BACKUP" /etc/redis/redis.conf
-            systemctl restart redis-server || true
-        fi
-
-        # Drop PostgreSQL database and user if they exist
-        if sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw "$DB_NAME"; then
-            log "Removing PostgreSQL database..."
-            sudo -u postgres psql -c "DROP DATABASE IF EXISTS $DB_NAME;"
-        fi
-
-        if sudo -u postgres psql -t -c "\du" | cut -d \| -f 1 | grep -qw "$DB_USER"; then
-            log "Removing PostgreSQL user..."
-            sudo -u postgres psql -c "DROP USER IF EXISTS $DB_USER;"
-        fi
-
-        # Remove temporary directory
-        if [ -d "$TEMP_DIR" ]; then
-            rm -rf "$TEMP_DIR"
-        fi
-
-        error "Rollback complete. Please check the logs and try again."
-    else
-        # Cleanup successful installation
-        [ -f "$REDIS_CONF_BACKUP" ] && rm "$REDIS_CONF_BACKUP"
-        [ -d "$TEMP_DIR" ] && rm -rf "$TEMP_DIR"
-        log "Cleanup completed successfully"
+# Function to check if PostgreSQL is installed and running
+check_postgres_status() {
+    if ! command -v psql >/dev/null 2>&1; then
+        error "PostgreSQL is not installed"
+        return 1
     fi
+
+    if ! systemctl is-active --quiet postgresql; then
+        error "PostgreSQL service is not running"
+        return 1
+    fi
+
+    return 0
 }
 
-# Register cleanup function to run on script exit
-trap cleanup EXIT
+# Function to setup PostgreSQL
+setup_postgres() {
+    log "Setting up PostgreSQL..."
 
-# Check if running as root
-if [ "$EUID" -ne 0 ]; then
-    error "Please run as root"
-    exit 1
-fi
+    # Install PostgreSQL repository script
+    if ! command -v postgresql-common >/dev/null 2>&1; then
+        log "Installing postgresql-common..."
+        apt install -y postgresql-common || return 1
 
-# Create temporary directory for backups
-mkdir -p "$TEMP_DIR"
+        log "Adding PostgreSQL repository..."
+        /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y || return 1
+    fi
 
-# Verify configuration variables
-if [[ -z "$DB_USER" ]] || [[ -z "$DB_PASSWORD" ]] || [[ -z "$DB_NAME" ]] || [[ -z "$REDIS_USERNAME" ]] || [[ -z "$REDIS_PASSWORD" ]]; then
-    error "Configuration variables cannot be empty"
-    exit 1
-fi
+    # Install PostgreSQL
+    log "Installing PostgreSQL..."
+    apt install -y postgresql postgresql-contrib || return 1
 
-# 1. Update System
-log "Updating system..."
-apt update && apt upgrade -y || {
-    error "System update failed"
-    exit 1
+    # Ensure PostgreSQL is started
+    systemctl start postgresql
+    systemctl enable postgresql
+
+    # Wait for PostgreSQL to be ready
+    sleep 3
+
+    # Configure PostgreSQL authentication
+    log "Configuring PostgreSQL authentication..."
+    PG_HBA_CONF="/etc/postgresql/$POSTGRES_VERSION/main/pg_hba.conf"
+
+    # Backup original configuration
+    cp "$PG_HBA_CONF" "${PG_HBA_CONF}.backup"
+
+    # Append new rules for badmin
+    echo "
+# Custom rules for badmin
+host    all             $DB_USER             127.0.0.1/32            scram-sha-256
+host    all             $DB_USER             ::1/128                 scram-sha-256
+" >> "$PG_HBA_CONF"
+
+    # Restart PostgreSQL to apply changes
+    systemctl restart postgresql
+    sleep 3
+
+    return 0
 }
 
-# 2. Install PostgreSQL and Redis
-log "Installing PostgreSQL and Redis..."
-apt install -y postgresql postgresql-contrib redis-server || {
-    error "Failed to install PostgreSQL and Redis"
-    exit 1
+# Function to create database and user
+setup_database() {
+    log "Setting up database and user..."
+
+    # Set password for postgres user first
+    sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'postgres';" || {
+        error "Failed to set postgres user password"
+        return 1
+    }
+
+    # Create user if not exists
+    if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'" | grep -q 1; then
+        sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';" || {
+            error "Failed to create database user"
+            return 1
+        }
+    else
+        warning "User $DB_USER already exists"
+    fi
+
+    # Create database if not exists
+    if ! sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw "$DB_NAME"; then
+        sudo -u postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;" || {
+            error "Failed to create database"
+            return 1
+        }
+    else
+        warning "Database $DB_NAME already exists"
+    fi
+
+    # Grant privileges
+    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;" || {
+        error "Failed to grant privileges"
+        return 1
+    }
+
+    return 0
 }
 
-# 3. Verify PostgreSQL is running
-if ! systemctl is-active --quiet postgresql; then
-    error "PostgreSQL is not running"
-    exit 1
-fi
+# Function to setup Redis
+setup_redis() {
+    log "Setting up Redis..."
 
-# 4. Configure PostgreSQL
-log "Configuring PostgreSQL..."
-# Check if database already exists
-if sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw "$DB_NAME"; then
-    error "Database $DB_NAME already exists"
-    exit 1
-fi
+    # Install Redis if not present
+    if ! command -v redis-server >/dev/null 2>&1; then
+        apt install -y redis-server || return 1
+    fi
 
-# Check if user already exists
-if sudo -u postgres psql -t -c "\du" | cut -d \| -f 1 | grep -qw "$DB_USER"; then
-    error "User $DB_USER already exists"
-    exit 1
-fi
+    # Backup existing Redis configuration
+    if [ -f /etc/redis/redis.conf ]; then
+        cp /etc/redis/redis.conf /etc/redis/redis.conf.backup
+    fi
 
-# Create user and database
-sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';" || {
-    error "Failed to create PostgreSQL user"
-    exit 1
-}
-
-sudo -u postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;" || {
-    error "Failed to create PostgreSQL database"
-    exit 1
-}
-
-# 5. Configure Redis
-log "Configuring Redis..."
-# Backup original Redis configuration
-cp /etc/redis/redis.conf "$REDIS_CONF_BACKUP" || {
-    error "Failed to backup Redis configuration"
-    exit 1
-}
-
-# Create new Redis configuration
-cat > /etc/redis/redis.conf << EOF || exit 1
+    # Configure Redis
+    cat > /etc/redis/redis.conf << EOF
 bind 127.0.0.1
 port 6379
 daemonize yes
@@ -151,64 +145,88 @@ pidfile /var/run/redis/redis-server.pid
 loglevel notice
 logfile /var/log/redis/redis-server.log
 databases 16
-always-show-logo no
-set-proc-title yes
-proc-title-template "{title} {listen-addr} {server-mode}"
-stop-writes-on-bgsave-error yes
-rdbcompression yes
-rdbchecksum yes
-dbfilename dump.rdb
-dir /var/lib/redis
 maxmemory-policy noeviction
 aclfile /etc/redis/users.acl
 EOF
 
-# Create ACL file for Redis users
-cat > /etc/redis/users.acl << EOF || exit 1
+    # Configure Redis ACL
+    cat > /etc/redis/users.acl << EOF
 user default off
-user $REDIS_USERNAME on >$REDIS_PASSWORD allcommands allkeys
+user ${REDIS_USERNAME} on >${REDIS_PASSWORD} allcommands allkeys
 EOF
 
-# Set proper permissions
-chown redis:redis /etc/redis/users.acl || exit 1
-chmod 640 /etc/redis/users.acl || exit 1
+    # Set proper permissions
+    chown redis:redis /etc/redis/users.acl
+    chmod 640 /etc/redis/users.acl
 
-# Restart Redis service
-log "Restarting Redis..."
-systemctl restart redis-server || {
-    error "Failed to restart Redis"
-    exit 1
+    # Restart Redis
+    systemctl restart redis-server
+    systemctl enable redis-server
+
+    # Wait for Redis to start
+    sleep 2
+
+    # Test Redis connection
+    if ! redis-cli -u "redis://${REDIS_USERNAME}:${REDIS_PASSWORD}@127.0.0.1:6379" ping | grep -q "PONG"; then
+        error "Redis connection test failed"
+        return 1
+    fi
+
+    return 0
 }
 
-# Wait for Redis to start
-sleep 2
+# Main installation function
+main() {
+    # Check if running as root
+    if [ "$EUID" -ne 0 ]; then
+        error "Please run as root"
+        exit 1
+    fi
 
-# Verify Redis is running
-if ! systemctl is-active --quiet redis-server; then
-    error "Redis failed to start"
-    exit 1
-fi
+    # Update system
+    log "Updating system..."
+    apt update || {
+        error "Failed to update system"
+        exit 1
+    }
 
-# Test Redis connection
-log "Testing Redis connection..."
-if ! redis-cli -u "redis://$REDIS_USERNAME:$REDIS_PASSWORD@127.0.0.1:6379" ping | grep -q "PONG"; then
-    error "Redis authentication test failed"
-    exit 1
-fi
+    # Setup PostgreSQL
+    if ! check_postgres_status; then
+        setup_postgres || {
+            error "Failed to setup PostgreSQL"
+            exit 1
+        }
+    fi
 
-# Print summary
-log "Installation complete! Summary of details:"
-echo "-----------------------------------"
-echo "Database Name: $DB_NAME"
-echo "Database User: $DB_USER"
-echo "Database Password: $DB_PASSWORD"
-echo "Database Connection URL: postgres://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME"
-echo ""
-echo "Redis Host: 127.0.0.1"
-echo "Redis Port: 6379"
-echo "Redis Username: $REDIS_USERNAME"
-echo "Redis Password: $REDIS_PASSWORD"
-echo "Redis Connection URL: redis://$REDIS_USERNAME:$REDIS_PASSWORD@127.0.0.1:6379"
-echo "-----------------------------------"
+    # Setup database and user
+    setup_database || {
+        error "Failed to setup database"
+        exit 1
+    }
 
-warning "Please save these credentials securely and then delete them from this script!"
+    # Setup Redis
+    setup_redis || {
+        error "Failed to setup Redis"
+        exit 1
+    }
+
+    # Print connection details
+    log "Setup completed successfully!"
+    echo "-----------------------------------"
+    echo "PostgreSQL Details:"
+    echo "Database Name: $DB_NAME"
+    echo "Database User: $DB_USER"
+    echo "Database Password: $DB_PASSWORD"
+    echo "Connection URL: postgresql://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME"
+    echo ""
+    echo "Redis Details:"
+    echo "Host: 127.0.0.1"
+    echo "Port: 6379"
+    echo "Username: $REDIS_USERNAME"
+    echo "Password: $REDIS_PASSWORD"
+    echo "Connection URL: redis://$REDIS_USERNAME:$REDIS_PASSWORD@127.0.0.1:6379"
+    echo "-----------------------------------"
+}
+
+# Run main function
+main

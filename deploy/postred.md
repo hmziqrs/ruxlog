@@ -44,3 +44,4 @@ redis-cli -u "redis://red:red@127.0.0.1:6379"
 ---
 
 rm -rf ./postred-clean.sh && nano postred-clean.sh && chmod +x postred-clean.sh && sudo ./postred-clean.sh
+rm -rf ./postred.sh && nano postred.sh && chmod +x postred.sh && sudo ./postred.sh
