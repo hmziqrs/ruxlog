@@ -10,8 +10,12 @@ docker-compose down --volumes
 ```
 
 
- docker run -p 8888:8888 ruxlog-backend --env-file .env
- docker build -t ruxlog-backend .
-docker run -p 8888:8888 ruxlog-backend
+docker run -p 8888:8888 ruxlog --env-file .env
 
-docker run --env-file .\.env  -p 8888:8888 ruxlog-backend
+docker build -t ruxlog:v1.0 .
+
+docker run -p 8888:8888 ruxlog:v1.0
+
+docker run --env-file .\.env  -p 8888:8888 ruxlog:v1.0
+
+docker run --env-file .\.env.docker  -p 8888:8888 ruxlog:v1.0
