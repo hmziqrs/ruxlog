@@ -1,0 +1,18 @@
+#!/bin/bash
+set -e
+
+# Wait for PostgreSQL to be ready
+until PGPASSWORD=$POSTGRES_PASSWORD psql -h "postgres" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c '\q'; do
+  >&2 echo "Postgres is unavailable - sleeping"
+  sleep 1
+done
+
+>&2 echo "Postgres is up - executing command"
+
+# Run migrations if they exist
+if [ -d "/app/migrations" ]; then
+  diesel migration run --database-url "postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@postgres/$POSTGRES_DB"
+fi
+
+# Start the application
+exec "/app/ruxlog"

@@ -13,11 +13,7 @@ RUN apt-get update && apt-get install -y \
 COPY . .
 
 
-RUN cargo install diesel_cli --no-default-features --features postgres
-
 RUN cargo build --release
-
-RUN diesel migration run --database-url postgres://rroot:root@host.docker.internal:5000/ruxlog
 
 # Runtime stage
 FROM debian:bullseye-slim

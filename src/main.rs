@@ -7,18 +7,15 @@ pub mod services;
 pub mod state;
 
 use axum::{
-    http::{HeaderName, HeaderValue, StatusCode},
+    http::{HeaderName, HeaderValue, },
     middleware,
-    response::IntoResponse,
-    routing, Json,
+    routing, 
 };
 use axum_client_ip::SecureClientIpSource;
 use axum_login::AuthManagerLayerBuilder;
+use db::migration::run_migrations;
 use modules::csrf_v1;
-use serde_json::json;
-use std::{env, net::SocketAddr, sync::Arc, time::Duration};
-use time;
-use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
+use std::{env, net::SocketAddr,  time::Duration};
 use tower_http::{
     compression::CompressionLayer,
     cors::{AllowOrigin, CorsLayer},
@@ -82,6 +79,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         redis_pool: redis_pool.clone(),
         mailer,
     };
+
+    run_migrations(&state.db_pool).await?;
 
     tracing::info!("Redis successfully established.");
     let session_store = RedisStore::new(redis_pool);

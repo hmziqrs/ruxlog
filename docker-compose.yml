@@ -2,6 +2,29 @@ version: "0.1"
 name: ${PROJECT}
 
 services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${PROJECT}_backend
+    restart: always
+    ports:
+      - "0.0.0.0:8888:8888"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - network
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER:-rroot}:${POSTGRES_PASSWORD:-root}@postgres:5432/${POSTGRES_DB:-ruxlog}
+      - POSTGRES_USER=${POSTGRES_USER:-rroot}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-root}
+      - POSTGRES_DB=${POSTGRES_DB:-ruxlog}
+    security_opt:
+      - no-new-privileges:true
+
   postgres: # Will become myapp_postgres
     image: postgres:17
     container_name: ${PROJECT}_postgres
