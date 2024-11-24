@@ -10,7 +10,7 @@ use tower_sessions_redis_store::fred::{
 // Minimal Redis configuration.
 fn redis_config() -> RedisConfig {
     RedisConfig {
-        username: Some(env::var("REDIS_USERNAME").expect("REDIS_USERNAME must be set")),
+        username: Some(env::var("REDIS_USER").expect("REDIS_USER must be set")),
         password: Some(env::var("REDIS_PASSWORD").expect("REDIS_PASSWORD must be set")),
         server: ServerConfig::Centralized {
             server: Server::new(

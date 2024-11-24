@@ -8,8 +8,20 @@ use crate::db::utils::execute_db_operation;
 
 // use super::utils::execute_db_operation;
 
+fn get_db_url() -> String {
+    let user = env::var("POSTGRES_USER").expect("POSTGRES_USER must be set");
+    let password = env::var("POSTGRES_PASSWORD").expect("POSTGRES_PASSWORD must be set");
+    let db = env::var("POSTGRES_DB").expect("POSTGRES_DB must be set");
+    let host = env::var("POSTGRES_HOST").expect("POSTGRES_HOST must be set");
+    let port = env::var("POSTGRES_PORT").expect("POSTGRES_PORT must be set");
+    // # POSTGRE_DB_URL=postgres://rroot:root@127.0.0.1:5432/ruxlog
+    let db_url = format!("postgres://{}:{}@{}:{}/{}", user, password, host, port, db);
+
+    db_url
+}
+
 pub async fn get_pool() -> Pool {
-    let db_url = env::var("POSTGRE_DB_URL").expect("POSTGRE_DB_URL must be set");
+    let db_url = get_db_url();
 
     let manager = Manager::new(db_url, Runtime::Tokio1);
     let pool = Pool::builder(manager)

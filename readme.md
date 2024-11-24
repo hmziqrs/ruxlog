@@ -81,7 +81,7 @@ To set up the project locally, follow these steps:
    DATABASE_URL=postgres://username:password@localhost/database_name
    REDIS_HOST=localhost
    REDIS_PORT=6379
-   REDIS_USERNAME=your_redis_username
+   REDIS_USER=your_redis_user
    REDIS_PASSWORD=your_redis_password
    SMTP_HOST=smtp.your-email-provider.com
    SMTP_USERNAME=your_smtp_username
