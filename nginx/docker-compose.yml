@@ -1,0 +1,19 @@
+version: "3.9"
+name: ${PROJECT}_nginx
+
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${PROJECT}_nginx_container
+    ports:
+      - "80:80"
+    networks:
+      - ${PROJECT}_network
+    restart: always
+
+networks:
+  shared_network:
+    name: ${PROJECT}_network
+    external: true
