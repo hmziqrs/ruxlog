@@ -24,6 +24,7 @@ use tokio::task;
 #[ExistingTypePath = "crate::db::schema::sql_types::UserRole"]
 #[serde(rename_all = "kebab-case")]
 pub enum UserRole {
+    #[db_rename = "super-admin"]
     SuperAdmin,
     Admin,
     Moderator,
