@@ -1,4 +1,3 @@
-pub mod constants;
 pub mod db;
 pub mod middlewares;
 pub mod modules;
@@ -148,7 +147,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //         .unwrap(),
     // );
     // let governor_limiter = governor_conf.limiter().clone();
-    let interval = Duration::from_secs(60);
+    // let interval = Duration::from_secs(60);
     // a separate background task to clean up
     // std::thread::spawn(move || loop {
     //     std::thread::sleep(interval);

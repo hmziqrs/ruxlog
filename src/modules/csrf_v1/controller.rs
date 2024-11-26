@@ -1,13 +1,15 @@
 use axum::{http::StatusCode, response::IntoResponse, Json};
 use serde_json::json;
 
-use crate::constants::STATIC_CSRF;
+use crate::middlewares::static_csrf::get_static_csrf_key;
+
 // use axum_csrf::CsrfToken;
 // use serde::{Deserialize, Serialize};
 
 pub async fn generate() -> impl IntoResponse {
     use base64::prelude::*;
-    let token = BASE64_STANDARD.encode(STATIC_CSRF).replace("=", "");
+    let static_csrf = get_static_csrf_key();
+    let token = BASE64_STANDARD.encode(static_csrf).replace("=", "");
 
     (
         StatusCode::OK,

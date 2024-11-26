@@ -1,3 +1,5 @@
+use std::env;
+
 use axum::{
     extract::Request,
     http::StatusCode,
@@ -7,7 +9,10 @@ use axum::{
 };
 use serde_json::json;
 
-use crate::constants::STATIC_CSRF;
+pub fn get_static_csrf_key() -> String {
+    let key = env::var("CSRF_KEY").unwrap_or_else(|_| "ultra-instinct-goku".to_string());
+    return key;
+}
 
 // pub async fn csrf_gaurd(req: Request, next: Next) -> Result<Response, impl IntoResponse> {
 pub async fn csrf_gaurd(req: Request, next: Next) -> Result<Response, Response> {
@@ -26,7 +31,7 @@ pub async fn csrf_gaurd(req: Request, next: Next) -> Result<Response, Response> 
                     if parsed_token.is_err() {
                         return Err((StatusCode::BAD_REQUEST, err_json).into_response());
                     }
-                    if parsed_token.unwrap() != STATIC_CSRF {
+                    if parsed_token.unwrap() != get_static_csrf_key() {
                         return Err((StatusCode::BAD_REQUEST, err_json).into_response());
                     }
 
