@@ -9,6 +9,7 @@ services:
     container_name: ${PROJECT}_nginx
     ports:
       - "80:80"
+      - "443:443" # Add HTTPS port
     networks:
       - external_network
     restart: always
