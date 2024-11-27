@@ -7,9 +7,11 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: ${PROJECT}_nginx
+    environment:
+      - PROJECT=${PROJECT}
     ports:
       - "80:80"
-      - "443:443" # Add HTTPS port
+      - "443:443"
     networks:
       - external_network
     restart: always
