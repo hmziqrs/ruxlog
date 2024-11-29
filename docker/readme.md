@@ -8,6 +8,10 @@ $env:PROJECT="rux_local"; docker compose up -d
 export PROJECT="rux_local" && docker compose up -d
 ```
 
+```bash
+docker compose down --rmi all; docker compose build --no-cache; docker compose up -d
+```
+
 when changing configs or name else it will not set up new database
 
 ```bash

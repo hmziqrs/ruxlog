@@ -18,7 +18,7 @@ services:
     networks:
       - network
     env_file:
-      - .env.docker
+      - .env.prod
     security_opt:
       - no-new-privileges:true
 
@@ -29,7 +29,7 @@ services:
     environment:
       PGDATA: /var/lib/postgresql/data/pgdata
     env_file:
-      - .env.docker
+      - .env.prod
     volumes:
       - postgres_data:/var/lib/postgresql/data
       # - ./docker/postgres:/docker-entrypoint-initdb.d/
@@ -63,7 +63,7 @@ services:
       - BACKUP_KEEP_WEEKS=4
       - BACKUP_KEEP_MONTHS=6
     env_file:
-      - .env.docker
+      - .env.prod
     networks:
       - network
 
@@ -84,7 +84,7 @@ services:
     ports:
       - "0.0.0.0:5001:6379"
     env_file:
-      - .env.docker
+      - .env.prod
     healthcheck:
       test: ["CMD", "redis-cli", "-u", "redis://${REDIS_USER:-rred}:${REDIS_PASSWORD:-red}@localhost:6379", "PING"]
       interval: 10s
