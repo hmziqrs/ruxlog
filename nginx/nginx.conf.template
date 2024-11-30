@@ -5,6 +5,14 @@ upstream backend {
     server ${PROJECT}_backend:8888;
 }
 
+upstream client {
+    server ${PROJECT}_client:3000;
+}
+
+upstream admin {
+    server ${PROJECT}_admin:3000;
+}
+
 # API Server
 server {
     listen 80;
@@ -18,6 +26,38 @@ server {
         proxy_http_version 1.1;
 
         # Proxy headers
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+server {
+    listen 80;
+    server_name client.localhost;  # Change this to your client domain
+
+    location / {
+        proxy_pass http://client;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+server {
+    listen 80;
+    server_name admin.localhost;  # Change this to your admin domain
+
+    location / {
+        proxy_pass http://admin;
+        proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
