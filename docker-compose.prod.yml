@@ -65,10 +65,10 @@ services:
       redis-server
       --requirepass "${REDIS_PASSWORD}"
       --acl-pubsub-default allchannels
-      --aclfile /etc/redis/users.acl
+      --aclfile /etc/redis/prod.acl
     volumes:
       - redis_data:/data
-      - ./docker/redis/users.acl:/etc/redis/users.acl:ro
+      - ./docker/redis/prod.acl:/etc/redis/prod.acl:ro
     networks:
       - network
     env_file:

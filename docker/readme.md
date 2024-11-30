@@ -9,6 +9,10 @@ export PROJECT="rux_local" && docker compose up -d
 ```
 
 ```bash
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
+```
+
+```bash
 docker compose down --rmi all; docker compose build --no-cache; docker compose up -d
 ```
 
