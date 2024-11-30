@@ -2,21 +2,21 @@ limit_req_zone $binary_remote_addr zone=mylimit:10m rate=10r/s;
 
 # Define upstream servers
 upstream backend {
-    server ${PROJECT}_backend:8888;
+    server ${BACKEND_HOST}
 }
 
 upstream client {
-    server ${PROJECT}_client:3000;
+    server ${CLIENT_HOST}
 }
 
 upstream admin {
-    server ${PROJECT}_admin:3000;
+    server ${ADMIN_HOST}
 }
 
 # API Server
 server {
     listen 80;
-    server_name 127.0.0.1;
+    server_name ${BACKEND_DOMAIN};
 
     # Apply rate limiting
     limit_req zone=mylimit burst=20 nodelay;
@@ -37,7 +37,7 @@ server {
 
 server {
     listen 80;
-    server_name client.localhost;  # Change this to your client domain
+    server_name ${BACKEND_DOMAIN};
 
     location / {
         proxy_pass http://client;
@@ -53,7 +53,7 @@ server {
 
 server {
     listen 80;
-    server_name admin.localhost;  # Change this to your admin domain
+    server_name ${BACKEND_DOMAIN};
 
     location / {
         proxy_pass http://admin;

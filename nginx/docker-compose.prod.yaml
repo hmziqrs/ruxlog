@@ -7,10 +7,13 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: ${PROJECT}_nginx
-    environment:
-      - PROJECT=${PROJECT}
+    env_file:
+      - .env.prod
     ports:
       - "80:80"
+      - "443:443" # For HTTPS
+    volumes:
+      - ./ssl:/etc/nginx/ssl:ro # For SSL certificates
     networks:
       - external_network
     restart: always
