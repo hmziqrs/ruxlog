@@ -1,4 +1,4 @@
-version: "0.1"
+version: "3.9"
 name: ${PROJECT}
 
 services:
@@ -8,8 +8,6 @@ services:
       dockerfile: Dockerfile
     container_name: ${PROJECT}_backend
     restart: always
-    ports:
-      - "0.0.0.0:8888:8888"
     depends_on:
       postgres:
         condition: service_healthy
@@ -18,32 +16,24 @@ services:
     networks:
       - network
     env_file:
-      - .env.docker
+      - .env.prod
     security_opt:
       - no-new-privileges:true
 
-  postgres: # Will become myapp_postgres
+  postgres:
     image: postgres:17
     container_name: ${PROJECT}_postgres
     restart: always
     environment:
       PGDATA: /var/lib/postgresql/data/pgdata
     env_file:
-      - .env.docker
+      - .env.prod
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # - ./docker/postgres:/docker-entrypoint-initdb.d/
-    ports:
-      - "0.0.0.0:5000:5432"
     networks:
       - network
-    # command: postgres -c config_file=/etc/postgresql/postgresql.conf
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-rroot} -d ${POSTGRES_DB:-ruxlog}",
-        ]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -51,7 +41,7 @@ services:
       - no-new-privileges:true
     user: postgres
 
-  postgres_backup: # Will become myapp_backup
+  postgres_backup:
     container_name: ${PROJECT}_postgres_backup
     image: prodrigestivill/postgres-backup-local
     restart: always
@@ -63,7 +53,7 @@ services:
       - BACKUP_KEEP_WEEKS=4
       - BACKUP_KEEP_MONTHS=6
     env_file:
-      - .env.docker
+      - .env.prod
     networks:
       - network
 
@@ -73,25 +63,23 @@ services:
     restart: always
     command: >
       redis-server
-      --requirepass "${REDIS_PASSWORD:-red}"
+      --requirepass "${REDIS_PASSWORD}"
       --acl-pubsub-default allchannels
       --aclfile /etc/redis/users.acl
     volumes:
       - redis_data:/data
-      - ./docker/redis/users.acl:/etc/redis/users.acl:ro # Changed path
+      - ./docker/redis/users.acl:/etc/redis/users.acl:ro
     networks:
       - network
-    ports:
-      - "0.0.0.0:5001:6379"
     env_file:
-      - .env.docker
+      - .env.prod
     healthcheck:
       test:
         [
           "CMD",
           "redis-cli",
           "-u",
-          "redis://${REDIS_USER:-rred}:${REDIS_PASSWORD:-red}@localhost:6379",
+          "redis://${REDIS_USER}:${REDIS_PASSWORD}@localhost:6379",
           "PING",
         ]
       interval: 10s
@@ -104,25 +92,16 @@ services:
     image: offen/docker-volume-backup
     container_name: ${PROJECT}_redis_backup
     restart: always
-    user: root # Required to access the volumes
+    user: root
     volumes:
-      # Volume to backup
-      - redis_data:/backup/redis:ro # Read-only access
-      # Where to store the backups
-      - ./backups/redis:/archive # Local backup storage
+      - redis_data:/backup/redis:ro
+      - ./backups/redis:/archive
     environment:
-      # Backup schedule
-      - BACKUP_CRON_EXPRESSION=0 0 * * * # Daily at midnight
-      # Backup retention
-      - BACKUP_RETENTION_DAYS=7 # Keep backups for 7 days
-      # Backup naming
-      - BACKUP_PREFIX=${PROJECT}_redis # Prefix for backup files
-      - BACKUP_SUFFIX=%Y-%m-%d-%H-%M # Date format suffix
-      # - BACKUP_COMPRESSION=GZIP # Use GZIP compression
-      # Notification on failure (optional)
+      - BACKUP_CRON_EXPRESSION=0 0 * * *
+      - BACKUP_RETENTION_DAYS=7
+      - BACKUP_PREFIX=${PROJECT}_redis
+      - BACKUP_SUFFIX=%Y-%m-%d-%H-%M
       - NOTIFICATION_LEVEL=warning
-      # Stop Redis before backup (optional but recommended)
-      # - BACKUP_STOP_CONTAINER=${PROJECT}_redis
     networks:
       - network
     depends_on:
