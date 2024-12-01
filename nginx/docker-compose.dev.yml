@@ -5,7 +5,7 @@ services:
   nginx:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: ${PROJECT}_nginx
     env_file:
       - .env.dev

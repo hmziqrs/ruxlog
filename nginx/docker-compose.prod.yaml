@@ -5,7 +5,7 @@ services:
   nginx:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod
     container_name: ${PROJECT}_nginx
     env_file:
       - .env.prod
@@ -13,7 +13,8 @@ services:
       - "80:80"
       - "443:443" # For HTTPS
     volumes:
-      - ./ssl:/etc/nginx/ssl:ro # For SSL certificates
+      - ./ssl:/etc/nginx/ssl:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro # Mount Let's Encrypt
     networks:
       - external_network
     restart: always

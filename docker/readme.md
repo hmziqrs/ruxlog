@@ -45,3 +45,9 @@ docker exec -it rux_local_postgres psql -U root -d ruxlog -f ./docker/postgres/a
 ```bash
 docker exec -i rux_local_postgres psql -U rroot -d ruxlog < ./docker/postgres/admin_users.sql
 ```
+
+Nginx:
+
+```
+
+```
