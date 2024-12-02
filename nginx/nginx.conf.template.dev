@@ -2,15 +2,15 @@ limit_req_zone $binary_remote_addr zone=mylimit:10m rate=10r/s;
 
 # Define upstream servers
 upstream backend {
-    server ${BACKEND_HOST}
+    server ${BACKEND_HOST};
 }
 
 upstream client {
-    server ${CLIENT_HOST}
+    server ${CLIENT_HOST};
 }
 
 upstream admin {
-    server ${ADMIN_HOST}
+    server ${ADMIN_HOST};
 }
 
 # API Server
@@ -37,7 +37,7 @@ server {
 
 server {
     listen 80;
-    server_name ${BACKEND_DOMAIN};
+    server_name ${CLIENT_DOMAIN};
 
     location / {
         proxy_pass http://client;
@@ -53,7 +53,7 @@ server {
 
 server {
     listen 80;
-    server_name ${BACKEND_DOMAIN};
+    server_name ${ADMIN_DOMAIN};
 
     location / {
         proxy_pass http://admin;
