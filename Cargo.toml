@@ -72,3 +72,7 @@ regex = "1.11.0"
 [[bin]]
 name = "generate_hash"
 path = "scripts/generate_hash.rs"
+
+[[bin]]
+name = "generate_csrf"
+path = "scripts/generate_csrf.rs"
