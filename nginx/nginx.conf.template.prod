@@ -1,5 +1,11 @@
 limit_req_zone $binary_remote_addr zone=mylimit:10m rate=10r/s;
 
+# Custom log format to debug headers
+log_format custom '$remote_addr - $remote_user [$time_local] '
+                  '"$request" $status $body_bytes_sent '
+                  '"$http_referer" "$http_user_agent" '
+                  '"$http_csrf_token"';
+
 # Define upstream servers
 upstream backend {
     server ${BACKEND_HOST};
@@ -30,12 +36,21 @@ server {
     # Apply rate limiting
     limit_req zone=mylimit burst=20 nodelay;
 
+    # Enable header logging
+    access_log /var/log/nginx/access.log custom;
+
     location / {
         proxy_pass http://backend;
         proxy_http_version 1.1;
+
+        # Pass all headers
+        proxy_pass_request_headers on;
+        proxy_set_header Host $http_host;
+        proxy_pass_header *;
+
+        # Standard proxy settings
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_cache_bypass $http_upgrade;
@@ -50,12 +65,21 @@ server {
     ssl_certificate /etc/letsencrypt/live/hmziq.rs/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/hmziq.rs/privkey.pem;
 
+    # Enable header logging
+    access_log /var/log/nginx/access.log custom;
+
     location / {
         proxy_pass http://client;
         proxy_http_version 1.1;
+
+        # Pass all headers
+        proxy_pass_request_headers on;
+        proxy_set_header Host $http_host;
+        proxy_pass_header *;
+
+        # Standard proxy settings
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_cache_bypass $http_upgrade;
@@ -70,12 +94,21 @@ server {
     ssl_certificate /etc/letsencrypt/live/hmziq.rs/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/hmziq.rs/privkey.pem;
 
+    # Enable header logging
+    access_log /var/log/nginx/access.log custom;
+
     location / {
         proxy_pass http://admin;
         proxy_http_version 1.1;
+
+        # Pass all headers
+        proxy_pass_request_headers on;
+        proxy_set_header Host $http_host;
+        proxy_pass_header *;
+
+        # Standard proxy settings
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_cache_bypass $http_upgrade;
