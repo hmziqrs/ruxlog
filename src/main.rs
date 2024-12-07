@@ -6,15 +6,14 @@ pub mod services;
 pub mod state;
 
 use axum::{
-    http::{HeaderName, HeaderValue, },
-    middleware,
-    routing, 
+    http::{HeaderName, HeaderValue},
+    middleware, routing,
 };
 use axum_client_ip::SecureClientIpSource;
 use axum_login::AuthManagerLayerBuilder;
 use db::migration::run_migrations;
 use modules::csrf_v1;
-use std::{env, net::SocketAddr,  time::Duration};
+use std::{env, net::SocketAddr, time::Duration};
 use tower_http::{
     compression::CompressionLayer,
     cors::{AllowOrigin, CorsLayer},
@@ -49,7 +48,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let allowed_origins = [
+        "http://127.0.0.1:8000",
+        "http://127.0.0.1:8888",
         "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "http://127.0.0.1:3002",
         "https://127.0.0.1:3000",
         "http://127.0.0.1:3333",
         "https://127.0.0.1:3333",

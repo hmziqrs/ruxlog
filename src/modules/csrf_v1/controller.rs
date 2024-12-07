@@ -9,7 +9,7 @@ use crate::middlewares::static_csrf::get_static_csrf_key;
 pub async fn generate() -> impl IntoResponse {
     use base64::prelude::*;
     let static_csrf = get_static_csrf_key();
-    let token = BASE64_STANDARD.encode(static_csrf).replace("=", "");
+    let token = BASE64_STANDARD.encode(static_csrf);
 
     (
         StatusCode::OK,
