@@ -17,6 +17,13 @@ docker compose down --rmi all; docker compose build --no-cache; docker compose u
 ```
 
 ```bash
+export PROJECT="rux_local"
+docker compose down --rmi all -v &&
+docker compose build --no-cache &&
+docker compose up -d
+```
+
+```bash
 $env:PROJECT="rux_local"; docker compose down --rmi all; docker compose build --no-cache; docker compose up -d
 ```
 
