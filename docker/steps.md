@@ -5,7 +5,11 @@ docker compose -f docker-compose.prod.yml up -d --build backend
 2. If you need to force recreate the container:
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --build --force-recreate backend
+export PROJECT="rux_local"
+```
+
+```bash
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build --force-recreate backend
 ```
 
 3. To check the logs after deployment:

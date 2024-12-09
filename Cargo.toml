@@ -1,5 +1,6 @@
 [package]
 name = "ruxlog"
+default-run = "ruxlog"
 version = "0.1.0"
 edition = "2021"
 
