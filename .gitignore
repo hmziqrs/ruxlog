@@ -5,5 +5,6 @@
 .DS_Store
 
 .env.prod
+prod_users.sql
 
 prod.acl

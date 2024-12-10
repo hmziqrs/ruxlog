@@ -111,14 +111,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     .with_secure(true)
     //     .with_cookie_same_site(SameSite::Strict);
     // .with_cookie_domain(Some("127.0.0.1"));
+    // let cookie_domain = env::var("COOKIE_DOMAIN").unwrap_or_else(|_| "hmziq.rs".to_string());
 
     let session_layer = SessionManagerLayer::new(session_store)
         .with_expiry(Expiry::OnInactivity(time::Duration::hours(24 * 14)))
         .with_same_site(SameSite::Lax)
         .with_secure(true)
         .with_http_only(false)
-        // .with_http_only(true)
+        .with_domain("hmziq.rs")
         .with_private(cookie_key);
+
     let compression = CompressionLayer::new();
     let cors = CorsLayer::new()
         .allow_methods([

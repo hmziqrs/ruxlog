@@ -46,8 +46,14 @@ docker run --env-file .\.env.docker -p 8888:8888 ruxlog:v1.0
 For creating admin users on project setup
 
 ```bash
-docker exec -it rux_local_postgres psql -U root -d ruxlog -f ./docker/postgres/admin_users.sql
+rm -rf ./docker/postgres/admin_users.sql && nano ./docker/postgres/admin_users.sql
 ```
+
+````
+
+```bash
+docker exec -it rux_local_postgres psql -U root -d ruxlog -f ./docker/postgres/admin_users.sql
+````
 
 ```bash
 docker exec -i rux_local_postgres psql -U rroot -d ruxlog < ./docker/postgres/admin_users.sql
