@@ -38,16 +38,8 @@ fn hex_to_512bit_key(hex: &str) -> [u8; 64] {
     array
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    dotenv::dotenv().ok();
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
-        .with_thread_ids(true)
-        .with_thread_names(true)
-        .init();
-
-    let allowed_origins = [
+fn get_allowed_origins() -> Vec<HeaderValue> {
+    let mut default_origins: Vec<String> = vec![
         "http://127.0.0.1:8000",
         "http://127.0.0.1:8888",
         "http://127.0.0.1:3000",
@@ -63,9 +55,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "https://hmziq.rs",
         "https://blog.hmziq.rs",
     ]
-    .iter()
-    // .join(", ")
-    .map(|origin| origin.parse::<HeaderValue>().unwrap());
+    .into_iter()
+    .map(|val| val.to_string())
+    .collect();
+
+    // Get additional origins from environment variable
+    if let Ok(env_allowed_origin) = env::var("ALLOWED_ORIGINS") {
+        let env_origins: Vec<String> = env_allowed_origin
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .collect();
+
+        default_origins.extend(env_origins);
+    }
+
+    default_origins
+        .iter()
+        .map(|origin| origin.parse::<HeaderValue>().unwrap())
+        .collect()
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    dotenv::dotenv().ok();
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .with_thread_ids(true)
+        .with_thread_names(true)
+        .init();
 
     let cookie_key_str = env::var("COOKIE_KEY").expect("COOKIE_KEY must be set");
     // let csrf_key_str = env::var("CSRF_KEY").expect("CSRF_KEY must be set");
@@ -124,7 +141,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // .allow_origin(tower_http::cors::Any)
         // .allow_origin("http://localhost:3000".parse::<HeaderValue>()?)
         // .allow_origin(allowed_origins)
-        .allow_origin(AllowOrigin::list(allowed_origins))
+        .allow_origin(AllowOrigin::list(get_allowed_origins()))
         // .allow_origin("http://127.0.0.1:3000".parse::<HeaderValue>()?)
         .allow_credentials(true)
         // .allow_headers()
