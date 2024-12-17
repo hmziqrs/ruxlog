@@ -11,7 +11,7 @@ use serde_json::json;
 use tower_http::trace::TraceLayer;
 
 use crate::{
-    middlewares::{user_permission, user_status},
+    middlewares::{route_blocker::block_routes, user_permission, user_status},
     modules::{category_v1, post_v1, seed_v1, tag_v1},
 };
 use crate::{modules::post_comment_v1, services::auth::AuthBackend};
@@ -160,6 +160,7 @@ pub fn router() -> Router<AppState> {
         .route("/seed", post(seed_v1::controller::seed));
 
     Router::new()
+        .layer(middleware::from_fn(block_routes))
         .route("/", routing::get(handler))
         .nest("/auth/v1", auth_v1_routes)
         .nest("/user/v1", user_v1_routes)

@@ -68,6 +68,7 @@ fred = "9.2.1"
 axum-client-ip = "0.6.1"
 lettre = { version = "0.11.9", features = ["default", "tokio1-native-tls"] }
 regex = "1.11.0"
+lazy_static = "1.5.0"
 
 
 [[bin]]

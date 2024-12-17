@@ -2142,6 +2142,7 @@ dependencies = [
  "fred",
  "governor",
  "hex",
+ "lazy_static",
  "lettre",
  "md5",
  "password-auth",
