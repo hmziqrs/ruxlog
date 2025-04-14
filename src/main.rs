@@ -40,6 +40,7 @@ fn hex_to_512bit_key(hex: &str) -> [u8; 64] {
 
 fn get_allowed_origins() -> Vec<HeaderValue> {
     let mut default_origins: Vec<String> = vec![
+        "http://127.0.0.1:8080",
         "http://127.0.0.1:8000",
         "http://127.0.0.1:8888",
         "http://localhost:3000",
@@ -50,6 +51,13 @@ fn get_allowed_origins() -> Vec<HeaderValue> {
         "https://127.0.0.1:3333",
         "http://192.168.0.101:3333",
         "http://192.168.0.101:3000",
+        "http://192.168.0.101:8000",
+        "http://192.168.0.101:8080",
+        "http://192.168.0.101:8888",
+        "http://192.168.0.23:3333",
+        "http://192.168.0.23:3000",
+        "http://192.168.0.23:8080",
+        "http://192.168.0.23:8888",
         "https://hzmiqrs.com",
         "https://hmziq.rs",
         "https://blog.hmziq.rs",
@@ -104,6 +112,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let session_store = RedisStore::new(redis_pool);
     let cookie_key_byes = hex_to_512bit_key(&cookie_key_str);
     let cookie_key = Key::from(&cookie_key_byes);
+
     // let csrf_key_byes = hex_to_512bit_key(&csrf_key_str);
     // let csrf_key = CsrfKey::from(&csrf_key_byes);
     // let csrf_config = CsrfConfig::default()
