@@ -1,15 +1,12 @@
 use std::{env, time::Duration};
 
+use tower_sessions_redis_store::fred::prelude::*;
+
 use tokio::task::JoinHandle;
-use tower_sessions_redis_store::fred::{
-    error::RedisError,
-    prelude::{ClientLike, RedisPool},
-    types::{ConnectionConfig, ReconnectPolicy, RedisConfig, Server, ServerConfig},
-};
 
 // Minimal Redis configuration.
-fn redis_config() -> RedisConfig {
-    RedisConfig {
+fn redis_config() -> Config {
+    Config {
         username: Some(env::var("REDIS_USER").expect("REDIS_USER must be set")),
         password: Some(env::var("REDIS_PASSWORD").expect("REDIS_PASSWORD must be set")),
         server: ServerConfig::Centralized {
@@ -26,8 +23,7 @@ fn redis_config() -> RedisConfig {
 }
 
 /// Setup the Redis connection pool.
-pub async fn init_redis_store(
-) -> Result<(RedisPool, JoinHandle<Result<(), RedisError>>), RedisError> {
+pub async fn init_redis_store() -> Result<(Pool, JoinHandle<Result<(), Error>>), Error> {
     let config = redis_config();
     let connection_config = ConnectionConfig {
         reconnect_on_auth_error: true,
@@ -38,7 +34,7 @@ pub async fn init_redis_store(
 
     let re_connection_policy = ReconnectPolicy::new_linear(30, 1000 * 600, 500);
 
-    let redis_pool = RedisPool::new(
+    let redis_pool = Pool::new(
         config,
         None,
         Some(connection_config),

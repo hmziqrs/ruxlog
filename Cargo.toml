@@ -10,26 +10,27 @@ edition = "2021"
 rustflags = '-L /opt/homebrew/opt/libpq/lib -L /opt/homebrew/lib'
 
 [dependencies]
-axum = "0.7.7"
-axum-extra = { version = "0.9.4", features = [
+axum = "0.8.3"
+axum-extra = { version = "0.10.1", features = [
     "typed-header",
     "cookie",
     "query",
 ] }
-axum-login = "0.16.0"
-fake = { version = "3.0.0", features = ["derive"] }
-validator = { version = "0.18.1", features = ["derive"] }
-axum-valid = { version = "0.20.0", default-features = false, features = [
+axum-login = { version = "0.17.0" }
+# axum-login = { path = "../axum-login/axum-login" }
+fake = { version = "4.3.0", features = ["derive"] }
+validator = { version = "0.20.0", features = ["derive"] }
+axum-valid = { version = "0.23.0", default-features = false, features = [
     "basic",
     "validator",
     "into_json",
 ] }
-serde_json = "1.0.128"
-tower-livereload = "0.9.4"
-tokio = { version = "1.40.0", features = ["full"] }
-serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.130"
+tower-livereload = "0.9.6"
+tokio = { version = "1.44.2", features = ["full"] }
+serde = { version = "1.0.219", features = ["derive"] }
 # validator = { version = "0.16.1", features = ["derive"] }
-tower-http = { version = "0.6.1", features = [
+tower-http = { version = "0.6.2", features = [
     "trace",
     "compression-gzip",
     "cors",
@@ -37,12 +38,12 @@ tower-http = { version = "0.6.1", features = [
     "fs",
 ] }
 tower_governor = "0.4.2"
-tower-sessions-core = "0.13"
-tower-sessions-redis-store = "0.14.0"
-tower-sessions = { version = "0.13", features = ["private"] }
-tracing-subscriber = "0.3.18"
-tracing = "0.1.40"
-diesel = { version = "2.2.4", features = [
+tower-sessions-core = "0.9.0"
+tower-sessions-redis-store = "0.16.0"
+tower-sessions = { version = "0.14", features = ["private"] }
+tracing-subscriber = "0.3.19"
+tracing = "0.1.41"
+diesel = { version = "2.2.9", features = [
     "postgres",
     "chrono",
     # "pq-sys",
@@ -52,23 +53,24 @@ deadpool-diesel = { version = "0.6.1", features = ["postgres"] }
 diesel_migrations = "2.2.0"
 diesel-derive-enum = { version = "2.1.0", features = ["postgres"] }
 dotenv = "0.15.0"
-chrono = { version = "0.4.19", features = ["serde"] }
-axum-macros = "0.4.2"
-thiserror = "1.0.64"
+chrono = { version = "0.4.40", features = ["serde"] }
+axum-macros = "0.5.0"
+thiserror = "2.0.12"
 md5 = "0.7.0"
 password-auth = "1.0.0"
-time = "0.3.36"
+time = "0.3.41"
 governor = "0.6.3"
 hex = "0.4.3"
 sha2 = "0.10.8"
-axum_csrf = { version = "0.10.0", features = ["layer"] }
+axum_csrf = { version = "0.11.0", features = ["layer"] }
 base64 = "0.22.1"
-rand = "0.8.5"
-fred = "9.2.1"
-axum-client-ip = "0.6.1"
+rand = "0.9.0"
+fred = "10.1.0"
+axum-client-ip = "1.0.0"
 lettre = { version = "0.11.9", features = ["default", "tokio1-native-tls"] }
-regex = "1.11.0"
+regex = "1.11.1"
 lazy_static = "1.5.0"
+async-trait = "0.1.88"
 
 
 [[bin]]

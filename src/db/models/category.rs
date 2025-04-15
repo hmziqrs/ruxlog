@@ -5,7 +5,7 @@ use axum::{http::StatusCode, Json};
 use chrono::{Duration, NaiveDateTime, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::prelude::*;
-use rand::{distributions::Alphanumeric, Rng};
+use rand::{ Rng};
 use serde::{Deserialize, Serialize};
 use tokio::task;
 

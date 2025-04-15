@@ -5,7 +5,7 @@ use axum::{http::StatusCode, Json};
 use chrono::{Duration, NaiveDateTime, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::prelude::*;
-use rand::{distributions::Alphanumeric, Rng};
+use rand::{distr::Alphanumeric, Rng};
 use serde::{Deserialize, Serialize};
 use tokio::task;
 
@@ -206,7 +206,7 @@ impl EmailVerification {
     }
 
     pub fn generate_code() -> String {
-        rand::thread_rng()
+        rand::rng()
             .sample_iter(&Alphanumeric)
             .take(6)
             .map(char::from)

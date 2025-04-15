@@ -1,5 +1,5 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
-use axum_client_ip::SecureClientIp;
+use axum_client_ip::ClientIp;
 use axum_macros::debug_handler;
 use axum_valid::Valid;
 use serde_json::json;
@@ -24,10 +24,10 @@ const ABUSE_LIMITER_CONFIG: abuse_limiter::AbuseLimiterConfig = abuse_limiter::A
 #[debug_handler]
 pub async fn generate(
     state: State<AppState>,
-    secure_ip: SecureClientIp,
+    ClientIp(secure_ip): ClientIp,
     Valid(payload): Valid<Json<V1GeneratePayload>>,
 ) -> impl IntoResponse {
-    let ip = secure_ip.0.to_string();
+    let ip = secure_ip.to_string();
     let key_prefix = format!("forgot_password:{}", ip);
     match abuse_limiter::limiter(&state.redis_pool, &key_prefix, ABUSE_LIMITER_CONFIG).await {
         Ok(_) => (),

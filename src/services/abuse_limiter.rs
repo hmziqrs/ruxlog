@@ -4,7 +4,7 @@ use axum::{
     Json,
 };
 use fred::{
-    prelude::{KeysInterface, RedisPool, SortedSetsInterface},
+    prelude::{KeysInterface, Pool as RedisPool, SortedSetsInterface},
     types::Expiration,
 };
 use serde_json::json;
@@ -90,7 +90,7 @@ pub async fn limiter(
         .await
         .unwrap();
     let _: () = redis_pool
-        .expire(&attempt_key, config.block_duration as i64)
+        .expire(&attempt_key, config.block_duration as i64, None)
         .await
         .unwrap();
 

@@ -7,7 +7,7 @@ use deadpool_diesel::postgres::Pool;
 use diesel::prelude::*;
 use diesel::query_dsl::methods::FindDsl;
 use diesel::QueryDsl;
-use rand::{distributions::Alphanumeric, Rng};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use tokio::task;
 

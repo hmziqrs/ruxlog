@@ -7,6 +7,7 @@ use fake::faker::lorem::en::*;
 use fake::faker::lorem::raw as l;
 use fake::faker::name::en::*;
 use fake::locales::EN;
+use rand::seq::IndexedRandom;
 use serde_json::json;
 
 #[derive(Debug, Dummy)]
@@ -202,7 +203,7 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
     let mut rng = StdRng::seed_from_u64(4999);
 
     for user in authors.iter() {
-        let num_posts = rng.gen_range(1..16);
+        let num_posts = rng.random_range(1..16);
         for _ in 0..num_posts {
             let post_title: String = l::Sentences(EN, 2..5).fake::<Vec<String>>().join(" ");
             let post_slug = post_title.to_lowercase().replace(' ', "-");
@@ -212,7 +213,7 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
                 slugs_set.insert(post_slug.clone());
             }
             let category_id = categories.choose(&mut rng).map(|c| c.id);
-            let tags_amount = rng.gen_range(1..10);
+            let tags_amount = rng.random_range(1..10);
             let tag_ids: Vec<i32> = tags
                 .choose_multiple(&mut rng, tags_amount)
                 .cloned()
@@ -220,7 +221,7 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
                 .collect();
             let post_excerpt = l::Words(EN, 1..8).fake::<Vec<String>>().join(" ");
             let post_content: String = l::Paragraphs(EN, 1..8).fake::<Vec<String>>().join(" ");
-            let is_published = rng.gen_bool(0.8);
+            let is_published = rng.random_bool(0.8);
             let new_post = NewPost {
                 title: post_title.clone(),
                 excerpt: Some(post_excerpt),
@@ -324,7 +325,7 @@ pub async fn seed_post_comments(
     let mut rng = StdRng::seed_from_u64(100);
     for user in users {
         let posts_ratio = posts.len() / 10;
-        let posts_amount = rng.gen_range(posts_ratio..posts.len());
+        let posts_amount = rng.random_range(posts_ratio..posts.len());
         let post_ids: Vec<i32> = posts
             .choose_multiple(&mut rng, posts_amount)
             .cloned()
@@ -365,7 +366,7 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
             name: user.name,
             email: user.email.clone(),
             password: user.email,
-            role: if rng.gen_bool(0.5) {
+            role: if rng.random_bool(0.5) {
                 UserRole::Author
             } else {
                 UserRole::User
@@ -428,10 +429,10 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
     // Create posts for authors
     for user in fake_users.iter() {
         if user.role == UserRole::Author {
-            let num_posts = rng.gen_range(2..16);
+            let num_posts = rng.random_range(2..16);
             for _ in 0..num_posts {
                 let category_id = categories.choose(&mut rng).map(|c| c.id);
-                let tags_amount = rng.gen_range(1..4);
+                let tags_amount = rng.random_range(1..4);
                 let tag_ids: Vec<i32> = tags
                     .choose_multiple(&mut rng, tags_amount)
                     .cloned()
@@ -445,12 +446,12 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
                     excerpt: Some(post_excerpt),
                     content: post_content,
                     author_id: user.id,
-                    published_at: if rng.gen_bool(0.5) {
+                    published_at: if rng.random_bool(0.5) {
                         Some(chrono::Utc::now().naive_utc())
                     } else {
                         None
                     },
-                    is_published: rng.gen_bool(0.5),
+                    is_published: rng.random_bool(0.5),
                     slug: post_title.to_lowercase().replace(' ', "-"),
                     featured_image_url: None,
                     category_id,
@@ -473,7 +474,7 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
 
     for user in fake_users.iter() {
         if user.role == UserRole::User {
-            let num_comments = rng.gen_range(1..4);
+            let num_comments = rng.random_range(1..4);
             for _ in 0..num_comments {
                 let post = fake_posts.choose(&mut rng).unwrap();
                 let content: String = l::Sentence(EN, 1..2).fake::<String>();

@@ -52,8 +52,8 @@ pub fn router() -> Router<AppState> {
 
     let post_v1_routes = Router::new()
         .route("/create", post(post_v1::controller::create))
-        .route("/update/:post_id", post(post_v1::controller::update))
-        .route("/delete/:post_id", post(post_v1::controller::delete))
+        .route("/update/{post_id}", post(post_v1::controller::update))
+        .route("/delete/{post_id}", post(post_v1::controller::delete))
         .route(
             "/list/query",
             post(post_v1::controller::find_posts_with_query),
@@ -62,7 +62,7 @@ pub fn router() -> Router<AppState> {
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend))
         .route(
-            "/view/:id_or_slug",
+            "/view/{id_or_slug}",
             post(post_v1::controller::find_by_id_or_slug),
         )
         .route(
@@ -71,7 +71,7 @@ pub fn router() -> Router<AppState> {
         )
         .route("/sitemap", post(post_v1::controller::sitemap))
         .route(
-            "/track_view/:post_id",
+            "/track_view/{post_id}",
             post(post_v1::controller::track_view),
         );
 
@@ -84,32 +84,32 @@ pub fn router() -> Router<AppState> {
         .route_layer(middleware::from_fn(user_permission::moderator))
         .route("/create", post(post_comment_v1::controller::create))
         .route(
-            "/update/:comment_id",
+            "/update/{comment_id}",
             post(post_comment_v1::controller::update),
         )
         .route(
-            "/delete/:comment_id",
+            "/delete/{comment_id}",
             post(post_comment_v1::controller::delete),
         )
         .route(
-            "/list/user/:user_id",
+            "/list/user/{user_id}",
             get(post_comment_v1::controller::list_by_user),
         )
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend))
         .route(
-            "/list/post/:post_id",
+            "/list/post/{post_id}",
             get(post_comment_v1::controller::list_by_post),
         );
 
     let category_v1_routes = Router::new()
         .route("/create", post(category_v1::controller::create))
         .route(
-            "/update/:category_id",
+            "/update/{category_id}",
             post(category_v1::controller::update),
         )
         .route(
-            "/delete/:category_id",
+            "/delete/{category_id}",
             post(category_v1::controller::delete),
         )
         .route_layer(middleware::from_fn(user_permission::admin))
@@ -117,15 +117,15 @@ pub fn router() -> Router<AppState> {
         .route_layer(login_required!(AuthBackend))
         .route("/list", get(category_v1::controller::get_categories))
         .route(
-            "/view/:category_id",
+            "/view/{category_id}",
             get(category_v1::controller::get_category_by_id),
         );
 
     let tag_v1_routes = Router::new()
         .route("/create", post(tag_v1::controller::create))
-        .route("/update/:tag_id", post(tag_v1::controller::update))
-        .route("/delete/:tag_id", post(tag_v1::controller::delete))
-        .route("/view/:tag_id", get(tag_v1::controller::find_by_id))
+        .route("/update/{tag_id}", post(tag_v1::controller::update))
+        .route("/delete/{tag_id}", post(tag_v1::controller::delete))
+        .route("/view/{tag_id}", get(tag_v1::controller::find_by_id))
         .route("/list/query", get(tag_v1::controller::find_with_query))
         .route_layer(middleware::from_fn(user_permission::admin))
         .route_layer(middleware::from_fn(user_status::only_verified))
@@ -134,10 +134,10 @@ pub fn router() -> Router<AppState> {
 
     let admin_user_v1_routes = Router::new()
         .route("/list", post(user_v1::controller::admin_list))
-        .route("/view/:user_id", get(user_v1::controller::admin_view))
+        .route("/view/{user_id}", get(user_v1::controller::admin_view))
         .route("/create", post(user_v1::controller::admin_create))
-        .route("/update/:user_id", post(user_v1::controller::admin_update))
-        .route("/delete/:user_id", post(user_v1::controller::admin_delete))
+        .route("/update/{user_id}", post(user_v1::controller::admin_update))
+        .route("/delete/{user_id}", post(user_v1::controller::admin_delete))
         .route_layer(middleware::from_fn(user_permission::admin))
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend));

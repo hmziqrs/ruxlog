@@ -1,4 +1,5 @@
-use axum::{async_trait, http::StatusCode, response::IntoResponse, Json};
+use async_trait::async_trait;
+use axum::{http::StatusCode, response::IntoResponse, Json};
 use axum_login::{AuthUser, AuthnBackend, UserId};
 use deadpool_diesel::postgres::Pool;
 use password_auth::verify_password;
@@ -87,6 +88,7 @@ impl AuthnBackend for AuthBackend {
     type User = User;
     type Credentials = Credentials;
     type Error = AuthError;
+
 
     async fn authenticate(
         &self,

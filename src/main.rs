@@ -9,7 +9,6 @@ use axum::{
     http::{HeaderName, HeaderValue},
     middleware, routing,
 };
-use axum_client_ip::SecureClientIpSource;
 use axum_login::AuthManagerLayerBuilder;
 use db::migration::run_migrations;
 use modules::csrf_v1;
@@ -124,10 +123,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let session_layer = SessionManagerLayer::new(session_store)
         .with_expiry(Expiry::OnInactivity(time::Duration::hours(24 * 14)))
-        .with_same_site(SameSite::Lax)
-        .with_secure(true)
+        .with_same_site(SameSite::None)
+        .with_secure(false)
         .with_http_only(false)
-        .with_domain("hmziq.rs")
+        // .with_domain("hmziq.rs")
+        .with_domain("127.0.0.1")
+        // .with_domain("hmziq.rs")
         .with_private(cookie_key);
 
     let compression = CompressionLayer::new();
@@ -145,6 +146,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             axum::http::header::CONTENT_TYPE,
             axum::http::header::ACCEPT_ENCODING,
             axum::http::header::CONTENT_ENCODING,
+            axum::http::header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
         ])
         // .allow_headers(tower_http::cors::Any)
         // .expose_headers(tower_http::cors::Any)
@@ -188,7 +190,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
     let app = router::router()
-        .layer(SecureClientIpSource::ConnectInfo.into_extension())
+        // .layer(SecureClientIpSource::ConnectInfo.into_extension())
         .layer(auth_layer)
         // .layer(GovernorLayer {
         //     config: governor_conf,
