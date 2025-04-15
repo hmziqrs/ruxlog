@@ -39,6 +39,7 @@ fn hex_to_512bit_key(hex: &str) -> [u8; 64] {
 
 fn get_allowed_origins() -> Vec<HeaderValue> {
     let mut default_origins: Vec<String> = vec![
+        "http://localhost:8080",
         "http://127.0.0.1:8080",
         "http://127.0.0.1:8000",
         "http://127.0.0.1:8888",
@@ -123,11 +124,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let session_layer = SessionManagerLayer::new(session_store)
         .with_expiry(Expiry::OnInactivity(time::Duration::hours(24 * 14)))
-        .with_same_site(SameSite::None)
+        .with_same_site(SameSite::Lax)
         .with_secure(false)
         .with_http_only(false)
         // .with_domain("hmziq.rs")
-        .with_domain("127.0.0.1")
+        // .with_domain("localhost")
         // .with_domain("hmziq.rs")
         .with_private(cookie_key);
 
@@ -146,7 +147,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             axum::http::header::CONTENT_TYPE,
             axum::http::header::ACCEPT_ENCODING,
             axum::http::header::CONTENT_ENCODING,
-            axum::http::header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
+        ])
+        .expose_headers(vec![
+                axum::http::header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
+                axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN,
+                axum::http::header::SET_COOKIE,
         ])
         // .allow_headers(tower_http::cors::Any)
         // .expose_headers(tower_http::cors::Any)
