@@ -96,12 +96,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!("Starting server.");
     let pool = db::connect::get_pool().await;
-    tracing::info!("Postgres connection established.");
+    tracing::info!("Diesel Postgres connection established.");
+
+    // Initialize SeaORM connection
+    let sea_db = db::sea_connect::get_sea_connection().await;
+
     let backend = AuthBackend::new(&pool);
     let (redis_pool, redis_connection) = init_redis_store().await?;
     let mailer = services::mail::smtp::create_connection().await;
     let state = AppState {
         db_pool: pool,
+        sea_db,
         redis_pool: redis_pool.clone(),
         mailer,
     };
@@ -149,9 +154,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             axum::http::header::CONTENT_ENCODING,
         ])
         .expose_headers(vec![
-                axum::http::header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
-                axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN,
-                axum::http::header::SET_COOKIE,
+            axum::http::header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
+            axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN,
+            axum::http::header::SET_COOKIE,
         ])
         // .allow_headers(tower_http::cors::Any)
         // .expose_headers(tower_http::cors::Any)
