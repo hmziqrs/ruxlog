@@ -1,11 +1,16 @@
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum::{
+    extract::{rejection::JsonRejection, State},
+    http::StatusCode,
+    response::IntoResponse,
+    Json,
+};
 use axum_macros::debug_handler;
-use axum_valid::Valid;
 use serde_json::json;
+use validator::Validate;
 
 use crate::{
     db::models::user::User,
-    error::{ErrorCode, ErrorResponse},
+    error::{ErrorCode, ErrorResponse, IntoErrorResponse},
     modules::auth_v1::validator::{V1LoginPayload, V1RegisterPayload},
     services::auth::{AuthSession, Credentials},
     AppState,
@@ -24,10 +29,19 @@ pub async fn log_out(mut auth: AuthSession) -> Result<impl IntoResponse, ErrorRe
 pub async fn log_in(
     _state: State<AppState>,
     mut auth: AuthSession,
-    payload: Valid<Json<V1LoginPayload>>,
+    payload: Result<Json<V1LoginPayload>, JsonRejection>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let payload = payload.into_inner().0;
-    let user = auth.authenticate(Credentials::Password(payload)).await;
+    // Handle JSON extraction/validation errors
+    let payload = payload.map_err(|err| err.into_error_response())?;
+    
+    // Validate the payload after successful JSON parsing
+    if let Err(validation_errors) = payload.validate() {
+        return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+            .with_message("Validation failed")
+            .with_context(validation_errors.errors()));
+    }
+
+    let user = auth.authenticate(Credentials::Password(payload.0)).await;
 
     match user {
         Ok(Some(user)) => match auth.login(&user).await {
@@ -50,11 +64,21 @@ pub async fn log_in(
 #[debug_handler]
 pub async fn register(
     state: State<AppState>,
-    payload: Valid<Json<V1RegisterPayload>>,
+    payload: Result<Json<V1RegisterPayload>, JsonRejection>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let payload = payload.into_inner().0.into_new_user();
+    // Handle JSON extraction/validation errors
+    let payload = payload.map_err(|err| err.into_error_response())?;
+    
+    // Validate the payload after successful JSON parsing
+    if let Err(validation_errors) = payload.validate() {
+        return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+            .with_message("Validation failed")
+            .with_context(validation_errors.errors()));
+    }
 
-    match User::create(&state.db_pool, payload).await {
+    let new_user = payload.0.into_new_user();
+
+    match User::create(&state.db_pool, new_user).await {
         Ok(user) => Ok((StatusCode::CREATED, Json(json!(user)))),
         Err(err) => Err(ErrorResponse::new(ErrorCode::DuplicateEntry)
             .with_message("Failed to create user")
