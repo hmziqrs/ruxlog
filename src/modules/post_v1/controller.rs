@@ -10,8 +10,8 @@ use axum_macros::debug_handler;
 use serde_json::json;
 
 use crate::{
-    db::models::post::Post, modules::post_v1::validator::V1UpdatePostPayload,
-    services::auth::AuthSession, AppState,
+    db::models::post::Post, extractors::ValidatedJson,
+    modules::post_v1::validator::V1UpdatePostPayload, services::auth::AuthSession, AppState,
 };
 
 use super::validator::{V1CreatePostPayload, V1PostQueryParams};
@@ -20,10 +20,10 @@ use super::validator::{V1CreatePostPayload, V1PostQueryParams};
 pub async fn create(
     State(state): State<AppState>,
     auth: AuthSession,
-    payload: Valid<Json<V1CreatePostPayload>>,
+    payload: ValidatedJson<V1CreatePostPayload>,
 ) -> impl IntoResponse {
     let user = auth.user.unwrap();
-    let new_post = payload.into_inner().0.into_new_post(user.id);
+    let new_post = payload.0.into_new_post(user.id);
 
     match Post::create(&state.db_pool, new_post).await {
         Ok(post) => (StatusCode::CREATED, Json(json!(post))).into_response(),
@@ -71,10 +71,10 @@ pub async fn update(
     State(state): State<AppState>,
     auth: AuthSession,
     Path(post_id): Path<i32>,
-    payload: Valid<Json<V1UpdatePostPayload>>,
+    payload: ValidatedJson<V1UpdatePostPayload>,
 ) -> impl IntoResponse {
     let user = auth.user.unwrap();
-    let update_post = payload.into_inner().0.into_update_post(user.id);
+    let update_post = payload.0.into_update_post(user.id);
 
     match Post::update(&state.db_pool, post_id, user, update_post).await {
         Ok(Some(post)) => (StatusCode::OK, Json(json!(post))).into_response(),
@@ -141,9 +141,9 @@ pub async fn delete(
 pub async fn find_posts_with_query(
     State(state): State<AppState>,
     auth: AuthSession,
-    query: Valid<Json<V1PostQueryParams>>,
+    query: ValidatedJson<V1PostQueryParams>,
 ) -> impl IntoResponse {
-    let post_query = query.into_inner().0.into_post_query();
+    let post_query = query.0.into_post_query();
 
     match Post::find_posts_with_query(&state.db_pool, post_query, auth.user.unwrap()).await {
         Ok(posts) => (StatusCode::OK, Json(json!(posts))).into_response(),

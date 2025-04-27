@@ -5,6 +5,7 @@ use serde_json::json;
 
 use crate::{
     db::models::{email_verification::EmailVerification, user::User},
+    extractors::ValidatedJson,
     services::{abuse_limiter, auth::AuthSession},
     AppState,
 };
@@ -24,7 +25,7 @@ const ABUSE_LIMITER_CONFIG: abuse_limiter::AbuseLimiterConfig = abuse_limiter::A
 pub async fn verify(
     state: State<AppState>,
     auth: AuthSession,
-    Valid(payload): Valid<Json<V1VerifyPayload>>,
+    payload: ValidatedJson<V1VerifyPayload>,
 ) -> impl IntoResponse {
     let pool = &state.db_pool;
     let user_id = auth.user.unwrap().id;

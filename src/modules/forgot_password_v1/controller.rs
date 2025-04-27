@@ -6,6 +6,7 @@ use serde_json::json;
 
 use crate::{
     db::models::{forgot_password::ForgotPassword, user::User},
+    extractors::ValidatedJson,
     services::{abuse_limiter, mail::send_forgot_password_email},
     AppState,
 };
@@ -25,7 +26,7 @@ const ABUSE_LIMITER_CONFIG: abuse_limiter::AbuseLimiterConfig = abuse_limiter::A
 pub async fn generate(
     state: State<AppState>,
     ClientIp(secure_ip): ClientIp,
-    Valid(payload): Valid<Json<V1GeneratePayload>>,
+    payload: ValidatedJson<V1GeneratePayload>,
 ) -> impl IntoResponse {
     let ip = secure_ip.to_string();
     let key_prefix = format!("forgot_password:{}", ip);
@@ -131,7 +132,7 @@ pub async fn generate(
 #[debug_handler]
 pub async fn verify(
     state: State<AppState>,
-    Valid(payload): Valid<Json<V1VerifyPayload>>,
+    payload: ValidatedJson<V1VerifyPayload>,
 ) -> impl IntoResponse {
     let pool = &state.db_pool;
 
@@ -176,7 +177,7 @@ pub async fn verify(
 #[debug_handler]
 pub async fn reset(
     state: State<AppState>,
-    Valid(payload): Valid<Json<V1ResetPayload>>,
+    payload: ValidatedJson<V1ResetPayload>,
 ) -> impl IntoResponse {
     if payload.password != payload.confirm_password {
         return (

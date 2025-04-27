@@ -8,16 +8,16 @@ use axum_macros::debug_handler;
 use axum_valid::Valid;
 use serde_json::json;
 
-use crate::{db::models::category::Category, AppState};
+use crate::{db::models::category::Category, extractors::ValidatedJson, AppState};
 
 use super::validator::{V1CategoryQueryParams, V1CreateCategoryPayload, V1UpdateCategoryPayload};
 
 #[debug_handler]
 pub async fn create(
     state: State<AppState>,
-    payload: Valid<Json<V1CreateCategoryPayload>>,
+    payload: ValidatedJson<V1CreateCategoryPayload>,
 ) -> impl IntoResponse {
-    let new_category = payload.into_inner().0.into_new_category();
+    let new_category = payload.0.into_new_category();
 
     match Category::create(&state.db_pool, new_category).await {
         Ok(category) => (StatusCode::CREATED, Json(json!(category))).into_response(),
@@ -79,9 +79,9 @@ pub async fn get_categories(
 pub async fn update(
     State(state): State<AppState>,
     Path(category_id): Path<i32>,
-    payload: Valid<Json<V1UpdateCategoryPayload>>,
+    payload: ValidatedJson<V1UpdateCategoryPayload>,
 ) -> impl IntoResponse {
-    let update_category = payload.into_inner().0.into_update_category();
+    let update_category = payload.0.into_update_category();
 
     match Category::update(&state.db_pool, category_id, update_category).await {
         Ok(Some(category)) => (StatusCode::OK, Json(json!(category))).into_response(),

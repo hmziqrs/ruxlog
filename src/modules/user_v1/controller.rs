@@ -9,7 +9,9 @@ use axum_valid::Valid;
 use serde_json::json;
 
 use super::validator::*;
-use crate::{db::models::user::User, services::auth::AuthSession, AppState};
+use crate::{
+    db::models::user::User, extractors::ValidatedJson, services::auth::AuthSession, AppState,
+};
 
 #[debug_handler]
 pub async fn get_profile(auth: AuthSession) -> impl IntoResponse {
@@ -30,10 +32,10 @@ pub async fn get_profile(auth: AuthSession) -> impl IntoResponse {
 pub async fn update_profile(
     auth: AuthSession,
     state: State<AppState>,
-    payload: Valid<Json<V1UpdateProfilePayload>>,
+    payload: ValidatedJson<V1UpdateProfilePayload>,
 ) -> impl IntoResponse {
     if let Some(user) = auth.user {
-        let payload = payload.into_inner().0.into_update_user();
+        let payload = payload.0.into_update_user();
         let updated_user = User::update(&state.db_pool, user.id, payload).await;
         match updated_user {
             Ok(user) => {
@@ -64,9 +66,9 @@ pub async fn update_profile(
 #[debug_handler]
 pub async fn admin_create(
     State(state): State<AppState>,
-    payload: Valid<Json<V1AdminCreateUserPayload>>,
+    payload: ValidatedJson<V1AdminCreateUserPayload>,
 ) -> impl IntoResponse {
-    let payload = payload.into_inner().0.into_new_user();
+    let payload = payload.0.into_new_user();
 
     match User::admin_create(&state.db_pool, payload).await {
         Ok(user) => (StatusCode::CREATED, Json(json!(user))).into_response(),
@@ -97,9 +99,9 @@ pub async fn admin_delete(
 pub async fn admin_update(
     State(state): State<AppState>,
     Path(user_id): Path<i32>,
-    payload: Valid<Json<V1AdminUpdateUserPayload>>,
+    payload: ValidatedJson<V1AdminUpdateUserPayload>,
 ) -> impl IntoResponse {
-    let payload = payload.into_inner().0.into_update_user();
+    let payload = payload.0.into_update_user();
 
     match User::admin_update(&state.db_pool, user_id, payload).await {
         Ok(Some(user)) => (StatusCode::OK, Json(json!(user))).into_response(),
@@ -123,9 +125,9 @@ pub async fn admin_update(
 pub async fn admin_change_password(
     State(state): State<AppState>,
     Path(user_id): Path<i32>,
-    payload: Valid<Json<AdminChangePassword>>,
+    payload: ValidatedJson<AdminChangePassword>,
 ) -> impl IntoResponse {
-    let payload = payload.into_inner().0;
+    let payload = payload.0;
 
     match User::admin_change_password(&state.db_pool, user_id, payload.password).await {
         Ok(_) => StatusCode::NO_CONTENT.into_response(),
@@ -140,9 +142,9 @@ pub async fn admin_change_password(
 #[debug_handler]
 pub async fn admin_list(
     State(state): State<AppState>,
-    payload: Valid<Json<V1AdminUserQueryParams>>,
+    payload: ValidatedJson<V1AdminUserQueryParams>,
 ) -> impl IntoResponse {
-    let query = payload.into_inner().0.into_user_query();
+    let query = payload.0.into_user_query();
 
     match User::admin_list(&state.db_pool, query).await {
         Ok(users) => (StatusCode::OK, Json(json!(users))).into_response(),

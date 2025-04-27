@@ -8,7 +8,9 @@ use axum_macros::debug_handler;
 use axum_valid::Valid;
 use serde_json::json;
 
-use crate::{db::models::tag::Tag, services::auth::AuthSession, AppState};
+use crate::{
+    db::models::tag::Tag, extractors::ValidatedJson, services::auth::AuthSession, AppState,
+};
 
 use super::validator::{V1CreateTagPayload, V1TagQueryParams, V1UpdateTagPayload};
 
@@ -16,9 +18,9 @@ use super::validator::{V1CreateTagPayload, V1TagQueryParams, V1UpdateTagPayload}
 pub async fn create(
     State(state): State<AppState>,
     _auth: AuthSession, // Assuming tag creation requires authentication
-    payload: Valid<Json<V1CreateTagPayload>>,
+    payload: ValidatedJson<V1CreateTagPayload>,
 ) -> impl IntoResponse {
-    let new_tag = payload.into_inner().0.into_new_tag();
+    let new_tag = payload.0.into_new_tag();
 
     match Tag::create(&state.db_pool, new_tag).await {
         Ok(tag) => (StatusCode::CREATED, Json(json!(tag))).into_response(),
@@ -38,9 +40,9 @@ pub async fn update(
     State(state): State<AppState>,
     _auth: AuthSession, // Assuming tag update requires authentication
     Path(tag_id): Path<i32>,
-    payload: Valid<Json<V1UpdateTagPayload>>,
+    payload: ValidatedJson<V1UpdateTagPayload>,
 ) -> impl IntoResponse {
-    let update_tag = payload.into_inner().0.into_update_tag();
+    let update_tag = payload.0.into_update_tag();
 
     match Tag::update(&state.db_pool, tag_id, update_tag).await {
         Ok(Some(tag)) => (StatusCode::OK, Json(json!(tag))).into_response(),

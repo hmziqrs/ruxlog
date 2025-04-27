@@ -8,7 +8,10 @@ use axum_macros::debug_handler;
 use axum_valid::Valid;
 use serde_json::json;
 
-use crate::{db::models::post_comment::PostComment, services::auth::AuthSession, AppState};
+use crate::{
+    db::models::post_comment::PostComment, extractors::ValidatedJson, services::auth::AuthSession,
+    AppState,
+};
 
 use super::validator::{
     V1CreatePostCommentPayload, V1PostCommentQueryParams, V1UpdatePostCommentPayload,
@@ -18,10 +21,10 @@ use super::validator::{
 pub async fn create(
     State(state): State<AppState>,
     auth: AuthSession,
-    payload: Valid<Json<V1CreatePostCommentPayload>>,
+    payload: ValidatedJson<V1CreatePostCommentPayload>,
 ) -> impl IntoResponse {
     let user = auth.user.unwrap();
-    let new_comment = payload.into_inner().0.into_new_post_comment(user.id);
+    let new_comment = payload.0.into_new_post_comment(user.id);
 
     match PostComment::create(&state.db_pool, new_comment).await {
         Ok(comment) => (StatusCode::CREATED, Json(json!(comment))).into_response(),
@@ -41,10 +44,10 @@ pub async fn update(
     State(state): State<AppState>,
     auth: AuthSession,
     Path(comment_id): Path<i32>,
-    payload: Valid<Json<V1UpdatePostCommentPayload>>,
+    payload: ValidatedJson<V1UpdatePostCommentPayload>,
 ) -> impl IntoResponse {
     let user = auth.user.unwrap();
-    let update_comment = payload.into_inner().0.into_update_post_comment();
+    let update_comment = payload.0.into_update_post_comment();
 
     match PostComment::update(&state.db_pool, comment_id, user.id, update_comment).await {
         Ok(Some(comment)) => (StatusCode::OK, Json(json!(comment))).into_response(),
