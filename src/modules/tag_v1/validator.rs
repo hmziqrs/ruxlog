@@ -46,7 +46,7 @@ impl V1UpdateTagPayload {
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1TagQueryParams {
-    pub page: Option<i64>,
+    pub page: Option<u64>,
     pub search: Option<String>,
     pub sort_order: Option<String>,
 }

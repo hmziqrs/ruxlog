@@ -72,7 +72,10 @@ impl Entity {
     }
 
     // Find tags with query parameters
-    pub async fn find_with_query(conn: &DbConn, query: TagQuery) -> Result<Vec<Model>, DbErr> {
+    pub async fn find_with_query(
+        conn: &DbConn,
+        query: TagQuery,
+    ) -> Result<(Vec<Model>, u64), DbErr> {
         let mut tag_query = Entity::find();
 
         // Handle search filter
@@ -96,11 +99,12 @@ impl Entity {
         }
 
         // Handle pagination
-        let page = query.page_no.unwrap_or(1);
-        tag_query = tag_query
-            .limit(Some(Self::PER_PAGE))
-            .offset(Some(((page - 1) * Self::PER_PAGE as i64) as u64));
+        let page = query.page_no.min(Some(1)).unwrap_or(1).min(2);
+        println!("Page: {}", page);
+        let paginator = tag_query.paginate(conn, Self::PER_PAGE);
+        let total = paginator.num_items().await?;
+        let results = paginator.fetch_page(page.min(1) - 1).await?;
 
-        tag_query.all(conn).await
+        Ok((results, total))
     }
 }

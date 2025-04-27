@@ -25,7 +25,7 @@ pub async fn create(
     let new_tag = payload.0.into_new_tag();
 
     match Tag::create(&state.sea_db, new_tag).await {
-        Ok(tag) => (StatusCode::CREATED, Json(json!(tag))).into_response(),
+        Ok(result) => (StatusCode::CREATED, Json(json!(result))).into_response(),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({
@@ -155,9 +155,10 @@ pub async fn find_with_query(
     let page = tag_query.page_no;
 
     match Tag::find_with_query(&state.sea_db, tag_query).await {
-        Ok(tags) => (
+        Ok((tags, total)) => (
             StatusCode::OK,
             Json(json!({
+                "total": total,
                 "data": tags,
                 "page": page,
             })),

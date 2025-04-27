@@ -18,7 +18,7 @@ pub struct UpdateTag {
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct TagQuery {
-    pub page_no: Option<i64>,
+    pub page_no: Option<u64>,
     pub search: Option<String>,
     pub sort_order: Option<String>,
 }
