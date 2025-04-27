@@ -36,7 +36,8 @@ impl std::fmt::Debug for AuthBackend {
 
 impl IntoResponse for AuthError {
     fn into_response(self) -> axum::http::Response<axum::body::Body> {
-        // Convert AuthError to our standard ErrorResponse
+        // Convert AuthError to our standard ErrorResponse using the conversion
+        // defined in error/auth.rs
         let error_response: ErrorResponse = self.into();
         error_response.into_response()
     }

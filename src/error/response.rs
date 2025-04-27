@@ -15,15 +15,27 @@ use super::codes::ErrorCode;
 /// - Optional detailed information for developers (only in development mode)
 /// - Optional additional fields for specific error types
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ErrorResponse {
-    /// Unique error code for translation and identification
+    /// The error type - this will serialize to strings like "AUTH_001"
+    #[serde(rename = "type")]
     pub code: ErrorCode,
     
-    /// Human-readable error message
+    #[cfg(debug_assertions)]
+    /// Human-readable error message (only in development)
     pub message: String,
+
+    #[cfg(not(debug_assertions))]
+    #[serde(skip)]
+    /// Human-readable error message (skipped in production)
+    pub message: String,
+    
+    /// HTTP status code
+    pub status: u16,
     
     /// Optional detailed description (only included in development mode)
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg(debug_assertions)]
     pub details: Option<String>,
     
     /// Optional additional information specific to the error type
@@ -40,9 +52,11 @@ impl ErrorResponse {
     ///
     /// Uses the default message for the error code.
     pub fn new(code: ErrorCode) -> Self {
+        let status = code.status_code();
         Self {
             message: code.default_message().to_string(),
             code,
+            status: status.as_u16(),
             details: None,
             context: None,
             request_id: None,
@@ -87,8 +101,11 @@ impl ErrorResponse {
 
 impl IntoResponse for ErrorResponse {
     fn into_response(self) -> axum::response::Response {
-        // Get the appropriate status code for this error
-        let status = self.code.status_code();
+        use axum::http::StatusCode;
+        
+        // Get the status code
+        let status = StatusCode::from_u16(self.status)
+            .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
         
         // Log the error if it's a server error (5xx)
         if status.is_server_error() {

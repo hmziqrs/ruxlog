@@ -6,6 +6,7 @@
 pub mod response;
 pub mod codes;
 pub mod auth;
+pub mod login;
 
 pub use response::ErrorResponse;
 pub use codes::ErrorCode;
