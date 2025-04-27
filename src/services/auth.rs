@@ -1,13 +1,12 @@
 use async_trait::async_trait;
-use axum::{http::StatusCode, response::IntoResponse, Json};
+use axum::response::IntoResponse;
 use axum_login::{AuthUser, AuthnBackend, UserId};
 use deadpool_diesel::postgres::Pool;
 use password_auth::verify_password;
 use serde::Deserialize;
-use serde_json::json;
 use tokio::task;
 
-use crate::{db::models::user::User, modules::auth_v1::validator::V1LoginPayload};
+use crate::{db::models::user::User, modules::auth_v1::validator::V1LoginPayload, error::ErrorResponse};
 
 pub type AuthSession = axum_login::AuthSession<AuthBackend>;
 
@@ -37,30 +36,9 @@ impl std::fmt::Debug for AuthBackend {
 
 impl IntoResponse for AuthError {
     fn into_response(self) -> axum::http::Response<axum::body::Body> {
-        let (status, error_message) = match &self {
-            AuthError::InvalidCredentials => (StatusCode::UNAUTHORIZED, self.to_string()),
-            AuthError::PasswordVerificationError => (StatusCode::UNAUTHORIZED, "Invalid credentials".to_string()),
-            AuthError::UserNotFound => (StatusCode::NOT_FOUND, self.to_string()),
-            AuthError::Unauthorized => (StatusCode::UNAUTHORIZED, self.to_string()),
-            AuthError::SessionExpired => (StatusCode::UNAUTHORIZED, self.to_string()),
-            AuthError::DatabaseError(err) => {
-                eprintln!("Database error: {:?}", err);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string())
-            },
-            AuthError::InternalError(err) => {
-                eprintln!("Internal error: {}", err);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string())
-            },
-        };
-
-        let body = Json(json!({
-            "error": {
-                "message": error_message,
-                "code": status.as_u16()
-            }
-        }));
-
-        (status, body).into_response()
+        // Convert AuthError to our standard ErrorResponse
+        let error_response: ErrorResponse = self.into();
+        error_response.into_response()
     }
 }
 

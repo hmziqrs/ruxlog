@@ -1,0 +1,187 @@
+//! Error code definitions for the application
+//!
+//! This module defines standard error codes that can be used throughout the application.
+//! Each error code has a unique string identifier that can be used for translation on the client.
+
+use std::fmt;
+use serde::{Serialize, Deserialize};
+
+/// Standard error codes for the application
+///
+/// Each error code has:
+/// - A category (prefix)
+/// - A unique identifier within that category
+/// - A default message (for logging/debugging)
+///
+/// When sent to clients, these are serialized to strings like "AUTH_001" which can be
+/// used for translation lookup on the client side.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ErrorCode {
+    // Authentication errors (AUTH_xxx)
+    #[serde(rename = "AUTH_001")]
+    InvalidCredentials,
+    #[serde(rename = "AUTH_002")]
+    UserNotFound,
+    #[serde(rename = "AUTH_003")]
+    SessionExpired,
+    #[serde(rename = "AUTH_004")]
+    Unauthorized,
+    #[serde(rename = "AUTH_005")]
+    PasswordResetRequired,
+    #[serde(rename = "AUTH_006")]
+    AccountLocked,
+    #[serde(rename = "AUTH_007")]
+    TooManyAttempts,
+    
+    // Validation errors (VAL_xxx) 
+    #[serde(rename = "VAL_001")]
+    InvalidInput,
+    #[serde(rename = "VAL_002")]
+    MissingRequiredField,
+    #[serde(rename = "VAL_003")]
+    InvalidFormat,
+    #[serde(rename = "VAL_004")]
+    InvalidLength,
+    #[serde(rename = "VAL_005")]
+    InvalidValue,
+    
+    // Database errors (DB_xxx)
+    #[serde(rename = "DB_001")]
+    DatabaseConnectionError,
+    #[serde(rename = "DB_002")]
+    RecordNotFound,
+    #[serde(rename = "DB_003")]
+    DuplicateEntry,
+    #[serde(rename = "DB_004")]
+    QueryError,
+    #[serde(rename = "DB_005")]
+    TransactionError,
+    
+    // Server errors (SRV_xxx)
+    #[serde(rename = "SRV_001")]
+    InternalServerError,
+    #[serde(rename = "SRV_002")]
+    ServiceUnavailable,
+    #[serde(rename = "SRV_003")]
+    Timeout,
+    #[serde(rename = "SRV_004")]
+    RateLimited,
+    
+    // Business logic errors (BIZ_xxx)
+    #[serde(rename = "BIZ_001")]
+    OperationNotAllowed,
+    #[serde(rename = "BIZ_002")]
+    ResourceConflict,
+    #[serde(rename = "BIZ_003")]
+    BusinessRuleViolation,
+    
+    // External service errors (EXT_xxx)
+    #[serde(rename = "EXT_001")]
+    ExternalServiceError,
+    #[serde(rename = "EXT_002")]
+    ExternalServiceTimeout,
+    #[serde(rename = "EXT_003")]
+    ExternalServiceUnavailable,
+}
+
+impl ErrorCode {
+    /// Returns the default error message for this error code
+    pub fn default_message(&self) -> &'static str {
+        match self {
+            // Authentication errors
+            Self::InvalidCredentials => "Invalid username or password",
+            Self::UserNotFound => "User not found",
+            Self::SessionExpired => "Your session has expired, please login again",
+            Self::Unauthorized => "You are not authorized to perform this action",
+            Self::PasswordResetRequired => "Password reset is required",
+            Self::AccountLocked => "Your account has been locked",
+            Self::TooManyAttempts => "Too many attempts, please try again later",
+            
+            // Validation errors
+            Self::InvalidInput => "The provided input is invalid",
+            Self::MissingRequiredField => "A required field is missing",
+            Self::InvalidFormat => "The provided value has an invalid format",
+            Self::InvalidLength => "The provided value has an invalid length",
+            Self::InvalidValue => "The provided value is invalid",
+            
+            // Database errors
+            Self::DatabaseConnectionError => "Could not connect to the database",
+            Self::RecordNotFound => "The requested record was not found",
+            Self::DuplicateEntry => "A record with this value already exists",
+            Self::QueryError => "There was an error executing your request",
+            Self::TransactionError => "Transaction failed",
+            
+            // Server errors
+            Self::InternalServerError => "An internal server error occurred",
+            Self::ServiceUnavailable => "The service is currently unavailable",
+            Self::Timeout => "The request timed out",
+            Self::RateLimited => "Too many requests, please try again later",
+            
+            // Business logic errors
+            Self::OperationNotAllowed => "This operation is not allowed",
+            Self::ResourceConflict => "The operation would create a conflict",
+            Self::BusinessRuleViolation => "The operation violates business rules",
+            
+            // External service errors
+            Self::ExternalServiceError => "Error communicating with external service",
+            Self::ExternalServiceTimeout => "External service request timed out",
+            Self::ExternalServiceUnavailable => "External service is unavailable",
+        }
+    }
+    
+    /// Returns the HTTP status code that best represents this error
+    pub fn status_code(&self) -> axum::http::StatusCode {
+        use axum::http::StatusCode;
+        
+        match self {
+            // Authentication errors -> 401 or 403
+            Self::InvalidCredentials => StatusCode::UNAUTHORIZED,
+            Self::SessionExpired => StatusCode::UNAUTHORIZED,
+            Self::Unauthorized => StatusCode::FORBIDDEN,
+            Self::PasswordResetRequired => StatusCode::FORBIDDEN,
+            Self::AccountLocked => StatusCode::FORBIDDEN,
+            Self::TooManyAttempts => StatusCode::TOO_MANY_REQUESTS,
+            Self::UserNotFound => StatusCode::NOT_FOUND,
+            
+            // Validation errors -> 400
+            Self::InvalidInput => StatusCode::BAD_REQUEST,
+            Self::MissingRequiredField => StatusCode::BAD_REQUEST,
+            Self::InvalidFormat => StatusCode::BAD_REQUEST,
+            Self::InvalidLength => StatusCode::BAD_REQUEST,
+            Self::InvalidValue => StatusCode::BAD_REQUEST,
+            
+            // Database errors -> mostly 500, some 404 or 409
+            Self::DatabaseConnectionError => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::RecordNotFound => StatusCode::NOT_FOUND,
+            Self::DuplicateEntry => StatusCode::CONFLICT,
+            Self::QueryError => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::TransactionError => StatusCode::INTERNAL_SERVER_ERROR,
+            
+            // Server errors -> 500 or 503
+            Self::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::ServiceUnavailable => StatusCode::SERVICE_UNAVAILABLE,
+            Self::Timeout => StatusCode::GATEWAY_TIMEOUT,
+            Self::RateLimited => StatusCode::TOO_MANY_REQUESTS,
+            
+            // Business logic errors -> 403 or 409
+            Self::OperationNotAllowed => StatusCode::FORBIDDEN,
+            Self::ResourceConflict => StatusCode::CONFLICT,
+            Self::BusinessRuleViolation => StatusCode::UNPROCESSABLE_ENTITY,
+            
+            // External service errors -> 502 or 504
+            Self::ExternalServiceError => StatusCode::BAD_GATEWAY,
+            Self::ExternalServiceTimeout => StatusCode::GATEWAY_TIMEOUT,
+            Self::ExternalServiceUnavailable => StatusCode::SERVICE_UNAVAILABLE,
+        }
+    }
+}
+
+impl fmt::Display for ErrorCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // This will use the #[serde(rename = "...")] values from above
+        let json_string = serde_json::to_string(self).unwrap_or_else(|_| "\"UNKNOWN_ERROR\"".to_string());
+        // Remove the quotes that serde_json adds
+        write!(f, "{}", json_string.trim_matches('"'))
+    }
+}

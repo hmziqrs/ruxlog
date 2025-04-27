@@ -4,6 +4,7 @@ pub mod modules;
 mod router;
 pub mod services;
 pub mod state;
+pub mod error;
 
 use axum::{
     http::{HeaderName, HeaderValue},
