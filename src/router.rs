@@ -122,15 +122,15 @@ pub fn router() -> Router<AppState> {
         );
 
     let tag_v1_routes = Router::new()
-        .route("/create", post(tag_v1::sea_controller::create))
-        .route("/update/{tag_id}", post(tag_v1::sea_controller::update))
-        .route("/delete/{tag_id}", post(tag_v1::sea_controller::delete))
-        .route("/view/{tag_id}", get(tag_v1::sea_controller::find_by_id))
-        .route("/list/query", get(tag_v1::sea_controller::find_with_query))
+        .route("/create", post(tag_v1::controller::create))
+        .route("/update/{tag_id}", post(tag_v1::controller::update))
+        .route("/delete/{tag_id}", post(tag_v1::controller::delete))
+        .route("/view/{tag_id}", get(tag_v1::controller::find_by_id))
+        .route("/list/query", get(tag_v1::controller::find_with_query))
         .route_layer(middleware::from_fn(user_permission::admin))
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend))
-        .route("/list", get(tag_v1::sea_controller::find_all));
+        .route("/list", get(tag_v1::controller::find_all));
 
     let admin_user_v1_routes = Router::new()
         .route("/list", post(user_v1::controller::admin_list))

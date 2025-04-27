@@ -9,11 +9,13 @@ use axum_valid::Valid;
 use serde_json::json;
 
 use crate::{
-    db::models::tag::Tag, extractors::ValidatedJson, services::auth::AuthSession, AppState,
+    db::sea_models::tag::Entity as Tag, extractors::ValidatedJson, services::auth::AuthSession,
+    AppState,
 };
 
 use super::validator::{V1CreateTagPayload, V1TagQueryParams, V1UpdateTagPayload};
 
+/// Create a new tag using SeaORM
 #[debug_handler]
 pub async fn create(
     State(state): State<AppState>,
@@ -22,7 +24,7 @@ pub async fn create(
 ) -> impl IntoResponse {
     let new_tag = payload.0.into_new_tag();
 
-    match Tag::create(&state.db_pool, new_tag).await {
+    match Tag::create(&state.sea_db, new_tag).await {
         Ok(tag) => (StatusCode::CREATED, Json(json!(tag))).into_response(),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -35,6 +37,7 @@ pub async fn create(
     }
 }
 
+/// Update an existing tag using SeaORM
 #[debug_handler]
 pub async fn update(
     State(state): State<AppState>,
@@ -44,7 +47,7 @@ pub async fn update(
 ) -> impl IntoResponse {
     let update_tag = payload.0.into_update_tag();
 
-    match Tag::update(&state.db_pool, tag_id, update_tag).await {
+    match Tag::update(&state.sea_db, tag_id, update_tag).await {
         Ok(Some(tag)) => (StatusCode::OK, Json(json!(tag))).into_response(),
         Ok(None) => (
             StatusCode::NOT_FOUND,
@@ -65,13 +68,14 @@ pub async fn update(
     }
 }
 
+/// Delete a tag using SeaORM
 #[debug_handler]
 pub async fn delete(
     State(state): State<AppState>,
     _auth: AuthSession, // Assuming tag deletion requires authentication
     Path(tag_id): Path<i32>,
 ) -> impl IntoResponse {
-    match Tag::delete(&state.db_pool, tag_id).await {
+    match Tag::delete(&state.sea_db, tag_id).await {
         Ok(1) => (
             StatusCode::OK,
             Json(json!({ "message": "Tag deleted successfully" })),
@@ -86,11 +90,8 @@ pub async fn delete(
         )
             .into_response(),
         Ok(_) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "error": "unexpected result",
-                "message": "Internal server error occurred while deleting tag",
-            })),
+            StatusCode::OK,
+            Json(json!({ "message": "Tag deleted successfully" })),
         )
             .into_response(),
         Err(err) => (
@@ -104,12 +105,13 @@ pub async fn delete(
     }
 }
 
+/// Find a tag by ID using SeaORM
 #[debug_handler]
 pub async fn find_by_id(
     State(state): State<AppState>,
     Path(tag_id): Path<i32>,
 ) -> impl IntoResponse {
-    match Tag::find_by_id(&state.db_pool, tag_id).await {
+    match Tag::get_by_id(&state.sea_db, tag_id).await {
         Ok(Some(tag)) => (StatusCode::OK, Json(json!(tag))).into_response(),
         Ok(None) => (
             StatusCode::NOT_FOUND,
@@ -127,9 +129,10 @@ pub async fn find_by_id(
     }
 }
 
+/// Find all tags using SeaORM
 #[debug_handler]
 pub async fn find_all(State(state): State<AppState>) -> impl IntoResponse {
-    match Tag::find_all(&state.db_pool).await {
+    match Tag::find_all(&state.sea_db).await {
         Ok(tags) => (StatusCode::OK, Json(json!(tags))).into_response(),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -142,6 +145,7 @@ pub async fn find_all(State(state): State<AppState>) -> impl IntoResponse {
     }
 }
 
+/// Find tags with query using SeaORM
 #[debug_handler]
 pub async fn find_with_query(
     State(state): State<AppState>,
@@ -150,7 +154,7 @@ pub async fn find_with_query(
     let tag_query = query.into_inner().0.into_tag_query();
     let page = tag_query.page_no;
 
-    match Tag::find_with_query(&state.db_pool, tag_query).await {
+    match Tag::find_with_query(&state.sea_db, tag_query).await {
         Ok(tags) => (
             StatusCode::OK,
             Json(json!({

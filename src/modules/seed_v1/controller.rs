@@ -19,9 +19,9 @@ use crate::{
         category::{Category, NewCategory},
         post::{NewPost, Post},
         post_comment::{NewPostComment, PostComment},
-        tag::{NewTag, Tag},
         user::{AdminCreateUser, User, UserRole},
     },
+    db::sea_models::tag,
     services::auth::AuthSession,
     AppState,
 };
@@ -52,7 +52,7 @@ pub struct FakeUser {
 //
 #[debug_handler]
 pub async fn seed_tags(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
-    let mut tags: Vec<Tag> = vec![];
+    let mut tags: Vec<tag::Model> = vec![];
     let mut fake_tags_set: HashSet<String> = HashSet::new();
 
     // Create 50 fake tags
@@ -62,13 +62,13 @@ pub async fn seed_tags(State(state): State<AppState>, _auth: AuthSession) -> imp
     }
 
     for tag in fake_tags_set {
-        let new_tag = NewTag {
+        let new_tag = tag::NewTag {
             name: tag.clone(),
             slug: tag.to_lowercase(),
             description: None,
         };
 
-        match Tag::create(&state.db_pool, new_tag).await {
+        match tag::Entity::create(&state.sea_db, new_tag).await {
             Ok(tag) => tags.push(tag),
             Err(err) => {
                 println!("Error creating tag: {:?}", err);
@@ -129,7 +129,7 @@ pub async fn seed_categories(
 
 #[debug_handler]
 pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
-    let tags = match Tag::find_all(&state.db_pool).await {
+    let tags = match tag::Entity::find_all(&state.sea_db).await {
         Ok(t) => t,
         Err(_) => {
             return (
@@ -407,18 +407,18 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
     }
 
     // Create 50 tags
-    let mut tags: Vec<Tag> = vec![];
+    let mut tags: Vec<tag::Model> = vec![];
     for _ in 0..50 {
         let fake_name: FakeWord = Faker.fake();
         let name = fake_name.0;
         let slug = name.to_lowercase().replace(' ', "-");
-        let new_tag = NewTag {
+        let new_tag = tag::NewTag {
             name,
             slug,
             description: None,
         };
 
-        match Tag::create(&state.db_pool, new_tag).await {
+        match tag::Entity::create(&state.sea_db, new_tag).await {
             Ok(tag) => tags.push(tag),
             Err(err) => {
                 println!("Error creating tag: {:?}", err);

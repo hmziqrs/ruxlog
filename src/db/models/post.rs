@@ -3,14 +3,14 @@
 
 use std::collections::HashMap;
 
-use super::{category::Category, tag::Tag, user::User};
+use super::{category::Category, user::User};
 use axum::{http::StatusCode, Json};
 use chrono::{Duration, NaiveDateTime, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::query_dsl::methods::FindDsl;
 use diesel::QueryDsl;
 use diesel::{debug_query, prelude::*};
-use rand::{Rng};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use tokio::task;
 
@@ -166,17 +166,19 @@ impl Post {
                 .optional()?;
 
             if let Some((post, category, author)) = result {
+                // let tags_map = HashMap<i32, Tag>::new()
                 // Get all relevant tags
-                let tags_map: HashMap<i32, Tag> = if !post.tag_ids.is_empty() {
-                    tags::table
-                        .filter(tags::dsl::id.eq_any(&post.tag_ids))
-                        .load::<Tag>(conn)?
-                        .into_iter()
-                        .map(|tag| (tag.id, tag))
-                        .collect()
-                } else {
-                    HashMap::new()
-                };
+                //
+                // let tags_map: HashMap<i32, Tag> = if !post.tag_ids.is_empty() {
+                //     tags::table
+                //         .filter(tags::dsl::id.eq_any(&post.tag_ids))
+                //         .load::<Tag>(conn)?
+                //         .into_iter()
+                //         .map(|tag| (tag.id, tag))
+                //         .collect()
+                // } else {
+                //     HashMap::new()
+                // };
 
                 // Transform the result into PostWithRelations
                 let post_with_relations = PostWithRelations {
@@ -185,16 +187,17 @@ impl Post {
                         id: c.id,
                         name: c.name,
                     }),
-                    tags: post
-                        .tag_ids
-                        .iter()
-                        .filter_map(|&tag_id| {
-                            tags_map.get(&tag_id).map(|tag| PostTag {
-                                id: tag.id,
-                                name: tag.name.clone(),
-                            })
-                        })
-                        .collect(),
+                    tags: Vec::new(),
+                    // tags: post
+                    //     .tag_ids
+                    //     .iter()
+                    //     .filter_map(|&tag_id| {
+                    //         tags_map.get(&tag_id).map(|tag| PostTag {
+                    //             id: tag.id,
+                    //             name: tag.name.clone(),
+                    //         })
+                    //     })
+                    //     .collect(),
                     author: PostAuthor {
                         id: author.id,
                         name: author.name,
@@ -293,16 +296,16 @@ impl Post {
                 .flat_map(|(post, _, _)| post.tag_ids.clone())
                 .collect();
 
-            let tags_map: HashMap<i32, Tag> = if !all_tag_ids.is_empty() {
-                tags::table
-                    .filter(tags::dsl::id.eq_any(all_tag_ids))
-                    .load::<Tag>(conn)?
-                    .into_iter()
-                    .map(|tag| (tag.id, tag))
-                    .collect()
-            } else {
-                HashMap::new()
-            };
+            // let tags_map: HashMap<i32, Tag> = if !all_tag_ids.is_empty() {
+            //     tags::table
+            //         .filter(tags::dsl::id.eq_any(all_tag_ids))
+            //         .load::<Tag>(conn)?
+            //         .into_iter()
+            //         .map(|tag| (tag.id, tag))
+            //         .collect()
+            // } else {
+            //     HashMap::new()
+            // };
 
             // Transform the results into PostWithRelations
             let posts_with_relations = results
@@ -313,16 +316,17 @@ impl Post {
                         id: c.id,
                         name: c.name,
                     }),
-                    tags: post
-                        .tag_ids
-                        .iter()
-                        .filter_map(|&tag_id| {
-                            tags_map.get(&tag_id).map(|tag| PostTag {
-                                id: tag.id,
-                                name: tag.name.clone(),
-                            })
-                        })
-                        .collect(),
+                    tags: Vec::new(),
+                    // tags: post
+                    //     .tag_ids
+                    //     .iter()
+                    //     .filter_map(|&tag_id| {
+                    //         tags_map.get(&tag_id).map(|tag| PostTag {
+                    //             id: tag.id,
+                    //             name: tag.name.clone(),
+                    //         })
+                    //     })
+                    //     .collect(),
                     author: PostAuthor {
                         id: author.id,
                         name: author.name,
@@ -370,16 +374,16 @@ impl Post {
                 .flat_map(|(post, _, _)| post.tag_ids.clone())
                 .collect();
 
-            let tags_map: HashMap<i32, Tag> = if !all_tag_ids.is_empty() {
-                tags::table
-                    .filter(tags::dsl::id.eq_any(all_tag_ids))
-                    .load::<Tag>(conn)?
-                    .into_iter()
-                    .map(|tag| (tag.id, tag))
-                    .collect()
-            } else {
-                HashMap::new()
-            };
+            // let tags_map: HashMap<i32, Tag> = if !all_tag_ids.is_empty() {
+            //     tags::table
+            //         .filter(tags::dsl::id.eq_any(all_tag_ids))
+            //         .load::<Tag>(conn)?
+            //         .into_iter()
+            //         .map(|tag| (tag.id, tag))
+            //         .collect()
+            // } else {
+            //     HashMap::new()
+            // };
 
             // Transform the results into PostWithRelations
             let posts_with_relations = results
@@ -390,16 +394,17 @@ impl Post {
                         id: c.id,
                         name: c.name,
                     }),
-                    tags: post
-                        .tag_ids
-                        .iter()
-                        .filter_map(|&tag_id| {
-                            tags_map.get(&tag_id).map(|tag| PostTag {
-                                id: tag.id,
-                                name: tag.name.clone(),
-                            })
-                        })
-                        .collect(),
+                    tags: Vec::new(),
+                    // tags: post
+                    //     .tag_ids
+                    //     .iter()
+                    //     .filter_map(|&tag_id| {
+                    //         tags_map.get(&tag_id).map(|tag| PostTag {
+                    //             id: tag.id,
+                    //             name: tag.name.clone(),
+                    //         })
+                    //     })
+                    //     .collect(),
                     author: PostAuthor {
                         id: author.id,
                         name: author.name,

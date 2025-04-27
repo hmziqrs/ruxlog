@@ -1,52 +1,6 @@
-use chrono::NaiveDateTime;
 use sea_orm::{entity::prelude::*, Condition, Order, QueryOrder, QuerySelect, Set};
-use serde::{Deserialize, Serialize};
 
-use crate::db::models::tag::{NewTag, TagQuery, UpdateTag};
-
-// Define the entity for 'tags' table
-#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "tags")]
-pub struct Model {
-    #[sea_orm(primary_key)]
-    pub id: i32,
-    pub name: String,
-    pub slug: String,
-    pub description: Option<String>,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
-}
-
-// Define the relations
-#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
-
-// ActiveModel is the mutable version of Model
-impl ActiveModelBehavior for ActiveModel {}
-
-// // Structure for tag query parameters
-// #[derive(Clone, Debug, Serialize, PartialEq)]
-// pub struct TagQuery {
-//     pub page_no: Option<i64>,
-//     pub search: Option<String>,
-//     pub sort_order: Option<String>,
-// }
-
-// // Create a new tag input model
-// #[derive(Debug, Deserialize)]
-// pub struct NewTag {
-//     pub name: String,
-//     pub slug: String,
-//     pub description: Option<String>,
-// }
-
-// // Update tag input model
-// #[derive(Debug, Deserialize)]
-// pub struct UpdateTag {
-//     pub name: Option<String>,
-//     pub slug: Option<String>,
-//     pub description: Option<Option<String>>,
-// }
+use super::*;
 
 impl Entity {
     const PER_PAGE: u64 = 20;
@@ -86,7 +40,7 @@ impl Entity {
             }
 
             if let Some(description) = update_tag.description {
-                tag_active.description = Set(description);
+                tag_active.description = Set(Some(description));
             }
 
             tag_active.updated_at = Set(chrono::Utc::now().naive_utc());

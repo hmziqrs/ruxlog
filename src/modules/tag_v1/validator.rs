@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::db::models::tag::{NewTag, TagQuery, UpdateTag};
+use crate::db::sea_models::tag::{NewTag, TagQuery, UpdateTag};
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1CreateTagPayload {
@@ -30,7 +30,7 @@ pub struct V1UpdateTagPayload {
     #[validate(length(min = 1, max = 255))]
     pub slug: Option<String>,
     #[validate(length(max = 1000))]
-    pub description: Option<Option<String>>,
+    pub description: Option<String>,
 }
 
 impl V1UpdateTagPayload {
