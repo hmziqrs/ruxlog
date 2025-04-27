@@ -12,6 +12,7 @@ use validator::Validate;
 use crate::{
     db::models::user::User,
     error::{ErrorCode, ErrorResponse, IntoErrorResponse},
+    extractors::ValidatedJson,
     modules::auth_v1::validator::{V1LoginPayload, V1RegisterPayload},
     services::auth::{AuthSession, Credentials},
     AppState,
@@ -30,18 +31,8 @@ pub async fn log_out(mut auth: AuthSession) -> Result<impl IntoResponse, ErrorRe
 pub async fn log_in(
     _state: State<AppState>,
     mut auth: AuthSession,
-    payload: Result<Json<V1LoginPayload>, JsonRejection>,
+    payload: ValidatedJson<V1LoginPayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    // Handle JSON extraction/validation errors
-    let payload = payload.map_err(|err| err.into_error_response())?;
-
-    // Validate the payload after successful JSON parsing
-    if let Err(validation_errors) = payload.validate() {
-        return Err(ErrorResponse::new(ErrorCode::InvalidInput)
-            .with_message("Validation failed")
-            .with_context(validation_errors.errors()));
-    }
-
     let user = auth.authenticate(Credentials::Password(payload.0)).await;
 
     match user {
@@ -51,14 +42,8 @@ pub async fn log_in(
                 .with_message("An error occurred while logging in")
                 .with_details(err.to_string())),
         },
-        Ok(None) => {
-            // No user found or password mismatch - return InvalidCredentials
-            Err(ErrorResponse::new(ErrorCode::InvalidCredentials))
-        }
-        Err(err) => {
-            // Convert the AuthError to our standard ErrorResponse
-            Err(err.into())
-        }
+        Ok(None) => Err(ErrorResponse::new(ErrorCode::InvalidCredentials)),
+        Err(err) => Err(err.into()),
     }
 }
 
