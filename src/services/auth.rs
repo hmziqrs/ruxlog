@@ -23,7 +23,7 @@ impl AuthBackend {
     fn check_password(password: String, hash: &str) -> Result<bool, AuthError> {
         verify_password(password, hash)
             .map(|_| true)
-            .map_err(|_| AuthError::InvalidPassword)
+            .map_err(|_| AuthError::PasswordVerificationError)
     }
 }
 
@@ -37,15 +37,30 @@ impl std::fmt::Debug for AuthBackend {
 
 impl IntoResponse for AuthError {
     fn into_response(self) -> axum::http::Response<axum::body::Body> {
-        let status = match self {
-            AuthError::InvalidPassword => StatusCode::UNAUTHORIZED,
-            AuthError::InternalDBError => StatusCode::INTERNAL_SERVER_ERROR,
-            AuthError::UserNotFound => StatusCode::NOT_FOUND,
-            AuthError::UnAuthorized => StatusCode::UNAUTHORIZED,
-            // AuthError::DBXError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        let (status, error_message) = match &self {
+            AuthError::InvalidCredentials => (StatusCode::UNAUTHORIZED, self.to_string()),
+            AuthError::PasswordVerificationError => (StatusCode::UNAUTHORIZED, "Invalid credentials".to_string()),
+            AuthError::UserNotFound => (StatusCode::NOT_FOUND, self.to_string()),
+            AuthError::Unauthorized => (StatusCode::UNAUTHORIZED, self.to_string()),
+            AuthError::SessionExpired => (StatusCode::UNAUTHORIZED, self.to_string()),
+            AuthError::DatabaseError(err) => {
+                eprintln!("Database error: {:?}", err);
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string())
+            },
+            AuthError::InternalError(err) => {
+                eprintln!("Internal error: {}", err);
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string())
+            },
         };
 
-        (status, Json(json!({ "error": self.to_string() }))).into_response()
+        let body = Json(json!({
+            "error": {
+                "message": error_message,
+                "code": status.as_u16()
+            }
+        }));
+
+        (status, body).into_response()
     }
 }
 
@@ -63,20 +78,31 @@ impl AuthUser for User {
 
 #[derive(thiserror::Error, Debug)]
 pub enum AuthError {
-    #[error("Invalid password")]
-    InvalidPassword,
+    #[error("Invalid credentials")]
+    InvalidCredentials,
 
-    #[error("Internal DB error")]
-    InternalDBError,
+    #[error("Password verification failed")]
+    PasswordVerificationError,
 
-    #[error("User ID not found")]
+    #[error("User not found")]
     UserNotFound,
 
     #[error("Unauthorized access denied")]
-    UnAuthorized,
-    // #[error("Database error: {0:?}")]
-    // DBXError(#[from] crate::db::errors::DBError),
+    Unauthorized,
+
+    #[error("Session expired")]
+    SessionExpired,
+
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] crate::db::errors::DBError),
+
+    #[error("Internal server error: {0}")]
+    InternalError(String),
 }
+
+// Make the AuthError type safe to share between threads
+unsafe impl Sync for AuthError {}
+unsafe impl Send for AuthError {}
 
 #[derive(Debug, Clone, Deserialize)]
 pub enum Credentials {
@@ -96,27 +122,36 @@ impl AuthnBackend for AuthBackend {
     ) -> Result<Option<Self::User>, Self::Error> {
         match creds {
             Credentials::Password(password_creds) => {
-                let user = User::find_by_email(&self.pool, password_creds.email).await;
-
-                if let Err(err) = user {
-                    eprintln!("Error: {:?}", err);
-                    return Err(AuthError::InternalDBError);
-                }
-
-                if let Ok(Some(user)) = user {
-                    let password = user.password.clone();
-                    let password_valid = task::spawn_blocking(move || {
-                        Self::check_password(password_creds.password, &password)
-                    })
-                    .await
-                    .map_err(|_| AuthError::InvalidPassword)??;
-
-                    if password_valid {
-                        Ok(Some(user))
-                    } else {
-                        Ok(None)
+                // Find user by email
+                let user_result = User::find_by_email(&self.pool, password_creds.email).await;
+                
+                let user = match user_result {
+                    Ok(Some(user)) => user,
+                    Ok(None) => {
+                        // Don't reveal whether the user exists or not for security reasons
+                        return Ok(None);
+                    },
+                    Err(err) => {
+                        return Err(AuthError::DatabaseError(err));
                     }
+                };
+
+                // Verify password
+                let password = user.password.clone();
+                let password_valid = match task::spawn_blocking(move || {
+                    Self::check_password(password_creds.password, &password)
+                })
+                .await {
+                    Ok(result) => result?,
+                    Err(join_err) => {
+                        return Err(AuthError::InternalError(format!("Task join error: {}", join_err)));
+                    }
+                };
+
+                if password_valid {
+                    Ok(Some(user))
                 } else {
+                    // Don't reveal that the password was incorrect (as opposed to user not existing)
                     Ok(None)
                 }
             } // Add other credential types here if needed
@@ -125,12 +160,11 @@ impl AuthnBackend for AuthBackend {
 
     /// Retrieves a user by ID from the database.
     async fn get_user(&self, user_id: &UserId<Self>) -> Result<Option<Self::User>, Self::Error> {
-        match User::find_by_id(&self.pool, *user_id).await {
-            Ok(user) => Ok(user),
-            Err(err) => {
-                eprintln!("get_user Error: {:?}", err);
-                Err(AuthError::InternalDBError)
-            }
-        }
+        User::find_by_id(&self.pool, *user_id).await
+            .map_err(|err| {
+                // Log the error for debugging purposes
+                eprintln!("Error retrieving user {}: {:?}", user_id, err);
+                AuthError::DatabaseError(err)
+            })
     }
 }
