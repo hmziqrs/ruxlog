@@ -1,4 +1,5 @@
 pub mod db;
+pub mod extractors;
 pub mod middlewares;
 pub mod modules;
 mod router;

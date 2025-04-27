@@ -5,6 +5,7 @@ use axum::{
     Json,
 };
 use axum_macros::debug_handler;
+use axum_valid::Valid;
 use serde_json::json;
 use validator::Validate;
 
@@ -21,7 +22,7 @@ pub async fn log_out(mut auth: AuthSession) -> Result<impl IntoResponse, ErrorRe
     match auth.logout().await {
         Ok(_) => Ok((StatusCode::OK, Json(json!({"message": "Logged out"})))),
         Err(_) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
-            .with_message("An error occurred while logging out"))
+            .with_message("An error occurred while logging out")),
     }
 }
 
@@ -33,7 +34,7 @@ pub async fn log_in(
 ) -> Result<impl IntoResponse, ErrorResponse> {
     // Handle JSON extraction/validation errors
     let payload = payload.map_err(|err| err.into_error_response())?;
-    
+
     // Validate the payload after successful JSON parsing
     if let Err(validation_errors) = payload.validate() {
         return Err(ErrorResponse::new(ErrorCode::InvalidInput)
@@ -48,12 +49,12 @@ pub async fn log_in(
             Ok(_) => Ok((StatusCode::OK, Json(json!(user)))),
             Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
                 .with_message("An error occurred while logging in")
-                .with_details(err.to_string()))
+                .with_details(err.to_string())),
         },
         Ok(None) => {
             // No user found or password mismatch - return InvalidCredentials
             Err(ErrorResponse::new(ErrorCode::InvalidCredentials))
-        },
+        }
         Err(err) => {
             // Convert the AuthError to our standard ErrorResponse
             Err(err.into())
@@ -66,9 +67,8 @@ pub async fn register(
     state: State<AppState>,
     payload: Result<Json<V1RegisterPayload>, JsonRejection>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    // Handle JSON extraction/validation errors
-    let payload = payload.map_err(|err| err.into_error_response())?;
-    
+    let payload = payload.map_err(|err| err.into_error_response())?.0;
+
     // Validate the payload after successful JSON parsing
     if let Err(validation_errors) = payload.validate() {
         return Err(ErrorResponse::new(ErrorCode::InvalidInput)
@@ -76,12 +76,10 @@ pub async fn register(
             .with_context(validation_errors.errors()));
     }
 
-    let new_user = payload.0.into_new_user();
-
-    match User::create(&state.db_pool, new_user).await {
+    match User::create(&state.db_pool, payload.into_new_user()).await {
         Ok(user) => Ok((StatusCode::CREATED, Json(json!(user)))),
         Err(err) => Err(ErrorResponse::new(ErrorCode::DuplicateEntry)
             .with_message("Failed to create user")
-            .with_details(err.to_string()))
+            .with_details(err.to_string())),
     }
 }
