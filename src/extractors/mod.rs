@@ -5,4 +5,4 @@
 
 pub mod validated;
 
-pub use validated::ValidatedJson;
+pub use validated::*;

@@ -1,15 +1,16 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
 };
 use axum_macros::debug_handler;
-use axum_valid::Valid;
 use serde_json::json;
 
 use crate::{
-    db::sea_models::tag::Entity as Tag, extractors::ValidatedJson, services::auth::AuthSession,
+    db::sea_models::tag::Entity as Tag,
+    extractors::{ValidatedJson, ValidatedQuery},
+    services::auth::AuthSession,
     AppState,
 };
 
@@ -149,9 +150,9 @@ pub async fn find_all(State(state): State<AppState>) -> impl IntoResponse {
 #[debug_handler]
 pub async fn find_with_query(
     State(state): State<AppState>,
-    query: Valid<Query<V1TagQueryParams>>,
+    query: ValidatedQuery<V1TagQueryParams>,
 ) -> impl IntoResponse {
-    let tag_query = query.into_inner().0.into_tag_query();
+    let tag_query = query.0.into_tag_query();
     let page = tag_query.page_no;
 
     match Tag::find_with_query(&state.sea_db, tag_query).await {
