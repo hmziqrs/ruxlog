@@ -3,7 +3,7 @@ use axum_macros::debug_handler;
 use serde_json::json;
 
 use crate::{
-    db::models::{email_verification::EmailVerification, user::User},
+    db::sea_models::{email_verification, user},
     extractors::ValidatedJson,
     services::{abuse_limiter, auth::AuthSession},
     AppState,
@@ -26,12 +26,15 @@ pub async fn verify(
     auth: AuthSession,
     payload: ValidatedJson<V1VerifyPayload>,
 ) -> impl IntoResponse {
-    let pool = &state.db_pool;
+    let pool = &state.sea_db;
     let user_id = auth.user.unwrap().id;
 
-    let verification_result =
-        EmailVerification::find_by_user_id_or_code(pool, Some(user_id), Some(payload.code.clone()))
-            .await;
+    let verification_result = email_verification::Entity::find_by_user_id_and_code(
+        pool,
+        Some(user_id),
+        Some(payload.code.clone()),
+    )
+    .await;
 
     match verification_result {
         Ok(verification) => match verification {
@@ -70,7 +73,7 @@ pub async fn verify(
         }
     }
 
-    let update_user = User::verify(pool, user_id).await;
+    let update_user = user::Entity::verify(pool, user_id).await;
     match update_user {
         Ok(_) => (
             StatusCode::OK,
@@ -127,7 +130,7 @@ pub async fn resend(state: State<AppState>, auth: AuthSession) -> impl IntoRespo
         Ok(_) => (),
         Err(response) => return response,
     }
-    match EmailVerification::regenerate(pool, user_id).await {
+    match email_verification::Entity::regenerate(pool, user_id).await {
         Ok(_) => (
             StatusCode::OK,
             Json(json!({

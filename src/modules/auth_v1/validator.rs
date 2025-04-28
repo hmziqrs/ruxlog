@@ -2,7 +2,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use validator::{Validate, ValidationError};
 
-use crate::db::models::user::{NewUser, UserRole};
+use crate::db::sea_models::user::{NewUser, UserRole};
 
 fn validate_email(email: &str) -> Result<(), ValidationError> {
     let email_regex = Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{1,}$").unwrap();

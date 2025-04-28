@@ -10,7 +10,7 @@ use serde_json::json;
 use validator::Validate;
 
 use crate::{
-    db::models::user::User,
+    db::sea_models::user,
     error::{ErrorCode, ErrorResponse, IntoErrorResponse},
     extractors::ValidatedJson,
     modules::auth_v1::validator::{V1LoginPayload, V1RegisterPayload},
@@ -61,7 +61,7 @@ pub async fn register(
             .with_context(validation_errors.errors()));
     }
 
-    match User::create(&state.db_pool, payload.into_new_user()).await {
+    match user::Entity::create(&state.sea_db, payload.into_new_user()).await {
         Ok(user) => Ok((StatusCode::CREATED, Json(json!(user)))),
         Err(err) => Err(ErrorResponse::new(ErrorCode::DuplicateEntry)
             .with_message("Failed to create user")
