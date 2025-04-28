@@ -1,4 +1,5 @@
 use sea_orm::{entity::prelude::*, Condition, Order, QueryOrder, Set};
+use crate::error::{DbResult, ErrorCode, ErrorResponse};
 
 use super::*;
 
@@ -6,7 +7,7 @@ impl Entity {
     const PER_PAGE: u64 = 20;
 
     // Create a new tag
-    pub async fn create(conn: &DbConn, new_tag: NewTag) -> Result<Model, DbErr> {
+    pub async fn create(conn: &DbConn, new_tag: NewTag) -> DbResult<Model> {
         let now = chrono::Utc::now().naive_utc();
         let tag = ActiveModel {
             name: Set(new_tag.name),
@@ -17,7 +18,10 @@ impl Entity {
             ..Default::default()
         };
 
-        tag.insert(conn).await
+        match tag.insert(conn).await {
+            Ok(model) => Ok(model),
+            Err(err) => Err(err.into()),
+        }
     }
 
     // Update an existing tag
@@ -25,8 +29,12 @@ impl Entity {
         conn: &DbConn,
         tag_id: i32,
         update_tag: UpdateTag,
-    ) -> Result<Option<Model>, DbErr> {
-        let tag: Option<Model> = Entity::get_by_id(conn, tag_id).await?;
+    ) -> DbResult<Option<Model>> {
+        // Get tag directly using SeaORM's Entity::find_by_id
+        let tag: Option<Model> = match Self::find_by_id(tag_id).one(conn).await {
+            Ok(tag) => tag,
+            Err(err) => return Err(err.into()),
+        };
 
         if let Some(tag_model) = tag {
             let mut tag_active: ActiveModel = tag_model.into();
@@ -45,38 +53,61 @@ impl Entity {
 
             tag_active.updated_at = Set(chrono::Utc::now().naive_utc());
 
-            let updated_tag = tag_active.update(conn).await?;
-            Ok(Some(updated_tag))
+            match tag_active.update(conn).await {
+                Ok(updated_tag) => Ok(Some(updated_tag)),
+                Err(err) => Err(err.into()),
+            }
         } else {
             Ok(None)
         }
     }
 
     // Delete a tag
-    pub async fn delete(conn: &DbConn, tag_id: i32) -> Result<u64, DbErr> {
-        let result = Entity::delete_by_id(tag_id).exec(conn).await?;
-        Ok(result.rows_affected)
+    pub async fn delete(conn: &DbConn, tag_id: i32) -> DbResult<u64> {
+        match Self::delete_by_id(tag_id).exec(conn).await {
+            Ok(result) => Ok(result.rows_affected),
+            Err(err) => Err(err.into()),
+        }
     }
 
     // Find tag by ID
-    pub async fn get_by_id(conn: &DbConn, tag_id: i32) -> Result<Option<Model>, DbErr> {
-        Entity::find_by_id(tag_id).one(conn).await
+    pub async fn get_by_id(conn: &DbConn, tag_id: i32) -> DbResult<Option<Model>> {
+        // Use SeaORM's Entity::find_by_id directly
+        match Self::find_by_id(tag_id).one(conn).await {
+            Ok(model) => Ok(model),
+            Err(err) => Err(err.into()),
+        }
+    }
+    
+    // Find tag by ID with not found handling
+    pub async fn find_by_id_with_404(conn: &DbConn, tag_id: i32) -> DbResult<Model> {
+        // Use the basic get_by_id and transform the Option result
+        match Self::find_by_id(tag_id).one(conn).await {
+            Ok(Some(model)) => Ok(model),
+            Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
+                          .with_message(&format!("Tag with ID {} not found", tag_id))),
+            Err(err) => Err(err.into()),
+        }
     }
 
     // Find all tags
-    pub async fn find_all(conn: &DbConn) -> Result<Vec<Model>, DbErr> {
-        Entity::find()
+    pub async fn find_all(conn: &DbConn) -> DbResult<Vec<Model>> {
+        match Self::find()
             .order_by(Column::Name, Order::Desc)
             .all(conn)
             .await
+        {
+            Ok(models) => Ok(models),
+            Err(err) => Err(err.into()),
+        }
     }
 
     // Find tags with query parameters
     pub async fn find_with_query(
         conn: &DbConn,
         query: TagQuery,
-    ) -> Result<(Vec<Model>, u64), DbErr> {
-        let mut tag_query = Entity::find();
+    ) -> DbResult<(Vec<Model>, u64)> {
+        let mut tag_query = Self::find();
 
         // Handle search filter
         if let Some(search_term) = query.search {
@@ -104,9 +135,16 @@ impl Entity {
             _ => 1,
         };
         let paginator = tag_query.paginate(conn, Self::PER_PAGE);
-        let total = paginator.num_items().await?;
-        let results = paginator.fetch_page(page - 1).await?;
-
-        Ok((results, total))
+        
+        // Get total count and paginated results
+        match paginator.num_items().await {
+            Ok(total) => {
+                match paginator.fetch_page(page - 1).await {
+                    Ok(results) => Ok((results, total)),
+                    Err(err) => Err(err.into()),
+                }
+            },
+            Err(err) => Err(err.into()),
+        }
     }
 }
