@@ -1,4 +1,4 @@
-use sea_orm::{entity::prelude::*, Condition, Order, QueryOrder, QuerySelect, Set};
+use sea_orm::{entity::prelude::*, Condition, Order, QueryOrder, Set};
 
 use super::*;
 
@@ -99,11 +99,13 @@ impl Entity {
         }
 
         // Handle pagination
-        let page = query.page_no.min(Some(1)).unwrap_or(1).min(2);
-        println!("Page: {}", page);
+        let page = match query.page_no {
+            Some(p) if p > 0 => p,
+            _ => 1,
+        };
         let paginator = tag_query.paginate(conn, Self::PER_PAGE);
         let total = paginator.num_items().await?;
-        let results = paginator.fetch_page(page.min(1) - 1).await?;
+        let results = paginator.fetch_page(page - 1).await?;
 
         Ok((results, total))
     }
