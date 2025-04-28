@@ -27,7 +27,7 @@ use crate::{
 };
 
 use fake::{Dummy, Fake, Faker};
-use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 #[derive(Debug, Dummy)]
 pub struct FakeUser {

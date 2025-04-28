@@ -5,7 +5,6 @@ use axum::{
     Json,
 };
 use axum_macros::debug_handler;
-use axum_valid::Valid;
 use serde_json::json;
 
 use super::validator::*;
