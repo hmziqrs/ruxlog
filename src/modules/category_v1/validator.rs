@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::db::models::category::{NewCategory, UpdateCategory};
+use crate::db::sea_models::category::{CategoryQuery, NewCategory, UpdateCategory};
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1CreateCategoryPayload {
@@ -55,7 +55,22 @@ impl V1UpdateCategoryPayload {
         }
     }
 }
+
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1CategoryQueryParams {
+    pub page: Option<u64>,
+    pub search: Option<String>,
+    pub sort_order: Option<String>,
     pub parent_id: Option<i32>,
+}
+
+impl V1CategoryQueryParams {
+    pub fn into_category_query(self) -> CategoryQuery {
+        CategoryQuery {
+            page_no: self.page,
+            search: self.search,
+            sort_order: self.sort_order,
+            parent_id: self.parent_id,
+        }
+    }
 }

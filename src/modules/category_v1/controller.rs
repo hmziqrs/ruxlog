@@ -1,89 +1,46 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
 };
 use axum_macros::debug_handler;
-use axum_valid::Valid;
 use serde_json::json;
 
-use crate::{db::models::category::Category, extractors::ValidatedJson, AppState};
+use crate::{
+    db::sea_models::category::Entity as Category,
+    extractors::{ValidatedJson, ValidatedQuery},
+    services::auth::AuthSession,
+    AppState,
+};
 
-use super::validator::{V1CategoryQueryParams, V1CreateCategoryPayload, V1UpdateCategoryPayload};
+use super::validator::{V1CreateCategoryPayload, V1CategoryQueryParams, V1UpdateCategoryPayload};
 
+/// Create a new category using SeaORM
 #[debug_handler]
 pub async fn create(
-    state: State<AppState>,
+    State(state): State<AppState>,
+    _auth: AuthSession,
     payload: ValidatedJson<V1CreateCategoryPayload>,
 ) -> impl IntoResponse {
     let new_category = payload.0.into_new_category();
 
-    match Category::create(&state.db_pool, new_category).await {
-        Ok(category) => (StatusCode::CREATED, Json(json!(category))).into_response(),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "error": err.to_string(),
-                "message": "Failed to create category",
-            })),
-        )
-            .into_response(),
-    }
+    Category::create(&state.sea_db, new_category).await
+        .map(|result| (StatusCode::CREATED, Json(json!(result))))
+        .map_err(IntoResponse::into_response)
 }
 
-#[debug_handler]
-pub async fn get_category_by_id(
-    State(state): State<AppState>,
-    Path(category_id): Path<i32>,
-) -> impl IntoResponse {
-    match Category::get_category_by_id(&state.db_pool, category_id).await {
-        Ok(Some(category)) => (StatusCode::OK, Json(json!(category))).into_response(),
-        Ok(None) => (
-            StatusCode::NOT_FOUND,
-            Json(json!({ "message": "Category not found" })),
-        )
-            .into_response(),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "error": err.to_string(),
-                "message": "Failed to fetch category",
-            })),
-        )
-            .into_response(),
-    }
-}
-
-#[debug_handler]
-pub async fn get_categories(
-    State(state): State<AppState>,
-    query: Valid<Query<V1CategoryQueryParams>>,
-) -> impl IntoResponse {
-    let parent_id = query.into_inner().0.parent_id;
-
-    match Category::get_categories(&state.db_pool, parent_id).await {
-        Ok(categories) => (StatusCode::OK, Json(json!(categories))).into_response(),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "error": err.to_string(),
-                "message": "Failed to fetch categories",
-            })),
-        )
-            .into_response(),
-    }
-}
-
+/// Update an existing category using SeaORM
 #[debug_handler]
 pub async fn update(
     State(state): State<AppState>,
+    _auth: AuthSession,
     Path(category_id): Path<i32>,
     payload: ValidatedJson<V1UpdateCategoryPayload>,
 ) -> impl IntoResponse {
     let update_category = payload.0.into_update_category();
 
-    match Category::update(&state.db_pool, category_id, update_category).await {
+    match Category::update(&state.sea_db, category_id, update_category).await {
         Ok(Some(category)) => (StatusCode::OK, Json(json!(category))).into_response(),
         Ok(None) => (
             StatusCode::NOT_FOUND,
@@ -91,53 +48,75 @@ pub async fn update(
                 "error": "request failed",
                 "message": "Category does not exist",
             })),
-        )
-            .into_response(),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "error": err.to_string(),
-                "message": "Failed to update category",
-            })),
-        )
-            .into_response(),
+        ).into_response(),
+        Err(err) => err.into_response(),
     }
 }
 
+/// Delete a category using SeaORM
 #[debug_handler]
 pub async fn delete(
     State(state): State<AppState>,
+    _auth: AuthSession,
     Path(category_id): Path<i32>,
 ) -> impl IntoResponse {
-    match Category::delete(&state.db_pool, category_id).await {
+    match Category::delete(&state.sea_db, category_id).await {
         Ok(1) => (
             StatusCode::OK,
             Json(json!({ "message": "Category deleted successfully" })),
-        )
-            .into_response(),
+        ).into_response(),
         Ok(0) => (
             StatusCode::NOT_FOUND,
             Json(json!({
                 "error": "request failed",
                 "message": "Category does not exist",
             })),
-        )
-            .into_response(),
+        ).into_response(),
         Ok(_) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "error": "unexpected result",
-                "message": "Internal server error occurred while deleting category",
-            })),
-        )
-            .into_response(),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "error": err.to_string(),
-                "message": "Failed to delete category",
-            })),
-        )
-            .into_response(),
+            StatusCode::OK,
+            Json(json!({ "message": "Category deleted successfully" })),
+        ).into_response(),
+        Err(err) => err.into_response(),
     }
+}
+
+/// Find a category by ID using SeaORM
+#[debug_handler]
+pub async fn find_by_id(
+    State(state): State<AppState>,
+    Path(category_id): Path<i32>,
+) -> impl IntoResponse {
+    // Using our new find_by_id method with built-in not found handling
+    Category::find_by_id_with_404(&state.sea_db, category_id).await
+        .map(|category| (StatusCode::OK, Json(json!(category))))
+        .map_err(IntoResponse::into_response)
+}
+
+/// Find all categories using SeaORM
+#[debug_handler]
+pub async fn find_all(State(state): State<AppState>) -> impl IntoResponse {
+    Category::find_all(&state.sea_db).await
+        .map(|categories| (StatusCode::OK, Json(json!(categories))))
+        .map_err(IntoResponse::into_response)
+}
+
+/// Find categories with query using SeaORM
+#[debug_handler]
+pub async fn find_with_query(
+    State(state): State<AppState>,
+    query: ValidatedQuery<V1CategoryQueryParams>,
+) -> impl IntoResponse {
+    let category_query = query.0.into_category_query();
+    let page = category_query.page_no;
+
+    Category::find_with_query(&state.sea_db, category_query).await
+        .map(|(categories, total)| (
+            StatusCode::OK,
+            Json(json!({
+                "total": total,
+                "data": categories,
+                "page": page,
+            }))
+        ))
+        .map_err(IntoResponse::into_response)
 }

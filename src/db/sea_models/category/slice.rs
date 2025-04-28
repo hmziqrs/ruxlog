@@ -1,3 +1,4 @@
+use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
@@ -18,6 +19,7 @@ pub struct UpdateCategory {
     pub description: Option<Option<String>>,
     pub cover_image: Option<Option<String>>,
     pub logo_image: Option<Option<String>>,
+    pub updated_at: NaiveDateTime,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq)]

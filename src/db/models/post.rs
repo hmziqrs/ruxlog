@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use super::{category::Category, user::User};
+use super::user::User;
 use axum::{http::StatusCode, Json};
 use chrono::{Duration, NaiveDateTime, Utc};
 use deadpool_diesel::postgres::Pool;

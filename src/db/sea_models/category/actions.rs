@@ -1,5 +1,5 @@
-use sea_orm::{entity::prelude::*, Condition, Order, QueryOrder, Set};
 use crate::error::{DbResult, ErrorCode, ErrorResponse};
+use sea_orm::{entity::prelude::*, Condition, Order, QueryOrder, Set};
 
 use super::*;
 
@@ -91,13 +91,13 @@ impl Entity {
             Err(err) => Err(err.into()),
         }
     }
-    
+
     // Find category by ID with not found handling
     pub async fn find_by_id_with_404(conn: &DbConn, category_id: i32) -> DbResult<Model> {
         match Self::find_by_id(category_id).one(conn).await {
             Ok(Some(model)) => Ok(model),
             Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                          .with_message(&format!("Category with ID {} not found", category_id))),
+                .with_message(&format!("Category with ID {} not found", category_id))),
             Err(err) => Err(err.into()),
         }
     }
@@ -152,14 +152,12 @@ impl Entity {
             _ => 1,
         };
         let paginator = category_query.paginate(conn, Self::PER_PAGE);
-        
+
         // Get total count and paginated results
         match paginator.num_items().await {
-            Ok(total) => {
-                match paginator.fetch_page(page - 1).await {
-                    Ok(results) => Ok((results, total)),
-                    Err(err) => Err(err.into()),
-                }
+            Ok(total) => match paginator.fetch_page(page - 1).await {
+                Ok(results) => Ok((results, total)),
+                Err(err) => Err(err.into()),
             },
             Err(err) => Err(err.into()),
         }
