@@ -276,21 +276,20 @@ impl Entity {
             db_query = db_query.order_by(Column::Id, Order::Desc);
         }
 
-        // Apply pagination
-        let page_no = query.page_no.unwrap_or(1);
-        let per_page = ADMIN_PER_PAGE;
+        // Handle pagination
+        let page = match query.page_no {
+            Some(p) if p > 0 => p as u64,
+            _ => 1,
+        };
 
-        // Paginate the query
-        match db_query
-            .paginate(conn, per_page)
-            .fetch_page(page_no - 1)
-            .await
-        {
-            Ok(paginator) => {
-                let total_items = paginator.num_items();
-                let items = paginator.records;
-                Ok((items, total_items))
-            }
+        let paginator = db_query.paginate(conn, ADMIN_PER_PAGE);
+
+        // Get total count and paginated results
+        match paginator.num_items().await {
+            Ok(total) => match paginator.fetch_page(page - 1).await {
+                Ok(results) => Ok((results, total)),
+                Err(err) => Err(err.into()),
+            },
             Err(err) => Err(err.into()),
         }
     }
