@@ -52,15 +52,6 @@ tower-sessions-redis-store = "0.16.0"
 tower-sessions = { version = "0.14", features = ["private"] }
 tracing-subscriber = "0.3.19"
 tracing = "0.1.41"
-diesel = { version = "2.2.9", features = [
-    "postgres",
-    "chrono",
-    # "pq-sys",
-    "i-implement-a-third-party-backend-and-opt-into-breaking-changes",
-] }
-deadpool-diesel = { version = "0.6.1", features = ["postgres"] }
-diesel_migrations = "2.2.0"
-diesel-derive-enum = { version = "2.1.0", features = ["postgres"] }
 dotenv = "0.15.0"
 chrono = { version = "0.4.40", features = ["serde"] }
 axum-macros = "0.5.0"

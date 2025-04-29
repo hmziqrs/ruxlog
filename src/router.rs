@@ -161,7 +161,6 @@ pub fn router() -> Router<AppState> {
 
     Router::new()
         .layer(middleware::from_fn(block_routes))
-        .route("/", routing::get(handler))
         .nest("/auth/v1", auth_v1_routes)
         .nest("/user/v1", user_v1_routes)
         .nest("/email_verification/v1", email_verification_v1_routes)
@@ -174,9 +173,4 @@ pub fn router() -> Router<AppState> {
         // .nest("/super_admin/v1", super_admin_routes)
         .nest("/admin/seed/v1", seed_routes)
         .layer(TraceLayer::new_for_http())
-}
-
-async fn handler(s: State<AppState>) -> impl IntoResponse {
-    println!("{:?}", s.db_pool.status());
-    (StatusCode::OK, Json(json!({"message": "success"})))
 }

@@ -12,7 +12,6 @@ use axum::{
     middleware, routing,
 };
 use axum_login::AuthManagerLayerBuilder;
-use db::migration::run_migrations;
 use modules::csrf_v1;
 use std::{env, net::SocketAddr, time::Duration};
 use tower_http::{
@@ -96,10 +95,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cookie_key_str = env::var("COOKIE_KEY").expect("COOKIE_KEY must be set");
     // let csrf_key_str = env::var("CSRF_KEY").expect("CSRF_KEY must be set");
 
-    tracing::info!("Starting server.");
-    let pool = db::connect::get_pool().await;
-    tracing::info!("Diesel Postgres connection established.");
-
     // Initialize SeaORM connection
     let sea_db = db::sea_connect::get_sea_connection().await;
 
@@ -107,13 +102,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (redis_pool, redis_connection) = init_redis_store().await?;
     let mailer = services::mail::smtp::create_connection().await;
     let state = AppState {
-        db_pool: pool,
         sea_db,
         redis_pool: redis_pool.clone(),
         mailer,
     };
-
-    run_migrations(&state.db_pool).await?;
 
     tracing::info!("Redis successfully established.");
     let session_store = RedisStore::new(redis_pool);
