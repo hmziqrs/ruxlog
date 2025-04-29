@@ -1,22 +1,24 @@
 use async_trait::async_trait;
 use axum::response::IntoResponse;
 use axum_login::{AuthUser, AuthnBackend, UserId};
-use deadpool_diesel::postgres::Pool;
 use password_auth::verify_password;
+use sea_orm::DatabaseConnection;
 use serde::Deserialize;
 use tokio::task;
 
-use crate::{db::models::user::User, modules::auth_v1::validator::V1LoginPayload, error::ErrorResponse};
+use crate::{
+    db::sea_models::user, error::ErrorResponse, modules::auth_v1::validator::V1LoginPayload,
+};
 
 pub type AuthSession = axum_login::AuthSession<AuthBackend>;
 
 #[derive(Clone)]
 pub struct AuthBackend {
-    pub pool: Pool,
+    pub pool: DatabaseConnection,
 }
 
 impl AuthBackend {
-    pub fn new(pool: &Pool) -> Self {
+    pub fn new(pool: &DatabaseConnection) -> Self {
         Self { pool: pool.clone() }
     }
     fn check_password(password: String, hash: &str) -> Result<bool, AuthError> {
@@ -43,7 +45,7 @@ impl IntoResponse for AuthError {
     }
 }
 
-impl AuthUser for User {
+impl AuthUser for user::Model {
     type Id = i32;
 
     fn id(&self) -> Self::Id {
@@ -90,10 +92,9 @@ pub enum Credentials {
 
 #[async_trait]
 impl AuthnBackend for AuthBackend {
-    type User = User;
+    type User = user::Model;
     type Credentials = Credentials;
     type Error = AuthError;
-
 
     async fn authenticate(
         &self,
@@ -102,14 +103,15 @@ impl AuthnBackend for AuthBackend {
         match creds {
             Credentials::Password(password_creds) => {
                 // Find user by email
-                let user_result = User::find_by_email(&self.pool, password_creds.email).await;
-                
+                let user_result =
+                    user::Entity::find_by_email(&self.pool, password_creds.email).await;
+
                 let user = match user_result {
                     Ok(Some(user)) => user,
                     Ok(None) => {
                         // Don't reveal whether the user exists or not for security reasons
                         return Ok(None);
-                    },
+                    }
                     Err(err) => {
                         return Err(AuthError::DatabaseError(err));
                     }
@@ -120,10 +122,14 @@ impl AuthnBackend for AuthBackend {
                 let password_valid = match task::spawn_blocking(move || {
                     Self::check_password(password_creds.password, &password)
                 })
-                .await {
+                .await
+                {
                     Ok(result) => result?,
                     Err(join_err) => {
-                        return Err(AuthError::InternalError(format!("Task join error: {}", join_err)));
+                        return Err(AuthError::InternalError(format!(
+                            "Task join error: {}",
+                            join_err
+                        )));
                     }
                 };
 
@@ -139,7 +145,8 @@ impl AuthnBackend for AuthBackend {
 
     /// Retrieves a user by ID from the database.
     async fn get_user(&self, user_id: &UserId<Self>) -> Result<Option<Self::User>, Self::Error> {
-        User::find_by_id(&self.pool, *user_id).await
+        user::Entity::find_by_id(&self.pool, *user_id)
+            .await
             .map_err(|err| {
                 // Log the error for debugging purposes
                 eprintln!("Error retrieving user {}: {:?}", user_id, err);
