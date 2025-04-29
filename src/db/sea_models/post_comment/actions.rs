@@ -1,5 +1,5 @@
-use sea_orm::{entity::prelude::*, ConnectionTrait, DbBackend, Order, QueryOrder, Set, Statement};
 use crate::error::{DbResult, ErrorCode, ErrorResponse};
+use sea_orm::{entity::prelude::*, ConnectionTrait, DbBackend, Order, QueryOrder, Set, Statement};
 
 use super::*;
 
@@ -14,6 +14,7 @@ impl Entity {
             user_id: Set(new_comment.user_id),
             parent_id: Set(new_comment.parent_id),
             content: Set(new_comment.content),
+            likes_count: Set(new_comment.likes_count.unwrap_or(0)),
             created_at: Set(now),
             updated_at: Set(now),
             ..Default::default()
@@ -25,17 +26,27 @@ impl Entity {
         }
     }
 
-    // Update an existing comment
+    // Update an existing comment with user validation
     pub async fn update(
         conn: &DbConn,
         comment_id: i32,
+        user_id: i32,
         update_comment: UpdateComment,
     ) -> DbResult<Option<Model>> {
-        let comment: Option<Model> = Self::find_by_id(comment_id).one(conn).await?;
+        // Find the comment and verify ownership
+        let comment: Option<Model> = Self::find_by_id(comment_id)
+            .filter(Column::UserId.eq(user_id))
+            .one(conn)
+            .await?;
 
         if let Some(comment_model) = comment {
             let mut comment_active: ActiveModel = comment_model.into();
-            comment_active.content = Set(update_comment.content);
+
+            // Only update content if it's provided
+            if let Some(content) = update_comment.content {
+                comment_active.content = Set(content);
+            }
+
             comment_active.updated_at = Set(update_comment.updated_at);
 
             match comment_active.update(conn).await {
@@ -47,9 +58,13 @@ impl Entity {
         }
     }
 
-    // Delete comment
-    pub async fn delete(conn: &DbConn, comment_id: i32) -> DbResult<u64> {
-        match Self::delete_by_id(comment_id).exec(conn).await {
+    // Delete comment with user validation
+    pub async fn delete(conn: &DbConn, comment_id: i32, user_id: i32) -> DbResult<u64> {
+        match Self::delete_by_id(comment_id)
+            .filter(Column::UserId.eq(user_id))
+            .exec(conn)
+            .await
+        {
             Ok(result) => Ok(result.rows_affected),
             Err(err) => Err(err.into()),
         }
@@ -60,16 +75,13 @@ impl Entity {
         match Self::find_by_id(comment_id).one(conn).await {
             Ok(Some(model)) => Ok(model),
             Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                        .with_message(&format!("Comment with ID {} not found", comment_id))),
+                .with_message(&format!("Comment with ID {} not found", comment_id))),
             Err(err) => Err(err.into()),
         }
     }
 
     // Find comments with query parameters
-    pub async fn search(
-        conn: &DbConn,
-        query: CommentQuery,
-    ) -> DbResult<(Vec<Model>, u64)> {
+    pub async fn search(conn: &DbConn, query: CommentQuery) -> DbResult<(Vec<Model>, u64)> {
         let mut comment_query = Self::find().filter(Column::PostId.eq(query.post_id));
 
         // Apply filters
@@ -84,6 +96,11 @@ impl Entity {
             comment_query = comment_query.filter(Column::ParentId.is_null());
         }
 
+        // Apply content search if provided
+        if let Some(search_term) = &query.search_term {
+            comment_query = comment_query.filter(Column::Content.contains(search_term));
+        }
+
         // Handle sort_by fields
         if let Some(sort_fields) = &query.sort_by {
             for field in sort_fields {
@@ -92,10 +109,11 @@ impl Entity {
                 } else {
                     Order::Desc
                 };
-                
+
                 comment_query = match field.as_str() {
                     "created_at" => comment_query.order_by(Column::CreatedAt, order),
                     "updated_at" => comment_query.order_by(Column::UpdatedAt, order),
+                    "likes_count" => comment_query.order_by(Column::LikesCount, order),
                     _ => comment_query,
                 };
             }
@@ -109,9 +127,9 @@ impl Entity {
             Some(p) if p > 0 => p,
             _ => 1,
         };
-        
+
         let paginator = comment_query.paginate(conn, Self::PER_PAGE);
-        
+
         // Get total count and paginated results
         match paginator.num_items().await {
             Ok(total) => match paginator.fetch_page(page - 1).await {
@@ -122,129 +140,111 @@ impl Entity {
         }
     }
 
-    // Get comments with user information
+    // Get comments with user information using Sea ORM's query builder
     pub async fn get_comments_with_user(
         conn: &DbConn,
         query: CommentQuery,
     ) -> DbResult<(Vec<CommentWithUser>, u64)> {
-        // Custom SQL query to join comments with users
-        let sql = r#"
-            SELECT 
-                c.id, c.post_id, c.user_id, c.parent_id, c.content, 
-                c.created_at, c.updated_at,
-                u.name as user_name, u.avatar as user_avatar
-            FROM post_comments c
-            JOIN users u ON c.user_id = u.id
-            WHERE c.post_id = ?
-        "#;
+        use super::super::user::Column as UserColumn;
+        use sea_orm::{JoinType, QuerySelect};
 
-        // Build the WHERE clause based on the query parameters
-        let mut where_clauses = Vec::new();
-        let mut params = Vec::<Value>::new();
-        
-        params.push(query.post_id.into());
+        // Start with a base query that joins comments with users
+        let mut comment_query = Entity::find()
+            .select_only()
+            .column(Column::Id)
+            .column(Column::PostId)
+            .column(Column::UserId)
+            .column(Column::ParentId)
+            .column(Column::Content)
+            .column(Column::LikesCount)
+            .column(Column::CreatedAt)
+            .column(Column::UpdatedAt)
+            .column_as(UserColumn::Name, "user_name")
+            .column_as(UserColumn::Avatar, "user_avatar")
+            .join(JoinType::InnerJoin, Relation::User.def())
+            .filter(Column::PostId.eq(query.post_id));
 
+        // Apply user filter if present
         if let Some(user_id) = query.user_id {
-            where_clauses.push("c.user_id = ?");
-            params.push(user_id.into());
+            comment_query = comment_query.filter(Column::UserId.eq(user_id));
         }
 
+        // Apply parent filter
         if let Some(parent_id) = query.parent_id {
-            where_clauses.push("c.parent_id = ?");
-            params.push(parent_id.into());
+            comment_query = comment_query.filter(Column::ParentId.eq(parent_id));
         } else {
-            where_clauses.push("c.parent_id IS NULL");
+            comment_query = comment_query.filter(Column::ParentId.is_null());
         }
 
-        // Build the final SQL query with pagination
-        let mut final_sql = sql.to_owned();
-        
-        // Add where clauses if any
-        if !where_clauses.is_empty() {
-            final_sql += &format!(" AND {}", where_clauses.join(" AND "));
+        // Apply content search if provided
+        if let Some(search_term) = &query.search_term {
+            comment_query = comment_query.filter(Column::Content.contains(search_term));
         }
 
-        // Add order by clause
-        let sort_field = match &query.sort_by {
+        // Handle sorting
+        let order = if query.sort_order.as_deref() == Some("asc") {
+            Order::Asc
+        } else {
+            Order::Desc
+        };
+
+        comment_query = match &query.sort_by {
             Some(fields) if !fields.is_empty() => match fields[0].as_str() {
-                "created_at" => "c.created_at",
-                "updated_at" => "c.updated_at",
-                _ => "c.created_at",
+                "created_at" => comment_query.order_by(Column::CreatedAt, order),
+                "updated_at" => comment_query.order_by(Column::UpdatedAt, order),
+                "likes_count" => comment_query.order_by(Column::LikesCount, order),
+                _ => comment_query.order_by(Column::CreatedAt, order),
             },
-            _ => "c.created_at",
+            _ => comment_query.order_by(Column::CreatedAt, order),
         };
 
-        let sort_order = if query.sort_order.as_deref() == Some("asc") {
-            "ASC"
-        } else {
-            "DESC"
-        };
-
-        final_sql += &format!(" ORDER BY {} {}", sort_field, sort_order);
-
-        // Add pagination
+        // Handle pagination
         let page = match query.page_no {
             Some(p) if p > 0 => p,
             _ => 1,
         };
-        
-        let offset = (page - 1) * Self::PER_PAGE;
-        final_sql += &format!(" LIMIT {} OFFSET {}", Self::PER_PAGE, offset);
 
-        // Execute the query
-        let stmt = Statement::from_sql_and_values(DbBackend::Postgres, &final_sql, params.clone());
-        
-        let comments: Vec<CommentWithUser> = match conn.query_all(stmt).await {
-            Ok(rows) => {
-                rows.into_iter()
-                    .map(|row| {
-                        CommentWithUser {
-                            id: row.try_get("", "id").unwrap_or_default(),
-                            post_id: row.try_get("", "post_id").unwrap_or_default(),
-                            user_id: row.try_get("", "user_id").unwrap_or_default(),
-                            parent_id: row.try_get("", "parent_id").ok(),
-                            content: row.try_get("", "content").unwrap_or_default(),
-                            created_at: row.try_get("", "created_at").unwrap_or_default(),
-                            updated_at: row.try_get("", "updated_at").unwrap_or_default(),
-                            user_name: row.try_get("", "user_name").unwrap_or_default(),
-                            user_avatar: row.try_get("", "user_avatar").ok(),
-                        }
-                    })
-                    .collect()
-            },
-            Err(err) => return Err(err.into()),
-        };
+        let paginator = comment_query.paginate(conn, Self::PER_PAGE);
 
-        // Count total comments with the same filters but without pagination
-        let mut count_sql = format!(
-            "SELECT COUNT(*) as total FROM post_comments c JOIN users u ON c.user_id = u.id WHERE c.post_id = ?"
-        );
-        
-        if !where_clauses.is_empty() {
-            count_sql += &format!(" AND {}", where_clauses.join(" AND "));
-        }
+        // Get total count
+        let total = paginator.num_items().await?;
 
-        let stmt = Statement::from_sql_and_values(DbBackend::Postgres, &count_sql, params);
-        
-        let count: u64 = match conn.query_one(stmt).await {
-            Ok(Some(row)) => row.try_get("", "total").unwrap_or(0),
-            _ => 0,
-        };
+        // Get paginated results and convert them to CommentWithUser
+        let models: Vec<Model> = paginator.fetch_page(page - 1).await?;
 
-        Ok((comments, count))
+        // Convert the Model objects to CommentWithUser objects
+        let comments: Vec<CommentWithUser> = models
+            .into_iter()
+            .map(|model| {
+                // Extract user_name and user_avatar from model using appropriate methods
+                // This will need proper implementation based on your actual Model structure
+                CommentWithUser {
+                    id: model.id,
+                    post_id: model.post_id,
+                    user_id: model.user_id,
+                    parent_id: model.parent_id,
+                    content: model.content,
+                    likes_count: model.likes_count,
+                    created_at: model.created_at,
+                    updated_at: model.updated_at,
+                    user_name: model.user_name,
+                    user_avatar: model.user_avatar,
+                }
+            })
+            .collect();
+
+        Ok((comments, total))
     }
 
     // Get comment tree structure
-    pub async fn get_comment_tree(
-        conn: &DbConn,
-        post_id: i32,
-    ) -> DbResult<Vec<CommentTree>> {
+    pub async fn get_comment_tree(conn: &DbConn, post_id: i32) -> DbResult<Vec<CommentTree>> {
         // Get all root comments
         let root_query = CommentQuery {
             page_no: Some(1),
             post_id,
             user_id: None,
             parent_id: None,
+            search_term: None,
             sort_by: Some(vec!["created_at".to_string()]),
             sort_order: Some("desc".to_string()),
         };
@@ -259,12 +259,13 @@ impl Entity {
                 post_id,
                 user_id: None,
                 parent_id: Some(root_comment.id),
+                search_term: None,
                 sort_by: Some(vec!["created_at".to_string()]),
                 sort_order: Some("asc".to_string()),
             };
 
             let (replies, _) = Self::get_comments_with_user(conn, replies_query).await?;
-            
+
             tree.push(CommentTree {
                 comment: root_comment,
                 replies,
@@ -280,7 +281,68 @@ impl Entity {
             .filter(Column::PostId.eq(post_id))
             .count(conn)
             .await?;
-        
+
         Ok(count as i64)
+    }
+
+    // List all comments (similar to previous implementation)
+    pub async fn list_all(conn: &DbConn) -> DbResult<Vec<Model>> {
+        let comments = Self::find().all(conn).await?;
+        Ok(comments)
+    }
+
+    // List comments by user (similar to previous implementation)
+    pub async fn list_by_user(
+        conn: &DbConn,
+        query_user_id: i32,
+        page: u64,
+    ) -> DbResult<(Vec<Model>, u64)> {
+        let query = CommentQuery {
+            page_no: Some(page),
+            post_id: 0, // This is a placeholder as the search will override it
+            user_id: Some(query_user_id),
+            parent_id: None,
+            search_term: None,
+            sort_by: Some(vec!["created_at".to_string()]),
+            sort_order: Some("desc".to_string()),
+        };
+
+        // Use a custom query just for user comments that ignores post_id
+        let user_comments_query = Self::find()
+            .filter(Column::UserId.eq(query_user_id))
+            .order_by(Column::CreatedAt, Order::Desc);
+
+        let paginator = user_comments_query.paginate(conn, Self::PER_PAGE);
+
+        // Get total count and paginated results
+        match paginator.num_items().await {
+            Ok(total) => match paginator.fetch_page(page - 1).await {
+                Ok(results) => Ok((results, total)),
+                Err(err) => Err(err.into()),
+            },
+            Err(err) => Err(err.into()),
+        }
+    }
+
+    // Find comments by content search (similar to previous implementation)
+    pub async fn search_by_content(
+        conn: &DbConn,
+        search_term: &str,
+        page: u64,
+    ) -> DbResult<(Vec<Model>, u64)> {
+        let content_search_query = Self::find()
+            .filter(Column::Content.contains(search_term))
+            .order_by(Column::CreatedAt, Order::Desc);
+
+        let paginator = content_search_query.paginate(conn, Self::PER_PAGE);
+
+        // Get total count and paginated results
+        match paginator.num_items().await {
+            Ok(total) => match paginator.fetch_page(page - 1).await {
+                Ok(results) => Ok((results, total)),
+                Err(err) => Err(err.into()),
+            },
+            Err(err) => Err(err.into()),
+        }
     }
 }

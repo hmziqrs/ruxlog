@@ -11,6 +11,7 @@ pub struct Model {
     pub user_id: i32,
     pub parent_id: Option<i32>,
     pub content: String,
+    pub likes_count: i32,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
