@@ -10,6 +10,7 @@ pub struct Model {
     pub post_id: i32,
     pub ip_address: String,
     pub user_agent: Option<String>,
+    pub user_id: Option<i32>,
     pub created_at: NaiveDateTime,
 }
 

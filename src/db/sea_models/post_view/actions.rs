@@ -13,6 +13,7 @@ impl Entity {
             post_id: Set(new_post_view.post_id),
             ip_address: Set(new_post_view.ip_address),
             user_agent: Set(new_post_view.user_agent),
+            user_id: Set(new_post_view.user_id),
             created_at: Set(now),
             ..Default::default()
         };
@@ -34,6 +35,10 @@ impl Entity {
         // Apply filters
         if let Some(ip_address) = &query.ip_address {
             post_view_query = post_view_query.filter(Column::IpAddress.eq(ip_address));
+        }
+
+        if let Some(user_id) = query.user_id {
+            post_view_query = post_view_query.filter(Column::UserId.eq(user_id));
         }
 
         if let Some(created_at) = query.created_at {
