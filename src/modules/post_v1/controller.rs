@@ -10,7 +10,7 @@ use axum_macros::debug_handler;
 use serde_json::json;
 
 use crate::{
-    db::models::post::Post, extractors::ValidatedJson,
+    db::sea_models::post, extractors::ValidatedJson,
     modules::post_v1::validator::V1UpdatePostPayload, services::auth::AuthSession, AppState,
 };
 
@@ -25,7 +25,7 @@ pub async fn create(
     let user = auth.user.unwrap();
     let new_post = payload.0.into_new_post(user.id);
 
-    match Post::create(&state.db_pool, new_post).await {
+    match post::Entity::create(&state.sea_db, new_post).await {
         Ok(post) => (StatusCode::CREATED, Json(json!(post))).into_response(),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -44,8 +44,8 @@ pub async fn find_by_id_or_slug(
     Path(slug_or_id): Path<String>,
 ) -> impl IntoResponse {
     let query = match slug_or_id.parse::<i32>() {
-        Ok(id) => Post::find_by_id_or_slug(&state.db_pool, Some(id), None).await,
-        Err(_) => Post::find_by_id_or_slug(&state.db_pool, None, Some(slug_or_id)).await,
+        Ok(id) => post::Entity::find_by_id_or_slug(&state.sea_db, Some(id), None).await,
+        Err(_) => post::Entity::find_by_id_or_slug(&state.sea_db, None, Some(slug_or_id)).await,
     };
 
     match query {
@@ -76,7 +76,7 @@ pub async fn update(
     let user = auth.user.unwrap();
     let update_post = payload.0.into_update_post(user.id);
 
-    match Post::update(&state.db_pool, post_id, user, update_post).await {
+    match post::Entity::update(&state.sea_db, post_id, user, update_post).await {
         Ok(Some(post)) => (StatusCode::OK, Json(json!(post))).into_response(),
         Ok(None) => (
             StatusCode::NOT_FOUND,
@@ -104,7 +104,7 @@ pub async fn delete(
     Path(post_id): Path<i32>,
 ) -> impl IntoResponse {
     let user = auth.user.unwrap();
-    match Post::delete(&state.db_pool, user, post_id).await {
+    match post::Entity::delete(&state.sea_db, user, post_id).await {
         Ok(1) => (
             StatusCode::OK,
             Json(json!({ "message": "Post deleted successfully" })),
@@ -145,7 +145,7 @@ pub async fn find_posts_with_query(
 ) -> impl IntoResponse {
     let post_query = query.0.into_post_query();
 
-    match Post::find_posts_with_query(&state.db_pool, post_query, auth.user.unwrap()).await {
+    match post::Entity::find_posts_with_query(&state.sea_db, post_query, auth.user.unwrap()).await {
         Ok(posts) => (StatusCode::OK, Json(json!(posts))).into_response(),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -165,13 +165,13 @@ pub async fn find_published_posts(
 ) -> impl IntoResponse {
     let page = query.page.unwrap_or(1);
 
-    match Post::find_published_paginated(&state.db_pool, page).await {
+    match post::Entity::find_published_paginated(&state.sea_db, page).await {
         Ok((posts, total)) => (
             StatusCode::OK,
             Json(json!({
                 "data": posts,
                 "total": total,
-                "per_page": Post::PER_PAGE,
+                "per_page": post::Entity::PER_PAGE,
                 "page": page,
             })),
         )
@@ -194,7 +194,7 @@ pub async fn track_view(
     Path(post_id): Path<i32>,
 ) -> impl IntoResponse {
     let user_id: Option<i32> = auth.user.map(|user| user.id);
-    match Post::increment_view_count(&state.db_pool, post_id, user_id).await {
+    match post::Entity::increment_view_count(&state.sea_db, post_id, user_id).await {
         Ok(_) => (
             StatusCode::OK,
             Json(json!({ "message": "View tracked successfully" })),
@@ -213,7 +213,7 @@ pub async fn track_view(
 
 #[debug_handler]
 pub async fn sitemap(State(state): State<AppState>) -> impl IntoResponse {
-    match Post::sitemap(&state.db_pool).await {
+    match post::Entity::sitemap(&state.sea_db).await {
         Ok(posts) => (StatusCode::OK, Json(posts)).into_response(),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
