@@ -243,7 +243,7 @@ impl Entity {
         // Get all root comments
         let root_query = CommentQuery {
             page_no: Some(1),
-            post_id,
+            post_id: Some(post_id),
             user_id: None,
             parent_id: None,
             search_term: None,
@@ -258,7 +258,7 @@ impl Entity {
         for root_comment in root_comments {
             let replies_query = CommentQuery {
                 page_no: Some(1),
-                post_id,
+                post_id: Some(post_id),
                 user_id: None,
                 parent_id: Some(root_comment.id),
                 search_term: None,
@@ -301,7 +301,7 @@ impl Entity {
     ) -> DbResult<(Vec<Model>, u64)> {
         let query = CommentQuery {
             page_no: Some(page),
-            post_id: 0, // This is a placeholder as the search will override it
+            post_id: None,
             user_id: Some(query_user_id),
             parent_id: None,
             search_term: None,

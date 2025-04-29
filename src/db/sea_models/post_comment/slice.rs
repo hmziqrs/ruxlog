@@ -32,7 +32,7 @@ impl Default for CommentQuery {
     fn default() -> Self {
         Self {
             page_no: None,
-            post_id: 0,
+            post_id: None,
             user_id: None,
             parent_id: None,
             search_term: None,
