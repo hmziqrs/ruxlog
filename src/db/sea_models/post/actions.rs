@@ -867,6 +867,14 @@ impl Entity {
         Self::find_with_relations(conn, query, None, false).await
     }
 
+    // Find all posts
+    pub async fn find_all(conn: &DbConn) -> DbResult<Vec<Model>> {
+        match Self::find().all(conn).await {
+            Ok(posts) => Ok(posts),
+            Err(err) => Err(err.into()),
+        }
+    }
+
     pub async fn sitemap(conn: &DbConn) -> DbResult<Vec<PostSitemap>> {
         let published_posts = Self::find()
             .filter(Column::Status.eq(PostStatus::Published))

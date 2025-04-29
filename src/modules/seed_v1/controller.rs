@@ -13,15 +13,16 @@ use serde_json::json;
 #[derive(Debug, Dummy)]
 struct FakeWord(#[dummy(faker = "Word()")] String);
 
-use crate::db::models::user::AdminUserQuery;
+use crate::db::sea_models::user::{self, AdminUserQuery};
 use crate::{
-    db::models::{
-        category::{Category, NewCategory},
-        post::{NewPost, Post},
-        post_comment::{NewPostComment, PostComment},
-        user::{AdminCreateUser, User, UserRole},
+    db::sea_models::{
+        category,
+        post,
+        post_comment,
+        tag,
+        user::UserRole,
     },
-    db::sea_models::tag,
+    error::DbResult,
     services::auth::AuthSession,
     AppState,
 };
@@ -37,19 +38,6 @@ pub struct FakeUser {
     email: String,
 }
 
-// #[derive(Debug, Dummy)]
-// pub struct FakePost {
-//     #[dummy(faker = "Words(1..5)")]
-//     title: String,
-//     // #[dummy(faker = "Sentences(1..3)")]
-//     // title: String,
-//     // #[dummy(faker = "Words(1..5)")]
-//     // excerpt: String,
-
-//     // #[dummy(faker = "Paragraphs(1..5)")]
-//     // content: String,
-// }
-//
 #[debug_handler]
 pub async fn seed_tags(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
     let mut tags: Vec<tag::Model> = vec![];
@@ -91,7 +79,7 @@ pub async fn seed_categories(
     State(state): State<AppState>,
     _auth: AuthSession,
 ) -> impl IntoResponse {
-    let mut fakes: Vec<Category> = vec![];
+    let mut fakes: Vec<category::Model> = vec![];
     let mut fake_set: HashSet<String> = HashSet::new();
 
     for _ in 0..10 {
@@ -100,7 +88,7 @@ pub async fn seed_categories(
     }
 
     for cat in fake_set {
-        let new_cat = NewCategory {
+        let new_cat = category::NewCategory {
             name: cat.clone(),
             slug: cat.to_lowercase(),
             parent_id: None,
@@ -109,7 +97,7 @@ pub async fn seed_categories(
             cover_image: None,
         };
 
-        match Category::create(&state.db_pool, new_cat).await {
+        match category::Entity::create(&state.sea_db, new_cat).await {
             Ok(tag) => fakes.push(tag),
             Err(err) => {
                 println!("Error creating tag: {:?}", err);
@@ -142,7 +130,7 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
         }
     };
 
-    let categories = match Category::find_all(&state.db_pool).await {
+    let categories = match category::Entity::find_all(&state.sea_db).await {
         Ok(c) => c,
         Err(_) => {
             return (
@@ -155,8 +143,8 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
         }
     };
 
-    let mut authors: Vec<User> = vec![];
-    let mut author_page: i64 = 1;
+    let mut authors: Vec<user::Model> = vec![];
+    let mut author_page: u64 = 1;
     let mut fetch_authors = true;
 
     loop {
@@ -172,10 +160,10 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
                 sort_by: None,
                 sort_order: None,
             };
-            match User::admin_list(&state.db_pool, author_query).await {
-                Ok(res) => {
-                    let len = res.len() as i64;
-                    if len == User::ADMIN_PER_PAGE {
+            match user::Entity::admin_list(&state.sea_db, author_query).await {
+                Ok((res, total)) => {
+                    let len = res.len() as u64;
+                    if len == user::Entity::PER_PAGE {
                         author_page += 1;
                     } else {
                         fetch_authors = false;
@@ -221,29 +209,28 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
                 .collect();
             let post_excerpt = l::Words(EN, 1..8).fake::<Vec<String>>().join(" ");
             let post_content: String = l::Paragraphs(EN, 1..8).fake::<Vec<String>>().join(" ");
-            let is_published = rng.random_bool(0.8);
-            let new_post = NewPost {
+            let is_published = rng.gen_bool(0.8);
+            
+            let new_post = post::NewPost {
                 title: post_title.clone(),
-                excerpt: Some(post_excerpt),
+                slug: post_slug,
                 content: post_content,
-                author_id: user.id,
+                excerpt: Some(post_excerpt),
+                featured_image: None,
+                status: if is_published { post::PostStatus::Published } else { post::PostStatus::Draft },
+                user_id: user.id,
                 published_at: if is_published {
                     Some(chrono::Utc::now().naive_utc())
                 } else {
                     None
                 },
-                is_published,
-                slug: post_slug,
-                featured_image_url: None,
                 category_id,
                 view_count: 0,
                 likes_count: 0,
                 tag_ids,
             };
 
-            // println!("{:?}", new_post);
-
-            if let Err(err) = Post::create(&state.db_pool, new_post).await {
+            if let Err(err) = post::Entity::create(&state.sea_db, new_post).await {
                 println!("Error creating post: {:?}", err);
             }
         }
@@ -266,8 +253,8 @@ pub async fn seed_post_comments(
     State(state): State<AppState>,
     _auth: AuthSession,
 ) -> impl IntoResponse {
-    let mut users: Vec<User> = vec![];
-    let mut user_page: i64 = 1;
+    let mut users: Vec<user::Model> = vec![];
+    let mut user_page: u64 = 1;
     let mut fetch_users = true;
 
     loop {
@@ -283,10 +270,10 @@ pub async fn seed_post_comments(
                 sort_by: None,
                 sort_order: None,
             };
-            match User::admin_list(&state.db_pool, user_query).await {
-                Ok(res) => {
-                    let len = res.len() as i64;
-                    if len == User::ADMIN_PER_PAGE {
+            match user::Entity::admin_list(&state.sea_db, user_query).await {
+                Ok((res, total)) => {
+                    let len = res.len() as u64;
+                    if len == user::Entity::PER_PAGE {
                         user_page += 1;
                     } else {
                         fetch_users = false;
@@ -298,7 +285,7 @@ pub async fn seed_post_comments(
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         Json(json!({
-                            "message": "Failed to fetch authors"
+                            "message": "Failed to fetch users"
                         })),
                     )
                         .into_response();
@@ -310,13 +297,13 @@ pub async fn seed_post_comments(
         }
     }
 
-    let posts = match Post::find_all(&state.db_pool).await {
+    let posts = match post::Entity::find_all(&state.sea_db).await {
         Ok(p) => p,
         Err(_) => {
             return (
-                StatusCode::OK,
+                StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({
-                    "message": "Posts seeded successfully",
+                    "message": "Failed to fetch posts"
                 })),
             )
                 .into_response();
@@ -324,8 +311,13 @@ pub async fn seed_post_comments(
     };
     let mut rng = StdRng::seed_from_u64(100);
     for user in users {
-        let posts_ratio = posts.len() / 10;
-        let posts_amount = rng.random_range(posts_ratio..posts.len());
+        // Ensure we don't try to select more posts than available
+        let posts_amount = if posts.len() <= 10 {
+            1
+        } else {
+            rng.random_range(1..posts.len().min(10))
+        };
+
         let post_ids: Vec<i32> = posts
             .choose_multiple(&mut rng, posts_amount)
             .cloned()
@@ -334,12 +326,14 @@ pub async fn seed_post_comments(
 
         for post_id in post_ids {
             let content: String = l::Sentences(EN, 1..5).fake::<Vec<String>>().join(" ");
-            let new_comment = NewPostComment {
+            let new_comment = post_comment::NewComment {
                 post_id,
                 user_id: user.id,
+                parent_id: None,
                 content,
+                likes_count: Some(0),
             };
-            if let Err(err) = PostComment::create(&state.db_pool, new_comment).await {
+            if let Err(err) = post_comment::Entity::create(&state.sea_db, new_comment).await {
                 println!("Error creating comment: {:?}", err);
             }
         }
@@ -348,7 +342,7 @@ pub async fn seed_post_comments(
     return (
         StatusCode::OK,
         Json(json!({
-            "message": "Posts seeded successfully",
+            "message": "Post comments seeded successfully",
         })),
     )
         .into_response();
@@ -357,16 +351,16 @@ pub async fn seed_post_comments(
 #[debug_handler]
 pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
     let mut rng = StdRng::seed_from_u64(42);
-    let mut fake_users: Vec<User> = vec![];
-    let mut fake_posts: Vec<Post> = vec![];
+    let mut fake_users: Vec<user::Model> = vec![];
+    let mut fake_posts: Vec<post::Model> = vec![];
 
     for _ in 0..50 {
         let user: FakeUser = Faker.fake_with_rng(&mut rng);
-        let new_user = AdminCreateUser {
+        let new_user = user::AdminCreateUser {
             name: user.name,
             email: user.email.clone(),
             password: user.email,
-            role: if rng.random_bool(0.5) {
+            role: if rng.gen_bool(0.5) {
                 UserRole::Author
             } else {
                 UserRole::User
@@ -375,7 +369,7 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
             is_verified: Some(true),
         };
 
-        match User::admin_create(&state.db_pool, new_user).await {
+        match user::Entity::admin_create(&state.sea_db, new_user).await {
             Ok(user) => fake_users.push(user),
             Err(err) => {
                 println!("Error creating user: {:?}", err);
@@ -384,12 +378,12 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
     }
 
     // Create 10 categories
-    let mut categories: Vec<Category> = vec![];
+    let mut categories: Vec<category::Model> = vec![];
     for _ in 0..10 {
         let fake_name: FakeWord = Faker.fake();
         let name = fake_name.0;
         let slug = name.to_lowercase().replace(' ', "-");
-        let new_category = NewCategory {
+        let new_category = category::NewCategory {
             name,
             slug,
             description: None,
@@ -398,7 +392,7 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
             logo_image: None,
         };
 
-        match Category::create(&state.db_pool, new_category).await {
+        match category::Entity::create(&state.sea_db, new_category).await {
             Ok(category) => categories.push(category),
             Err(err) => {
                 println!("Error creating category: {:?}", err);
@@ -440,27 +434,29 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
                     .collect();
                 let post_title: String = l::Sentence(EN, 1..2).fake();
                 let post_excerpt = l::Words(EN, 1..8).fake::<Vec<String>>().join(" ");
-                let post_content: String = l::Paragraph(EN, 1..8).fake::<String>();
-                let new_post = NewPost {
+                let post_content: String = l::Paragraph(EN, 1..8).fake();
+                let is_published = rng.gen_bool(0.5);
+                
+                let new_post = post::NewPost {
                     title: post_title.clone(),
-                    excerpt: Some(post_excerpt),
+                    slug: post_title.to_lowercase().replace(' ', "-"),
                     content: post_content,
-                    author_id: user.id,
-                    published_at: if rng.random_bool(0.5) {
+                    excerpt: Some(post_excerpt),
+                    featured_image: None,
+                    status: if is_published { post::PostStatus::Published } else { post::PostStatus::Draft },
+                    user_id: user.id,
+                    published_at: if is_published {
                         Some(chrono::Utc::now().naive_utc())
                     } else {
                         None
                     },
-                    is_published: rng.random_bool(0.5),
-                    slug: post_title.to_lowercase().replace(' ', "-"),
-                    featured_image_url: None,
                     category_id,
                     view_count: 0,
                     likes_count: 0,
                     tag_ids,
                 };
 
-                match Post::create(&state.db_pool, new_post).await {
+                match post::Entity::create(&state.sea_db, new_post).await {
                     Ok(post) => {
                         fake_posts.push(post);
                     }
@@ -473,22 +469,21 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
     }
 
     for user in fake_users.iter() {
-        if user.role == UserRole::User {
+        if user.role == UserRole::User && !fake_posts.is_empty() {
             let num_comments = rng.random_range(1..4);
             for _ in 0..num_comments {
                 let post = fake_posts.choose(&mut rng).unwrap();
-                let content: String = l::Sentence(EN, 1..2).fake::<String>();
-                let new_comment = NewPostComment {
+                let content: String = l::Sentence(EN, 1..2).fake();
+                let new_comment = post_comment::NewComment {
                     post_id: post.id,
                     user_id: user.id,
+                    parent_id: None,
                     content,
+                    likes_count: Some(0),
                 };
 
-                match PostComment::create(&state.db_pool, new_comment).await {
-                    Ok(_) => {}
-                    Err(err) => {
-                        println!("Error creating comment: {:?}", err);
-                    }
+                if let Err(err) = post_comment::Entity::create(&state.sea_db, new_comment).await {
+                    println!("Error creating comment: {:?}", err);
                 }
             }
         }

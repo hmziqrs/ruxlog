@@ -5,7 +5,7 @@ use crate::error::{DbResult, ErrorCode, ErrorResponse};
 use super::*;
 
 impl Entity {
-    const PER_PAGE: u64 = 20;
+    pub const PER_PAGE: u64 = 20;
 
     // Create a new user
     pub async fn create(conn: &DbConn, new_user: NewUser) -> DbResult<Model> {
