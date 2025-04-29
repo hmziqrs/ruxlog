@@ -26,13 +26,13 @@ pub async fn verify(
     auth: AuthSession,
     payload: ValidatedJson<V1VerifyPayload>,
 ) -> impl IntoResponse {
-    let pool = &state.sea_db;
     let user_id = auth.user.unwrap().id;
+    let code = payload.0.code;
 
     let verification_result = email_verification::Entity::find_by_user_id_and_code(
-        pool,
-        Some(user_id),
-        Some(payload.code.clone()),
+        &state.sea_db,
+        user_id,
+        code,
     )
     .await;
 
@@ -73,7 +73,7 @@ pub async fn verify(
         }
     }
 
-    let update_user = user::Entity::verify(pool, user_id).await;
+    let update_user = user::Entity::verify(&state.sea_db, user_id).await;
     match update_user {
         Ok(_) => (
             StatusCode::OK,
