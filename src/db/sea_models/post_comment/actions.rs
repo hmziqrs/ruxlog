@@ -204,36 +204,38 @@ impl Entity {
             _ => 1,
         };
 
-        let paginator = comment_query.paginate(conn, Self::PER_PAGE);
+        let paginator = comment_query
+            .into_model::<CommentWithUser>()
+            .paginate(conn, Self::PER_PAGE);
 
         // Get total count
         let total = paginator.num_items().await?;
 
         // Get paginated results and convert them to CommentWithUser
-        let models: Vec<Model> = paginator.fetch_page(page - 1).await?;
+        let models = paginator.fetch_page(page - 1).await?;
 
         // Convert the Model objects to CommentWithUser objects
-        let comments: Vec<CommentWithUser> = models
-            .into_iter()
-            .map(|model| {
-                // Extract user_name and user_avatar from model using appropriate methods
-                // This will need proper implementation based on your actual Model structure
-                CommentWithUser {
-                    id: model.id,
-                    post_id: model.post_id,
-                    user_id: model.user_id,
-                    parent_id: model.parent_id,
-                    content: model.content,
-                    likes_count: model.likes_count,
-                    created_at: model.created_at,
-                    updated_at: model.updated_at,
-                    user_name: model.user_name,
-                    user_avatar: model.user_avatar,
-                }
-            })
-            .collect();
+        // let comments: Vec<CommentWithUser> = models
+        //     .into_iter()
+        //     .map(|model| {
+        //         // Extract user_name and user_avatar from model using appropriate methods
+        //         // This will need proper implementation based on your actual Model structure
+        //         CommentWithUser {
+        //             id: model.id,
+        //             post_id: model.post_id,
+        //             user_id: model.user_id,
+        //             parent_id: model.parent_id,
+        //             content: model.content,
+        //             likes_count: model.likes_count,
+        //             created_at: model.created_at,
+        //             updated_at: model.updated_at,
+        //             user_name: model.user_name,
+        //             user_avatar: model.user_avatar,
+        //         }
+        //     })
+        // .collect();
 
-        Ok((comments, total))
+        Ok((models, total))
     }
 
     // Get comment tree structure
