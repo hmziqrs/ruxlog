@@ -2,7 +2,7 @@ use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use validator::{Validate, ValidationError};
 
-use crate::db::models::user::{
+use crate::db::sea_models::user::{
     AdminCreateUser, AdminUpdateUser, AdminUserQuery, UpdateUser, UserRole,
 };
 
@@ -47,10 +47,9 @@ fn default_role() -> String {
 }
 
 fn validate_role(role: &str) -> Result<(), ValidationError> {
-    if UserRole::from_str(role).is_ok() {
-        Ok(())
-    } else {
-        Err(ValidationError::new("invalid_role"))
+    match UserRole::from_str(role) {
+        Ok(_) => Ok(()),
+        Err(_) => Err(ValidationError::new("invalid_role")),
     }
 }
 
@@ -60,7 +59,7 @@ impl V1AdminCreateUserPayload {
             name: self.name,
             email: self.email,
             password: self.password,
-            role: UserRole::from_str(&self.role).unwrap(),
+            role: UserRole::from_str(&self.role).unwrap_or(UserRole::User),
             avatar: self.avatar,
             is_verified: Some(self.is_verified),
         }
@@ -103,7 +102,7 @@ pub struct AdminChangePassword {
 
 #[derive(Debug, Deserialize, Serialize, Validate, Clone)]
 pub struct V1AdminUserQueryParams {
-    pub page_no: Option<i64>,
+    pub page_no: Option<u64>,
     pub email: Option<String>,
     pub name: Option<String>,
     #[validate(custom(function = "validate_role"))]

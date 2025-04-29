@@ -9,7 +9,10 @@ use serde_json::json;
 
 use super::validator::*;
 use crate::{
-    db::models::user::User, extractors::ValidatedJson, services::auth::AuthSession, AppState,
+    db::sea_models::user::Entity as User, 
+    extractors::ValidatedJson,
+    services::auth::AuthSession,
+    AppState,
 };
 
 #[debug_handler]
@@ -35,10 +38,19 @@ pub async fn update_profile(
 ) -> impl IntoResponse {
     if let Some(user) = auth.user {
         let payload = payload.0.into_update_user();
-        let updated_user = User::update(&state.db_pool, user.id, payload).await;
+        let updated_user = User::update(&state.sea_db, user.id, payload).await;
         match updated_user {
-            Ok(user) => {
+            Ok(Some(user)) => {
                 return (StatusCode::OK, Json(json!(user))).into_response();
+            }
+            Ok(None) => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(json!({
+                        "error": "User not found",
+                        "message": "User could not be found or updated",
+                    })),
+                ).into_response();
             }
             Err(err) => {
                 return (
@@ -64,12 +76,13 @@ pub async fn update_profile(
 
 #[debug_handler]
 pub async fn admin_create(
-    State(state): State<AppState>,
+    state: State<AppState>,
     payload: ValidatedJson<V1AdminCreateUserPayload>,
 ) -> impl IntoResponse {
     let payload = payload.0.into_new_user();
+    let conn = &state.sea_db;
 
-    match User::admin_create(&state.db_pool, payload).await {
+    match User::admin_create(conn, payload).await {
         Ok(user) => (StatusCode::CREATED, Json(json!(user))).into_response(),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -81,10 +94,11 @@ pub async fn admin_create(
 
 #[debug_handler]
 pub async fn admin_delete(
-    State(state): State<AppState>,
+    state: State<AppState>,
     Path(user_id): Path<i32>,
 ) -> impl IntoResponse {
-    match User::admin_delete(&state.db_pool, user_id).await {
+    let conn = &state.sea_db;
+    match User::admin_delete(conn, user_id).await {
         Ok(_) => StatusCode::NO_CONTENT.into_response(),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -96,13 +110,14 @@ pub async fn admin_delete(
 
 #[debug_handler]
 pub async fn admin_update(
-    State(state): State<AppState>,
+    state: State<AppState>,
     Path(user_id): Path<i32>,
     payload: ValidatedJson<V1AdminUpdateUserPayload>,
 ) -> impl IntoResponse {
     let payload = payload.0.into_update_user();
+    let conn = &state.sea_db;
 
-    match User::admin_update(&state.db_pool, user_id, payload).await {
+    match User::admin_update(conn, user_id, payload).await {
         Ok(Some(user)) => (StatusCode::OK, Json(json!(user))).into_response(),
         Ok(None) => (
             StatusCode::NOT_FOUND,
@@ -122,13 +137,13 @@ pub async fn admin_update(
 
 #[debug_handler]
 pub async fn admin_change_password(
-    State(state): State<AppState>,
+    state: State<AppState>,
     Path(user_id): Path<i32>,
     payload: ValidatedJson<AdminChangePassword>,
 ) -> impl IntoResponse {
-    let payload = payload.0;
+    let conn = &state.sea_db;
 
-    match User::admin_change_password(&state.db_pool, user_id, payload.password).await {
+    match User::change_password(conn, user_id, payload.0.password).await {
         Ok(_) => StatusCode::NO_CONTENT.into_response(),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -140,13 +155,14 @@ pub async fn admin_change_password(
 
 #[debug_handler]
 pub async fn admin_list(
-    State(state): State<AppState>,
+    state: State<AppState>,
     payload: ValidatedJson<V1AdminUserQueryParams>,
 ) -> impl IntoResponse {
     let query = payload.0.into_user_query();
+    let conn = &state.sea_db;
 
-    match User::admin_list(&state.db_pool, query).await {
-        Ok(users) => (StatusCode::OK, Json(json!(users))).into_response(),
+    match User::admin_list(conn, query).await {
+        Ok(users_with_count) => (StatusCode::OK, Json(json!(users_with_count))).into_response(),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "error": err.to_string() })),
@@ -157,10 +173,11 @@ pub async fn admin_list(
 
 #[debug_handler]
 pub async fn admin_view(
-    State(state): State<AppState>,
+    state: State<AppState>,
     Path(user_id): Path<i32>,
 ) -> impl IntoResponse {
-    match User::admin_view(&state.db_pool, user_id).await {
+    let conn = &state.sea_db;
+    match User::get_by_id(conn, user_id).await {
         Ok(Some(user)) => (StatusCode::OK, Json(json!(user))).into_response(),
         Ok(None) => (
             StatusCode::NOT_FOUND,
