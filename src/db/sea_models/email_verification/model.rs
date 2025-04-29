@@ -40,7 +40,7 @@ impl Entity {
 
     // Generate a random verification code
     pub fn generate_code() -> String {
-        rand::thread_rng()
+        rand::rng()
             .sample_iter(&Alphanumeric)
             .take(6)
             .map(char::from)
