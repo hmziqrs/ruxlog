@@ -136,6 +136,38 @@ impl Entity {
             Err(err) => Err(err.into()),
         }
     }
+    
+    // Find user by email and forgot password code
+    pub async fn find_by_email_and_forgot_password(
+        conn: &DbConn, 
+        user_email: String, 
+        otp_code: String
+    ) -> DbResult<Option<(Model, super::super::forgot_password::Model)>> {
+        use sea_orm::{entity::*, query::*};
+        use super::super::forgot_password::{Entity as ForgotPassword, Column as ForgotPasswordColumn};
+        
+        let result = Entity::find()
+            .filter(Column::Email.eq(user_email))
+            .join(JoinType::InnerJoin, Relation::ForgotPassword.def())
+            .filter(ForgotPasswordColumn::Code.eq(otp_code))
+            .find_with_related(ForgotPassword)
+            .all(conn)
+            .await;
+            
+        match result {
+            Ok(mut results) => {
+                if results.is_empty() {
+                    return Ok(None);
+                }
+                
+                let (user, mut forgot_passwords) = results.remove(0);
+                let forgot_password = forgot_passwords.pop().unwrap();
+                
+                Ok(Some((user, forgot_password)))
+            },
+            Err(err) => Err(err.into()),
+        }
+    }
 
     // Admin operations
 

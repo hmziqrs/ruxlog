@@ -38,6 +38,37 @@ impl UserRole {
             UserRole::User => "user".to_string(),
         }
     }
+
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        match s.to_lowercase().as_str() {
+            "super-admin" => Ok(UserRole::SuperAdmin),
+            "admin" => Ok(UserRole::Admin),
+            "moderator" => Ok(UserRole::Moderator),
+            "author" => Ok(UserRole::Author),
+            "user" => Ok(UserRole::User),
+            _ => Err(format!("Invalid role: {}", s)),
+        }
+    }
+}
+
+impl From<&str> for UserRole {
+    fn from(s: &str) -> Self {
+        UserRole::from_str(s).unwrap_or(UserRole::User)
+    }
+}
+
+impl std::str::FromStr for UserRole {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        UserRole::from_str(s)
+    }
+}
+
+impl From<UserRole> for i32 {
+    fn from(role: UserRole) -> Self {
+        role.to_i32()
+    }
 }
 
 // Define the entity for 'users' table
@@ -55,6 +86,32 @@ pub struct Model {
     pub role: UserRole,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
+}
+
+impl Model {
+    pub fn get_role(&self) -> UserRole {
+        self.role
+    }
+
+    pub fn is_user(&self) -> bool {
+        self.get_role().to_i32() >= UserRole::User.to_i32()
+    }
+
+    pub fn is_author(&self) -> bool {
+        self.get_role().to_i32() >= UserRole::Author.to_i32()
+    }
+
+    pub fn is_moderator(&self) -> bool {
+        self.get_role().to_i32() >= UserRole::Moderator.to_i32()
+    }
+
+    pub fn is_admin(&self) -> bool {
+        self.get_role().to_i32() >= UserRole::Admin.to_i32()
+    }
+
+    pub fn is_super_admin(&self) -> bool {
+        self.get_role().to_i32() >= UserRole::SuperAdmin.to_i32()
+    }
 }
 
 // Define the relations
