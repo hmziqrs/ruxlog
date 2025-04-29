@@ -7,7 +7,7 @@ use sea_orm::{
 use super::*;
 
 impl Entity {
-    const PER_PAGE: u64 = 10;
+    pub const PER_PAGE: u64 = 10;
 
     // Create a new post
     pub async fn create(conn: &DbConn, new_post: NewPost) -> DbResult<Model> {
@@ -494,7 +494,7 @@ impl Entity {
         conn: &DbConn,
         post_id: i32,
         user_id: Option<i32>,
-        ip_address: String,
+        ip_address: Option<String>,
         user_agent: Option<String>,
     ) -> DbResult<()> {
         // Create a view record

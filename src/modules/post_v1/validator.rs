@@ -1,4 +1,3 @@
-// use bool;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
@@ -12,7 +11,7 @@ pub struct V1CreatePostPayload {
     #[validate(length(min = 1))]
     pub content: String,
     pub published_at: Option<NaiveDateTime>,
-    #[serde(default = "bool::default")]
+    #[serde(default)]
     pub is_published: bool,
     #[validate(length(min = 1, max = 255))]
     pub slug: String,
@@ -89,7 +88,6 @@ pub struct V1PostQueryParams {
     pub page: Option<u64>,
     pub author_id: Option<i32>,
     pub category_id: Option<i32>,
-    pub is_published: Option<PostStatus>,
     pub status: Option<PostStatus>,
     pub search: Option<String>,
     pub sort_by: Option<Vec<String>>,

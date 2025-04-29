@@ -76,7 +76,7 @@ pub async fn update(
     let user = auth.user.unwrap();
     let update_post = payload.0.into_update_post(user.id);
 
-    match post::Entity::update(&state.sea_db, post_id, user, update_post).await {
+    match post::Entity::update(&state.sea_db, post_id, update_post).await {
         Ok(Some(post)) => (StatusCode::OK, Json(json!(post))).into_response(),
         Ok(None) => (
             StatusCode::NOT_FOUND,
@@ -104,7 +104,7 @@ pub async fn delete(
     Path(post_id): Path<i32>,
 ) -> impl IntoResponse {
     let user = auth.user.unwrap();
-    match post::Entity::delete(&state.sea_db, user, post_id).await {
+    match post::Entity::delete(&state.sea_db, post_id).await {
         Ok(1) => (
             StatusCode::OK,
             Json(json!({ "message": "Post deleted successfully" })),
@@ -145,7 +145,7 @@ pub async fn find_posts_with_query(
 ) -> impl IntoResponse {
     let post_query = query.0.into_post_query();
 
-    match post::Entity::find_posts_with_query(&state.sea_db, post_query, auth.user.unwrap()).await {
+    match post::Entity::search(&state.sea_db, post_query).await {
         Ok(posts) => (StatusCode::OK, Json(json!(posts))).into_response(),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -171,7 +171,7 @@ pub async fn find_published_posts(
             Json(json!({
                 "data": posts,
                 "total": total,
-                "per_page": post::Entity::PER_PAGE,
+                "per_page": post::Entity::PER_PAGE as u64,
                 "page": page,
             })),
         )
@@ -194,7 +194,7 @@ pub async fn track_view(
     Path(post_id): Path<i32>,
 ) -> impl IntoResponse {
     let user_id: Option<i32> = auth.user.map(|user| user.id);
-    match post::Entity::increment_view_count(&state.sea_db, post_id, user_id).await {
+    match post::Entity::increment_view_count(&state.sea_db, post_id, user_id, None, None).await {
         Ok(_) => (
             StatusCode::OK,
             Json(json!({ "message": "View tracked successfully" })),

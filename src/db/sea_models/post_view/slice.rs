@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Deserialize, Debug)]
 pub struct NewPostView {
     pub post_id: i32,
-    pub ip_address: String,
+    pub ip_address: Option<String>,
     pub user_agent: Option<String>,
     pub user_id: Option<i32>,
 }
