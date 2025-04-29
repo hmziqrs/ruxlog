@@ -1,5 +1,8 @@
-use sea_orm::{entity::prelude::*, ConnectionTrait, DbBackend, Order, QueryOrder, Set, Statement};
 use crate::error::{DbResult, ErrorCode, ErrorResponse};
+use sea_orm::{
+    entity::prelude::*, Condition, ConnectionTrait, DbBackend, Order, QueryOrder, Set, Statement,
+    TransactionTrait,
+};
 
 use super::*;
 
@@ -18,6 +21,10 @@ impl Entity {
             status: Set(new_post.status),
             published_at: Set(new_post.published_at),
             user_id: Set(new_post.user_id),
+            category_id: Set(new_post.category_id),
+            view_count: Set(new_post.view_count),
+            likes_count: Set(new_post.likes_count),
+            tag_ids: Set(new_post.tag_ids),
             created_at: Set(now),
             updated_at: Set(now),
             ..Default::default()
@@ -27,6 +34,30 @@ impl Entity {
             Ok(model) => Ok(model),
             Err(err) => Err(err.into()),
         }
+    }
+
+    // Update an existing post with role-based access control
+    pub async fn update_with_auth(
+        conn: &DbConn,
+        post_id: i32,
+        update_post: UpdatePost,
+        user: &super::super::user::Model,
+        is_mod: bool,
+    ) -> DbResult<Option<Model>> {
+        // Check permissions - only mods can edit any post, others can edit their own
+        let mut query = Self::find_by_id(post_id);
+
+        if !is_mod {
+            query = query.filter(Column::UserId.eq(user.id));
+        }
+
+        let post = query.one(conn).await?;
+
+        if let Some(post_model) = post {
+            return Self::update(conn, post_id, update_post).await;
+        }
+
+        Ok(None)
     }
 
     // Update an existing post
@@ -68,6 +99,22 @@ impl Entity {
                 post_active.published_at = Set(Some(published_at));
             }
 
+            if let Some(category_id) = update_post.category_id {
+                post_active.category_id = Set(category_id);
+            }
+
+            if let Some(view_count) = update_post.view_count {
+                post_active.view_count = Set(view_count);
+            }
+
+            if let Some(likes_count) = update_post.likes_count {
+                post_active.likes_count = Set(likes_count);
+            }
+
+            if let Some(tag_ids) = update_post.tag_ids {
+                post_active.tag_ids = Set(tag_ids);
+            }
+
             post_active.updated_at = Set(update_post.updated_at);
 
             match post_active.update(conn).await {
@@ -87,12 +134,35 @@ impl Entity {
         }
     }
 
+    // Delete post with role-based access control
+    pub async fn delete_with_auth(
+        conn: &DbConn,
+        post_id: i32,
+        user: &super::super::user::Model,
+        is_mod: bool,
+    ) -> DbResult<u64> {
+        // Only mods can delete any post, others can delete their own
+        if !is_mod {
+            // Check if the post belongs to the user
+            let post = Self::find_by_id(post_id)
+                .filter(Column::UserId.eq(user.id))
+                .one(conn)
+                .await?;
+
+            if post.is_none() {
+                return Ok(0); // Post doesn't exist or user doesn't have permission
+            }
+        }
+
+        Self::delete(conn, post_id).await
+    }
+
     // Find post by ID
     pub async fn find_by_id_with_404(conn: &DbConn, post_id: i32) -> DbResult<Model> {
         match Self::find_by_id(post_id).one(conn).await {
             Ok(Some(model)) => Ok(model),
             Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                        .with_message(&format!("Post with ID {} not found", post_id))),
+                .with_message(&format!("Post with ID {} not found", post_id))),
             Err(err) => Err(err.into()),
         }
     }
@@ -109,15 +179,97 @@ impl Entity {
         }
     }
 
-    // Search posts with query parameters
-    pub async fn search(
+    // Find post by ID or slug with relations
+    pub async fn find_by_id_or_slug(
         conn: &DbConn,
-        query: PostQuery,
-    ) -> DbResult<(Vec<Model>, u64)> {
+        post_id: Option<i32>,
+        post_slug: Option<String>,
+    ) -> DbResult<Option<PostWithRelations>> {
+        // Find the post by either ID or slug
+        let post = match (post_id, post_slug.clone()) {
+            (Some(id), _) => Self::find_by_id(id).one(conn).await?,
+            (_, Some(slug)) => Self::find_by_slug(conn, slug).await?,
+            _ => return Ok(None),
+        };
+
+        if let Some(post) = post {
+            // Get user info
+            let user = super::super::user::Entity::find_by_id(post.user_id)
+                .one(conn)
+                .await?
+                .ok_or_else(|| {
+                    ErrorResponse::new(ErrorCode::RecordNotFound)
+                        .with_message(&format!("User with ID {} not found", post.user_id))
+                })?;
+
+            // Get category if present
+            let category = if let Some(cat_id) = post.category_id {
+                match super::super::category::Entity::find_by_id(cat_id)
+                    .one(conn)
+                    .await?
+                {
+                    Some(cat) => Some(PostCategory {
+                        id: cat.id,
+                        name: cat.name.clone(),
+                    }),
+                    None => None,
+                }
+            } else {
+                None
+            };
+
+            // Get tags
+            let mut tags = Vec::new();
+            if !post.tag_ids.is_empty() {
+                let tag_models = super::super::tag::Entity::find()
+                    .filter(super::super::tag::Column::Id.is_in(post.tag_ids.clone()))
+                    .all(conn)
+                    .await?;
+
+                for tag in tag_models {
+                    tags.push(PostTag {
+                        id: tag.id,
+                        name: tag.name,
+                    });
+                }
+            }
+
+            // Construct the post with relations
+            return Ok(Some(PostWithRelations {
+                id: post.id,
+                title: post.title,
+                slug: post.slug,
+                content: post.content,
+                excerpt: post.excerpt,
+                featured_image: post.featured_image,
+                status: post.status,
+                published_at: post.published_at,
+                created_at: post.created_at,
+                updated_at: post.updated_at,
+                user_id: post.user_id,
+                view_count: post.view_count,
+                likes_count: post.likes_count,
+                tag_ids: post.tag_ids,
+                category,
+                tags,
+                author: PostAuthor {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    avatar: user.avatar,
+                },
+            }));
+        }
+
+        Ok(None)
+    }
+
+    // Search posts with query parameters
+    pub async fn search(conn: &DbConn, query: PostQuery) -> DbResult<(Vec<Model>, u64)> {
         let mut post_query = Self::find();
 
         // Apply filters
-        if let Some(title_filter) = query.title {
+        if let Some(title_filter) = &query.title {
             let title_pattern = format!("%{}%", title_filter);
             post_query = post_query.filter(Column::Title.contains(&title_pattern));
         }
@@ -142,6 +294,30 @@ impl Entity {
             post_query = post_query.filter(Column::PublishedAt.eq(published_at_filter));
         }
 
+        if let Some(category_id_filter) = query.category_id {
+            post_query = post_query.filter(Column::CategoryId.eq(category_id_filter));
+        }
+
+        if let Some(search_term) = &query.search {
+            let search_pattern = format!("%{}%", search_term);
+            post_query = post_query.filter(
+                Condition::any()
+                    .add(Column::Title.contains(&search_pattern))
+                    .add(Column::Content.contains(&search_pattern)),
+            );
+        }
+
+        if let Some(tag_ids_filter) = query.tag_ids {
+            if !tag_ids_filter.is_empty() {
+                // Note: This is a simplified approach. For a real application,
+                // you might need a more complex query depending on how tags are stored
+                post_query = post_query.filter(Expr::cust_with_values(
+                    "tag_ids @> Array[?]::int[]",
+                    tag_ids_filter,
+                ));
+            }
+        }
+
         // Handle sort_by fields
         if let Some(sort_fields) = &query.sort_by {
             for field in sort_fields {
@@ -150,13 +326,15 @@ impl Entity {
                 } else {
                     Order::Desc
                 };
-                
+
                 post_query = match field.as_str() {
                     "title" => post_query.order_by(Column::Title, order),
                     "status" => post_query.order_by(Column::Status, order),
                     "created_at" => post_query.order_by(Column::CreatedAt, order),
                     "updated_at" => post_query.order_by(Column::UpdatedAt, order),
                     "published_at" => post_query.order_by(Column::PublishedAt, order),
+                    "view_count" => post_query.order_by(Column::ViewCount, order),
+                    "likes_count" => post_query.order_by(Column::LikesCount, order),
                     _ => post_query,
                 };
             }
@@ -175,9 +353,9 @@ impl Entity {
             Some(p) if p > 0 => p,
             _ => 1,
         };
-        
+
         let paginator = post_query.paginate(conn, Self::PER_PAGE);
-        
+
         // Get total count and paginated results
         match paginator.num_items().await {
             Ok(total) => match paginator.fetch_page(page - 1).await {
@@ -195,8 +373,8 @@ impl Entity {
     ) -> DbResult<(Vec<PostWithUser>, u64)> {
         // Custom SQL query to join posts with users
         let sql = r#"
-            SELECT 
-                p.id, p.title, p.slug, p.content, p.excerpt, p.featured_image, 
+            SELECT
+                p.id, p.title, p.slug, p.content, p.excerpt, p.featured_image,
                 p.status, p.published_at, p.created_at, p.updated_at, p.user_id,
                 u.name as user_name, u.avatar as user_avatar
             FROM posts p
@@ -225,7 +403,7 @@ impl Entity {
 
         // Build the final SQL query with pagination
         let mut final_sql = sql.to_owned();
-        
+
         // Add where clauses if any
         if !where_clauses.is_empty() {
             final_sql += &format!(" AND {}", where_clauses.join(" AND "));
@@ -238,6 +416,8 @@ impl Entity {
                 "created_at" => "p.created_at",
                 "updated_at" => "p.updated_at",
                 "published_at" => "p.published_at",
+                "view_count" => "p.view_count",
+                "likes_count" => "p.likes_count",
                 _ => "p.created_at",
             },
             _ => "p.created_at",
@@ -256,39 +436,36 @@ impl Entity {
             Some(p) if p > 0 => p,
             _ => 1,
         };
-        
+
         let offset = (page - 1) * Self::PER_PAGE;
         final_sql += &format!(" LIMIT {} OFFSET {}", Self::PER_PAGE, offset);
 
         // Execute the query
         let stmt = Statement::from_sql_and_values(DbBackend::Postgres, &final_sql, params.clone());
-        
+
         let posts: Vec<PostWithUser> = match conn.query_all(stmt).await {
-            Ok(rows) => {
-                rows.into_iter()
-                    .map(|row| {
-                        PostWithUser {
-                            id: row.try_get("", "id").unwrap_or_default(),
-                            title: row.try_get("", "title").unwrap_or_default(),
-                            slug: row.try_get("", "slug").unwrap_or_default(),
-                            content: row.try_get("", "content").unwrap_or_default(),
-                            excerpt: row.try_get("", "excerpt").ok(),
-                            featured_image: row.try_get("", "featured_image").ok(),
-                            status: match row.try_get::<String>("", "status") {
-                                Ok(s) if s == "published" => PostStatus::Published,
-                                Ok(s) if s == "archived" => PostStatus::Archived,
-                                _ => PostStatus::Draft,
-                            },
-                            published_at: row.try_get("", "published_at").ok(),
-                            created_at: row.try_get("", "created_at").unwrap_or_default(),
-                            updated_at: row.try_get("", "updated_at").unwrap_or_default(),
-                            user_id: row.try_get("", "user_id").unwrap_or_default(),
-                            user_name: row.try_get("", "user_name").unwrap_or_default(),
-                            user_avatar: row.try_get("", "user_avatar").ok(),
-                        }
-                    })
-                    .collect()
-            },
+            Ok(rows) => rows
+                .into_iter()
+                .map(|row| PostWithUser {
+                    id: row.try_get("", "id").unwrap_or_default(),
+                    title: row.try_get("", "title").unwrap_or_default(),
+                    slug: row.try_get("", "slug").unwrap_or_default(),
+                    content: row.try_get("", "content").unwrap_or_default(),
+                    excerpt: row.try_get("", "excerpt").ok(),
+                    featured_image: row.try_get("", "featured_image").ok(),
+                    status: match row.try_get::<String>("", "status") {
+                        Ok(s) if s == "published" => PostStatus::Published,
+                        Ok(s) if s == "archived" => PostStatus::Archived,
+                        _ => PostStatus::Draft,
+                    },
+                    published_at: row.try_get("", "published_at").ok(),
+                    created_at: row.try_get("", "created_at").unwrap_or_default(),
+                    updated_at: row.try_get("", "updated_at").unwrap_or_default(),
+                    user_id: row.try_get("", "user_id").unwrap_or_default(),
+                    user_name: row.try_get("", "user_name").unwrap_or_default(),
+                    user_avatar: row.try_get("", "user_avatar").ok(),
+                })
+                .collect(),
             Err(err) => return Err(err.into()),
         };
 
@@ -296,13 +473,13 @@ impl Entity {
         let mut count_sql = format!(
             "SELECT COUNT(*) as total FROM posts p JOIN users u ON p.user_id = u.id WHERE 1=1"
         );
-        
+
         if !where_clauses.is_empty() {
             count_sql += &format!(" AND {}", where_clauses.join(" AND "));
         }
 
         let stmt = Statement::from_sql_and_values(DbBackend::Postgres, &count_sql, params);
-        
+
         let count: u64 = match conn.query_one(stmt).await {
             Ok(Some(row)) => row.try_get("", "total").unwrap_or(0),
             _ => 0,
@@ -312,14 +489,64 @@ impl Entity {
     }
 
     // Get posts with user information and stats (view and comment counts)
+    // Increment post view count and record view
+    pub async fn increment_view_count(
+        conn: &DbConn,
+        post_id: i32,
+        user_id: Option<i32>,
+        ip_address: String,
+        user_agent: Option<String>,
+    ) -> DbResult<()> {
+        // Create a view record
+        let now = chrono::Utc::now().naive_utc();
+        let view = super::super::post_view::ActiveModel {
+            post_id: Set(post_id),
+            user_id: Set(user_id),
+            ip_address: Set(ip_address),
+            user_agent: Set(user_agent),
+            created_at: Set(now),
+            ..Default::default()
+        };
+
+        // Use a transaction manually
+        let transaction = conn.begin().await?;
+
+        // Insert the view
+        match view.insert(&transaction).await {
+            Ok(_) => {}
+            Err(err) => {
+                transaction.rollback().await?;
+                return Err(err.into());
+            }
+        }
+
+        // Increment view count in the post
+        let post = Self::find_by_id(post_id).one(&transaction).await?;
+        if let Some(post_model) = post {
+            let mut post_active: ActiveModel = post_model.into();
+            post_active.view_count = Set(post_active.view_count.unwrap() + 1);
+            match post_active.update(&transaction).await {
+                Ok(_) => {}
+                Err(err) => {
+                    transaction.rollback().await?;
+                    return Err(err.into());
+                }
+            }
+        }
+
+        // Commit the transaction
+        transaction.commit().await?;
+        Ok(())
+    }
+
     pub async fn get_posts_with_stats(
         conn: &DbConn,
         query: PostQuery,
     ) -> DbResult<(Vec<PostWithStats>, u64)> {
         // Custom SQL query to join posts with users and count views and comments
         let sql = r#"
-            SELECT 
-                p.id, p.title, p.slug, p.content, p.excerpt, p.featured_image, 
+            SELECT
+                p.id, p.title, p.slug, p.content, p.excerpt, p.featured_image,
                 p.status, p.published_at, p.created_at, p.updated_at, p.user_id,
                 u.name as user_name, u.avatar as user_avatar,
                 COUNT(DISTINCT pv.id) as view_count,
@@ -352,7 +579,7 @@ impl Entity {
 
         // Build the final SQL query with group by
         let mut final_sql = sql.to_owned();
-        
+
         // Add where clauses if any
         if !where_clauses.is_empty() {
             final_sql += &format!(" AND {}", where_clauses.join(" AND "));
@@ -370,6 +597,7 @@ impl Entity {
                 "published_at" => "p.published_at",
                 "view_count" => "view_count",
                 "comment_count" => "comment_count",
+                "likes_count" => "p.likes_count",
                 _ => "p.created_at",
             },
             _ => "p.created_at",
@@ -388,41 +616,38 @@ impl Entity {
             Some(p) if p > 0 => p,
             _ => 1,
         };
-        
+
         let offset = (page - 1) * Self::PER_PAGE;
         final_sql += &format!(" LIMIT {} OFFSET {}", Self::PER_PAGE, offset);
 
         // Execute the query
         let stmt = Statement::from_sql_and_values(DbBackend::Postgres, &final_sql, params.clone());
-        
+
         let posts: Vec<PostWithStats> = match conn.query_all(stmt).await {
-            Ok(rows) => {
-                rows.into_iter()
-                    .map(|row| {
-                        PostWithStats {
-                            id: row.try_get("", "id").unwrap_or_default(),
-                            title: row.try_get("", "title").unwrap_or_default(),
-                            slug: row.try_get("", "slug").unwrap_or_default(),
-                            content: row.try_get("", "content").unwrap_or_default(),
-                            excerpt: row.try_get("", "excerpt").ok(),
-                            featured_image: row.try_get("", "featured_image").ok(),
-                            status: match row.try_get::<String>("", "status") {
-                                Ok(s) if s == "published" => PostStatus::Published,
-                                Ok(s) if s == "archived" => PostStatus::Archived,
-                                _ => PostStatus::Draft,
-                            },
-                            published_at: row.try_get("", "published_at").ok(),
-                            created_at: row.try_get("", "created_at").unwrap_or_default(),
-                            updated_at: row.try_get("", "updated_at").unwrap_or_default(),
-                            user_id: row.try_get("", "user_id").unwrap_or_default(),
-                            user_name: row.try_get("", "user_name").unwrap_or_default(),
-                            user_avatar: row.try_get("", "user_avatar").ok(),
-                            view_count: row.try_get("", "view_count").unwrap_or_default(),
-                            comment_count: row.try_get("", "comment_count").unwrap_or_default(),
-                        }
-                    })
-                    .collect()
-            },
+            Ok(rows) => rows
+                .into_iter()
+                .map(|row| PostWithStats {
+                    id: row.try_get("", "id").unwrap_or_default(),
+                    title: row.try_get("", "title").unwrap_or_default(),
+                    slug: row.try_get("", "slug").unwrap_or_default(),
+                    content: row.try_get("", "content").unwrap_or_default(),
+                    excerpt: row.try_get("", "excerpt").ok(),
+                    featured_image: row.try_get("", "featured_image").ok(),
+                    status: match row.try_get::<String>("", "status") {
+                        Ok(s) if s == "published" => PostStatus::Published,
+                        Ok(s) if s == "archived" => PostStatus::Archived,
+                        _ => PostStatus::Draft,
+                    },
+                    published_at: row.try_get("", "published_at").ok(),
+                    created_at: row.try_get("", "created_at").unwrap_or_default(),
+                    updated_at: row.try_get("", "updated_at").unwrap_or_default(),
+                    user_id: row.try_get("", "user_id").unwrap_or_default(),
+                    user_name: row.try_get("", "user_name").unwrap_or_default(),
+                    user_avatar: row.try_get("", "user_avatar").ok(),
+                    view_count: row.try_get("", "view_count").unwrap_or_default(),
+                    comment_count: row.try_get("", "comment_count").unwrap_or_default(),
+                })
+                .collect(),
             Err(err) => return Err(err.into()),
         };
 
@@ -430,18 +655,233 @@ impl Entity {
         let mut count_sql = format!(
             "SELECT COUNT(DISTINCT p.id) as total FROM posts p JOIN users u ON p.user_id = u.id WHERE 1=1"
         );
-        
+
         if !where_clauses.is_empty() {
             count_sql += &format!(" AND {}", where_clauses.join(" AND "));
         }
 
         let stmt = Statement::from_sql_and_values(DbBackend::Postgres, &count_sql, params);
-        
+
         let count: u64 = match conn.query_one(stmt).await {
             Ok(Some(row)) => row.try_get("", "total").unwrap_or(0),
             _ => 0,
         };
 
         Ok((posts, count))
+    }
+
+    // Find posts with full relations (user, category, tags)
+    pub async fn find_with_relations(
+        conn: &DbConn,
+        query: PostQuery,
+        user: Option<&super::super::user::Model>,
+        is_mod: bool,
+    ) -> DbResult<(Vec<PostWithRelations>, u64)> {
+        let mut post_query = Self::find();
+
+        // Apply filters similar to search function
+        if let Some(title_filter) = &query.title {
+            let pattern = format!("%{}%", title_filter);
+            post_query = post_query.filter(Column::Title.contains(&pattern));
+        }
+
+        if let Some(status_filter) = query.status {
+            post_query = post_query.filter(Column::Status.eq(status_filter));
+        }
+
+        // Apply user filtering based on permissions
+        if let Some(user_obj) = user {
+            if !is_mod {
+                // Non-mods can only see their own posts
+                post_query = post_query.filter(Column::UserId.eq(user_obj.id));
+            } else if let Some(user_id_filter) = query.user_id {
+                // Mods can filter by any user
+                post_query = post_query.filter(Column::UserId.eq(user_id_filter));
+            }
+        }
+
+        if let Some(category_id_filter) = query.category_id {
+            post_query = post_query.filter(Column::CategoryId.eq(category_id_filter));
+        }
+
+        if let Some(search_term) = &query.search {
+            let pattern = format!("%{}%", search_term);
+            post_query = post_query.filter(
+                Condition::any()
+                    .add(Column::Title.contains(&pattern))
+                    .add(Column::Content.contains(&pattern)),
+            );
+        }
+
+        if let Some(tag_ids_filter) = query.tag_ids {
+            if !tag_ids_filter.is_empty() {
+                // Note: This is a simplified approach. For a real application,
+                // you might need a more complex query depending on how tags are stored
+                post_query = post_query.filter(Expr::cust_with_values(
+                    "tag_ids @> Array[?]::int[]",
+                    tag_ids_filter,
+                ));
+            }
+        }
+
+        // Handle sort_by fields
+        if let Some(sort_fields) = &query.sort_by {
+            for field in sort_fields {
+                let order = if query.sort_order.as_deref() == Some("asc") {
+                    Order::Asc
+                } else {
+                    Order::Desc
+                };
+
+                post_query = match field.as_str() {
+                    "title" => post_query.order_by(Column::Title, order),
+                    "created_at" => post_query.order_by(Column::CreatedAt, order),
+                    "updated_at" => post_query.order_by(Column::UpdatedAt, order),
+                    "published_at" => post_query.order_by(Column::PublishedAt, order),
+                    "view_count" => post_query.order_by(Column::ViewCount, order),
+                    "likes_count" => post_query.order_by(Column::LikesCount, order),
+                    _ => post_query,
+                };
+            }
+        } else {
+            // Default ordering
+            let order = if query.sort_order.as_deref() == Some("asc") {
+                Order::Asc
+            } else {
+                Order::Desc
+            };
+            post_query = post_query.order_by(Column::CreatedAt, order);
+        }
+
+        // Count total before pagination
+        let total = post_query.clone().count(conn).await?;
+
+        // Handle pagination
+        let page = match query.page_no {
+            Some(p) if p > 0 => p,
+            _ => 1,
+        };
+
+        let posts = post_query
+            .paginate(conn, Self::PER_PAGE)
+            .fetch_page(page - 1)
+            .await?;
+
+        // Now load the related data for each post
+        let mut posts_with_relations = Vec::new();
+
+        for post in posts {
+            // Get user info
+            let user = super::super::user::Entity::find_by_id(post.user_id)
+                .one(conn)
+                .await?
+                .ok_or_else(|| {
+                    ErrorResponse::new(ErrorCode::RecordNotFound)
+                        .with_message(&format!("User with ID {} not found", post.user_id))
+                })?;
+
+            // Get category if present
+            let category = if let Some(cat_id) = post.category_id {
+                match super::super::category::Entity::find_by_id(cat_id)
+                    .one(conn)
+                    .await?
+                {
+                    Some(cat) => Some(PostCategory {
+                        id: cat.id,
+                        name: cat.name.clone(),
+                    }),
+                    None => None,
+                }
+            } else {
+                None
+            };
+
+            // Get tags
+            let mut tags = Vec::new();
+            if !post.tag_ids.is_empty() {
+                let tag_models = super::super::tag::Entity::find()
+                    .filter(super::super::tag::Column::Id.is_in(post.tag_ids.clone()))
+                    .all(conn)
+                    .await?;
+
+                for tag in tag_models {
+                    tags.push(PostTag {
+                        id: tag.id,
+                        name: tag.name,
+                    });
+                }
+            }
+
+            // Construct the post with relations
+            posts_with_relations.push(PostWithRelations {
+                id: post.id,
+                title: post.title,
+                slug: post.slug,
+                content: post.content,
+                excerpt: post.excerpt,
+                featured_image: post.featured_image,
+                status: post.status,
+                published_at: post.published_at,
+                created_at: post.created_at,
+                updated_at: post.updated_at,
+                user_id: post.user_id,
+                view_count: post.view_count,
+                likes_count: post.likes_count,
+                tag_ids: post.tag_ids,
+                category,
+                tags,
+                author: PostAuthor {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    avatar: user.avatar,
+                },
+            });
+        }
+
+        Ok((posts_with_relations, total))
+    }
+
+    // Get posts for sitemap
+    // Find published posts with pagination and relations
+    pub async fn find_published_paginated(
+        conn: &DbConn,
+        page: u64,
+    ) -> DbResult<(Vec<PostWithRelations>, u64)> {
+        let query = PostQuery {
+            page_no: Some(page),
+            status: Some(PostStatus::Published),
+            title: None,
+            user_id: None,
+            created_at: None,
+            updated_at: None,
+            published_at: None,
+            sort_by: Some(vec!["updated_at".to_string()]),
+            sort_order: Some("desc".to_string()),
+            category_id: None,
+            search: None,
+            tag_ids: None,
+        };
+
+        // Using the find_with_relations function which already handles pagination
+        Self::find_with_relations(conn, query, None, false).await
+    }
+
+    pub async fn sitemap(conn: &DbConn) -> DbResult<Vec<PostSitemap>> {
+        let published_posts = Self::find()
+            .filter(Column::Status.eq(PostStatus::Published))
+            .all(conn)
+            .await?;
+
+        let sitemaps = published_posts
+            .into_iter()
+            .map(|post| PostSitemap {
+                slug: post.slug,
+                updated_at: post.updated_at,
+                published_at: post.published_at.unwrap_or(post.created_at),
+            })
+            .collect();
+
+        Ok(sitemaps)
     }
 }

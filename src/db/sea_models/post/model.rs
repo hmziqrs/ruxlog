@@ -38,7 +38,13 @@ pub struct Model {
     pub featured_image: Option<String>,
     pub status: PostStatus,
     pub published_at: Option<NaiveDateTime>,
+
     pub user_id: i32,
+    pub category_id: Option<i32>,
+    pub view_count: i32,
+    pub likes_count: i32,
+    pub tag_ids: Vec<i32>,
+
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
@@ -56,6 +62,15 @@ pub enum Relation {
     Comment,
     #[sea_orm(has_many = "super::super::post_view::Entity")]
     View,
+    #[sea_orm(
+        belongs_to = "super::super::category::Entity",
+        from = "Column::CategoryId",
+        to = "super::super::category::Column::Id"
+    )]
+    Category,
+    // We're using a tag_ids array directly in the Post model for now
+    // For a real many-to-many we'd use a join table,
+    // but for now, just removing this relation
 }
 
 impl Related<super::super::user::Entity> for Entity {
@@ -75,6 +90,14 @@ impl Related<super::super::post_view::Entity> for Entity {
         Relation::View.def()
     }
 }
+
+impl Related<super::super::category::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Category.def()
+    }
+}
+
+// Tags are stored as array directly in the post model
 
 // ActiveModel is the mutable version of Model
 impl ActiveModelBehavior for ActiveModel {}
