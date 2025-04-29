@@ -20,12 +20,26 @@ pub struct UpdateComment {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct CommentQuery {
     pub page_no: Option<u64>,
-    pub post_id: i32,
+    pub post_id: Option<i32>,
     pub user_id: Option<i32>,
     pub parent_id: Option<i32>,
     pub search_term: Option<String>,
     pub sort_by: Option<Vec<String>>,
     pub sort_order: Option<String>,
+}
+
+impl Default for CommentQuery {
+    fn default() -> Self {
+        Self {
+            page_no: None,
+            post_id: 0,
+            user_id: None,
+            parent_id: None,
+            search_term: None,
+            sort_by: None,
+            sort_order: None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, FromQueryResult)]

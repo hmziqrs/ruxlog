@@ -95,10 +95,10 @@ pub async fn verify(
 
 #[debug_handler]
 pub async fn resend(state: State<AppState>, auth: AuthSession) -> impl IntoResponse {
-    let pool = &state.db_pool;
+    let pool = &state.sea_db;
     let user_id = auth.user.unwrap().id;
 
-    match EmailVerification::find_by_user_id_or_code(pool, Some(user_id), None).await {
+    match email_verification::Entity::find_by_user_id_or_code(pool, Some(user_id), None).await {
         Ok(verification) => {
             if let Some(verification) = verification {
                 if verification.is_in_delay() {

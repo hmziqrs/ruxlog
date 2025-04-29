@@ -8,11 +8,11 @@ use axum::{
 use serde_json::json;
 
 use crate::{
-    db::models::user::{User, UserRole},
+    db::sea_models::user::{self, UserRole},
     services::auth::AuthSession,
 };
 
-fn check_user_role(user: Option<User>, req_role: UserRole) -> Result<bool, Response> {
+fn check_user_role(user: Option<user::Model>, req_role: UserRole) -> Result<bool, Response> {
     let user = user.ok_or_else(|| {
         (
             StatusCode::UNAUTHORIZED,

@@ -5,7 +5,7 @@ use axum_macros::debug_handler;
 use serde_json::json;
 
 use crate::{
-    db::models::{forgot_password::ForgotPassword, user::User},
+    db::sea_models::{forgot_password, user},
     extractors::ValidatedJson,
     services::{abuse_limiter, mail::send_forgot_password_email},
     AppState,
@@ -35,8 +35,8 @@ pub async fn generate(
         Err(response) => return response,
     }
 
-    let pool = &state.db_pool;
-    let user = User::find_by_email(pool, payload.email.clone()).await;
+    let pool = &state.sea_db;
+    let user = user::Entity::find_by_email(pool, payload.email.clone()).await;
 
     match user {
         Ok(Some(_)) => (),
@@ -63,7 +63,7 @@ pub async fn generate(
     }
     let user_id = user.unwrap().unwrap().id;
 
-    match ForgotPassword::find_by_user_id(pool, user_id.clone()).await {
+    match forgot_password::Entity::find_by_user_id(pool, user_id.clone()).await {
         Ok(Some(verification)) => {
             if verification.is_in_delay() {
                 return (
@@ -89,7 +89,7 @@ pub async fn generate(
         }
     }
 
-    let result = ForgotPassword::generate(pool, user_id).await;
+    let result = forgot_password::Entity::generate(pool, user_id).await;
 
     match result {
         Ok(result) => {
@@ -134,11 +134,14 @@ pub async fn verify(
     state: State<AppState>,
     payload: ValidatedJson<V1VerifyPayload>,
 ) -> impl IntoResponse {
-    let pool = &state.db_pool;
+    let pool = &state.sea_db;
 
-    let result =
-        User::find_by_email_and_forgot_password(pool, payload.email.clone(), payload.code.clone())
-            .await;
+    let result = user::Entity::find_by_email_and_forgot_password(
+        pool,
+        payload.email.clone(),
+        payload.code.clone(),
+    )
+    .await;
 
     match result {
         Ok(Some((_, verification))) => {
@@ -190,11 +193,14 @@ pub async fn reset(
             .into_response();
     }
 
-    let pool = &state.db_pool;
+    let pool = &state.sea_db;
 
-    let result =
-        User::find_by_email_and_forgot_password(pool, payload.email.clone(), payload.code.clone())
-            .await;
+    let result = user::Entity::find_by_email_and_forgot_password(
+        pool,
+        payload.email.clone(),
+        payload.code.clone(),
+    )
+    .await;
 
     match &result {
         Ok(Some((_, verification))) => {
@@ -222,7 +228,7 @@ pub async fn reset(
     }
     // SAFETY: `result` is checked to be `Some` above
     let user_id = result.unwrap().unwrap().0.id;
-    match User::change_password(pool, user_id, payload.password.clone()).await {
+    match user::Entity::change_password(pool, user_id, payload.password.clone()).await {
         Ok(_) => {
             return (
                 StatusCode::OK,

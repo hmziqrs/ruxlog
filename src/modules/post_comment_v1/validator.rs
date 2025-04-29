@@ -1,9 +1,7 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::db::models::post_comment::{
-    NewPostComment, PostCommentQuery, PostCommentSortBy, UpdatePostComment,
-};
+use crate::db::sea_models::post_comment::{CommentQuery, NewComment, UpdateComment};
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1CreatePostCommentPayload {
@@ -13,11 +11,13 @@ pub struct V1CreatePostCommentPayload {
 }
 
 impl V1CreatePostCommentPayload {
-    pub fn into_new_post_comment(self, user_id: i32) -> NewPostComment {
-        NewPostComment {
+    pub fn into_new_post_comment(self, user_id: i32) -> NewComment {
+        NewComment {
             post_id: self.post_id,
             user_id,
             content: self.content,
+            parent_id: None,
+            likes_count: Some(0),
         }
     }
 }
@@ -29,8 +29,8 @@ pub struct V1UpdatePostCommentPayload {
 }
 
 impl V1UpdatePostCommentPayload {
-    pub fn into_update_post_comment(self) -> UpdatePostComment {
-        UpdatePostComment {
+    pub fn into_update_post_comment(self) -> UpdateComment {
+        UpdateComment {
             content: self.content,
             updated_at: chrono::Utc::now().naive_utc(),
         }
@@ -39,21 +39,23 @@ impl V1UpdatePostCommentPayload {
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1PostCommentQueryParams {
-    pub page: Option<i64>,
+    pub page: Option<u64>,
     pub user_id: Option<i32>,
     pub post_id: Option<i32>,
+    pub parent_id: Option<i32>,
     pub search: Option<String>,
-    pub sort_by: Option<PostCommentSortBy>,
+    pub sort_by: Option<Vec<String>>,
     pub sort_order: Option<String>,
 }
 
 impl V1PostCommentQueryParams {
-    pub fn into_post_comment_query(self) -> PostCommentQuery {
-        PostCommentQuery {
+    pub fn into_post_comment_query(self) -> CommentQuery {
+        CommentQuery {
             page_no: self.page,
             user_id: self.user_id,
             post_id: self.post_id,
-            search: self.search,
+            search_term: self.search,
+            parent_id: self.parent_id,
             sort_by: self.sort_by,
             sort_order: self.sort_order,
         }
