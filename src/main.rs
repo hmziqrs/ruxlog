@@ -1,11 +1,11 @@
 pub mod db;
+pub mod error;
 pub mod extractors;
 pub mod middlewares;
 pub mod modules;
 mod router;
 pub mod services;
 pub mod state;
-pub mod error;
 
 use axum::{
     http::{HeaderName, HeaderValue},
@@ -103,7 +103,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize SeaORM connection
     let sea_db = db::sea_connect::get_sea_connection().await;
 
-    let backend = AuthBackend::new(&pool);
+    let backend = AuthBackend::new(&sea_db);
     let (redis_pool, redis_connection) = init_redis_store().await?;
     let mailer = services::mail::smtp::create_connection().await;
     let state = AppState {

@@ -75,7 +75,7 @@ pub enum AuthError {
     SessionExpired,
 
     #[error("Database error: {0}")]
-    DatabaseError(#[from] crate::db::errors::DBError),
+    DatabaseError(crate::error::ErrorResponse),
 
     #[error("Internal server error: {0}")]
     InternalError(String),
@@ -113,6 +113,7 @@ impl AuthnBackend for AuthBackend {
                         return Ok(None);
                     }
                     Err(err) => {
+                        // Convert ErrorResponse to AuthError::DatabaseError
                         return Err(AuthError::DatabaseError(err));
                     }
                 };
@@ -145,11 +146,12 @@ impl AuthnBackend for AuthBackend {
 
     /// Retrieves a user by ID from the database.
     async fn get_user(&self, user_id: &UserId<Self>) -> Result<Option<Self::User>, Self::Error> {
-        user::Entity::find_by_id(&self.pool, *user_id)
+        user::Entity::get_by_id(&self.pool, *user_id)
             .await
             .map_err(|err| {
                 // Log the error for debugging purposes
                 eprintln!("Error retrieving user {}: {:?}", user_id, err);
+                // Convert ErrorResponse to AuthError::DatabaseError
                 AuthError::DatabaseError(err)
             })
     }
