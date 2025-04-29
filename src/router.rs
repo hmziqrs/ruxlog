@@ -115,10 +115,10 @@ pub fn router() -> Router<AppState> {
         .route_layer(middleware::from_fn(user_permission::admin))
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend))
-        .route("/list", get(category_v1::controller::get_categories))
+        .route("/list", get(category_v1::controller::find_all))
         .route(
             "/view/{category_id}",
-            get(category_v1::controller::get_category_by_id),
+            get(category_v1::controller::find_by_id),
         );
 
     let tag_v1_routes = Router::new()
