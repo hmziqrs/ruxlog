@@ -98,24 +98,22 @@ pub async fn verify(
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let pool = &state.sea_db;
 
-    let result = user::Entity::find_by_email_and_forgot_password(
+    let result = forgot_password::Entity::find_by_email_and_code(
         pool,
-        payload.email.clone(),
-        payload.code.clone(),
+        &payload.email,
+        &payload.code,
     )
     .await;
 
     match result {
-        Ok(Some((_, verification))) => {
+        Ok(Some(verification)) => {
             if verification.is_expired() {
                 return Err(ErrorResponse::new(ErrorCode::InvalidInput)
                     .with_message("The verification code has expired"));
             }
         }
         Err(err) => {
-            return Err(ErrorResponse::new(ErrorCode::InvalidInput)
-                .with_message("Email or code is invalid")
-                .with_details(err.to_string()));
+            return Err(err.into());
         }
         Ok(None) => {
             return Err(ErrorResponse::new(ErrorCode::InvalidInput)

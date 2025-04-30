@@ -1,5 +1,5 @@
-use sea_orm::{entity::prelude::*,  IntoActiveModel, Order, QueryOrder, Set};
-use crate::error::{DbResult, ErrorCode, ErrorResponse};
+use sea_orm::{entity::prelude::*, IntoActiveModel, JoinType, Order, QueryOrder, QuerySelect, Set};
+use crate::{db::sea_models::user, error::{DbResult, ErrorCode, ErrorResponse}};
 use chrono::Utc;
 
 use super::*;
@@ -14,7 +14,6 @@ impl Entity {
         let forgot_password = ActiveModel {
             user_id: Set(new_forgot_password.user_id),
             code: Set(new_forgot_password.code),
-            expires_at: Set(new_forgot_password.expires_at),
             created_at: Set(now),
             updated_at: Set(now),
             ..Default::default()
@@ -30,6 +29,23 @@ impl Entity {
     pub async fn create_new(conn: &DbConn, user_id: i32) -> DbResult<Model> {
         let new_forgot_password = NewForgotPassword::new(user_id);
         Self::create(conn, new_forgot_password).await
+    }
+
+    pub async fn find_by_email_and_code(
+        conn: &DbConn,
+        email: &str,
+        code: &str,
+    ) -> DbResult<Option<Model>> {
+        match Self::find()
+            .filter(Column::Code.eq(code))
+            .join(JoinType::InnerJoin, Relation::User.def())
+            .filter(user::Column::Email.eq(email))
+            .one(conn)
+            .await
+        {
+            Ok(model) => Ok(model),
+            Err(err) => Err(err.into()),
+        }
     }
 
     // Find forgot password record by user_id
@@ -105,10 +121,6 @@ impl Entity {
                 forgot_password_active.code = Set(code);
             }
 
-            if let Some(expires_at) = update_forgot_password.expires_at {
-                forgot_password_active.expires_at = Set(expires_at);
-            }
-
             forgot_password_active.updated_at = Set(update_forgot_password.updated_at);
 
             match forgot_password_active.update(conn).await {
@@ -123,7 +135,6 @@ impl Entity {
     // Regenerate a forgot password code for a user
     pub async fn regenerate(conn: &DbConn, user_id: i32) -> DbResult<Model> {
         let now = Utc::now().naive_utc();
-        let expires_at = now + Self::EXPIRY_TIME;
         let new_code = Self::generate_code();
         
         let existing = Self::find_by_user_id(conn, user_id).await?;
@@ -132,7 +143,6 @@ impl Entity {
             // Update existing forgot password
             let mut active_model: ActiveModel = existing_model.into_active_model();
             active_model.code = Set(new_code);
-            active_model.expires_at = Set(expires_at);
             active_model.updated_at = Set(now);
             
             match active_model.update(conn).await {
@@ -144,7 +154,6 @@ impl Entity {
             let new_forgot_password = NewForgotPassword {
                 user_id,
                 code: new_code,
-                expires_at,
             };
             Self::create(conn, new_forgot_password).await
         }
@@ -214,8 +223,7 @@ impl Entity {
         
         match forgot_password {
             Some(model) => {
-                let now = Utc::now().naive_utc();
-                Ok(model.expires_at < now)
+                Ok(model.is_expired())
             },
             None => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
                         .with_message(&format!("Forgot password code not found for user {}", user_id))),
@@ -270,7 +278,6 @@ impl Entity {
                     "id" => db_query = db_query.order_by(Column::Id, order),
                     "user_id" => db_query = db_query.order_by(Column::UserId, order),
                     "code" => db_query = db_query.order_by(Column::Code, order),
-                    "expires_at" => db_query = db_query.order_by(Column::ExpiresAt, order),
                     "created_at" => db_query = db_query.order_by(Column::CreatedAt, order),
                     "updated_at" => db_query = db_query.order_by(Column::UpdatedAt, order),
                     _ => {}

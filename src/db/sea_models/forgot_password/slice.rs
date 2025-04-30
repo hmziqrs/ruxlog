@@ -6,13 +6,11 @@ use super::Entity;
 pub struct NewForgotPassword {
     pub user_id: i32,
     pub code: String,
-    pub expires_at: NaiveDateTime,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct UpdateForgotPassword {
     pub code: Option<String>,
-    pub expires_at: Option<NaiveDateTime>,
     pub updated_at: NaiveDateTime,
 }
 
@@ -36,11 +34,9 @@ pub struct AdminForgotPasswordQuery {
 
 impl NewForgotPassword {
     pub fn new(user_id: i32) -> Self {
-        let now = Utc::now().naive_utc();
         NewForgotPassword {
             user_id,
             code: Entity::generate_code(),
-            expires_at: now + Entity::EXPIRY_TIME,
         }
     }
 }
@@ -50,7 +46,6 @@ impl UpdateForgotPassword {
         let now = Utc::now().naive_utc();
         UpdateForgotPassword {
             code: Some(Entity::generate_code()),
-            expires_at: Some(now + Entity::EXPIRY_TIME),
             updated_at: now,
         }
     }

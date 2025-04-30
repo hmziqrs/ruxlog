@@ -10,7 +10,6 @@ pub struct Model {
     pub id: i32,
     pub user_id: i32,
     pub code: String,
-    pub expires_at: NaiveDateTime,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
@@ -52,7 +51,7 @@ impl Entity {
 impl Model {
     // Check if a forgot password code has expired
     pub fn is_expired(&self) -> bool {
-        Utc::now().naive_utc() > self.expires_at
+        Utc::now().naive_utc() > self.updated_at + Entity::EXPIRY_TIME
     }
 
     // Check if a forgot password code is still in the delay period
