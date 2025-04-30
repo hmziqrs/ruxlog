@@ -22,7 +22,6 @@ use crate::{
         tag,
         user::UserRole,
     },
-    error::DbResult,
     services::auth::AuthSession,
     AppState,
 };
@@ -161,7 +160,7 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
                 sort_order: None,
             };
             match user::Entity::admin_list(&state.sea_db, author_query).await {
-                Ok((res, total)) => {
+                Ok((res, _)) => {
                     let len = res.len() as u64;
                     if len == user::Entity::PER_PAGE {
                         author_page += 1;
@@ -209,7 +208,7 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
                 .collect();
             let post_excerpt = l::Words(EN, 1..8).fake::<Vec<String>>().join(" ");
             let post_content: String = l::Paragraphs(EN, 1..8).fake::<Vec<String>>().join(" ");
-            let is_published = rng.gen_bool(0.8);
+            let is_published = rng.random_bool(0.8);
             
             let new_post = post::NewPost {
                 title: post_title.clone(),
@@ -271,7 +270,7 @@ pub async fn seed_post_comments(
                 sort_order: None,
             };
             match user::Entity::admin_list(&state.sea_db, user_query).await {
-                Ok((res, total)) => {
+                Ok((res, _)) => {
                     let len = res.len() as u64;
                     if len == user::Entity::PER_PAGE {
                         user_page += 1;
@@ -360,7 +359,7 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
             name: user.name,
             email: user.email.clone(),
             password: user.email,
-            role: if rng.gen_bool(0.5) {
+            role: if rng.random_bool(0.5) {
                 UserRole::Author
             } else {
                 UserRole::User
@@ -435,7 +434,7 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
                 let post_title: String = l::Sentence(EN, 1..2).fake();
                 let post_excerpt = l::Words(EN, 1..8).fake::<Vec<String>>().join(" ");
                 let post_content: String = l::Paragraph(EN, 1..8).fake();
-                let is_published = rng.gen_bool(0.5);
+                let is_published = rng.random_bool(0.5);
                 
                 let new_post = post::NewPost {
                     title: post_title.clone(),

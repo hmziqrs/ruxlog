@@ -46,7 +46,7 @@ impl NewForgotPassword {
 }
 
 impl UpdateForgotPassword {
-    pub fn regenerate(user_id: i32) -> Self {
+    pub fn regenerate() -> Self {
         let now = Utc::now().naive_utc();
         UpdateForgotPassword {
             code: Some(Entity::generate_code()),

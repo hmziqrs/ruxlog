@@ -9,7 +9,7 @@ const ADMIN_PER_PAGE: u64 = 20;
 
 impl Entity {
     // Create a new email verification record
-    pub async fn create(conn: &DbConn, new_verification: NewEmailVerification) -> DbResult<Model> {
+    async fn create(conn: &DbConn, new_verification: NewEmailVerification) -> DbResult<Model> {
         let now = Utc::now().naive_utc();
         let verification = ActiveModel {
             user_id: Set(new_verification.user_id),

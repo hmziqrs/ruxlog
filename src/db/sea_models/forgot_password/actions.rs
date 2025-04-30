@@ -1,4 +1,4 @@
-use sea_orm::{entity::prelude::*, Condition, IntoActiveModel, Order, QueryOrder, Set};
+use sea_orm::{entity::prelude::*,  IntoActiveModel, Order, QueryOrder, Set};
 use crate::error::{DbResult, ErrorCode, ErrorResponse};
 use chrono::Utc;
 

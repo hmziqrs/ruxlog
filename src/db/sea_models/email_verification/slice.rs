@@ -46,7 +46,7 @@ impl NewEmailVerification {
 }
 
 impl UpdateEmailVerification {
-    pub fn regenerate(user_id: i32) -> Self {
+    pub fn regenerate() -> Self {
         let now = Utc::now().naive_utc();
         UpdateEmailVerification {
             code: Some(Entity::generate_code()),

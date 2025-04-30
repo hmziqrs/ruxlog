@@ -1,5 +1,5 @@
 use crate::error::{DbResult, ErrorCode, ErrorResponse};
-use sea_orm::{entity::prelude::*, ConnectionTrait, DbBackend, Order, QueryOrder, Set, Statement};
+use sea_orm::{entity::prelude::*,  Order, QueryOrder, Set, };
 
 use super::*;
 
@@ -299,16 +299,6 @@ impl Entity {
         query_user_id: i32,
         page: u64,
     ) -> DbResult<(Vec<Model>, u64)> {
-        let query = CommentQuery {
-            page_no: Some(page),
-            post_id: None,
-            user_id: Some(query_user_id),
-            parent_id: None,
-            search_term: None,
-            sort_by: Some(vec!["created_at".to_string()]),
-            sort_order: Some("desc".to_string()),
-        };
-
         // Use a custom query just for user comments that ignores post_id
         let user_comments_query = Self::find()
             .filter(Column::UserId.eq(query_user_id))

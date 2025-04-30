@@ -1,13 +1,9 @@
 use axum::{
-    extract::State,
-    http::StatusCode,
     middleware,
-    response::{IntoResponse, Json},
-    routing::{self, get, post, put},
+    routing::{ get, post, put},
     Router,
 };
 use axum_login::login_required;
-use serde_json::json;
 use tower_http::trace::TraceLayer;
 
 use crate::{

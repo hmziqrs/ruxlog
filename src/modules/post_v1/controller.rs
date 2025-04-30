@@ -69,12 +69,10 @@ pub async fn find_by_id_or_slug(
 #[debug_handler]
 pub async fn update(
     State(state): State<AppState>,
-    auth: AuthSession,
     Path(post_id): Path<i32>,
     payload: ValidatedJson<V1UpdatePostPayload>,
 ) -> impl IntoResponse {
-    let user = auth.user.unwrap();
-    let update_post = payload.0.into_update_post(user.id);
+    let update_post = payload.0.into_update_post();
 
     match post::Entity::update(&state.sea_db, post_id, update_post).await {
         Ok(Some(post)) => (StatusCode::OK, Json(json!(post))).into_response(),
@@ -100,10 +98,8 @@ pub async fn update(
 #[debug_handler]
 pub async fn delete(
     State(state): State<AppState>,
-    auth: AuthSession,
     Path(post_id): Path<i32>,
 ) -> impl IntoResponse {
-    let user = auth.user.unwrap();
     match post::Entity::delete(&state.sea_db, post_id).await {
         Ok(1) => (
             StatusCode::OK,
@@ -140,7 +136,6 @@ pub async fn delete(
 #[debug_handler]
 pub async fn find_posts_with_query(
     State(state): State<AppState>,
-    auth: AuthSession,
     query: ValidatedJson<V1PostQueryParams>,
 ) -> impl IntoResponse {
     let post_query = query.0.into_post_query();

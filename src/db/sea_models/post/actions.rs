@@ -53,7 +53,7 @@ impl Entity {
 
         let post = query.one(conn).await?;
 
-        if let Some(post_model) = post {
+        if let Some(_) = post {
             return Self::update(conn, post_id, update_post).await;
         }
 

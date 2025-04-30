@@ -64,20 +64,20 @@ impl IntoErrorResponse for DbErr {
             },
             
             // TxIsolationLevel errors
-            #[cfg(feature = "sea-orm-active-enums")]
-            DbErr::TxIsolationLevel(err) => {
-                ErrorResponse::new(ErrorCode::TransactionError)
-                    .with_message("Transaction isolation level error")
-                    .with_details(err.to_string())
-            },
+            // #[cfg(feature = "sea-orm-active-enums")]
+            // DbErr::TxIsolationLevel(err) => {
+            //     ErrorResponse::new(ErrorCode::TransactionError)
+            //         .with_message("Transaction isolation level error")
+            //         .with_details(err.to_string())
+            // },
             
             // Pool error
-            #[cfg(feature = "sea-orm-active-enums")]
-            DbErr::PoolTimedOut(err) => {
-                ErrorResponse::new(ErrorCode::DatabaseConnectionError)
-                    .with_message("Database connection pool timeout")
-                    .with_details(err.to_string())
-            },
+            // #[cfg(feature = "sea-orm-active-enums")]
+            // DbErr::PoolTimedOut(err) => {
+            //     ErrorResponse::new(ErrorCode::DatabaseConnectionError)
+            //         .with_message("Database connection pool timeout")
+            //         .with_details(err.to_string())
+            // },
             
             // Catch-all for other errors
             _ => {

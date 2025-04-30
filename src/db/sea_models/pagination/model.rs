@@ -1,6 +1,5 @@
 use sea_orm::{DbConn, DbErr, EntityTrait, PaginatorTrait, Select};
 use serde::{Deserialize, Serialize};
-use std::future::Future; // Import Future
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PagedResult<Model> {

@@ -64,7 +64,7 @@ pub struct V1UpdatePostPayload {
 }
 
 impl V1UpdatePostPayload {
-    pub fn into_update_post(self, author_id: i32) -> UpdatePost {
+    pub fn into_update_post(self) -> UpdatePost {
         UpdatePost {
             title: self.title,
             content: self.content,
