@@ -1,5 +1,5 @@
 use axum::{
-    extract::{rejection::JsonRejection, State},
+    extract::{State},
     http::StatusCode,
     response::IntoResponse,
     Json,
@@ -7,11 +7,10 @@ use axum::{
 use axum_macros::debug_handler;
 
 use serde_json::json;
-use validator::Validate;
 
 use crate::{
     db::sea_models::user,
-    error::{ErrorCode, ErrorResponse, IntoErrorResponse},
+    error::{ErrorCode, ErrorResponse, },
     extractors::ValidatedJson,
     modules::auth_v1::validator::{V1LoginPayload, V1RegisterPayload},
     services::auth::{AuthSession, Credentials},

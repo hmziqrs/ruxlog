@@ -6,6 +6,7 @@ use serde_json::json;
 
 use crate::{
     db::sea_models::{forgot_password, user},
+    error::{ErrorCode, ErrorResponse},
     extractors::ValidatedJson,
     services::{abuse_limiter, mail::send_forgot_password_email},
     AppState,
@@ -27,12 +28,12 @@ pub async fn generate(
     state: State<AppState>,
     ClientIp(secure_ip): ClientIp,
     payload: ValidatedJson<V1GeneratePayload>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, ErrorResponse> {
     let ip = secure_ip.to_string();
     let key_prefix = format!("forgot_password:{}", ip);
     match abuse_limiter::limiter(&state.redis_pool, &key_prefix, ABUSE_LIMITER_CONFIG).await {
         Ok(_) => (),
-        Err(response) => return response,
+        Err(err) => return Err(err.into()),
     }
 
     let pool = &state.sea_db;
@@ -41,24 +42,13 @@ pub async fn generate(
     match user {
         Ok(Some(_)) => (),
         Ok(None) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(json!({
-                    "error": "Request failed",
-                    "message": "email doesn't exist",
-                })),
-            )
-                .into_response();
+            return Err(ErrorResponse::new(ErrorCode::RecordNotFound)
+                .with_message("Email doesn't exist"));
         }
         Err(err) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "error": err.to_string(),
-                    "message": "Request failed",
-                })),
-            )
-                .into_response();
+            return Err(ErrorResponse::new(ErrorCode::InternalServerError)
+                .with_message("Request failed")
+                .with_details(err.to_string()));
         }
     }
     let user_id = user.unwrap().unwrap().id;
@@ -66,26 +56,15 @@ pub async fn generate(
     match forgot_password::Entity::find_by_user_id(pool, user_id.clone()).await {
         Ok(Some(verification)) => {
             if verification.is_in_delay() {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(json!({
-                        "error": "Request failed",
-                        "message": "You have already requested a verification code. Please try again after 1 minute",
-                    })),
-                )
-                    .into_response();
+                return Err(ErrorResponse::new(ErrorCode::TooManyAttempts)
+                    .with_message("You have already requested a verification code. Please try again after 1 minute"));
             }
         }
         Ok(_) => (),
         Err(err) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "error": err.to_string(),
-                    "message": "Failed to resend verification code",
-                })),
-            )
-                .into_response();
+            return Err(ErrorResponse::new(ErrorCode::InternalServerError)
+                .with_message("Failed to resend verification code")
+                .with_details(err.to_string()));
         }
     }
 
@@ -98,34 +77,23 @@ pub async fn generate(
 
             match send_forgot_password_email(&mailer, "test@hello.xyz", &code).await {
                 Ok(()) => {
-                    return (
+                    return Ok((
                         StatusCode::OK,
                         Json(json!({
                             "message": "Verification code sent to your email successfully",
                         })),
-                    )
-                        .into_response();
+                    ));
                 }
                 Err(err) => {
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(json!({
-                            "error": err.to_string(),
-                            "message": "Failed to send verification code",
-                        })),
-                    )
-                        .into_response();
+                    return Err(ErrorResponse::new(ErrorCode::ExternalServiceError)
+                        .with_message("Failed to send verification code")
+                        .with_details(err.to_string()));
                 }
             }
         }
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "error": err.to_string(),
-                "message": "Failed to send verification code",
-            })),
-        )
-            .into_response(),
+        Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
+            .with_message("Failed to send verification code")
+            .with_details(err.to_string())),
     }
 }
 
@@ -133,7 +101,7 @@ pub async fn generate(
 pub async fn verify(
     state: State<AppState>,
     payload: ValidatedJson<V1VerifyPayload>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, ErrorResponse> {
     let pool = &state.sea_db;
 
     let result = user::Entity::find_by_email_and_forgot_password(
@@ -146,51 +114,37 @@ pub async fn verify(
     match result {
         Ok(Some((_, verification))) => {
             if verification.is_expired() {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(json!({
-                        "error": "Code expired",
-                        "message": "The verification code has expired",
-                    })),
-                )
-                    .into_response();
+                return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                    .with_message("The verification code has expired"));
             }
         }
-        Err(_) | Ok(None) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(json!({
-                    "error": "Invalid request",
-                    "message": "Email or code is invalid",
-                })),
-            )
-                .into_response();
+        Err(err) => {
+            return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                .with_message("Email or code is invalid")
+                .with_details(err.to_string()));
+        }
+        Ok(None) => {
+            return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                .with_message("Email or code is invalid"));
         }
     }
 
-    (
+    Ok((
         StatusCode::OK,
         Json(json!({
             "message": "code verified successfully",
         })),
-    )
-        .into_response()
+    ))
 }
 
 #[debug_handler]
 pub async fn reset(
     state: State<AppState>,
     payload: ValidatedJson<V1ResetPayload>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, ErrorResponse> {
     if payload.password != payload.confirm_password {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({
-                "error": "Invalid request",
-                "message": "Password and confirm password do not match",
-            })),
-        )
-            .into_response();
+        return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+            .with_message("Password and confirm password do not match"));
     }
 
     let pool = &state.sea_db;
@@ -205,48 +159,35 @@ pub async fn reset(
     match &result {
         Ok(Some((_, verification))) => {
             if verification.is_expired() {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(json!({
-                        "error": "Code expired",
-                        "message": "The verification code has expired",
-                    })),
-                )
-                    .into_response();
+                return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                    .with_message("The verification code has expired"));
             }
         }
-        Err(_) | Ok(None) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(json!({
-                    "error": "Invalid request",
-                    "message": "Email or code is invalid",
-                })),
-            )
-                .into_response();
+        Err(err) => {
+            return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                .with_message("Email or code is invalid")
+                .with_details(err.to_string()));
+        }
+        Ok(None) => {
+            return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                .with_message("Email or code is invalid"));
         }
     }
     // SAFETY: `result` is checked to be `Some` above
     let user_id = result.unwrap().unwrap().0.id;
     match user::Entity::change_password(pool, user_id, payload.password.clone()).await {
         Ok(_) => {
-            return (
+            return Ok((
                 StatusCode::OK,
                 Json(json!({
                     "message": "Password reset successfully",
                 })),
-            )
-                .into_response();
+            ));
         }
         Err(err) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "error": err.to_string(),
-                    "message": "Failed to reset password",
-                })),
-            )
-                .into_response();
+            return Err(ErrorResponse::new(ErrorCode::InternalServerError)
+                .with_message("Failed to reset password")
+                .with_details(err.to_string()));
         }
     }
 }

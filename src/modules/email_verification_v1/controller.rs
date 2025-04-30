@@ -3,10 +3,11 @@ use axum_macros::debug_handler;
 use serde_json::json;
 
 use crate::{
-    db::sea_models::{email_verification, user},
-    extractors::ValidatedJson,
-    services::{abuse_limiter, auth::AuthSession},
-    AppState,
+    db::sea_models::{email_verification, user}, 
+    error::{ErrorCode, ErrorResponse}, 
+    extractors::ValidatedJson, 
+    services::{abuse_limiter, auth::AuthSession}, 
+    AppState
 };
 
 use super::validator::V1VerifyPayload;
@@ -25,7 +26,7 @@ pub async fn verify(
     state: State<AppState>,
     auth: AuthSession,
     payload: ValidatedJson<V1VerifyPayload>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, ErrorResponse> {
     let user_id = auth.user.unwrap().id;
     let code = payload.0.code;
 
@@ -40,61 +41,38 @@ pub async fn verify(
         Ok(verification) => match verification {
             Some(verification) => {
                 if verification.is_expired() {
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        Json(json!({
-                            "error": "Code expired",
-                            "message": "The verification code has expired",
-                        })),
-                    )
-                        .into_response();
+                    return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                        .with_message("The verification code has expired"));
                 }
             }
             None => {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(json!({
-                        "error": "Code not found",
-                        "message": "The provided verification code is invalid",
-                    })),
-                )
-                    .into_response();
+                return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                    .with_message("The provided verification code is invalid"));
             }
         },
-        Err(_) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(json!({
-                    "error": "Invalid code",
-                    "message": "The provided verification code is invalid",
-                })),
-            )
-                .into_response();
+        Err(err) => {
+            return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                .with_message("The provided verification code is invalid")
+                .with_details(err.to_string()));
         }
     }
 
     let update_user = user::Entity::verify(&state.sea_db, user_id).await;
     match update_user {
-        Ok(_) => (
+        Ok(_) => Ok((
             StatusCode::OK,
             Json(json!({
                 "message": "Email verified successfully",
             })),
-        )
-            .into_response(),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "error": err.to_string(),
-                "message": "Failed to update user verification status",
-            })),
-        )
-            .into_response(),
+        )),
+        Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
+            .with_message("Failed to update user verification status")
+            .with_details(err.to_string())),
     }
 }
 
 #[debug_handler]
-pub async fn resend(state: State<AppState>, auth: AuthSession) -> impl IntoResponse {
+pub async fn resend(state: State<AppState>, auth: AuthSession) -> Result<impl IntoResponse, ErrorResponse> {
     let pool = &state.sea_db;
     let user_id = auth.user.unwrap().id;
 
@@ -102,49 +80,30 @@ pub async fn resend(state: State<AppState>, auth: AuthSession) -> impl IntoRespo
         Ok(verification) => {
             if let Some(verification) = verification {
                 if verification.is_in_delay() {
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        Json(json!({
-                            "error": "Request failed",
-                            "message": "Please wait 1 minute before requesting a new verification code",
-                        })),
-                    )
-                        .into_response();
+                    return Err(ErrorResponse::new(ErrorCode::TooManyAttempts)
+                        .with_message("Please wait 1 minute before requesting a new verification code"));
                 }
             }
-        }
+        },
         Err(err) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "error": err.to_string(),
-                    "message": "Request failed",
-                })),
-            )
-                .into_response();
+            return Err(err.into());
         }
     }
 
     let key_prefix = format!("email_verification:{}", user_id);
     match abuse_limiter::limiter(&state.redis_pool, &key_prefix, ABUSE_LIMITER_CONFIG).await {
         Ok(_) => (),
-        Err(response) => return response,
+        Err(err) => return Err(err.into()),
     }
     match email_verification::Entity::regenerate(pool, user_id).await {
-        Ok(_) => (
+        Ok(_) => Ok((
             StatusCode::OK,
             Json(json!({
                 "message": "Verification code resent successfully",
             })),
-        )
-            .into_response(),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "error": err.to_string(),
-                "message": "Failed to resend verification code",
-            })),
-        )
-            .into_response(),
+        )),
+        Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
+            .with_message("Failed to resend verification code")
+            .with_details(err.to_string())),
     }
 }
