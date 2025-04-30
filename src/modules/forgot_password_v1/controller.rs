@@ -46,9 +46,7 @@ pub async fn generate(
                 .with_message("Email doesn't exist"));
         }
         Err(err) => {
-            return Err(ErrorResponse::new(ErrorCode::InternalServerError)
-                .with_message("Request failed")
-                .with_details(err.to_string()));
+            return Err(err.into());
         }
     }
     let user_id = user.unwrap().unwrap().id;
@@ -62,9 +60,7 @@ pub async fn generate(
         }
         Ok(_) => (),
         Err(err) => {
-            return Err(ErrorResponse::new(ErrorCode::InternalServerError)
-                .with_message("Failed to resend verification code")
-                .with_details(err.to_string()));
+            return Err(err.into());
         }
     }
 
@@ -91,9 +87,7 @@ pub async fn generate(
                 }
             }
         }
-        Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
-            .with_message("Failed to send verification code")
-            .with_details(err.to_string())),
+        Err(err) => Err(err.into()),
     }
 }
 
