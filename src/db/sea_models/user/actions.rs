@@ -98,8 +98,8 @@ impl Entity {
     }
 
     // Change user password
-    pub async fn change_password(
-        conn: &DbConn,
+    pub async fn change_password<T: ConnectionTrait>(
+        conn: &T,
         user_id: i32,
         new_password: String,
     ) -> DbResult<()> {
@@ -129,7 +129,7 @@ impl Entity {
     }
     
     // Find user by ID with not found handling
-    pub async fn find_by_id_with_404(conn: &DbConn, user_id: i32) -> DbResult<Model> {
+    pub async fn find_by_id_with_404<T: ConnectionTrait>(conn: &T, user_id: i32) -> DbResult<Model> {
         match Self::find_by_id(user_id).one(conn).await {
             Ok(Some(model)) => Ok(model),
             Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)

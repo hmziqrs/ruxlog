@@ -141,24 +141,22 @@ pub async fn reset(
 
     let pool = &state.sea_db;
 
-    let result = user::Entity::find_by_email_and_forgot_password(
+    let result = forgot_password::Entity::find_by_email_and_code(
         pool,
-        payload.email.clone(),
-        payload.code.clone(),
+        &payload.email,
+        &payload.code,
     )
     .await;
 
     match &result {
-        Ok(Some((_, verification))) => {
+        Ok(Some(verification)) => {
             if verification.is_expired() {
                 return Err(ErrorResponse::new(ErrorCode::InvalidInput)
                     .with_message("The verification code has expired"));
             }
         }
         Err(err) => {
-            return Err(ErrorResponse::new(ErrorCode::InvalidInput)
-                .with_message("Email or code is invalid")
-                .with_details(err.to_string()));
+            return Err(err.to_owned().into());
         }
         Ok(None) => {
             return Err(ErrorResponse::new(ErrorCode::InvalidInput)
@@ -166,8 +164,8 @@ pub async fn reset(
         }
     }
     // SAFETY: `result` is checked to be `Some` above
-    let user_id = result.unwrap().unwrap().0.id;
-    match user::Entity::change_password(pool, user_id, payload.password.clone()).await {
+    let res = result.unwrap().unwrap();
+    match forgot_password::Entity::reset(pool, res.user_id, payload.password.clone()).await {
         Ok(_) => {
             return Ok((
                 StatusCode::OK,
@@ -177,9 +175,7 @@ pub async fn reset(
             ));
         }
         Err(err) => {
-            return Err(ErrorResponse::new(ErrorCode::InternalServerError)
-                .with_message("Failed to reset password")
-                .with_details(err.to_string()));
+            return Err(err.into());
         }
     }
 }

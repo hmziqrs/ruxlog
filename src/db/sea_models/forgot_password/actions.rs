@@ -1,4 +1,4 @@
-use sea_orm::{entity::prelude::*, IntoActiveModel, JoinType, Order, QueryOrder, QuerySelect, Set};
+use sea_orm::{entity::prelude::*, IntoActiveModel, JoinType, Order, QueryOrder, QuerySelect, Set, TransactionTrait};
 use crate::{db::sea_models::user, error::{DbResult, ErrorCode, ErrorResponse}};
 use chrono::Utc;
 
@@ -47,6 +47,31 @@ impl Entity {
             Err(err) => Err(err.into()),
         }
     }
+
+    pub async fn reset(conn: &DbConn, user_id: i32, password: String) -> DbResult<u64> {
+        let trx = conn.begin().await?;
+
+        match Self::delete_by_user_id(&trx, user_id)
+            .await {
+            Ok(_) => {
+                match user::Entity::change_password(&trx, user_id, password).await {
+                    Ok(_) => {
+                        trx.commit().await?;
+                    }
+                    Err(err) => {
+                        trx.rollback().await?;
+                        return Err(err.into());
+                    }
+                }
+            }
+            Err(err) => {
+                trx.rollback().await?;
+                return Err(err.into());
+            }
+        };
+        Ok(1)
+    }
+
 
     // Find forgot password record by user_id
     pub async fn find_by_user_id(conn: &DbConn, user_id: i32) -> DbResult<Option<Model>> {
@@ -177,7 +202,7 @@ impl Entity {
     }
 
     // Delete forgot password record by user_id
-    pub async fn delete_by_user_id(conn: &DbConn, user_id: i32) -> DbResult<u64> {
+    pub async fn delete_by_user_id<T: ConnectionTrait>(conn: &T, user_id: i32) -> DbResult<u64> {
         match Self::delete_many()
             .filter(Column::UserId.eq(user_id))
             .exec(conn)
@@ -189,7 +214,7 @@ impl Entity {
     }
 
     // Delete forgot password record by code
-    pub async fn delete_by_code(conn: &DbConn, forgot_password_code: &str) -> DbResult<u64> {
+    pub async fn delete_by_code<T: ConnectionTrait>(conn: &T, forgot_password_code: &str) -> DbResult<u64> {
         match Self::delete_many()
             .filter(Column::Code.eq(forgot_password_code))
             .exec(conn)
@@ -201,8 +226,8 @@ impl Entity {
     }
 
     // Delete forgot password record by user_id and code
-    pub async fn delete_by_user_id_and_code(
-        conn: &DbConn,
+    pub async fn delete_by_user_id_and_code<T: ConnectionTrait>(
+        conn: &T,
         user_id: i32,
         code: &str,
     ) -> DbResult<u64> {
