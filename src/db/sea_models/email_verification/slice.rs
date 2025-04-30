@@ -6,13 +6,11 @@ use super::Entity;
 pub struct NewEmailVerification {
     pub user_id: i32,
     pub code: String,
-    pub expires_at: NaiveDateTime,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct UpdateEmailVerification {
     pub code: Option<String>,
-    pub expires_at: Option<NaiveDateTime>,
     pub updated_at: NaiveDateTime,
 }
 
@@ -40,7 +38,6 @@ impl NewEmailVerification {
         NewEmailVerification {
             user_id,
             code: Entity::generate_code(),
-            expires_at: now + Entity::EXPIRY_TIME,
         }
     }
 }
@@ -50,7 +47,6 @@ impl UpdateEmailVerification {
         let now = Utc::now().naive_utc();
         UpdateEmailVerification {
             code: Some(Entity::generate_code()),
-            expires_at: Some(now + Entity::EXPIRY_TIME),
             updated_at: now,
         }
     }

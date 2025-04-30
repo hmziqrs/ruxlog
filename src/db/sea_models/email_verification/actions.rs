@@ -1,6 +1,6 @@
 use crate::error::{DbResult, ErrorCode, ErrorResponse};
 use chrono::Utc;
-use sea_orm::{entity::prelude::*, IntoActiveModel, Order, QueryOrder, Set};
+use sea_orm::{entity::prelude::*, DatabaseTransaction, IntoActiveModel, Order, QueryOrder, Set};
 
 use super::*;
 
@@ -9,12 +9,11 @@ const ADMIN_PER_PAGE: u64 = 20;
 
 impl Entity {
     // Create a new email verification record
-    async fn create(conn: &DbConn, new_verification: NewEmailVerification) -> DbResult<Model> {
+    async fn create<T: ConnectionTrait>(conn: &T, new_verification: NewEmailVerification) -> DbResult<Model> {
         let now = Utc::now().naive_utc();
         let verification = ActiveModel {
             user_id: Set(new_verification.user_id),
             code: Set(new_verification.code),
-            expires_at: Set(new_verification.expires_at),
             created_at: Set(now),
             updated_at: Set(now),
             ..Default::default()
@@ -27,7 +26,7 @@ impl Entity {
     }
 
     // Create a new verification record with auto-generated code
-    pub async fn create_new(conn: &DbConn, user_id: i32) -> DbResult<Model> {
+    pub async fn create_new<T: ConnectionTrait>(conn: &T, user_id: i32) -> DbResult<Model> {
         let new_verification = NewEmailVerification::new(user_id);
         Self::create(conn, new_verification).await
     }
@@ -105,10 +104,6 @@ impl Entity {
                 verification_active.code = Set(code);
             }
 
-            if let Some(expires_at) = update_verification.expires_at {
-                verification_active.expires_at = Set(expires_at);
-            }
-
             verification_active.updated_at = Set(update_verification.updated_at);
 
             match verification_active.update(conn).await {
@@ -132,7 +127,6 @@ impl Entity {
             // Update existing verification
             let mut active_model: ActiveModel = existing_model.into_active_model();
             active_model.code = Set(new_code);
-            active_model.expires_at = Set(expires_at);
             active_model.updated_at = Set(now);
 
             match active_model.update(conn).await {
@@ -144,7 +138,6 @@ impl Entity {
             let new_verification = NewEmailVerification {
                 user_id,
                 code: new_code,
-                expires_at,
             };
             Self::create(conn, new_verification).await
         }
@@ -209,8 +202,7 @@ impl Entity {
 
         match verification {
             Some(model) => {
-                let now = Utc::now().naive_utc();
-                Ok(model.expires_at < now)
+                Ok(!model.is_expired())
             }
             None => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
                 .with_message(&format!("Verification code not found for user {}", user_id))),
@@ -265,7 +257,6 @@ impl Entity {
                     "id" => db_query = db_query.order_by(Column::Id, order),
                     "user_id" => db_query = db_query.order_by(Column::UserId, order),
                     "code" => db_query = db_query.order_by(Column::Code, order),
-                    "expires_at" => db_query = db_query.order_by(Column::ExpiresAt, order),
                     "created_at" => db_query = db_query.order_by(Column::CreatedAt, order),
                     "updated_at" => db_query = db_query.order_by(Column::UpdatedAt, order),
                     _ => {}

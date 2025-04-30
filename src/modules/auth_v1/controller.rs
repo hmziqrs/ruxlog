@@ -50,21 +50,12 @@ pub async fn log_in(
 #[debug_handler]
 pub async fn register(
     state: State<AppState>,
-    payload: Result<Json<V1RegisterPayload>, JsonRejection>,
-) -> Result<impl IntoResponse, ErrorResponse> {
-    let payload = payload.map_err(|err| err.into_error_response())?.0;
+    payload: ValidatedJson<V1RegisterPayload>, ) -> Result<impl IntoResponse, ErrorResponse> {
+    let payload = payload.0;
 
-    // Validate the payload after successful JSON parsing
-    if let Err(validation_errors) = payload.validate() {
-        return Err(ErrorResponse::new(ErrorCode::InvalidInput)
-            .with_message("Validation failed")
-            .with_context(validation_errors.errors()));
-    }
 
     match user::Entity::create(&state.sea_db, payload.into_new_user()).await {
         Ok(user) => Ok((StatusCode::CREATED, Json(json!(user)))),
-        Err(err) => Err(ErrorResponse::new(ErrorCode::DuplicateEntry)
-            .with_message("Failed to create user")
-            .with_details(err.to_string())),
+        Err(err) => Err(err.into()),
     }
 }

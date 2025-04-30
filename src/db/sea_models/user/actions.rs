@@ -1,6 +1,6 @@
-use sea_orm::{entity::prelude::*, Order, QueryOrder, Set};
+use sea_orm::{entity::prelude::*, Order, QueryOrder, Set, TransactionTrait};
 use tokio::task;
-use crate::error::{DbResult, ErrorCode, ErrorResponse};
+use crate::{db::sea_models::email_verification, error::{DbResult, ErrorCode, ErrorResponse}};
 
 use super::*;
 
@@ -25,14 +25,27 @@ impl Entity {
             updated_at: Set(now),
             ..Default::default()
         };
-
-        match user.insert(conn).await {
+        // create a transaction
+        let transaction = conn.begin().await.map_err(|_| {
+            ErrorResponse::new(ErrorCode::TransactionError)
+                .with_message("Failed to begin transaction")
+        })?;
+        match user.insert(&transaction).await {
             Ok(model) => {
-                // Create email verification record
-                // This would normally call EmailVerification::create, but we'll handle this in the service layer
+                email_verification::Entity::create_new(&transaction, model.id).await?;
+                transaction.commit().await.map_err(|_| {
+                    ErrorResponse::new(ErrorCode::TransactionError)
+                        .with_message("Failed to commit transaction")
+                })?;
                 Ok(model)
             },
-            Err(err) => Err(err.into()),
+            Err(err) => {
+                transaction.rollback().await.map_err(|_| {
+                    ErrorResponse::new(ErrorCode::TransactionError)
+                        .with_message("Failed to rollback transaction")
+                })?;
+                Err(err.into())
+            },
         }
     }
 
