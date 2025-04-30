@@ -11,6 +11,7 @@ use axum::{
     http::{HeaderName, HeaderValue},
     middleware, routing,
 };
+use axum_client_ip::{ClientIpSource};
 use axum_login::AuthManagerLayerBuilder;
 use modules::csrf_v1;
 use std::{env, net::SocketAddr, time::Duration};
@@ -81,6 +82,12 @@ fn get_allowed_origins() -> Vec<HeaderValue> {
         .iter()
         .map(|origin| origin.parse::<HeaderValue>().unwrap())
         .collect()
+}
+
+
+#[derive(serde::Deserialize)]
+struct IpConfig {
+    ip_source: ClientIpSource,
 }
 
 #[tokio::main]
@@ -193,8 +200,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
+    let ip_config: IpConfig = envy::from_env().unwrap();
+
     let app = router::router()
-        // .layer(SecureClientIpSource::ConnectInfo.into_extension())
+        .layer(ip_config.ip_source.into_extension())
         .layer(auth_layer)
         // .layer(GovernorLayer {
         //     config: governor_conf,
