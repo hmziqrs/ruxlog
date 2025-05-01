@@ -146,44 +146,22 @@ impl Entity {
         post_id: Option<i32>,
         post_slug: Option<String>,
     ) -> DbResult<Option<PostWithRelations>> {
-        // Create base query with all necessary joins
         use super::super::user::Column as UserColumn;
         use super::super::category::Column as CategoryColumn;
         use sea_orm::QuerySelect;
 
-        // Start with a basic select
         let mut query = Entity::find()
-            // .select_only()
-            // .columns([
-            //     Column::Id,
-            //     Column::Title,
-            //     Column::Slug,
-            //     Column::Content,
-            //     Column::Excerpt,
-            //     Column::FeaturedImage,
-            //     Column::Status,
-            //     Column::PublishedAt,
-            //     Column::CreatedAt,
-            //     Column::UpdatedAt,
-            //     Column::AuthorId,
-            //     Column::ViewCount,
-            //     Column::LikesCount,
-            //     Column::TagIds,
-            //     Column::CategoryId,
-            // ])
-            // Select author fields
+
             .column_as(UserColumn::Id, "author_id")
             .column_as(UserColumn::Name, "author_name")
             .column_as(UserColumn::Email, "author_email")
             .column_as(UserColumn::Avatar, "author_avatar")
-            // Select category fields if present
             .column_as(CategoryColumn::Id, "category_id")
             .column_as(CategoryColumn::Name, "category_name")
-            // Add count of comments as a subquery
-            // .expr_as(
-            //     Expr::cust("COALESCE((SELECT COUNT(*) FROM post_comments WHERE post_comments.post_id = post.id), 0)"),
-            //     "comment_count",
-            // )
+            .expr_as(
+                Expr::cust("COALESCE((SELECT COUNT(*) FROM post_comments WHERE post_comments.post_id = posts.id), 0)"),
+                "comment_count",
+            )
             // Join with author (inner join - must have an author)
             .join(JoinType::InnerJoin, Relation::User.def())
             // Left join with category (might not have a category)
@@ -247,7 +225,7 @@ impl Entity {
                     avatar: post_data.author_avatar,
                 },
                 // Use the comment count from the subquery
-                comment_count: Some(post_data.comment_count),
+                comment_count: post_data.comment_count,
             }));
         }
 
@@ -581,7 +559,7 @@ impl Entity {
                     email: user.email,
                     avatar: user.avatar,
                 },
-                comment_count: Some(comment_count as i64),
+                comment_count: comment_count as i64,
             });
         }
 

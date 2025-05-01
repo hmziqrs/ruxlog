@@ -1,3 +1,5 @@
+use std::default;
+
 use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 use super::PostStatus;
@@ -98,8 +100,7 @@ pub struct PostWithRelations {
     pub author: PostAuthor,
     
     // Additional counters that might be populated from joins
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub comment_count: Option<i64>,
+    pub comment_count: i64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
