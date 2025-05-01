@@ -1,4 +1,4 @@
-use crate::error::{DbResult, ErrorCode, ErrorResponse};
+use crate::{db::sea_models::tag, error::{DbResult, ErrorCode, ErrorResponse}};
 use sea_orm::{
     entity::prelude::*, Condition, ConnectionTrait, DbBackend, Order, QueryOrder, Set, Statement,
     TransactionTrait,
@@ -9,9 +9,27 @@ use super::*;
 impl Entity {
     pub const PER_PAGE: u64 = 10;
 
+    async fn sanitized_tag_ids(
+        conn: &DbConn,
+        tag_ids: Vec<i32>,
+    ) -> DbResult<Vec<i32>> {
+        let mut sanitized_ids = Vec::new();
+        tag::Entity::find()
+            .filter(tag::Column::Id.is_in(tag_ids))
+            .all(conn)
+            .await?
+            .iter()
+            .for_each(|tag| {
+                sanitized_ids.push(tag.id);
+            });
+        Ok(sanitized_ids)
+    }
+
     // Create a new post
     pub async fn create(conn: &DbConn, new_post: NewPost) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
+
+        let sanitized_tag_ids = Self::sanitized_tag_ids(conn, new_post.tag_ids).await?;
         
         let post = ActiveModel {
             title: Set(new_post.title),
@@ -25,7 +43,7 @@ impl Entity {
             category_id: Set(new_post.category_id),
             view_count: Set(new_post.view_count),
             likes_count: Set(new_post.likes_count),
-            tag_ids: Set(new_post.tag_ids),
+            tag_ids: Set(sanitized_tag_ids),
             created_at: Set(now),
             updated_at: Set(now),
             ..Default::default()
