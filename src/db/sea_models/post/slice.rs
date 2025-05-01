@@ -92,8 +92,7 @@ pub struct PostWithRelations {
     pub tag_ids: Vec<i32>,
     
     // Relations (optional depending on query needs)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub category: Option<PostCategory>,
+    pub category: PostCategory,
     #[serde(skip_serializing_if = "Vec::is_empty", default = "Vec::new")]
     pub tags: Vec<PostTag>,
     pub author: PostAuthor,
@@ -137,7 +136,7 @@ pub struct PostWithJoinedData {
     pub view_count: i32,
     pub likes_count: i32,
     pub tag_ids: Vec<i32>,
-    pub category_id: Option<i32>,
+    pub category_id: i32,
     
     // Author fields from join
     pub author_name: String,
@@ -145,7 +144,7 @@ pub struct PostWithJoinedData {
     pub author_avatar: Option<String>,
     
     // Category fields from join
-    pub category_name: Option<String>,
+    pub category_name: String,
     
     // Comment count from subquery
     pub comment_count: i64,

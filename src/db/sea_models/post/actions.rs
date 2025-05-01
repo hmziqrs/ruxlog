@@ -180,10 +180,10 @@ impl Entity {
             .column_as(CategoryColumn::Id, "category_id")
             .column_as(CategoryColumn::Name, "category_name")
             // Add count of comments as a subquery
-            .expr_as(
-                Expr::cust("COALESCE((SELECT COUNT(*) FROM post_comments WHERE post_comments.post_id = post.id), 0)"),
-                "comment_count",
-            )
+            // .expr_as(
+            //     Expr::cust("COALESCE((SELECT COUNT(*) FROM post_comments WHERE post_comments.post_id = post.id), 0)"),
+            //     "comment_count",
+            // )
             // Join with author (inner join - must have an author)
             .join(JoinType::InnerJoin, Relation::User.def())
             // Left join with category (might not have a category)
@@ -202,19 +202,19 @@ impl Entity {
         if let Some(post_data) = post_result {
             // Get tags for this post (separate query since we need to filter by tag_ids array)
             let mut tags = Vec::new();
-            if !post_data.tag_ids.is_empty() {
-                let tag_models = super::super::tag::Entity::find()
-                    .filter(super::super::tag::Column::Id.is_in(post_data.tag_ids.clone()))
-                    .all(conn)
-                    .await?;
+            // if !post_data.tag_ids.is_empty() {
+            //     let tag_models = super::super::tag::Entity::find()
+            //         .filter(super::super::tag::Column::Id.is_in(post_data.tag_ids.clone()))
+            //         .all(conn)
+            //         .await?;
 
-                for tag in tag_models {
-                    tags.push(PostTag {
-                        id: tag.id,
-                        name: tag.name,
-                    });
-                }
-            }
+            //     for tag in tag_models {
+            //         tags.push(PostTag {
+            //             id: tag.id,
+            //             name: tag.name,
+            //         });
+            //     }
+            // }
 
             // Construct the final PostWithRelations from the joined data
             return Ok(Some(PostWithRelations {
@@ -233,12 +233,9 @@ impl Entity {
                 likes_count: post_data.likes_count,
                 tag_ids: post_data.tag_ids,
                 // Build category from joined data
-                category: match post_data.category_id {
-                    Some(id) if id > 0 => Some(PostCategory {
-                        id: id,
-                        name: post_data.category_name.unwrap_or_default(),
-                    }),
-                    _ => None,
+                category: PostCategory {
+                    id: post_data.category_id,
+                    name: post_data.category_name,
                 },
                 // Use tags we loaded
                 tags,
@@ -533,18 +530,10 @@ impl Entity {
                 })?;
 
             // Get category if present
-            let category = {
-                match super::super::category::Entity::find_by_id(post.category_id)
-                    .one(conn)
-                    .await?
-                {
-                    Some(cat) => Some(PostCategory {
-                        id: cat.id,
-                        name: cat.name.clone(),
-                    }),
-                    None => None,
-                }
-            };
+            let category = PostCategory {
+                        id: post.category_id,
+                        name: "jjaa".to_owned(),
+                    };
 
             // Get tags
             let mut tags = Vec::new();
