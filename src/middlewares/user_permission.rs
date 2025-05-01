@@ -1,11 +1,8 @@
 use axum::{
     extract::Request,
-    http::StatusCode,
     middleware::Next,
     response::{IntoResponse, Response},
-    Json,
 };
-use serde_json::json;
 
 use crate::{
     db::sea_models::user::{self, UserRole},

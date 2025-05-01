@@ -20,7 +20,7 @@ impl Entity {
             featured_image: Set(new_post.featured_image),
             status: Set(new_post.status),
             published_at: Set(new_post.published_at),
-            user_id: Set(new_post.user_id),
+            author_id: Set(new_post.author_id),
             category_id: Set(new_post.category_id),
             view_count: Set(new_post.view_count),
             likes_count: Set(new_post.likes_count),
@@ -48,7 +48,7 @@ impl Entity {
         let mut query = Self::find_by_id(post_id);
 
         if !is_mod {
-            query = query.filter(Column::UserId.eq(user.id));
+            query = query.filter(Column::AuthorId.eq(user.id));
         }
 
         let post = query.one(conn).await?;
@@ -145,7 +145,7 @@ impl Entity {
         if !is_mod {
             // Check if the post belongs to the user
             let post = Self::find_by_id(post_id)
-                .filter(Column::UserId.eq(user.id))
+                .filter(Column::AuthorId.eq(user.id))
                 .one(conn)
                 .await?;
 
@@ -194,12 +194,12 @@ impl Entity {
 
         if let Some(post) = post {
             // Get user info
-            let user = super::super::user::Entity::find_by_id(post.user_id)
+            let user = super::super::user::Entity::find_by_id(post.author_id)
                 .one(conn)
                 .await?
                 .ok_or_else(|| {
                     ErrorResponse::new(ErrorCode::RecordNotFound)
-                        .with_message(&format!("User with ID {} not found", post.user_id))
+                        .with_message(&format!("User with ID {} not found", post.author_id))
                 })?;
 
             // Get category if present
@@ -246,7 +246,7 @@ impl Entity {
                 published_at: post.published_at,
                 created_at: post.created_at,
                 updated_at: post.updated_at,
-                user_id: post.user_id,
+                author_id: post.author_id,
                 view_count: post.view_count,
                 likes_count: post.likes_count,
                 tag_ids: post.tag_ids,
@@ -278,8 +278,8 @@ impl Entity {
             post_query = post_query.filter(Column::Status.eq(status_filter));
         }
 
-        if let Some(user_id_filter) = query.user_id {
-            post_query = post_query.filter(Column::UserId.eq(user_id_filter));
+        if let Some(author_id_filter) = query.author_id {
+            post_query = post_query.filter(Column::AuthorId.eq(author_id_filter));
         }
 
         if let Some(created_at_filter) = query.created_at {
@@ -375,10 +375,10 @@ impl Entity {
         let sql = r#"
             SELECT
                 p.id, p.title, p.slug, p.content, p.excerpt, p.featured_image,
-                p.status, p.published_at, p.created_at, p.updated_at, p.user_id,
+                p.status, p.published_at, p.created_at, p.updated_at, p.author_id,
                 u.name as user_name, u.avatar as user_avatar
             FROM posts p
-            JOIN users u ON p.user_id = u.id
+            JOIN users u ON p.author_id = u.id
             WHERE 1=1
         "#;
 
@@ -396,9 +396,9 @@ impl Entity {
             params.push(status.to_string().into());
         }
 
-        if let Some(user_id) = query.user_id {
-            where_clauses.push("p.user_id = ?");
-            params.push(user_id.into());
+        if let Some(author_id) = query.author_id {
+            where_clauses.push("p.author_id = ?");
+            params.push(author_id.into());
         }
 
         // Build the final SQL query with pagination
@@ -461,7 +461,7 @@ impl Entity {
                     published_at: row.try_get("", "published_at").ok(),
                     created_at: row.try_get("", "created_at").unwrap_or_default(),
                     updated_at: row.try_get("", "updated_at").unwrap_or_default(),
-                    user_id: row.try_get("", "user_id").unwrap_or_default(),
+                    author_id: row.try_get("", "author_id").unwrap_or_default(),
                     user_name: row.try_get("", "user_name").unwrap_or_default(),
                     user_avatar: row.try_get("", "user_avatar").ok(),
                 })
@@ -471,7 +471,7 @@ impl Entity {
 
         // Count total posts with the same filters but without pagination
         let mut count_sql = format!(
-            "SELECT COUNT(*) as total FROM posts p JOIN users u ON p.user_id = u.id WHERE 1=1"
+            "SELECT COUNT(*) as total FROM posts p JOIN users u ON p.author_id = u.id WHERE 1=1"
         );
 
         if !where_clauses.is_empty() {
@@ -547,12 +547,12 @@ impl Entity {
         let sql = r#"
             SELECT
                 p.id, p.title, p.slug, p.content, p.excerpt, p.featured_image,
-                p.status, p.published_at, p.created_at, p.updated_at, p.user_id,
+                p.status, p.published_at, p.created_at, p.updated_at, p.author_id,
                 u.name as user_name, u.avatar as user_avatar,
                 COUNT(DISTINCT pv.id) as view_count,
                 COUNT(DISTINCT pc.id) as comment_count
             FROM posts p
-            JOIN users u ON p.user_id = u.id
+            JOIN users u ON p.author_id, = u.id
             LEFT JOIN post_views pv ON p.id = pv.post_id
             LEFT JOIN post_comments pc ON p.id = pc.post_id
             WHERE 1=1
@@ -572,9 +572,9 @@ impl Entity {
             params.push(status.to_string().into());
         }
 
-        if let Some(user_id) = query.user_id {
-            where_clauses.push("p.user_id = ?");
-            params.push(user_id.into());
+        if let Some(author_id) = query.author_id {
+            where_clauses.push("p.author_id = ?");
+            params.push(author_id.into());
         }
 
         // Build the final SQL query with group by
@@ -641,7 +641,7 @@ impl Entity {
                     published_at: row.try_get("", "published_at").ok(),
                     created_at: row.try_get("", "created_at").unwrap_or_default(),
                     updated_at: row.try_get("", "updated_at").unwrap_or_default(),
-                    user_id: row.try_get("", "user_id").unwrap_or_default(),
+                    author_id: row.try_get("", "author_id").unwrap_or_default(),
                     user_name: row.try_get("", "user_name").unwrap_or_default(),
                     user_avatar: row.try_get("", "user_avatar").ok(),
                     view_count: row.try_get("", "view_count").unwrap_or_default(),
@@ -653,7 +653,7 @@ impl Entity {
 
         // Count total posts with the same filters but without pagination
         let mut count_sql = format!(
-            "SELECT COUNT(DISTINCT p.id) as total FROM posts p JOIN users u ON p.user_id = u.id WHERE 1=1"
+            "SELECT COUNT(DISTINCT p.id) as total FROM posts p JOIN users u ON p.author_id = u.id WHERE 1=1"
         );
 
         if !where_clauses.is_empty() {
@@ -693,10 +693,10 @@ impl Entity {
         if let Some(user_obj) = user {
             if !is_mod {
                 // Non-mods can only see their own posts
-                post_query = post_query.filter(Column::UserId.eq(user_obj.id));
-            } else if let Some(user_id_filter) = query.user_id {
+                post_query = post_query.filter(Column::AuthorId.eq(user_obj.id));
+            } else if let Some(author_id_filter) = query.author_id {
                 // Mods can filter by any user
-                post_query = post_query.filter(Column::UserId.eq(user_id_filter));
+                post_query = post_query.filter(Column::AuthorId.eq(author_id_filter));
             }
         }
 
@@ -772,12 +772,12 @@ impl Entity {
 
         for post in posts {
             // Get user info
-            let user = super::super::user::Entity::find_by_id(post.user_id)
+            let user = super::super::user::Entity::find_by_id(post.author_id)
                 .one(conn)
                 .await?
                 .ok_or_else(|| {
                     ErrorResponse::new(ErrorCode::RecordNotFound)
-                        .with_message(&format!("User with ID {} not found", post.user_id))
+                        .with_message(&format!("User with ID {} not found", post.author_id))
                 })?;
 
             // Get category if present
@@ -824,7 +824,7 @@ impl Entity {
                 published_at: post.published_at,
                 created_at: post.created_at,
                 updated_at: post.updated_at,
-                user_id: post.user_id,
+                author_id: post.author_id,
                 view_count: post.view_count,
                 likes_count: post.likes_count,
                 tag_ids: post.tag_ids,
@@ -852,7 +852,7 @@ impl Entity {
             page_no: Some(page),
             status: Some(PostStatus::Published),
             title: None,
-            user_id: None,
+            author_id: None,
             created_at: None,
             updated_at: None,
             published_at: None,

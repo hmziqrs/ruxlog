@@ -217,7 +217,7 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
                 excerpt: Some(post_excerpt),
                 featured_image: None,
                 status: if is_published { post::PostStatus::Published } else { post::PostStatus::Draft },
-                user_id: user.id,
+                author_id: user.id,
                 published_at: if is_published {
                     Some(chrono::Utc::now().naive_utc())
                 } else {
@@ -443,7 +443,7 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
                     excerpt: Some(post_excerpt),
                     featured_image: None,
                     status: if is_published { post::PostStatus::Published } else { post::PostStatus::Draft },
-                    user_id: user.id,
+                    author_id: user.id,
                     published_at: if is_published {
                         Some(chrono::Utc::now().naive_utc())
                     } else {

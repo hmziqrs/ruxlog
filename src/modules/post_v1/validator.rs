@@ -28,7 +28,7 @@ impl V1CreatePostPayload {
         NewPost {
             title: self.title,
             content: self.content,
-            user_id: author_id,
+            author_id: author_id,
             published_at: self.published_at,
             status: if self.is_published {
                 PostStatus::Published
@@ -68,7 +68,7 @@ impl V1UpdatePostPayload {
         UpdatePost {
             title: self.title,
             content: self.content,
-            // user_id: Some(author_id),
+            // author_id: Some(author_id),
             published_at: self.published_at,
             updated_at: chrono::Utc::now().naive_utc(),
             status: self.status,
@@ -100,7 +100,7 @@ impl V1PostQueryParams {
     pub fn into_post_query(self) -> PostQuery {
         PostQuery {
             page_no: self.page,
-            user_id: self.author_id,
+            author_id: self.author_id,
             category_id: self.category_id,
             status: self.status,
             search: self.search,

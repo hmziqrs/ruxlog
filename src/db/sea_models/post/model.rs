@@ -39,7 +39,7 @@ pub struct Model {
     pub status: PostStatus,
     pub published_at: Option<NaiveDateTime>,
 
-    pub user_id: i32,
+    pub author_id: i32,
     pub category_id: Option<i32>,
     pub view_count: i32,
     pub likes_count: i32,
@@ -54,7 +54,7 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(
         belongs_to = "super::super::user::Entity",
-        from = "Column::UserId",
+        from = "Column::AuthorId",
         to = "super::super::user::Column::Id"
     )]
     User,
