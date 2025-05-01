@@ -1,20 +1,19 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
 };
-use axum_valid::Valid;
 
 use axum_macros::debug_handler;
 use serde_json::json;
 
 use crate::{
-    db::sea_models::post, 
+    db::sea_models::post,
     error::{ErrorCode, ErrorResponse},
-    extractors::ValidatedJson,
-    modules::post_v1::validator::V1UpdatePostPayload, 
-    services::auth::AuthSession, 
+    extractors::{ValidatedJson, ValidatedQuery},
+    modules::post_v1::validator::V1UpdatePostPayload,
+    services::auth::AuthSession,
     AppState,
 };
 
@@ -47,8 +46,9 @@ pub async fn find_by_id_or_slug(
 
     match query {
         Ok(Some(post)) => Ok((StatusCode::OK, Json(json!(post)))),
-        Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-            .with_message("Post not found")),
+        Ok(None) => {
+            Err(ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Post not found"))
+        }
         Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
             .with_message("Failed to fetch post")
             .with_details(err.to_string())),
@@ -65,8 +65,9 @@ pub async fn update(
 
     match post::Entity::update(&state.sea_db, post_id, update_post).await {
         Ok(Some(post)) => Ok((StatusCode::OK, Json(json!(post)))),
-        Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-            .with_message("Post does not exist")),
+        Ok(None) => {
+            Err(ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Post does not exist"))
+        }
         Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
             .with_message("Failed to update post")
             .with_details(err.to_string())),
@@ -79,9 +80,13 @@ pub async fn delete(
     Path(post_id): Path<i32>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     match post::Entity::delete(&state.sea_db, post_id).await {
-        Ok(1) => Ok((StatusCode::OK, Json(json!({ "message": "Post deleted successfully" })))),
-        Ok(0) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-            .with_message("Post does not exist")),
+        Ok(1) => Ok((
+            StatusCode::OK,
+            Json(json!({ "message": "Post deleted successfully" })),
+        )),
+        Ok(0) => {
+            Err(ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Post does not exist"))
+        }
         Ok(_) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
             .with_message("Internal server error occurred while deleting post")),
         Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
@@ -93,11 +98,10 @@ pub async fn delete(
 #[debug_handler]
 pub async fn find_published_posts(
     State(state): State<AppState>,
-    Valid(query): Valid<Query<V1PostQueryParams>>,
+    query: ValidatedQuery<V1PostQueryParams>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let page = query.page.unwrap_or(1);
-
-    match post::Entity::find_published_paginated(&state.sea_db, page).await {
+    let page = query.page.clone().unwrap_or(1);
+    match post::Entity::find_published_paginated(&state.sea_db, query.0.into_post_query()).await {
         Ok((posts, total)) => Ok((
             StatusCode::OK,
             Json(json!({
@@ -119,7 +123,10 @@ pub async fn track_view(
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let user_id: Option<i32> = auth.user.map(|user| user.id);
     match post::Entity::increment_view_count(&state.sea_db, post_id, user_id, None, None).await {
-        Ok(_) => Ok((StatusCode::OK, Json(json!({ "message": "View tracked successfully" })))),
+        Ok(_) => Ok((
+            StatusCode::OK,
+            Json(json!({ "message": "View tracked successfully" })),
+        )),
         Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
             .with_message("Failed to track view")
             .with_details(err.to_string())),

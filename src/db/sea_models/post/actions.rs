@@ -361,21 +361,21 @@ impl Entity {
     // Find published posts with pagination and relations
     pub async fn find_published_paginated(
         conn: &DbConn,
-        page: u64,
+        query: PostQuery,
     ) -> DbResult<(Vec<PostWithRelations>, u64)> {
         let query = PostQuery {
-            page_no: Some(page),
+            page_no: query.page_no,
             status: Some(PostStatus::Published),
             title: None,
-            author_id: None,
+            author_id: query.author_id,
             created_at: None,
             updated_at: None,
             published_at: None,
             sort_by: Some(vec!["updated_at".to_string()]),
             sort_order: Some("desc".to_string()),
-            category_id: None,
+            category_id: query.category_id,
             search: None,
-            tag_ids: None,
+            tag_ids: query.tag_ids,
         };
 
         // Use the optimized search method
