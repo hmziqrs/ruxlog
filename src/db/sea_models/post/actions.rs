@@ -1,6 +1,11 @@
-use crate::{db::sea_models::tag, error::{DbResult, ErrorCode, ErrorResponse}};
+use std::collections::HashSet;
+
+use crate::{
+    db::sea_models::tag,
+    error::{DbResult, ErrorCode, ErrorResponse},
+};
 use sea_orm::{
-    entity::prelude::*, Condition, JoinType, Order, QueryOrder, QuerySelect, Set, TransactionTrait
+    entity::prelude::*, Condition, JoinType, Order, QueryOrder, QuerySelect, Set, TransactionTrait,
 };
 
 use super::*;
@@ -8,10 +13,7 @@ use super::*;
 impl Entity {
     pub const PER_PAGE: u64 = 10;
 
-    async fn sanitized_tag_ids(
-        conn: &DbConn,
-        tag_ids: Vec<i32>,
-    ) -> DbResult<Vec<i32>> {
+    async fn sanitized_tag_ids(conn: &DbConn, tag_ids: Vec<i32>) -> DbResult<Vec<i32>> {
         let mut sanitized_ids = Vec::new();
         tag::Entity::find()
             .filter(tag::Column::Id.is_in(tag_ids))
@@ -29,7 +31,7 @@ impl Entity {
         let now = chrono::Utc::now().fixed_offset();
 
         let sanitized_tag_ids = Self::sanitized_tag_ids(conn, new_post.tag_ids).await?;
-        
+
         let post = ActiveModel {
             title: Set(new_post.title),
             slug: Set(new_post.slug),
@@ -134,8 +136,8 @@ impl Entity {
         post_id: Option<i32>,
         post_slug: Option<String>,
     ) -> DbResult<Option<PostWithRelations>> {
-        use super::super::user::Column as UserColumn;
         use super::super::category::Column as CategoryColumn;
+        use super::super::user::Column as UserColumn;
         use sea_orm::QuerySelect;
         let mut query = Entity::find()
             .column_as(UserColumn::Id, "author_id")
@@ -159,7 +161,7 @@ impl Entity {
         };
 
         let post_result = query.into_model::<PostWithJoinedData>().one(conn).await?;
-        
+
         if let Some(post_data) = post_result {
             let mut tags = Vec::new();
             if !post_data.tag_ids.is_empty() {
@@ -183,14 +185,36 @@ impl Entity {
         Ok(None)
     }
 
-    // Search posts with query parameters
-    pub async fn search(conn: &DbConn, query: PostQuery) -> DbResult<(Vec<Model>, u64)> {
+    // Search posts with query parameters and optionally load relations
+    pub async fn search(
+        conn: &DbConn,
+        query: PostQuery,
+    ) -> DbResult<(Vec<PostWithRelations>, u64)> {
+        // Start with a basic query
         let mut post_query = Self::find();
+
+        // If relations are needed, join the related tables
+        use super::super::category::Column as CategoryColumn;
+        use super::super::user::Column as UserColumn;
+
+        post_query = post_query
+            .column_as(UserColumn::Id, "author_id")
+            .column_as(UserColumn::Name, "author_name")
+            .column_as(UserColumn::Email, "author_email")
+            .column_as(UserColumn::Avatar, "author_avatar")
+            .column_as(CategoryColumn::Id, "category_id")
+            .column_as(CategoryColumn::Name, "category_name")
+            .expr_as(
+                Expr::cust("COALESCE((SELECT COUNT(*) FROM post_comments WHERE post_comments.post_id = posts.id), 0)"),
+                "comment_count",
+            )
+            .join(JoinType::InnerJoin, Relation::User.def())
+            .join(JoinType::LeftJoin, Relation::Category.def());
 
         // Apply filters
         if let Some(title_filter) = &query.title {
-            let title_pattern = format!("%{}%", title_filter);
-            post_query = post_query.filter(Column::Title.contains(&title_pattern));
+            let pattern = format!("%{}%", title_filter);
+            post_query = post_query.filter(Column::Title.contains(&pattern));
         }
 
         if let Some(status_filter) = query.status {
@@ -218,18 +242,16 @@ impl Entity {
         }
 
         if let Some(search_term) = &query.search {
-            let search_pattern = format!("%{}%", search_term);
+            let pattern = format!("%{}%", search_term);
             post_query = post_query.filter(
                 Condition::any()
-                    .add(Column::Title.contains(&search_pattern))
-                    .add(Column::Content.contains(&search_pattern)),
+                    .add(Column::Title.contains(&pattern))
+                    .add(Column::Content.contains(&pattern)),
             );
         }
 
         if let Some(tag_ids_filter) = query.tag_ids {
             if !tag_ids_filter.is_empty() {
-                // Note: This is a simplified approach. For a real application,
-                // you might need a more complex query depending on how tags are stored
                 post_query = post_query.filter(Expr::cust_with_values(
                     "tag_ids @> Array[?]::int[]",
                     tag_ids_filter,
@@ -273,18 +295,68 @@ impl Entity {
             _ => 1,
         };
 
-        let paginator = post_query.paginate(conn, Self::PER_PAGE);
+        // Apply pagination and fetch results
+        
 
-        // Get total count and paginated results
-        match paginator.num_items().await {
-            Ok(total) => match paginator.fetch_page(page - 1).await {
-                Ok(results) => Ok((results, total)),
-                Err(err) => Err(err.into()),
-            },
-            Err(err) => Err(err.into()),
-        }
+
+        // Use joined data approach
+        let paginated = post_query
+            .into_model::<PostWithJoinedData>()
+            .paginate(conn, Self::PER_PAGE);
+
+        let total = paginated.num_items().await?;
+            
+        let posts_joined = paginated.fetch_page(page - 1)
+            .await?;
+
+        // Collect all tag IDs from each post into a set
+        let all_tag_ids: HashSet<i32> = posts_joined
+            .iter()
+            .flat_map(|p| p.tag_ids.clone())
+            .collect();
+
+        // Load all tags in a single query
+        let tags = if !all_tag_ids.is_empty() {
+            super::super::tag::Entity::find()
+                .filter(
+                    super::super::tag::Column::Id
+                        .is_in(all_tag_ids.into_iter().collect::<Vec<i32>>()),
+                )
+                .all(conn)
+                .await?
+                .into_iter()
+                .map(|t| {
+                    (
+                        t.id,
+                        PostTag {
+                            id: t.id,
+                            name: t.name,
+                        },
+                    )
+                })
+                .collect::<std::collections::HashMap<i32, PostTag>>()
+        } else {
+            std::collections::HashMap::new()
+        };
+
+        // Map joined data to PostWithRelations
+        let posts_with_relations: Vec<PostWithRelations> = posts_joined
+            .into_iter()
+            .map(|joined_data| {
+                // Get post tags for this post
+                let post_tags = joined_data
+                    .tag_ids
+                    .iter()
+                    .filter_map(|id| tags.get(id).cloned())
+                    .collect::<Vec<PostTag>>();
+
+                // Convert joined data to PostWithRelations
+                joined_data.into_relation(post_tags)
+            })
+            .collect();
+
+        Ok((posts_with_relations, total))
     }
-
 
     // Find published posts with pagination and relations
     pub async fn find_published_paginated(
@@ -306,165 +378,8 @@ impl Entity {
             tag_ids: None,
         };
 
-        // Using the find_with_relations function which is reusable for this purpose
-        Self::find_with_relations(conn, query).await
-    }
-
-    // Helper method for find_published_paginated
-    async fn find_with_relations(
-        conn: &DbConn,
-        query: PostQuery,
-    ) -> DbResult<(Vec<PostWithRelations>, u64)> {
-        let mut post_query = Self::find();
-
-        // Apply filters similar to search function
-        if let Some(title_filter) = &query.title {
-            let pattern = format!("%{}%", title_filter);
-            post_query = post_query.filter(Column::Title.contains(&pattern));
-        }
-
-        if let Some(status_filter) = query.status {
-            post_query = post_query.filter(Column::Status.eq(status_filter));
-        }
-
-        if let Some(author_id_filter) = query.author_id {
-            post_query = post_query.filter(Column::AuthorId.eq(author_id_filter));
-        }
-
-        if let Some(category_id_filter) = query.category_id {
-            post_query = post_query.filter(Column::CategoryId.eq(category_id_filter));
-        }
-
-        if let Some(search_term) = &query.search {
-            let pattern = format!("%{}%", search_term);
-            post_query = post_query.filter(
-                Condition::any()
-                    .add(Column::Title.contains(&pattern))
-                    .add(Column::Content.contains(&pattern)),
-            );
-        }
-
-        if let Some(tag_ids_filter) = query.tag_ids {
-            if !tag_ids_filter.is_empty() {
-                post_query = post_query.filter(Expr::cust_with_values(
-                    "tag_ids @> Array[?]::int[]",
-                    tag_ids_filter,
-                ));
-            }
-        }
-
-        // Handle sort_by fields
-        if let Some(sort_fields) = &query.sort_by {
-            for field in sort_fields {
-                let order = if query.sort_order.as_deref() == Some("asc") {
-                    Order::Asc
-                } else {
-                    Order::Desc
-                };
-
-                post_query = match field.as_str() {
-                    "title" => post_query.order_by(Column::Title, order),
-                    "created_at" => post_query.order_by(Column::CreatedAt, order),
-                    "updated_at" => post_query.order_by(Column::UpdatedAt, order),
-                    "published_at" => post_query.order_by(Column::PublishedAt, order),
-                    "view_count" => post_query.order_by(Column::ViewCount, order),
-                    "likes_count" => post_query.order_by(Column::LikesCount, order),
-                    _ => post_query,
-                };
-            }
-        } else {
-            // Default ordering
-            let order = if query.sort_order.as_deref() == Some("asc") {
-                Order::Asc
-            } else {
-                Order::Desc
-            };
-            post_query = post_query.order_by(Column::CreatedAt, order);
-        }
-
-        // Count total before pagination
-        let total = post_query.clone().count(conn).await?;
-
-        // Handle pagination
-        let page = match query.page_no {
-            Some(p) if p > 0 => p,
-            _ => 1,
-        };
-
-        let posts = post_query
-            .paginate(conn, Self::PER_PAGE)
-            .fetch_page(page - 1)
-            .await?;
-
-        // Now load the related data for each post
-        let mut posts_with_relations = Vec::new();
-
-        for post in posts {
-            // Get user info
-            let user = super::super::user::Entity::find_by_id(post.author_id)
-                .one(conn)
-                .await?
-                .ok_or_else(|| {
-                    ErrorResponse::new(ErrorCode::RecordNotFound)
-                        .with_message(&format!("User with ID {} not found", post.author_id))
-                })?;
-
-            // Get category if present
-            let category = PostCategory {
-                        id: post.category_id,
-                        name: "jjaa".to_owned(),
-                    };
-
-            // Get tags
-            let mut tags = Vec::new();
-            if !post.tag_ids.is_empty() {
-                let tag_models = super::super::tag::Entity::find()
-                    .filter(super::super::tag::Column::Id.is_in(post.tag_ids.clone()))
-                    .all(conn)
-                    .await?;
-
-                for tag in tag_models {
-                    tags.push(PostTag {
-                        id: tag.id,
-                        name: tag.name,
-                    });
-                }
-            }
-            
-            // Get comment count using ORM
-            let comment_count = super::super::post_comment::Entity::find()
-                .filter(super::super::post_comment::Column::PostId.eq(post.id))
-                .count(conn)
-                .await?;
-
-            // Construct the post with relations
-            posts_with_relations.push(PostWithRelations {
-                id: post.id,
-                title: post.title,
-                slug: post.slug,
-                content: post.content,
-                excerpt: post.excerpt,
-                featured_image: post.featured_image,
-                status: post.status,
-                published_at: post.published_at,
-                created_at: post.created_at,
-                updated_at: post.updated_at,
-                author_id: post.author_id,
-                view_count: post.view_count,
-                likes_count: post.likes_count,
-                category,
-                tags,
-                author: PostAuthor {
-                    id: user.id,
-                    name: user.name,
-                    email: user.email,
-                    avatar: user.avatar,
-                },
-                comment_count: comment_count as i64,
-            });
-        }
-
-        Ok((posts_with_relations, total))
+        // Use the optimized search method
+        Self::search(conn, query).await
     }
 
     // Sitemap data for published posts
@@ -528,5 +443,4 @@ impl Entity {
         transaction.commit().await?;
         Ok(())
     }
-
 }
