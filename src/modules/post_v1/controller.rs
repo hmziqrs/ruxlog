@@ -107,9 +107,7 @@ pub async fn find_published_posts(
                 "page": page,
             })),
         )),
-        Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
-            .with_message("Failed to fetch published posts")
-            .with_details(err.to_string())),
+        Err(err) => Err(err.into()),
     }
 }
 

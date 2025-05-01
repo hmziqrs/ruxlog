@@ -153,24 +153,24 @@ impl Entity {
 
         // Start with a basic select
         let mut query = Entity::find()
-            .select_only()
-            .columns([
-                Column::Id,
-                Column::Title,
-                Column::Slug,
-                Column::Content,
-                Column::Excerpt,
-                Column::FeaturedImage,
-                Column::Status,
-                Column::PublishedAt,
-                Column::CreatedAt,
-                Column::UpdatedAt,
-                Column::AuthorId,
-                Column::ViewCount,
-                Column::LikesCount,
-                Column::TagIds,
-                Column::CategoryId,
-            ])
+            // .select_only()
+            // .columns([
+            //     Column::Id,
+            //     Column::Title,
+            //     Column::Slug,
+            //     Column::Content,
+            //     Column::Excerpt,
+            //     Column::FeaturedImage,
+            //     Column::Status,
+            //     Column::PublishedAt,
+            //     Column::CreatedAt,
+            //     Column::UpdatedAt,
+            //     Column::AuthorId,
+            //     Column::ViewCount,
+            //     Column::LikesCount,
+            //     Column::TagIds,
+            //     Column::CategoryId,
+            // ])
             // Select author fields
             .column_as(UserColumn::Id, "author_id")
             .column_as(UserColumn::Name, "author_name")
@@ -181,7 +181,7 @@ impl Entity {
             .column_as(CategoryColumn::Name, "category_name")
             // Add count of comments as a subquery
             .expr_as(
-                Expr::cust("COALESCE((SELECT COUNT(*) FROM post_comment WHERE post_comment.post_id = post.id), 0)"),
+                Expr::cust("COALESCE((SELECT COUNT(*) FROM post_comments WHERE post_comments.post_id = post.id), 0)"),
                 "comment_count",
             )
             // Join with author (inner join - must have an author)
