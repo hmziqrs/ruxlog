@@ -1,3 +1,4 @@
+use axum::serve;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 use super::PostStatus;
@@ -98,11 +99,12 @@ pub struct PostWithRelations {
     pub comment_count: i64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, FromQueryResult)]
 pub struct PostSitemap {
     pub slug: String,
     pub updated_at: DateTimeWithTimeZone,
-    pub published_at: DateTimeWithTimeZone,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub published_at: Option<DateTimeWithTimeZone>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]

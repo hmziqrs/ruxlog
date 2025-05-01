@@ -1,6 +1,6 @@
 use crate::{db::sea_models::tag, error::{DbResult, ErrorCode, ErrorResponse}};
 use sea_orm::{
-    entity::prelude::*, Condition, JoinType, Order, QueryOrder, Set, TransactionTrait
+    entity::prelude::*, Condition, JoinType, Order, QueryOrder, QuerySelect, Set, TransactionTrait
 };
 
 use super::*;
@@ -495,19 +495,13 @@ impl Entity {
 
     // Sitemap data for published posts
     pub async fn sitemap(conn: &DbConn) -> DbResult<Vec<PostSitemap>> {
-        let published_posts = Self::find()
+        let sitemaps = Self::find()
+            .select_only()
+            .columns(vec![Column::Slug, Column::UpdatedAt, Column::PublishedAt])
             .filter(Column::Status.eq(PostStatus::Published))
+            .into_model::<PostSitemap>()
             .all(conn)
             .await?;
-
-        let sitemaps = published_posts
-            .into_iter()
-            .map(|post| PostSitemap {
-                slug: post.slug,
-                updated_at: post.updated_at,
-                published_at: post.published_at.unwrap_or(post.created_at),
-            })
-            .collect();
 
         Ok(sitemaps)
     }
