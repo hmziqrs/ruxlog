@@ -199,7 +199,8 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
             } else {
                 slugs_set.insert(post_slug.clone());
             }
-            let category_id = categories.choose(&mut rng).map(|c| c.id);
+            let category_id = categories.choose(&mut rng).map(|c| c.id).unwrap();
+
             let tags_amount = rng.random_range(1..10);
             let tag_ids: Vec<i32> = tags
                 .choose_multiple(&mut rng, tags_amount)
@@ -424,7 +425,7 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
         if user.role == UserRole::Author {
             let num_posts = rng.random_range(2..16);
             for _ in 0..num_posts {
-                let category_id = categories.choose(&mut rng).map(|c| c.id);
+                let category_id = categories.choose(&mut rng).map(|c| c.id).unwrap();
                 let tags_amount = rng.random_range(1..4);
                 let tag_ids: Vec<i32> = tags
                     .choose_multiple(&mut rng, tags_amount)

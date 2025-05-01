@@ -39,7 +39,7 @@ pub struct Model {
     pub published_at: Option<DateTimeWithTimeZone>,
 
     pub author_id: i32,
-    pub category_id: Option<i32>,
+    pub category_id: i32,
     pub view_count: i32,
     pub likes_count: i32,
     pub tag_ids: Vec<i32>,

@@ -18,7 +18,7 @@ pub struct V1CreatePostPayload {
     #[validate(length(max = 500))]
     pub excerpt: Option<String>,
     pub featured_image: Option<String>,
-    pub category_id: Option<i32>,
+    pub category_id: i32,
     #[serde(default = "Vec::new")]
     pub tag_ids: Vec<i32>,
 }
@@ -59,7 +59,7 @@ pub struct V1UpdatePostPayload {
     #[validate(length(max = 500))]
     pub excerpt: Option<String>,
     pub featured_image: Option<String>,
-    pub category_id: Option<Option<i32>>,
+    pub category_id: Option<i32>,
     pub tag_ids: Option<Vec<i32>>,
 }
 

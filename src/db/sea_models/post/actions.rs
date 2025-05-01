@@ -222,8 +222,8 @@ impl Entity {
                 })?;
 
             // Get category if present
-            let category = if let Some(cat_id) = post.category_id {
-                match super::super::category::Entity::find_by_id(cat_id)
+            let category = {
+                match super::super::category::Entity::find_by_id(post.category_id)
                     .one(conn)
                     .await?
                 {
@@ -233,8 +233,6 @@ impl Entity {
                     }),
                     None => None,
                 }
-            } else {
-                None
             };
 
             // Get tags
@@ -800,8 +798,8 @@ impl Entity {
                 })?;
 
             // Get category if present
-            let category = if let Some(cat_id) = post.category_id {
-                match super::super::category::Entity::find_by_id(cat_id)
+            let category = {
+                match super::super::category::Entity::find_by_id(post.category_id)
                     .one(conn)
                     .await?
                 {
@@ -811,8 +809,6 @@ impl Entity {
                     }),
                     None => None,
                 }
-            } else {
-                None
             };
 
             // Get tags
