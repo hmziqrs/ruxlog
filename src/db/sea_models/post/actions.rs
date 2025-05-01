@@ -177,33 +177,7 @@ impl Entity {
             }
 
             // Construct the final PostWithRelations from the joined data
-            return Ok(Some(PostWithRelations {
-                id: post_data.id,
-                title: post_data.title,
-                slug: post_data.slug,
-                content: post_data.content,
-                excerpt: post_data.excerpt,
-                featured_image: post_data.featured_image,
-                status: post_data.status,
-                published_at: post_data.published_at,
-                created_at: post_data.created_at,
-                updated_at: post_data.updated_at,
-                author_id: post_data.author_id,
-                view_count: post_data.view_count,
-                likes_count: post_data.likes_count,
-                category: PostCategory {
-                    id: post_data.category_id,
-                    name: post_data.category_name,
-                },
-                tags,
-                author: PostAuthor {
-                    id: post_data.author_id,
-                    name: post_data.author_name,
-                    email: post_data.author_email,
-                    avatar: post_data.author_avatar,
-                },
-                comment_count: post_data.comment_count,
-            }));
+            return Ok(Some(post_data.into_relation(tags)));
         }
 
         Ok(None)

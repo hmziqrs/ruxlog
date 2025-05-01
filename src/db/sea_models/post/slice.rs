@@ -1,9 +1,9 @@
-use axum::serve;
-use sea_orm::prelude::DateTimeWithTimeZone;
-use serde::{Deserialize, Serialize};
 use super::PostStatus;
+use axum::serve;
 use chrono::{DateTime, FixedOffset};
+use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::FromQueryResult;
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
 pub struct NewPost {
@@ -94,7 +94,7 @@ pub struct PostWithRelations {
     #[serde(skip_serializing_if = "Vec::is_empty", default = "Vec::new")]
     pub tags: Vec<PostTag>,
     pub author: PostAuthor,
-    
+
     // Additional counters that might be populated from joins
     pub comment_count: i64,
 }
@@ -135,15 +135,47 @@ pub struct PostWithJoinedData {
     pub likes_count: i32,
     pub tag_ids: Vec<i32>,
     pub category_id: i32,
-    
+
     // Author fields from join
     pub author_name: String,
     pub author_email: String,
     pub author_avatar: Option<String>,
-    
+
     // Category fields from join
     pub category_name: String,
-    
+
     // Comment count from subquery
     pub comment_count: i64,
+}
+
+impl PostWithJoinedData {
+    pub fn into_relation(&self, tags: Vec<PostTag>) -> PostWithRelations {
+        PostWithRelations {
+            id: self.id,
+            title: self.title.clone(),
+            slug: self.slug.clone(),
+            content: self.content.clone(),
+            excerpt: self.excerpt.clone(),
+            featured_image: self.featured_image.clone(),
+            status: self.status,
+            published_at: self.published_at,
+            created_at: self.created_at,
+            updated_at: self.updated_at,
+            author_id: self.author_id,
+            view_count: self.view_count,
+            likes_count: self.likes_count,
+            category: PostCategory {
+                id: self.category_id,
+                name: self.category_name.clone(),
+            },
+            tags,
+            author: PostAuthor {
+                id: self.author_id,
+                name: self.author_name.clone(),
+                email: self.author_email.clone(),
+                avatar: self.author_avatar.clone(),
+            },
+            comment_count: self.comment_count,
+        }
+    }
 }
