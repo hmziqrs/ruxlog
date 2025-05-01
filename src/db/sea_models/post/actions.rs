@@ -11,7 +11,8 @@ impl Entity {
 
     // Create a new post
     pub async fn create(conn: &DbConn, new_post: NewPost) -> DbResult<Model> {
-        let now = chrono::Utc::now().naive_utc();
+        let now = chrono::Utc::now().fixed_offset();
+        
         let post = ActiveModel {
             title: Set(new_post.title),
             slug: Set(new_post.slug),

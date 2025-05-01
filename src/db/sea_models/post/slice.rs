@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 use super::PostStatus;
 
@@ -11,7 +11,7 @@ pub struct NewPost {
     pub featured_image: Option<String>,
     pub status: PostStatus,
     pub author_id: i32,
-    pub published_at: Option<NaiveDateTime>,
+    pub published_at: Option<DateTimeWithTimeZone>,
     pub category_id: Option<i32>,
     pub view_count: i32,
     pub likes_count: i32,
@@ -26,8 +26,8 @@ pub struct UpdatePost {
     pub excerpt: Option<String>,
     pub featured_image: Option<String>,
     pub status: Option<PostStatus>,
-    pub published_at: Option<NaiveDateTime>,
-    pub updated_at: NaiveDateTime,
+    pub published_at: Option<DateTimeWithTimeZone>,
+    pub updated_at: DateTimeWithTimeZone,
     pub category_id: Option<Option<i32>>,
     pub view_count: Option<i32>,
     pub likes_count: Option<i32>,
@@ -40,9 +40,9 @@ pub struct PostQuery {
     pub title: Option<String>,
     pub status: Option<PostStatus>,
     pub author_id: Option<i32>,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
-    pub published_at: Option<NaiveDateTime>,
+    pub created_at: Option<DateTimeWithTimeZone>,
+    pub updated_at: Option<DateTimeWithTimeZone>,
+    pub published_at: Option<DateTimeWithTimeZone>,
     pub sort_by: Option<Vec<String>>,
     pub sort_order: Option<String>,
     pub category_id: Option<i32>,
@@ -59,9 +59,9 @@ pub struct PostWithUser {
     pub excerpt: Option<String>,
     pub featured_image: Option<String>,
     pub status: PostStatus,
-    pub published_at: Option<NaiveDateTime>,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
+    pub published_at: Option<DateTimeWithTimeZone>,
+    pub created_at: DateTimeWithTimeZone,
+    pub updated_at: DateTimeWithTimeZone,
     pub author_id: i32,
     pub user_name: String,
     pub user_avatar: Option<String>,
@@ -76,9 +76,9 @@ pub struct PostWithStats {
     pub excerpt: Option<String>,
     pub featured_image: Option<String>,
     pub status: PostStatus,
-    pub published_at: Option<NaiveDateTime>,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
+    pub published_at: Option<DateTimeWithTimeZone>,
+    pub created_at: DateTimeWithTimeZone,
+    pub updated_at: DateTimeWithTimeZone,
     pub author_id: i32,
     pub user_name: String,
     pub user_avatar: Option<String>,
@@ -115,9 +115,9 @@ pub struct PostWithRelations {
     pub excerpt: Option<String>,
     pub featured_image: Option<String>,
     pub status: PostStatus,
-    pub published_at: Option<NaiveDateTime>,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
+    pub published_at: Option<DateTimeWithTimeZone>,
+    pub created_at: DateTimeWithTimeZone,
+    pub updated_at: DateTimeWithTimeZone,
     pub author_id: i32,
     pub view_count: i32,
     pub likes_count: i32,
@@ -130,8 +130,8 @@ pub struct PostWithRelations {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PostSitemap {
     pub slug: String,
-    pub updated_at: NaiveDateTime,
-    pub published_at: NaiveDateTime,
+    pub updated_at: DateTimeWithTimeZone,
+    pub published_at: DateTimeWithTimeZone,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]

@@ -1,4 +1,3 @@
-use chrono::NaiveDateTime;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -37,7 +36,7 @@ pub struct Model {
     pub excerpt: Option<String>,
     pub featured_image: Option<String>,
     pub status: PostStatus,
-    pub published_at: Option<NaiveDateTime>,
+    pub published_at: Option<DateTimeWithTimeZone>,
 
     pub author_id: i32,
     pub category_id: Option<i32>,
@@ -45,8 +44,8 @@ pub struct Model {
     pub likes_count: i32,
     pub tag_ids: Vec<i32>,
 
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
+    pub created_at: DateTimeWithTimeZone,
+    pub updated_at: DateTimeWithTimeZone,
 }
 
 // Define the relations

@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
@@ -10,7 +10,7 @@ pub struct V1CreatePostPayload {
     pub title: String,
     #[validate(length(min = 1))]
     pub content: String,
-    pub published_at: Option<NaiveDateTime>,
+    pub published_at: Option<DateTimeWithTimeZone>,
     #[serde(default)]
     pub is_published: bool,
     #[validate(length(min = 1, max = 255))]
@@ -52,7 +52,7 @@ pub struct V1UpdatePostPayload {
     pub title: Option<String>,
     #[validate(length(min = 1))]
     pub content: Option<String>,
-    pub published_at: Option<NaiveDateTime>,
+    pub published_at: Option<DateTimeWithTimeZone>,
     pub status: Option<PostStatus>,
     #[validate(length(min = 1, max = 255))]
     pub slug: Option<String>,
@@ -70,7 +70,7 @@ impl V1UpdatePostPayload {
             content: self.content,
             // author_id: Some(author_id),
             published_at: self.published_at,
-            updated_at: chrono::Utc::now().naive_utc(),
+            updated_at: chrono::Utc::now().fixed_offset(),
             status: self.status,
             slug: self.slug,
             excerpt: self.excerpt,
