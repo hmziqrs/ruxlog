@@ -9,25 +9,22 @@ use serde_json::json;
 
 use crate::{
     db::sea_models::user::{self, UserRole},
+    error::{ErrorCode, ErrorResponse},
     services::auth::AuthSession,
 };
 
 fn check_user_role(user: Option<user::Model>, req_role: UserRole) -> Result<bool, Response> {
     let user = user.ok_or_else(|| {
-        (
-            StatusCode::UNAUTHORIZED,
-            Json(json!({"message": "Unauthorized"})),
-        )
+        ErrorResponse::new(ErrorCode::Unauthorized)
+            .with_message("Unauthorized")
             .into_response()
     })?;
 
     if user.role.to_i32() >= req_role.to_i32() {
         Ok(true)
     } else {
-        Err((
-            StatusCode::UNAUTHORIZED,
-            Json(json!({"message": "Unauthorized"})),
-        )
+        Err(ErrorResponse::new(ErrorCode::Unauthorized)
+            .with_message("You don't have the required permission level")
             .into_response())
     }
 }
