@@ -50,10 +50,6 @@ pub fn router() -> Router<AppState> {
         .route("/create", post(post_v1::controller::create))
         .route("/update/{post_id}", post(post_v1::controller::update))
         .route("/delete/{post_id}", post(post_v1::controller::delete))
-        .route(
-            "/list/query",
-            post(post_v1::controller::find_posts_with_query),
-        )
         .route_layer(middleware::from_fn(user_permission::author))
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend))

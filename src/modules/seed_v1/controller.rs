@@ -8,6 +8,7 @@ use fake::faker::lorem::raw as l;
 use fake::faker::name::en::*;
 use fake::locales::EN;
 use rand::seq::IndexedRandom;
+use sea_orm::EntityTrait;
 use serde_json::json;
 
 #[derive(Debug, Dummy)]
@@ -297,7 +298,7 @@ pub async fn seed_post_comments(
         }
     }
 
-    let posts = match post::Entity::find_all(&state.sea_db).await {
+    let posts = match post::Entity::find().all(&state.sea_db).await {
         Ok(p) => p,
         Err(_) => {
             return (

@@ -91,21 +91,6 @@ pub async fn delete(
 }
 
 #[debug_handler]
-pub async fn find_posts_with_query(
-    State(state): State<AppState>,
-    query: ValidatedJson<V1PostQueryParams>,
-) -> Result<impl IntoResponse, ErrorResponse> {
-    let post_query = query.0.into_post_query();
-
-    match post::Entity::search(&state.sea_db, post_query).await {
-        Ok(posts) => Ok((StatusCode::OK, Json(json!(posts)))),
-        Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
-            .with_message("Failed to fetch posts")
-            .with_details(err.to_string())),
-    }
-}
-
-#[debug_handler]
 pub async fn find_published_posts(
     State(state): State<AppState>,
     Valid(query): Valid<Query<V1PostQueryParams>>,
