@@ -6,14 +6,14 @@ use crate::db::sea_models::post::{NewPost, PostQuery, PostStatus, UpdatePost};
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1CreatePostPayload {
-    #[validate(length(min = 1, max = 255))]
+    #[validate(length(min = 3, max = 255))]
     pub title: String,
-    #[validate(length(min = 1))]
+    #[validate(length(min = 10))]
     pub content: String,
     pub published_at: Option<DateTimeWithTimeZone>,
     #[serde(default)]
     pub is_published: bool,
-    #[validate(length(min = 1, max = 255))]
+    #[validate(length(min = 3, max = 255))]
     pub slug: String,
     #[validate(length(max = 500))]
     pub excerpt: Option<String>,
@@ -48,13 +48,13 @@ impl V1CreatePostPayload {
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1UpdatePostPayload {
-    #[validate(length(min = 1, max = 255))]
+    #[validate(length(min = 3, max = 255))]
     pub title: Option<String>,
-    #[validate(length(min = 1))]
+    #[validate(length(min = 10))]
     pub content: Option<String>,
     pub published_at: Option<DateTimeWithTimeZone>,
     pub status: Option<PostStatus>,
-    #[validate(length(min = 1, max = 255))]
+    #[validate(length(min = 3, max = 255))]
     pub slug: Option<String>,
     #[validate(length(max = 500))]
     pub excerpt: Option<String>,

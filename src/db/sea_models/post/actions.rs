@@ -1,7 +1,6 @@
 use crate::{db::sea_models::tag, error::{DbResult, ErrorCode, ErrorResponse}};
 use sea_orm::{
-    entity::prelude::*, Condition, ConnectionTrait, DbBackend, Order, QueryOrder, Set, Statement,
-    TransactionTrait,
+    entity::prelude::*, Condition,  Order, QueryOrder, Set, TransactionTrait,
 };
 
 use super::*;
@@ -53,30 +52,6 @@ impl Entity {
             Ok(model) => Ok(model),
             Err(err) => Err(err.into()),
         }
-    }
-
-    // Update an existing post with role-based access control
-    pub async fn update_with_auth(
-        conn: &DbConn,
-        post_id: i32,
-        update_post: UpdatePost,
-        user: &super::super::user::Model,
-        is_mod: bool,
-    ) -> DbResult<Option<Model>> {
-        // Check permissions - only mods can edit any post, others can edit their own
-        let mut query = Self::find_by_id(post_id);
-
-        if !is_mod {
-            query = query.filter(Column::AuthorId.eq(user.id));
-        }
-
-        let post = query.one(conn).await?;
-
-        if let Some(_) = post {
-            return Self::update(conn, post_id, update_post).await;
-        }
-
-        Ok(None)
     }
 
     // Update an existing post
@@ -153,39 +128,6 @@ impl Entity {
         }
     }
 
-    // Delete post with role-based access control
-    pub async fn delete_with_auth(
-        conn: &DbConn,
-        post_id: i32,
-        user: &super::super::user::Model,
-        is_mod: bool,
-    ) -> DbResult<u64> {
-        // Only mods can delete any post, others can delete their own
-        if !is_mod {
-            // Check if the post belongs to the user
-            let post = Self::find_by_id(post_id)
-                .filter(Column::AuthorId.eq(user.id))
-                .one(conn)
-                .await?;
-
-            if post.is_none() {
-                return Ok(0); // Post doesn't exist or user doesn't have permission
-            }
-        }
-
-        Self::delete(conn, post_id).await
-    }
-
-    // Find post by ID
-    pub async fn find_by_id_with_404(conn: &DbConn, post_id: i32) -> DbResult<Model> {
-        match Self::find_by_id(post_id).one(conn).await {
-            Ok(Some(model)) => Ok(model),
-            Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                .with_message(&format!("Post with ID {} not found", post_id))),
-            Err(err) => Err(err.into()),
-        }
-    }
-
     // Find post by slug
     pub async fn find_by_slug(conn: &DbConn, post_slug: String) -> DbResult<Option<Model>> {
         match Self::find()
@@ -251,6 +193,12 @@ impl Entity {
                 }
             }
 
+            // Get comment count using ORM
+            let comment_count = super::super::post_comment::Entity::find()
+                .filter(super::super::post_comment::Column::PostId.eq(post.id))
+                .count(conn)
+                .await?;
+
             // Construct the post with relations
             return Ok(Some(PostWithRelations {
                 id: post.id,
@@ -275,6 +223,7 @@ impl Entity {
                     email: user.email,
                     avatar: user.avatar,
                 },
+                comment_count: Some(comment_count as i64),
             }));
         }
 
@@ -383,129 +332,6 @@ impl Entity {
         }
     }
 
-    // Get posts with user information
-    pub async fn get_posts_with_user(
-        conn: &DbConn,
-        query: PostQuery,
-    ) -> DbResult<(Vec<PostWithUser>, u64)> {
-        // Custom SQL query to join posts with users
-        let sql = r#"
-            SELECT
-                p.id, p.title, p.slug, p.content, p.excerpt, p.featured_image,
-                p.status, p.published_at, p.created_at, p.updated_at, p.author_id,
-                u.name as user_name, u.avatar as user_avatar
-            FROM posts p
-            JOIN users u ON p.author_id = u.id
-            WHERE 1=1
-        "#;
-
-        // Build the WHERE clause based on the query parameters
-        let mut where_clauses = Vec::new();
-        let mut params = Vec::<Value>::new();
-
-        if let Some(title) = &query.title {
-            where_clauses.push("p.title LIKE ?");
-            params.push(format!("%{}%", title).into());
-        }
-
-        if let Some(status) = &query.status {
-            where_clauses.push("p.status = ?");
-            params.push(status.to_string().into());
-        }
-
-        if let Some(author_id) = query.author_id {
-            where_clauses.push("p.author_id = ?");
-            params.push(author_id.into());
-        }
-
-        // Build the final SQL query with pagination
-        let mut final_sql = sql.to_owned();
-
-        // Add where clauses if any
-        if !where_clauses.is_empty() {
-            final_sql += &format!(" AND {}", where_clauses.join(" AND "));
-        }
-
-        // Add order by clause
-        let sort_field = match &query.sort_by {
-            Some(fields) if !fields.is_empty() => match fields[0].as_str() {
-                "title" => "p.title",
-                "created_at" => "p.created_at",
-                "updated_at" => "p.updated_at",
-                "published_at" => "p.published_at",
-                "view_count" => "p.view_count",
-                "likes_count" => "p.likes_count",
-                _ => "p.created_at",
-            },
-            _ => "p.created_at",
-        };
-
-        let sort_order = if query.sort_order.as_deref() == Some("asc") {
-            "ASC"
-        } else {
-            "DESC"
-        };
-
-        final_sql += &format!(" ORDER BY {} {}", sort_field, sort_order);
-
-        // Add pagination
-        let page = match query.page_no {
-            Some(p) if p > 0 => p,
-            _ => 1,
-        };
-
-        let offset = (page - 1) * Self::PER_PAGE;
-        final_sql += &format!(" LIMIT {} OFFSET {}", Self::PER_PAGE, offset);
-
-        // Execute the query
-        let stmt = Statement::from_sql_and_values(DbBackend::Postgres, &final_sql, params.clone());
-
-        let posts: Vec<PostWithUser> = match conn.query_all(stmt).await {
-            Ok(rows) => rows
-                .into_iter()
-                .map(|row| PostWithUser {
-                    id: row.try_get("", "id").unwrap_or_default(),
-                    title: row.try_get("", "title").unwrap_or_default(),
-                    slug: row.try_get("", "slug").unwrap_or_default(),
-                    content: row.try_get("", "content").unwrap_or_default(),
-                    excerpt: row.try_get("", "excerpt").ok(),
-                    featured_image: row.try_get("", "featured_image").ok(),
-                    status: match row.try_get::<String>("", "status") {
-                        Ok(s) if s == "published" => PostStatus::Published,
-                        Ok(s) if s == "archived" => PostStatus::Archived,
-                        _ => PostStatus::Draft,
-                    },
-                    published_at: row.try_get("", "published_at").ok(),
-                    created_at: row.try_get("", "created_at").unwrap_or_default(),
-                    updated_at: row.try_get("", "updated_at").unwrap_or_default(),
-                    author_id: row.try_get("", "author_id").unwrap_or_default(),
-                    user_name: row.try_get("", "user_name").unwrap_or_default(),
-                    user_avatar: row.try_get("", "user_avatar").ok(),
-                })
-                .collect(),
-            Err(err) => return Err(err.into()),
-        };
-
-        // Count total posts with the same filters but without pagination
-        let mut count_sql = format!(
-            "SELECT COUNT(*) as total FROM posts p JOIN users u ON p.author_id = u.id WHERE 1=1"
-        );
-
-        if !where_clauses.is_empty() {
-            count_sql += &format!(" AND {}", where_clauses.join(" AND "));
-        }
-
-        let stmt = Statement::from_sql_and_values(DbBackend::Postgres, &count_sql, params);
-
-        let count: u64 = match conn.query_one(stmt).await {
-            Ok(Some(row)) => row.try_get("", "total").unwrap_or(0),
-            _ => 0,
-        };
-
-        Ok((posts, count))
-    }
-
-    // Get posts with user information and stats (view and comment counts)
     // Increment post view count and record view
     pub async fn increment_view_count(
         conn: &DbConn,
@@ -556,143 +382,34 @@ impl Entity {
         Ok(())
     }
 
-    pub async fn get_posts_with_stats(
+    // Find published posts with pagination and relations
+    pub async fn find_published_paginated(
         conn: &DbConn,
-        query: PostQuery,
-    ) -> DbResult<(Vec<PostWithStats>, u64)> {
-        // Custom SQL query to join posts with users and count views and comments
-        let sql = r#"
-            SELECT
-                p.id, p.title, p.slug, p.content, p.excerpt, p.featured_image,
-                p.status, p.published_at, p.created_at, p.updated_at, p.author_id,
-                u.name as user_name, u.avatar as user_avatar,
-                COUNT(DISTINCT pv.id) as view_count,
-                COUNT(DISTINCT pc.id) as comment_count
-            FROM posts p
-            JOIN users u ON p.author_id, = u.id
-            LEFT JOIN post_views pv ON p.id = pv.post_id
-            LEFT JOIN post_comments pc ON p.id = pc.post_id
-            WHERE 1=1
-        "#;
-
-        // Build the WHERE clause based on the query parameters
-        let mut where_clauses = Vec::new();
-        let mut params = Vec::<Value>::new();
-
-        if let Some(title) = &query.title {
-            where_clauses.push("p.title LIKE ?");
-            params.push(format!("%{}%", title).into());
-        }
-
-        if let Some(status) = &query.status {
-            where_clauses.push("p.status = ?");
-            params.push(status.to_string().into());
-        }
-
-        if let Some(author_id) = query.author_id {
-            where_clauses.push("p.author_id = ?");
-            params.push(author_id.into());
-        }
-
-        // Build the final SQL query with group by
-        let mut final_sql = sql.to_owned();
-
-        // Add where clauses if any
-        if !where_clauses.is_empty() {
-            final_sql += &format!(" AND {}", where_clauses.join(" AND "));
-        }
-
-        // Add group by
-        final_sql += " GROUP BY p.id, u.name, u.avatar";
-
-        // Add order by clause
-        let sort_field = match &query.sort_by {
-            Some(fields) if !fields.is_empty() => match fields[0].as_str() {
-                "title" => "p.title",
-                "created_at" => "p.created_at",
-                "updated_at" => "p.updated_at",
-                "published_at" => "p.published_at",
-                "view_count" => "view_count",
-                "comment_count" => "comment_count",
-                "likes_count" => "p.likes_count",
-                _ => "p.created_at",
-            },
-            _ => "p.created_at",
+        page: u64,
+    ) -> DbResult<(Vec<PostWithRelations>, u64)> {
+        let query = PostQuery {
+            page_no: Some(page),
+            status: Some(PostStatus::Published),
+            title: None,
+            author_id: None,
+            created_at: None,
+            updated_at: None,
+            published_at: None,
+            sort_by: Some(vec!["updated_at".to_string()]),
+            sort_order: Some("desc".to_string()),
+            category_id: None,
+            search: None,
+            tag_ids: None,
         };
 
-        let sort_order = if query.sort_order.as_deref() == Some("asc") {
-            "ASC"
-        } else {
-            "DESC"
-        };
-
-        final_sql += &format!(" ORDER BY {} {}", sort_field, sort_order);
-
-        // Add pagination
-        let page = match query.page_no {
-            Some(p) if p > 0 => p,
-            _ => 1,
-        };
-
-        let offset = (page - 1) * Self::PER_PAGE;
-        final_sql += &format!(" LIMIT {} OFFSET {}", Self::PER_PAGE, offset);
-
-        // Execute the query
-        let stmt = Statement::from_sql_and_values(DbBackend::Postgres, &final_sql, params.clone());
-
-        let posts: Vec<PostWithStats> = match conn.query_all(stmt).await {
-            Ok(rows) => rows
-                .into_iter()
-                .map(|row| PostWithStats {
-                    id: row.try_get("", "id").unwrap_or_default(),
-                    title: row.try_get("", "title").unwrap_or_default(),
-                    slug: row.try_get("", "slug").unwrap_or_default(),
-                    content: row.try_get("", "content").unwrap_or_default(),
-                    excerpt: row.try_get("", "excerpt").ok(),
-                    featured_image: row.try_get("", "featured_image").ok(),
-                    status: match row.try_get::<String>("", "status") {
-                        Ok(s) if s == "published" => PostStatus::Published,
-                        Ok(s) if s == "archived" => PostStatus::Archived,
-                        _ => PostStatus::Draft,
-                    },
-                    published_at: row.try_get("", "published_at").ok(),
-                    created_at: row.try_get("", "created_at").unwrap_or_default(),
-                    updated_at: row.try_get("", "updated_at").unwrap_or_default(),
-                    author_id: row.try_get("", "author_id").unwrap_or_default(),
-                    user_name: row.try_get("", "user_name").unwrap_or_default(),
-                    user_avatar: row.try_get("", "user_avatar").ok(),
-                    view_count: row.try_get("", "view_count").unwrap_or_default(),
-                    comment_count: row.try_get("", "comment_count").unwrap_or_default(),
-                })
-                .collect(),
-            Err(err) => return Err(err.into()),
-        };
-
-        // Count total posts with the same filters but without pagination
-        let mut count_sql = format!(
-            "SELECT COUNT(DISTINCT p.id) as total FROM posts p JOIN users u ON p.author_id = u.id WHERE 1=1"
-        );
-
-        if !where_clauses.is_empty() {
-            count_sql += &format!(" AND {}", where_clauses.join(" AND "));
-        }
-
-        let stmt = Statement::from_sql_and_values(DbBackend::Postgres, &count_sql, params);
-
-        let count: u64 = match conn.query_one(stmt).await {
-            Ok(Some(row)) => row.try_get("", "total").unwrap_or(0),
-            _ => 0,
-        };
-
-        Ok((posts, count))
+        // Using the find_with_relations function which is reusable for this purpose
+        Self::find_with_relations(conn, query).await
     }
 
-    // Find posts with full relations (user, category, tags)
-    pub async fn find_with_relations(
+    // Helper method for find_published_paginated
+    async fn find_with_relations(
         conn: &DbConn,
         query: PostQuery,
-        user: Option<&super::super::user::Model>,
-        is_mod: bool,
     ) -> DbResult<(Vec<PostWithRelations>, u64)> {
         let mut post_query = Self::find();
 
@@ -706,15 +423,8 @@ impl Entity {
             post_query = post_query.filter(Column::Status.eq(status_filter));
         }
 
-        // Apply user filtering based on permissions
-        if let Some(user_obj) = user {
-            if !is_mod {
-                // Non-mods can only see their own posts
-                post_query = post_query.filter(Column::AuthorId.eq(user_obj.id));
-            } else if let Some(author_id_filter) = query.author_id {
-                // Mods can filter by any user
-                post_query = post_query.filter(Column::AuthorId.eq(author_id_filter));
-            }
+        if let Some(author_id_filter) = query.author_id {
+            post_query = post_query.filter(Column::AuthorId.eq(author_id_filter));
         }
 
         if let Some(category_id_filter) = query.category_id {
@@ -732,8 +442,6 @@ impl Entity {
 
         if let Some(tag_ids_filter) = query.tag_ids {
             if !tag_ids_filter.is_empty() {
-                // Note: This is a simplified approach. For a real application,
-                // you might need a more complex query depending on how tags are stored
                 post_query = post_query.filter(Expr::cust_with_values(
                     "tag_ids @> Array[?]::int[]",
                     tag_ids_filter,
@@ -826,6 +534,12 @@ impl Entity {
                     });
                 }
             }
+            
+            // Get comment count using ORM
+            let comment_count = super::super::post_comment::Entity::find()
+                .filter(super::super::post_comment::Column::PostId.eq(post.id))
+                .count(conn)
+                .await?;
 
             // Construct the post with relations
             posts_with_relations.push(PostWithRelations {
@@ -851,45 +565,14 @@ impl Entity {
                     email: user.email,
                     avatar: user.avatar,
                 },
+                comment_count: Some(comment_count as i64),
             });
         }
 
         Ok((posts_with_relations, total))
     }
 
-    // Get posts for sitemap
-    // Find published posts with pagination and relations
-    pub async fn find_published_paginated(
-        conn: &DbConn,
-        page: u64,
-    ) -> DbResult<(Vec<PostWithRelations>, u64)> {
-        let query = PostQuery {
-            page_no: Some(page),
-            status: Some(PostStatus::Published),
-            title: None,
-            author_id: None,
-            created_at: None,
-            updated_at: None,
-            published_at: None,
-            sort_by: Some(vec!["updated_at".to_string()]),
-            sort_order: Some("desc".to_string()),
-            category_id: None,
-            search: None,
-            tag_ids: None,
-        };
-
-        // Using the find_with_relations function which already handles pagination
-        Self::find_with_relations(conn, query, None, false).await
-    }
-
-    // Find all posts
-    pub async fn find_all(conn: &DbConn) -> DbResult<Vec<Model>> {
-        match Self::find().all(conn).await {
-            Ok(posts) => Ok(posts),
-            Err(err) => Err(err.into()),
-        }
-    }
-
+    // Sitemap data for published posts
     pub async fn sitemap(conn: &DbConn) -> DbResult<Vec<PostSitemap>> {
         let published_posts = Self::find()
             .filter(Column::Status.eq(PostStatus::Published))

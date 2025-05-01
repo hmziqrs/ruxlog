@@ -51,42 +51,6 @@ pub struct PostQuery {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PostWithUser {
-    pub id: i32,
-    pub title: String,
-    pub slug: String,
-    pub content: String,
-    pub excerpt: Option<String>,
-    pub featured_image: Option<String>,
-    pub status: PostStatus,
-    pub published_at: Option<DateTimeWithTimeZone>,
-    pub created_at: DateTimeWithTimeZone,
-    pub updated_at: DateTimeWithTimeZone,
-    pub author_id: i32,
-    pub user_name: String,
-    pub user_avatar: Option<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PostWithStats {
-    pub id: i32,
-    pub title: String,
-    pub slug: String,
-    pub content: String,
-    pub excerpt: Option<String>,
-    pub featured_image: Option<String>,
-    pub status: PostStatus,
-    pub published_at: Option<DateTimeWithTimeZone>,
-    pub created_at: DateTimeWithTimeZone,
-    pub updated_at: DateTimeWithTimeZone,
-    pub author_id: i32,
-    pub user_name: String,
-    pub user_avatar: Option<String>,
-    pub view_count: i64,
-    pub comment_count: i64,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PostCategory {
     pub id: i32,
     pub name: String,
@@ -106,8 +70,10 @@ pub struct PostAuthor {
     pub avatar: Option<String>,
 }
 
+// Consolidated post model with all possible relations and stats
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PostWithRelations {
+    // Core post data
     pub id: i32,
     pub title: String,
     pub slug: String,
@@ -122,9 +88,17 @@ pub struct PostWithRelations {
     pub view_count: i32,
     pub likes_count: i32,
     pub tag_ids: Vec<i32>,
+    
+    // Relations (optional depending on query needs)
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub category: Option<PostCategory>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default = "Vec::new")]
     pub tags: Vec<PostTag>,
     pub author: PostAuthor,
+    
+    // Additional counters that might be populated from joins
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub comment_count: Option<i64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
