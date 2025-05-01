@@ -86,7 +86,6 @@ pub struct PostWithRelations {
     pub published_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
-    pub author_id: i32,
     pub view_count: i32,
     pub likes_count: i32,
     pub category: PostCategory,
@@ -160,7 +159,6 @@ impl PostWithJoinedData {
             published_at: self.published_at,
             created_at: self.created_at,
             updated_at: self.updated_at,
-            author_id: self.author_id,
             view_count: self.view_count,
             likes_count: self.likes_count,
             category: PostCategory {

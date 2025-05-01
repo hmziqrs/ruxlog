@@ -252,11 +252,14 @@ impl Entity {
 
         if let Some(tag_ids_filter) = query.tag_ids {
             if !tag_ids_filter.is_empty() {
-                post_query = post_query.filter(Expr::cust_with_values(
-                    "tag_ids @> Array[?]::int[]",
+                // let ids: Vec<String> = tag_ids_filter.into_iter().map(|id| id.to_string()).collect::<Vec<String>>();
+                // let joined = ids.join(",");
+                post_query = post_query.filter(Expr::cust_with_expr(
+                    "posts.tag_ids @> Array[$1]::int[]", // Use placeholder $1 for the array value
                     tag_ids_filter,
                 ));
             }
+
         }
 
         // Handle sort_by fields

@@ -98,10 +98,11 @@ pub async fn delete(
 #[debug_handler]
 pub async fn find_published_posts(
     State(state): State<AppState>,
-    query: ValidatedQuery<V1PostQueryParams>,
+    payload: ValidatedJson<V1PostQueryParams>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let page = query.page.clone().unwrap_or(1);
-    match post::Entity::find_published_paginated(&state.sea_db, query.0.into_post_query()).await {
+    
+    let page = payload.page.clone().unwrap_or(1);
+    match post::Entity::find_published_paginated(&state.sea_db, payload.0.into_post_query()).await {
         Ok((posts, total)) => Ok((
             StatusCode::OK,
             Json(json!({
