@@ -1,6 +1,8 @@
 use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 use super::PostStatus;
+use chrono::{DateTime, FixedOffset};
+use sea_orm::FromQueryResult;
 
 #[derive(Deserialize, Debug)]
 pub struct NewPost {
@@ -116,4 +118,35 @@ pub enum PostSortBy {
     PublishedAt,
     ViewCount,
     LikesCount,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, FromQueryResult)]
+pub struct PostWithJoinedData {
+    // Post fields
+    pub id: i32,
+    pub title: String,
+    pub slug: String,
+    pub content: String,
+    pub excerpt: Option<String>,
+    pub featured_image: Option<String>,
+    pub status: super::PostStatus,
+    pub published_at: Option<DateTime<FixedOffset>>,
+    pub created_at: DateTime<FixedOffset>,
+    pub updated_at: DateTime<FixedOffset>,
+    pub author_id: i32,
+    pub view_count: i32,
+    pub likes_count: i32,
+    pub tag_ids: Vec<i32>,
+    pub category_id: Option<i32>,
+    
+    // Author fields from join
+    pub author_name: String,
+    pub author_email: String,
+    pub author_avatar: Option<String>,
+    
+    // Category fields from join
+    pub category_name: Option<String>,
+    
+    // Comment count from subquery
+    pub comment_count: i64,
 }

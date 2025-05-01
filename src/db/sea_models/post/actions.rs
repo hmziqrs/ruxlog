@@ -1,6 +1,6 @@
 use crate::{db::sea_models::tag, error::{DbResult, ErrorCode, ErrorResponse}};
 use sea_orm::{
-    entity::prelude::*, Condition,  Order, QueryOrder, Set, TransactionTrait,
+    entity::prelude::*, Condition, JoinType, Order, QueryOrder, Set, TransactionTrait
 };
 
 use super::*;
@@ -146,42 +146,65 @@ impl Entity {
         post_id: Option<i32>,
         post_slug: Option<String>,
     ) -> DbResult<Option<PostWithRelations>> {
-        // Find the post by either ID or slug
-        let post = match (post_id, post_slug.clone()) {
-            (Some(id), _) => Self::find_by_id(id).one(conn).await?,
-            (_, Some(slug)) => Self::find_by_slug(conn, slug).await?,
+        // Create base query with all necessary joins
+        use super::super::user::Column as UserColumn;
+        use super::super::category::Column as CategoryColumn;
+        use sea_orm::QuerySelect;
+
+        // Start with a basic select
+        let mut query = Entity::find()
+            .select_only()
+            .columns([
+                Column::Id,
+                Column::Title,
+                Column::Slug,
+                Column::Content,
+                Column::Excerpt,
+                Column::FeaturedImage,
+                Column::Status,
+                Column::PublishedAt,
+                Column::CreatedAt,
+                Column::UpdatedAt,
+                Column::AuthorId,
+                Column::ViewCount,
+                Column::LikesCount,
+                Column::TagIds,
+                Column::CategoryId,
+            ])
+            // Select author fields
+            .column_as(UserColumn::Id, "author_id")
+            .column_as(UserColumn::Name, "author_name")
+            .column_as(UserColumn::Email, "author_email")
+            .column_as(UserColumn::Avatar, "author_avatar")
+            // Select category fields if present
+            .column_as(CategoryColumn::Id, "category_id")
+            .column_as(CategoryColumn::Name, "category_name")
+            // Add count of comments as a subquery
+            .expr_as(
+                Expr::cust("COALESCE((SELECT COUNT(*) FROM post_comment WHERE post_comment.post_id = post.id), 0)"),
+                "comment_count",
+            )
+            // Join with author (inner join - must have an author)
+            .join(JoinType::InnerJoin, Relation::User.def())
+            // Left join with category (might not have a category)
+            .join(JoinType::LeftJoin, Relation::Category.def());
+
+        // Apply filter by ID or slug
+        query = match (post_id, post_slug.clone()) {
+            (Some(id), _) => query.filter(Column::Id.eq(id)),
+            (_, Some(slug)) => query.filter(Column::Slug.eq(slug)),
             _ => return Ok(None),
         };
 
-        if let Some(post) = post {
-            // Get user info
-            let user = super::super::user::Entity::find_by_id(post.author_id)
-                .one(conn)
-                .await?
-                .ok_or_else(|| {
-                    ErrorResponse::new(ErrorCode::RecordNotFound)
-                        .with_message(&format!("User with ID {} not found", post.author_id))
-                })?;
-
-            // Get category if present
-            let category = {
-                match super::super::category::Entity::find_by_id(post.category_id)
-                    .one(conn)
-                    .await?
-                {
-                    Some(cat) => Some(PostCategory {
-                        id: cat.id,
-                        name: cat.name.clone(),
-                    }),
-                    None => None,
-                }
-            };
-
-            // Get tags
+        // Execute the query and get the post
+        let post_result = query.into_model::<PostWithJoinedData>().one(conn).await?;
+        
+        if let Some(post_data) = post_result {
+            // Get tags for this post (separate query since we need to filter by tag_ids array)
             let mut tags = Vec::new();
-            if !post.tag_ids.is_empty() {
+            if !post_data.tag_ids.is_empty() {
                 let tag_models = super::super::tag::Entity::find()
-                    .filter(super::super::tag::Column::Id.is_in(post.tag_ids.clone()))
+                    .filter(super::super::tag::Column::Id.is_in(post_data.tag_ids.clone()))
                     .all(conn)
                     .await?;
 
@@ -193,37 +216,41 @@ impl Entity {
                 }
             }
 
-            // Get comment count using ORM
-            let comment_count = super::super::post_comment::Entity::find()
-                .filter(super::super::post_comment::Column::PostId.eq(post.id))
-                .count(conn)
-                .await?;
-
-            // Construct the post with relations
+            // Construct the final PostWithRelations from the joined data
             return Ok(Some(PostWithRelations {
-                id: post.id,
-                title: post.title,
-                slug: post.slug,
-                content: post.content,
-                excerpt: post.excerpt,
-                featured_image: post.featured_image,
-                status: post.status,
-                published_at: post.published_at,
-                created_at: post.created_at,
-                updated_at: post.updated_at,
-                author_id: post.author_id,
-                view_count: post.view_count,
-                likes_count: post.likes_count,
-                tag_ids: post.tag_ids,
-                category,
-                tags,
-                author: PostAuthor {
-                    id: user.id,
-                    name: user.name,
-                    email: user.email,
-                    avatar: user.avatar,
+                id: post_data.id,
+                title: post_data.title,
+                slug: post_data.slug,
+                content: post_data.content,
+                excerpt: post_data.excerpt,
+                featured_image: post_data.featured_image,
+                status: post_data.status,
+                published_at: post_data.published_at,
+                created_at: post_data.created_at,
+                updated_at: post_data.updated_at,
+                author_id: post_data.author_id,
+                view_count: post_data.view_count,
+                likes_count: post_data.likes_count,
+                tag_ids: post_data.tag_ids,
+                // Build category from joined data
+                category: match post_data.category_id {
+                    Some(id) if id > 0 => Some(PostCategory {
+                        id: id,
+                        name: post_data.category_name.unwrap_or_default(),
+                    }),
+                    _ => None,
                 },
-                comment_count: Some(comment_count as i64),
+                // Use tags we loaded
+                tags,
+                // Build author from joined data
+                author: PostAuthor {
+                    id: post_data.author_id,
+                    name: post_data.author_name,
+                    email: post_data.author_email,
+                    avatar: post_data.author_avatar,
+                },
+                // Use the comment count from the subquery
+                comment_count: Some(post_data.comment_count),
             }));
         }
 
