@@ -128,18 +128,6 @@ impl Entity {
         }
     }
 
-    // Find post by slug
-    pub async fn find_by_slug(conn: &DbConn, post_slug: String) -> DbResult<Option<Model>> {
-        match Self::find()
-            .filter(Column::Slug.eq(post_slug))
-            .one(conn)
-            .await
-        {
-            Ok(model) => Ok(model),
-            Err(err) => Err(err.into()),
-        }
-    }
-
     // Find post by ID or slug with relations
     pub async fn find_by_id_or_slug(
         conn: &DbConn,
@@ -149,9 +137,7 @@ impl Entity {
         use super::super::user::Column as UserColumn;
         use super::super::category::Column as CategoryColumn;
         use sea_orm::QuerySelect;
-
         let mut query = Entity::find()
-
             .column_as(UserColumn::Id, "author_id")
             .column_as(UserColumn::Name, "author_name")
             .column_as(UserColumn::Email, "author_email")
@@ -162,9 +148,7 @@ impl Entity {
                 Expr::cust("COALESCE((SELECT COUNT(*) FROM post_comments WHERE post_comments.post_id = posts.id), 0)"),
                 "comment_count",
             )
-            // Join with author (inner join - must have an author)
             .join(JoinType::InnerJoin, Relation::User.def())
-            // Left join with category (might not have a category)
             .join(JoinType::LeftJoin, Relation::Category.def());
 
         // Apply filter by ID or slug
@@ -174,25 +158,23 @@ impl Entity {
             _ => return Ok(None),
         };
 
-        // Execute the query and get the post
         let post_result = query.into_model::<PostWithJoinedData>().one(conn).await?;
         
         if let Some(post_data) = post_result {
-            // Get tags for this post (separate query since we need to filter by tag_ids array)
             let mut tags = Vec::new();
-            // if !post_data.tag_ids.is_empty() {
-            //     let tag_models = super::super::tag::Entity::find()
-            //         .filter(super::super::tag::Column::Id.is_in(post_data.tag_ids.clone()))
-            //         .all(conn)
-            //         .await?;
+            if !post_data.tag_ids.is_empty() {
+                let tag_models = super::super::tag::Entity::find()
+                    .filter(super::super::tag::Column::Id.is_in(post_data.tag_ids.clone()))
+                    .all(conn)
+                    .await?;
 
-            //     for tag in tag_models {
-            //         tags.push(PostTag {
-            //             id: tag.id,
-            //             name: tag.name,
-            //         });
-            //     }
-            // }
+                for tag in tag_models {
+                    tags.push(PostTag {
+                        id: tag.id,
+                        name: tag.name,
+                    });
+                }
+            }
 
             // Construct the final PostWithRelations from the joined data
             return Ok(Some(PostWithRelations {
@@ -209,22 +191,17 @@ impl Entity {
                 author_id: post_data.author_id,
                 view_count: post_data.view_count,
                 likes_count: post_data.likes_count,
-                tag_ids: post_data.tag_ids,
-                // Build category from joined data
                 category: PostCategory {
                     id: post_data.category_id,
                     name: post_data.category_name,
                 },
-                // Use tags we loaded
                 tags,
-                // Build author from joined data
                 author: PostAuthor {
                     id: post_data.author_id,
                     name: post_data.author_name,
                     email: post_data.author_email,
                     avatar: post_data.author_avatar,
                 },
-                // Use the comment count from the subquery
                 comment_count: post_data.comment_count,
             }));
         }
@@ -334,55 +311,6 @@ impl Entity {
         }
     }
 
-    // Increment post view count and record view
-    pub async fn increment_view_count(
-        conn: &DbConn,
-        post_id: i32,
-        user_id: Option<i32>,
-        ip_address: Option<String>,
-        user_agent: Option<String>,
-    ) -> DbResult<()> {
-        // Create a view record
-        let now = chrono::Utc::now().naive_utc();
-        let view = super::super::post_view::ActiveModel {
-            post_id: Set(post_id),
-            user_id: Set(user_id),
-            ip_address: Set(ip_address),
-            user_agent: Set(user_agent),
-            created_at: Set(now),
-            ..Default::default()
-        };
-
-        // Use a transaction manually
-        let transaction = conn.begin().await?;
-
-        // Insert the view
-        match view.insert(&transaction).await {
-            Ok(_) => {}
-            Err(err) => {
-                transaction.rollback().await?;
-                return Err(err.into());
-            }
-        }
-
-        // Increment view count in the post
-        let post = Self::find_by_id(post_id).one(&transaction).await?;
-        if let Some(post_model) = post {
-            let mut post_active: ActiveModel = post_model.into();
-            post_active.view_count = Set(post_active.view_count.unwrap() + 1);
-            match post_active.update(&transaction).await {
-                Ok(_) => {}
-                Err(err) => {
-                    transaction.rollback().await?;
-                    return Err(err.into());
-                }
-            }
-        }
-
-        // Commit the transaction
-        transaction.commit().await?;
-        Ok(())
-    }
 
     // Find published posts with pagination and relations
     pub async fn find_published_paginated(
@@ -550,7 +478,6 @@ impl Entity {
                 author_id: post.author_id,
                 view_count: post.view_count,
                 likes_count: post.likes_count,
-                tag_ids: post.tag_ids,
                 category,
                 tags,
                 author: PostAuthor {
@@ -584,4 +511,54 @@ impl Entity {
 
         Ok(sitemaps)
     }
+
+    pub async fn increment_view_count(
+        conn: &DbConn,
+        post_id: i32,
+        user_id: Option<i32>,
+        ip_address: Option<String>,
+        user_agent: Option<String>,
+    ) -> DbResult<()> {
+        // Create a view record
+        let now = chrono::Utc::now().naive_utc();
+        let view = super::super::post_view::ActiveModel {
+            post_id: Set(post_id),
+            user_id: Set(user_id),
+            ip_address: Set(ip_address),
+            user_agent: Set(user_agent),
+            created_at: Set(now),
+            ..Default::default()
+        };
+
+        // Use a transaction manually
+        let transaction = conn.begin().await?;
+
+        // Insert the view
+        match view.insert(&transaction).await {
+            Ok(_) => {}
+            Err(err) => {
+                transaction.rollback().await?;
+                return Err(err.into());
+            }
+        }
+
+        // Increment view count in the post
+        let post = Self::find_by_id(post_id).one(&transaction).await?;
+        if let Some(post_model) = post {
+            let mut post_active: ActiveModel = post_model.into();
+            post_active.view_count = Set(post_active.view_count.unwrap() + 1);
+            match post_active.update(&transaction).await {
+                Ok(_) => {}
+                Err(err) => {
+                    transaction.rollback().await?;
+                    return Err(err.into());
+                }
+            }
+        }
+
+        // Commit the transaction
+        transaction.commit().await?;
+        Ok(())
+    }
+
 }

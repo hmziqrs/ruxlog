@@ -1,5 +1,3 @@
-use std::default;
-
 use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 use super::PostStatus;
@@ -91,9 +89,6 @@ pub struct PostWithRelations {
     pub author_id: i32,
     pub view_count: i32,
     pub likes_count: i32,
-    pub tag_ids: Vec<i32>,
-    
-    // Relations (optional depending on query needs)
     pub category: PostCategory,
     #[serde(skip_serializing_if = "Vec::is_empty", default = "Vec::new")]
     pub tags: Vec<PostTag>,
