@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 pub struct NewComment {
     pub post_id: i32,
     pub user_id: i32,
-    pub parent_id: Option<i32>,
     pub content: String,
     pub likes_count: Option<i32>,
 }
@@ -22,7 +21,6 @@ pub struct CommentQuery {
     pub page_no: Option<u64>,
     pub post_id: Option<i32>,
     pub user_id: Option<i32>,
-    pub parent_id: Option<i32>,
     pub search_term: Option<String>,
     pub sort_by: Option<Vec<String>>,
     pub sort_order: Option<String>,
@@ -34,7 +32,6 @@ impl Default for CommentQuery {
             page_no: None,
             post_id: None,
             user_id: None,
-            parent_id: None,
             search_term: None,
             sort_by: None,
             sort_order: None,
@@ -47,7 +44,6 @@ pub struct CommentWithUser {
     pub id: i32,
     pub post_id: i32,
     pub user_id: i32,
-    pub parent_id: Option<i32>,
     pub content: String,
     pub likes_count: i32,
     pub created_at: NaiveDateTime,

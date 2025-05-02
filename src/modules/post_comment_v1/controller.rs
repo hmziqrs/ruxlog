@@ -95,9 +95,7 @@ pub async fn list(
                 "page": page,
             })),
         )),
-        Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
-            .with_message("Failed to fetch comments")
-            .with_details(err.to_string())),
+        Err(err) => Err(err.into()),
     }
 }
 

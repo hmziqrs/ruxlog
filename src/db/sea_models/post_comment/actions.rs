@@ -12,7 +12,7 @@ impl Entity {
         let comment = ActiveModel {
             post_id: Set(new_comment.post_id),
             user_id: Set(new_comment.user_id),
-            parent_id: Set(new_comment.parent_id),
+            // parent_id field temporarily removed
             content: Set(new_comment.content),
             likes_count: Set(new_comment.likes_count.unwrap_or(0)),
             created_at: Set(now),
@@ -94,7 +94,7 @@ impl Entity {
             .column(Column::Id)
             .column(Column::PostId)
             .column(Column::UserId)
-            .column(Column::ParentId)
+            // parent_id column temporarily removed
             .column(Column::Content)
             .column(Column::LikesCount)
             .column(Column::CreatedAt)
@@ -113,13 +113,7 @@ impl Entity {
             comment_query = comment_query.filter(Column::UserId.eq(user_id_filter));
         }
 
-        // Apply parent_id filter (for hierarchical comments)
-        if let Some(parent_id_filter) = query.parent_id {
-            comment_query = comment_query.filter(Column::ParentId.eq(parent_id_filter));
-        } else if query.post_id.is_some() && query.parent_id.is_none() {
-            // If parent_id is not provided but post_id is, filter for root comments (where parent_id is null)
-            comment_query = comment_query.filter(Column::ParentId.is_null());
-        }
+        // parent_id filter temporarily removed
 
         // Apply content search if provided
         if let Some(search_term) = &query.search_term {
@@ -161,45 +155,6 @@ impl Entity {
         let models = paginator.fetch_page(page - 1).await?;
 
         Ok((models, total))
-    }
-
-    // Get comment tree structure
-    pub async fn get_comment_tree(conn: &DbConn, post_id: i32) -> DbResult<Vec<CommentTree>> {
-        // Get all root comments
-        let root_query = CommentQuery {
-            page_no: Some(1),
-            post_id: Some(post_id),
-            user_id: None,
-            parent_id: None,
-            search_term: None,
-            sort_by: Some(vec!["created_at".to_string()]),
-            sort_order: Some("desc".to_string()),
-        };
-
-        let (root_comments, _) = Self::get_comments(conn, root_query).await?;
-        let mut tree = Vec::new();
-
-        // For each root comment, fetch its replies
-        for root_comment in root_comments {
-            let replies_query = CommentQuery {
-                page_no: Some(1),
-                post_id: Some(post_id),
-                user_id: None,
-                parent_id: Some(root_comment.id),
-                search_term: None,
-                sort_by: Some(vec!["created_at".to_string()]),
-                sort_order: Some("asc".to_string()),
-            };
-
-            let (replies, _) = Self::get_comments(conn, replies_query).await?;
-
-            tree.push(CommentTree {
-                comment: root_comment,
-                replies,
-            });
-        }
-
-        Ok(tree)
     }
 
     // Count comments by post ID

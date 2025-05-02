@@ -16,7 +16,6 @@ impl V1CreatePostCommentPayload {
             post_id: self.post_id,
             user_id,
             content: self.content,
-            parent_id: None,
             likes_count: Some(0),
         }
     }
@@ -42,7 +41,6 @@ pub struct V1PostCommentQueryParams {
     pub page: Option<u64>,
     pub user_id: Option<i32>,
     pub post_id: Option<i32>,
-    pub parent_id: Option<i32>,
     pub search: Option<String>,
     pub sort_by: Option<Vec<String>>,
     pub sort_order: Option<String>,
@@ -55,7 +53,6 @@ impl V1PostCommentQueryParams {
             user_id: self.user_id,
             post_id: self.post_id,
             search_term: self.search,
-            parent_id: self.parent_id,
             sort_by: self.sort_by,
             sort_order: self.sort_order,
         }

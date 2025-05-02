@@ -9,7 +9,6 @@ pub struct Model {
     pub id: i32,
     pub post_id: i32,
     pub user_id: i32,
-    pub parent_id: Option<i32>,
     pub content: String,
     pub likes_count: i32,
     pub created_at: NaiveDateTime,
@@ -30,10 +29,6 @@ pub enum Relation {
         to = "super::super::user::Column::Id"
     )]
     User,
-    #[sea_orm(belongs_to = "Entity", from = "Column::ParentId", to = "Column::Id")]
-    Parent,
-    #[sea_orm(has_many = "Entity", from = "Column::Id", to = "Column::ParentId")]
-    Children,
 }
 
 impl Related<super::super::post::Entity> for Entity {
@@ -45,16 +40,6 @@ impl Related<super::super::post::Entity> for Entity {
 impl Related<super::super::user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
-    }
-}
-
-impl Related<Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Children.def()
-    }
-
-    fn via() -> Option<RelationDef> {
-        Some(Relation::Parent.def().rev())
     }
 }
 
