@@ -68,11 +68,7 @@ pub fn router() -> Router<AppState> {
         );
 
     let post_comment_v1_routes = Router::new()
-        .route("/list", get(post_comment_v1::controller::list_all))
-        .route(
-            "/list/query",
-            get(post_comment_v1::controller::list_with_query),
-        )
+        .route("/list", get(post_comment_v1::controller::list))
         .route_layer(middleware::from_fn(user_permission::moderator))
         .route("/create", post(post_comment_v1::controller::create))
         .route(
@@ -83,14 +79,10 @@ pub fn router() -> Router<AppState> {
             "/delete/{comment_id}",
             post(post_comment_v1::controller::delete),
         )
-        .route(
-            "/list/user/{user_id}",
-            get(post_comment_v1::controller::list_by_user),
-        )
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend))
         .route(
-            "/list/post/{post_id}",
+            "/list/{post_id}",
             get(post_comment_v1::controller::list_by_post),
         );
 

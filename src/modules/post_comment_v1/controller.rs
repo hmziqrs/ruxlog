@@ -113,58 +113,7 @@ pub async fn delete(
 }
 
 #[debug_handler]
-pub async fn list_all(State(state): State<AppState>) -> impl IntoResponse {
-    match post_comment::Entity::list_all(&state.sea_db).await {
-        Ok(comments) => (StatusCode::OK, Json(json!(comments))).into_response(),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "error": err.to_string(),
-                "message": "Failed to fetch comments",
-            })),
-        )
-            .into_response(),
-    }
-}
-
-#[debug_handler]
-pub async fn list_paginated(
-    State(state): State<AppState>,
-    Valid(query): Valid<Query<V1PostCommentQueryParams>>,
-) -> impl IntoResponse {
-    let page = query.page.unwrap_or(1) as u64;
-
-    match post_comment::Entity::get_comments_with_user(
-        &state.sea_db,
-        post_comment::CommentQuery {
-            page_no: Some(page),
-            ..Default::default()
-        },
-    )
-    .await
-    {
-        Ok((comments, total)) => (
-            StatusCode::OK,
-            Json(json!({
-                "data": comments,
-                "total": total,
-                "page": page,
-            })),
-        )
-            .into_response(),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "error": err.to_string(),
-                "message": "Failed to fetch paginated comments",
-            })),
-        )
-            .into_response(),
-    }
-}
-
-#[debug_handler]
-pub async fn list_with_query(
+pub async fn list(
     State(state): State<AppState>,
     query: Valid<Query<V1PostCommentQueryParams>>,
 ) -> impl IntoResponse {
@@ -219,31 +168,3 @@ pub async fn list_by_post(
     }
 }
 
-#[debug_handler]
-pub async fn list_by_user(
-    State(state): State<AppState>,
-    Path(user_id): Path<i32>,
-    Valid(query): Valid<Query<V1PostCommentQueryParams>>,
-) -> impl IntoResponse {
-    let page = query.page.unwrap_or(1) as u64;
-
-    match post_comment::Entity::list_by_user(&state.sea_db, user_id, page).await {
-        Ok((comments, total)) => (
-            StatusCode::OK,
-            Json(json!({
-                "data": comments,
-                "total": total,
-                "page": page,
-            })),
-        )
-            .into_response(),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "error": err.to_string(),
-                "message": "Failed to fetch comments for the user",
-            })),
-        )
-            .into_response(),
-    }
-}
