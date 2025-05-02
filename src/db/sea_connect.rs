@@ -1,5 +1,7 @@
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use std::{env, time::Duration};
+use migration::{Migrator, MigratorTrait};
+
 
 /// Get the database URL from environment variables
 fn get_db_url() -> String {
@@ -40,5 +42,12 @@ pub async fn get_sea_connection() -> DatabaseConnection {
     }
 
     println!("SeaORM database connection working");
+
+    match Migrator::up(&conn, None).await {
+        Ok(_) => println!("Database migration successful"),
+        Err(e) => panic!("Failed to run migrations: {:?}", e),
+    }
+
+
     conn
 }
