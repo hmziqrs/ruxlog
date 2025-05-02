@@ -11,7 +11,7 @@ impl MigrationTrait for Migration {
         manager
             .get_connection()
             .execute_unprepared(
-                r#"CREATE TYPE "user_role" AS ENUM ('super-admin', 'admin, 'moderator', 'author', 'user');"#
+                r#"CREATE TYPE "user_role" AS ENUM ('super-admin', 'admin', 'moderator', 'author', 'user');"#
             )
             .await?;
 
