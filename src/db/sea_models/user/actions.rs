@@ -32,7 +32,7 @@ impl Entity {
         })?;
         match user.insert(&transaction).await {
             Ok(model) => {
-                email_verification::Entity::create_new(&transaction, model.id).await?;
+                email_verification::Entity::create(&transaction, model.id).await?;
                 transaction.commit().await.map_err(|_| {
                     ErrorResponse::new(ErrorCode::TransactionError)
                         .with_message("Failed to commit transaction")

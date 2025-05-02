@@ -3,12 +3,6 @@ use serde::{Deserialize, Serialize};
 use super::Entity;
 
 #[derive(Deserialize, Debug)]
-pub struct NewEmailVerification {
-    pub user_id: i32,
-    pub code: String,
-}
-
-#[derive(Deserialize, Debug)]
 pub struct UpdateEmailVerification {
     pub code: Option<String>,
     pub updated_at: NaiveDateTime,
@@ -32,16 +26,6 @@ pub struct AdminEmailVerificationQuery {
     pub sort_order: Option<String>,
 }
 
-impl NewEmailVerification {
-    pub fn new(user_id: i32) -> Self {
-        let now = Utc::now().naive_utc();
-        NewEmailVerification {
-            user_id,
-            code: Entity::generate_code(),
-        }
-    }
-}
-
 impl UpdateEmailVerification {
     pub fn regenerate() -> Self {
         let now = Utc::now().naive_utc();
@@ -59,14 +43,6 @@ impl RegenerateEmailVerification {
             user_id,
             code: Entity::generate_code(),
             updated_at: now,
-        }
-    }
-
-    pub fn from_new(new: &NewEmailVerification) -> Self {
-        RegenerateEmailVerification {
-            user_id: new.user_id,
-            code: new.code.clone(),
-            updated_at: Utc::now().naive_utc(),
         }
     }
 }
