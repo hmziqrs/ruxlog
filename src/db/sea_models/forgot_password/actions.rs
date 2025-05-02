@@ -1,6 +1,12 @@
-use sea_orm::{entity::prelude::*, IntoActiveModel, JoinType, Order, QueryOrder, QuerySelect, Set, TransactionTrait};
-use crate::{db::sea_models::user, error::{DbResult, ErrorCode, ErrorResponse}};
+use crate::{
+    db::sea_models::user,
+    error::{DbResult, ErrorCode, ErrorResponse},
+};
 use chrono::Utc;
+use sea_orm::{
+    entity::prelude::*, IntoActiveModel, JoinType, Order, QueryOrder, QuerySelect, Set,
+    TransactionTrait,
+};
 
 use super::*;
 
@@ -26,24 +32,34 @@ impl Entity {
     }
 
     // Create a new forgot password record with auto-generated code
-    pub async fn create_new(conn: &DbConn, user_id: i32) -> DbResult<Model> {
-        let new_forgot_password = NewForgotPassword::new(user_id);
-        Self::create(conn, new_forgot_password).await
-    }
 
-    pub async fn find_by_email_and_code(
+    pub async fn find_query(
         conn: &DbConn,
-        email: &str,
-        code: &str,
-    ) -> DbResult<Option<Model>> {
-        match Self::find()
-            .filter(Column::Code.eq(code))
-            .join(JoinType::InnerJoin, Relation::User.def())
-            .filter(user::Column::Email.eq(email))
-            .one(conn)
-            .await
-        {
-            Ok(model) => Ok(model),
+        user_id: Option<i32>,
+        email: Option<&str>,
+        code: Option<&str>,
+    ) -> DbResult<Model> {
+        if user_id.is_none() && email.is_none() && code.is_none() {
+            return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                .with_message("Either user_id, email or code must be provided"));
+        }
+        let mut query = Self::find();
+        
+        if let Some(user_id) = user_id {
+            query = query.filter(Column::UserId.eq(user_id));
+        }
+        if let Some(code) = code {
+            query = query.filter(Column::Code.eq(code));
+        }
+        if let Some(email) = email {
+            query = query
+                .join(JoinType::InnerJoin, Relation::User.def())
+                .filter(user::Column::Email.eq(email));
+        }
+        match query.one(conn).await {
+            Ok(Some(result)) => Ok(result),
+            Ok(None) => Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                .with_message("The provided verification code is invalid")),
             Err(err) => Err(err.into()),
         }
     }
@@ -51,19 +67,21 @@ impl Entity {
     pub async fn reset(conn: &DbConn, user_id: i32, password: String) -> DbResult<u64> {
         let trx = conn.begin().await?;
 
-        match Self::delete_by_user_id(&trx, user_id)
-            .await {
-            Ok(_) => {
-                match user::Entity::change_password(&trx, user_id, password).await {
-                    Ok(_) => {
-                        trx.commit().await?;
-                    }
-                    Err(err) => {
-                        trx.rollback().await?;
-                        return Err(err.into());
-                    }
+        let delete_query = Self::delete_many()
+            .filter(Column::UserId.eq(user_id))
+            .exec(&trx)
+            .await;
+
+        match delete_query {
+            Ok(_) => match user::Entity::change_password(&trx, user_id, password).await {
+                Ok(_) => {
+                    trx.commit().await?;
                 }
-            }
+                Err(err) => {
+                    trx.rollback().await?;
+                    return Err(err.into());
+                }
+            },
             Err(err) => {
                 trx.rollback().await?;
                 return Err(err.into());
@@ -72,104 +90,19 @@ impl Entity {
         Ok(1)
     }
 
-
-    // Find forgot password record by user_id
-    pub async fn find_by_user_id(conn: &DbConn, user_id: i32) -> DbResult<Option<Model>> {
-        match Self::find()
-            .filter(Column::UserId.eq(user_id))
-            .one(conn)
-            .await
-        {
-            Ok(model) => Ok(model),
-            Err(err) => Err(err.into()),
-        }
-    }
-
-    // Find forgot password record by code
-    pub async fn find_by_code(conn: &DbConn, forgot_password_code: &str) -> DbResult<Option<Model>> {
-        match Self::find()
-            .filter(Column::Code.eq(forgot_password_code))
-            .one(conn)
-            .await
-        {
-            Ok(model) => Ok(model),
-            Err(err) => Err(err.into()),
-        }
-    }
-
-    // Find forgot password record by user_id and code
-    pub async fn find_by_user_id_and_code(
-        conn: &DbConn,
-        user_id: i32,
-        code: String,
-    ) -> DbResult<Option<Model>> {
-        match Self::find()
-            .filter(Column::UserId.eq(user_id))
-            .filter(Column::Code.eq(code))
-            .one(conn)
-            .await
-        {
-            Ok(model) => Ok(model),
-            Err(err) => Err(err.into()),
-        }
-    }
-
-    // Find forgot password record by user_id or code
-    pub async fn find_by_user_id_or_code(
-        conn: &DbConn,
-        user_id: Option<i32>,
-        code: Option<String>,
-    ) -> DbResult<Option<Model>> {
-        match (user_id, code) {
-            (None, None) => Ok(None),
-            (Some(uid), Some(c)) => Self::find_by_user_id_and_code(conn, uid, c).await,
-            (Some(uid), None) => Self::find_by_user_id(conn, uid).await,
-            (None, Some(c)) => Self::find_by_code(conn, &c).await,
-        }
-    }
-
-    // Update forgot password record
-    pub async fn update(
-        conn: &DbConn,
-        forgot_password_id: i32,
-        update_forgot_password: UpdateForgotPassword,
-    ) -> DbResult<Option<Model>> {
-        let forgot_password: Option<Model> = match Self::find_by_id(forgot_password_id).one(conn).await {
-            Ok(forgot_password) => forgot_password,
-            Err(err) => return Err(err.into()),
-        };
-
-        if let Some(forgot_password_model) = forgot_password {
-            let mut forgot_password_active: ActiveModel = forgot_password_model.into();
-
-            if let Some(code) = update_forgot_password.code {
-                forgot_password_active.code = Set(code);
-            }
-
-            forgot_password_active.updated_at = Set(update_forgot_password.updated_at);
-
-            match forgot_password_active.update(conn).await {
-                Ok(updated_forgot_password) => Ok(Some(updated_forgot_password)),
-                Err(err) => Err(err.into()),
-            }
-        } else {
-            Ok(None)
-        }
-    }
-
     // Regenerate a forgot password code for a user
     pub async fn regenerate(conn: &DbConn, user_id: i32) -> DbResult<Model> {
         let now = Utc::now().naive_utc();
         let new_code = Self::generate_code();
-        
-        let existing = Self::find_by_user_id(conn, user_id).await?;
-        
-        if let Some(existing_model) = existing {
+
+        let existing = Self::find_query(conn, Some(user_id), None, None).await;
+
+        if let Ok(existing_model) = existing {
             // Update existing forgot password
             let mut active_model: ActiveModel = existing_model.into_active_model();
             active_model.code = Set(new_code);
             active_model.updated_at = Set(now);
-            
+
             match active_model.update(conn).await {
                 Ok(model) => Ok(model),
                 Err(err) => Err(err.into()),
@@ -184,112 +117,30 @@ impl Entity {
         }
     }
 
-    // Generate a new forgot password code (previous implementation's generate method)
-    pub async fn generate(conn: &DbConn, user_id: i32) -> DbResult<Model> {
-        Self::regenerate(conn, user_id).await
-    }
-
-    // Delete forgot password record by ID
-    pub async fn delete_by_id(conn: &DbConn, forgot_password_id: i32) -> DbResult<u64> {
-        match Self::delete_many()
-            .filter(Column::Id.eq(forgot_password_id))
-            .exec(conn)
-            .await
-        {
-            Ok(result) => Ok(result.rows_affected),
-            Err(err) => Err(err.into()),
-        }
-    }
-
-    // Delete forgot password record by user_id
-    pub async fn delete_by_user_id<T: ConnectionTrait>(conn: &T, user_id: i32) -> DbResult<u64> {
-        match Self::delete_many()
-            .filter(Column::UserId.eq(user_id))
-            .exec(conn)
-            .await
-        {
-            Ok(result) => Ok(result.rows_affected),
-            Err(err) => Err(err.into()),
-        }
-    }
-
-    // Delete forgot password record by code
-    pub async fn delete_by_code<T: ConnectionTrait>(conn: &T, forgot_password_code: &str) -> DbResult<u64> {
-        match Self::delete_many()
-            .filter(Column::Code.eq(forgot_password_code))
-            .exec(conn)
-            .await
-        {
-            Ok(result) => Ok(result.rows_affected),
-            Err(err) => Err(err.into()),
-        }
-    }
-
-    // Delete forgot password record by user_id and code
-    pub async fn delete_by_user_id_and_code<T: ConnectionTrait>(
-        conn: &T,
-        user_id: i32,
-        code: &str,
-    ) -> DbResult<u64> {
-        match Self::delete_many()
-            .filter(Column::UserId.eq(user_id))
-            .filter(Column::Code.eq(code))
-            .exec(conn)
-            .await
-        {
-            Ok(result) => Ok(result.rows_affected),
-            Err(err) => Err(err.into()),
-        }
-    }
-
-    // Check if a forgot password code has expired
-    pub async fn is_code_expired(conn: &DbConn, user_id: i32, code: &str) -> DbResult<bool> {
-        let forgot_password = Self::find_by_user_id_and_code(conn, user_id, code.to_string()).await?;
-        
-        match forgot_password {
-            Some(model) => {
-                Ok(model.is_expired())
-            },
-            None => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                        .with_message(&format!("Forgot password code not found for user {}", user_id))),
-        }
-    }
-
-    // Check if a forgot password code is in the delay period
-    pub async fn is_in_delay(conn: &DbConn, user_id: i32, code: &str) -> DbResult<bool> {
-        let forgot_password = Self::find_by_user_id_and_code(conn, user_id, code.to_string()).await?;
-        
-        match forgot_password {
-            Some(model) => Ok(model.is_in_delay()),
-            None => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                        .with_message(&format!("Forgot password code not found for user {}", user_id))),
-        }
-    }
-
     // Admin query for forgot passwords with pagination and filtering
     pub async fn admin_query(
         conn: &DbConn,
         query: &AdminForgotPasswordQuery,
     ) -> DbResult<(Vec<Model>, u64)> {
         let mut db_query = Self::find();
-        
+
         // Apply filters
         if let Some(user_id) = query.user_id {
             db_query = db_query.filter(Column::UserId.eq(user_id));
         }
-        
+
         if let Some(code) = &query.code {
             db_query = db_query.filter(Column::Code.eq(code));
         }
-        
+
         if let Some(created_at) = query.created_at {
             db_query = db_query.filter(Column::CreatedAt.gte(created_at));
         }
-        
+
         if let Some(updated_at) = query.updated_at {
             db_query = db_query.filter(Column::UpdatedAt.gte(updated_at));
         }
-        
+
         // Apply sorting
         if let (Some(sort_by), Some(sort_order)) = (&query.sort_by, &query.sort_order) {
             for field in sort_by {
@@ -298,7 +149,7 @@ impl Entity {
                 } else {
                     Order::Desc
                 };
-                
+
                 match field.as_str() {
                     "id" => db_query = db_query.order_by(Column::Id, order),
                     "user_id" => db_query = db_query.order_by(Column::UserId, order),
@@ -312,22 +163,20 @@ impl Entity {
             // Default sort by id descending
             db_query = db_query.order_by(Column::Id, Order::Desc);
         }
-        
+
         // Handle pagination
         let page = match query.page_no {
             Some(p) if p > 0 => p as u64,
             _ => 1,
         };
-        
+
         let paginator = db_query.paginate(conn, ADMIN_PER_PAGE);
-        
+
         // Get total count and paginated results
         match paginator.num_items().await {
-            Ok(total) => {
-                match paginator.fetch_page(page - 1).await {
-                    Ok(results) => Ok((results, total)),
-                    Err(err) => Err(err.into()),
-                }
+            Ok(total) => match paginator.fetch_page(page - 1).await {
+                Ok(results) => Ok((results, total)),
+                Err(err) => Err(err.into()),
             },
             Err(err) => Err(err.into()),
         }
