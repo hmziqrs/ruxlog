@@ -8,7 +8,7 @@ impl Entity {
 
     // Create a new post view
     pub async fn create(conn: &DbConn, new_post_view: NewPostView) -> DbResult<Model> {
-        let now = chrono::Utc::now().naive_utc();
+        let now = chrono::Utc::now().fixed_offset();
         let post_view = ActiveModel {
             post_id: Set(new_post_view.post_id),
             ip_address: Set(new_post_view.ip_address),
@@ -89,9 +89,9 @@ impl Entity {
         ip_address: &str,
     ) -> DbResult<bool> {
         let one_day_ago = chrono::Utc::now()
-            .naive_utc()
+            .fixed_offset()
             .checked_sub_days(chrono::Days::new(1))
-            .unwrap_or_else(|| chrono::Utc::now().naive_utc());
+            .unwrap_or_else(|| chrono::Utc::now().fixed_offset());
 
         let count = Self::find()
             .filter(Column::PostId.eq(post_id))

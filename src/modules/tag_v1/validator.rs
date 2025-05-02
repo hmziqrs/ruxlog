@@ -39,7 +39,7 @@ impl V1UpdateTagPayload {
             name: self.name,
             slug: self.slug,
             description: self.description,
-            updated_at: chrono::Utc::now().naive_utc(),
+            updated_at: chrono::Utc::now().fixed_offset(),
         }
     }
 }

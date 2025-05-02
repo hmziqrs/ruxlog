@@ -8,7 +8,7 @@ impl Entity {
 
     // Create a new tag
     pub async fn create(conn: &DbConn, new_tag: NewTag) -> DbResult<Model> {
-        let now = chrono::Utc::now().naive_utc();
+        let now = chrono::Utc::now().fixed_offset();
         let tag = ActiveModel {
             name: Set(new_tag.name),
             slug: Set(new_tag.slug),
@@ -51,7 +51,7 @@ impl Entity {
                 tag_active.description = Set(Some(description));
             }
 
-            tag_active.updated_at = Set(chrono::Utc::now().naive_utc());
+            tag_active.updated_at = Set(chrono::Utc::now().fixed_offset());
 
             match tag_active.update(conn).await {
                 Ok(updated_tag) => Ok(Some(updated_tag)),

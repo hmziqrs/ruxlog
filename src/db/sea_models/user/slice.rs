@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 use super::UserRole;
 
@@ -14,19 +14,19 @@ pub struct NewUser {
 pub struct UpdateUser {
     pub name: Option<String>,
     pub email: Option<String>,
-    pub updated_at: NaiveDateTime,
+    pub updated_at: DateTimeWithTimeZone,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct ChangePasswordUser {
     pub password: String,
-    pub updated_at: NaiveDateTime,
+    pub updated_at: DateTimeWithTimeZone,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct VerifiedUser {
     pub is_verified: bool,
-    pub updated_at: NaiveDateTime,
+    pub updated_at: DateTimeWithTimeZone,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -36,8 +36,8 @@ pub struct AdminUserQuery {
     pub name: Option<String>,
     pub role: Option<UserRole>,
     pub status: Option<bool>,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
+    pub created_at: Option<DateTimeWithTimeZone>,
+    pub updated_at: Option<DateTimeWithTimeZone>,
     pub sort_by: Option<Vec<String>>,
     pub sort_order: Option<String>,
 }
@@ -60,5 +60,5 @@ pub struct AdminUpdateUser {
     pub role: Option<UserRole>,
     pub avatar: Option<String>,
     pub is_verified: Option<bool>,
-    pub updated_at: NaiveDateTime,
+    pub updated_at: DateTimeWithTimeZone,
 }

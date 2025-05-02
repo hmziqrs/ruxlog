@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 use validator::{Validate, ValidationError};
 
@@ -21,7 +21,7 @@ impl V1UpdateProfilePayload {
         UpdateUser {
             name: self.name,
             email: self.email,
-            updated_at: chrono::Utc::now().naive_utc(),
+            updated_at: chrono::Utc::now().fixed_offset(),
         }
     }
 }
@@ -89,7 +89,7 @@ impl V1AdminUpdateUserPayload {
             password: self.password,
             is_verified: self.is_verified,
             role: self.role.and_then(|r| UserRole::from_str(&r).ok()),
-            updated_at: chrono::Utc::now().naive_utc(),
+            updated_at: chrono::Utc::now().fixed_offset(),
         }
     }
 }
@@ -108,8 +108,8 @@ pub struct V1AdminUserQueryParams {
     #[validate(custom(function = "validate_role"))]
     pub role: Option<String>,
     pub status: Option<bool>,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
+    pub created_at: Option<DateTimeWithTimeZone>,
+    pub updated_at: Option<DateTimeWithTimeZone>,
     pub sort_by: Option<Vec<String>>,
     pub sort_order: Option<String>,
 }

@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
@@ -13,7 +13,7 @@ pub struct UpdateTag {
     pub name: Option<String>,
     pub slug: Option<String>,
     pub description: Option<String>,
-    pub updated_at: NaiveDateTime,
+    pub updated_at: DateTimeWithTimeZone,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq)]

@@ -1,4 +1,4 @@
-use chrono::{Duration, NaiveDateTime, Utc};
+use chrono::{Duration, Utc};
 use rand::{distr::Alphanumeric, Rng};
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -10,8 +10,8 @@ pub struct Model {
     pub id: i32,
     pub user_id: i32,
     pub code: String,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
+    pub created_at: DateTimeWithTimeZone,
+    pub updated_at: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -51,12 +51,12 @@ impl Entity {
 impl Model {
     // Check if a forgot password code has expired
     pub fn is_expired(&self) -> bool {
-        Utc::now().naive_utc() > self.updated_at + Entity::EXPIRY_TIME
+        Utc::now().fixed_offset() > self.updated_at + Entity::EXPIRY_TIME
     }
 
     // Check if a forgot password code is still in the delay period
     pub fn is_in_delay(&self) -> bool {
         let delay_time = self.updated_at + Entity::DELAY_TIME;
-        Utc::now().naive_utc() < delay_time
+        Utc::now().fixed_offset() < delay_time
     }
 }

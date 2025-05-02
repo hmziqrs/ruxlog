@@ -9,7 +9,7 @@ impl Entity {
 
     // Create a new user
     pub async fn create(conn: &DbConn, new_user: NewUser) -> DbResult<Model> {
-        let now = chrono::Utc::now().naive_utc();
+        let now = chrono::Utc::now().fixed_offset();
         let hash = task::spawn_blocking(move || password_auth::generate_hash(new_user.password))
             .await
             .map_err(|_| ErrorResponse::new(ErrorCode::InternalServerError)
@@ -89,7 +89,7 @@ impl Entity {
         let mut user_active: ActiveModel = user.into();
         
         user_active.is_verified = Set(true);
-        user_active.updated_at = Set(chrono::Utc::now().naive_utc());
+        user_active.updated_at = Set(chrono::Utc::now().fixed_offset());
 
         match user_active.update(conn).await {
             Ok(model) => Ok(model),
@@ -112,7 +112,7 @@ impl Entity {
                 .with_message("Failed to generate password hash"))?;
         
         user_active.password = Set(hash);
-        user_active.updated_at = Set(chrono::Utc::now().naive_utc());
+        user_active.updated_at = Set(chrono::Utc::now().fixed_offset());
 
         match user_active.update(conn).await {
             Ok(_) => Ok(()),
@@ -186,7 +186,7 @@ impl Entity {
 
     // Admin create user
     pub async fn admin_create(conn: &DbConn, new_user: AdminCreateUser) -> DbResult<Model> {
-        let now = chrono::Utc::now().naive_utc();
+        let now = chrono::Utc::now().fixed_offset();
         let hash = task::spawn_blocking(move || password_auth::generate_hash(new_user.password))
             .await
             .map_err(|_| ErrorResponse::new(ErrorCode::InternalServerError)

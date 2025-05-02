@@ -1,8 +1,8 @@
-use std::{collections::HashSet, fmt::format};
+use std::collections::HashSet;
 
 use crate::{
     db::sea_models::tag,
-    error::{DbResult, ErrorCode, ErrorResponse},
+    error::DbResult,
 };
 use sea_orm::{
     entity::prelude::*, Condition, JoinType, Order, QueryOrder, QuerySelect, Set, TransactionTrait,
@@ -409,7 +409,7 @@ impl Entity {
         user_agent: Option<String>,
     ) -> DbResult<()> {
         // Create a view record
-        let now = chrono::Utc::now().naive_utc();
+        let now = chrono::Utc::now().fixed_offset();
         let view = super::super::post_view::ActiveModel {
             post_id: Set(post_id),
             user_id: Set(user_id),

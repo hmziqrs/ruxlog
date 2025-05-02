@@ -1,6 +1,6 @@
 use crate::error::{DbResult, ErrorCode, ErrorResponse};
 use chrono::Utc;
-use sea_orm::{entity::prelude::*, DatabaseTransaction, IntoActiveModel, Order, QueryOrder, Set};
+use sea_orm::{entity::prelude::*, Order, QueryOrder, Set};
 
 use super::*;
 
@@ -11,7 +11,7 @@ impl Entity {
     // Create a new email verification record
     pub async fn create<T: ConnectionTrait>(conn: &T, user_id: i32) -> DbResult<Model> {
         let code = Self::generate_code();
-        let now = Utc::now().naive_utc();
+        let now = Utc::now().fixed_offset();
         let verification = ActiveModel {
             user_id: Set(user_id),
             code: Set(code),
@@ -90,7 +90,7 @@ impl Entity {
 
     // Regenerate a verification code for a user
     pub async fn regenerate(conn: &DbConn, user_id: i32) -> DbResult<Model> {
-        let now = Utc::now().naive_utc();
+        let now = Utc::now().fixed_offset();
         let new_code = Self::generate_code();
 
         // Create the active model

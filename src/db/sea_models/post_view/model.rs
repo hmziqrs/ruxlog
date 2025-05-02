@@ -1,4 +1,3 @@
-use chrono::NaiveDateTime;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -11,7 +10,7 @@ pub struct Model {
     pub ip_address: Option<String>,
     pub user_agent: Option<String>,
     pub user_id: Option<i32>,
-    pub created_at: NaiveDateTime,
+    pub created_at: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

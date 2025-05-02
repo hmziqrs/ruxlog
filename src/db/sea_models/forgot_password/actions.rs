@@ -16,7 +16,7 @@ const ADMIN_PER_PAGE: u64 = 20;
 impl Entity {
     // Create a new forgot password record
     pub async fn create(conn: &DbConn, new_forgot_password: NewForgotPassword) -> DbResult<Model> {
-        let now = Utc::now().naive_utc();
+        let now = Utc::now().fixed_offset();
         let forgot_password = ActiveModel {
             user_id: Set(new_forgot_password.user_id),
             code: Set(new_forgot_password.code),
@@ -92,7 +92,7 @@ impl Entity {
 
     // Regenerate a forgot password code for a user
     pub async fn regenerate(conn: &DbConn, user_id: i32) -> DbResult<Model> {
-        let now = Utc::now().naive_utc();
+        let now = Utc::now().fixed_offset();
         let new_code = Self::generate_code();
 
         let existing = Self::find_query(conn, Some(user_id), None, None).await;

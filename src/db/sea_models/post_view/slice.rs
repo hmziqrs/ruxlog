@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
@@ -15,7 +15,7 @@ pub struct PostViewQuery {
     pub post_id: i32,
     pub ip_address: Option<String>,
     pub user_id: Option<i32>,
-    pub created_at: Option<NaiveDateTime>,
+    pub created_at: Option<DateTimeWithTimeZone>,
     pub sort_by: Option<Vec<String>>,
     pub sort_order: Option<String>,
 }
