@@ -5,11 +5,11 @@ use axum::{
     Json,
 };
 use axum_macros::debug_handler;
-use sea_orm::EntityTrait;
 use serde_json::json;
 
 use crate::{
     db::sea_models::category::Entity as Category,
+    error::{ErrorCode, ErrorResponse},
     extractors::{ValidatedJson, ValidatedQuery},
     services::auth::AuthSession,
     AppState,
@@ -23,12 +23,13 @@ pub async fn create(
     State(state): State<AppState>,
     _auth: AuthSession,
     payload: ValidatedJson<V1CreateCategoryPayload>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, ErrorResponse> {
     let new_category = payload.0.into_new_category();
 
-    Category::create(&state.sea_db, new_category).await
-        .map(|result| (StatusCode::CREATED, Json(json!(result))))
-        .map_err(IntoResponse::into_response)
+    match Category::create(&state.sea_db, new_category).await {
+        Ok(result) => Ok((StatusCode::CREATED, Json(json!(result)))),
+        Err(err) => Err(err.into()),
+    }
 }
 
 /// Update an existing category using SeaORM
@@ -38,19 +39,14 @@ pub async fn update(
     _auth: AuthSession,
     Path(category_id): Path<i32>,
     payload: ValidatedJson<V1UpdateCategoryPayload>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, ErrorResponse> {
     let update_category = payload.0.into_update_category();
 
     match Category::update(&state.sea_db, category_id, update_category).await {
-        Ok(Some(category)) => (StatusCode::OK, Json(json!(category))).into_response(),
-        Ok(None) => (
-            StatusCode::NOT_FOUND,
-            Json(json!({
-                "error": "request failed",
-                "message": "Category does not exist",
-            })),
-        ).into_response(),
-        Err(err) => err.into_response(),
+        Ok(Some(category)) => Ok((StatusCode::OK, Json(json!(category)))),
+        Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
+                        .with_message("Category does not exist")),
+        Err(err) => Err(err.into()),
     }
 }
 
@@ -60,24 +56,19 @@ pub async fn delete(
     State(state): State<AppState>,
     _auth: AuthSession,
     Path(category_id): Path<i32>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, ErrorResponse> {
     match Category::delete(&state.sea_db, category_id).await {
-        Ok(1) => (
+        Ok(1) => Ok((
             StatusCode::OK,
             Json(json!({ "message": "Category deleted successfully" })),
-        ).into_response(),
-        Ok(0) => (
-            StatusCode::NOT_FOUND,
-            Json(json!({
-                "error": "request failed",
-                "message": "Category does not exist",
-            })),
-        ).into_response(),
-        Ok(_) => (
+        )),
+        Ok(0) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
+                    .with_message("Category does not exist")),
+        Ok(_) => Ok((
             StatusCode::OK,
             Json(json!({ "message": "Category deleted successfully" })),
-        ).into_response(),
-        Err(err) => err.into_response(),
+        )),
+        Err(err) => Err(err.into()),
     }
 }
 
@@ -86,10 +77,10 @@ pub async fn delete(
 pub async fn find_by_id_or_slug(
     State(state): State<AppState>,
     Path(slug_or_id): Path<String>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, ErrorResponse> {
     let mut id: Option<i32> = None;
     let mut slug: Option<String> = None;
-    
+
     match slug_or_id.parse::<i32>() {
         Ok(parsed_id) => {
             id = Some(parsed_id);
@@ -99,17 +90,21 @@ pub async fn find_by_id_or_slug(
         },
     }
 
-    Category::find_by_id_or_slug(&state.sea_db, id, slug).await
-        .map(|category| (StatusCode::OK, Json(json!(category))))
-        .map_err(IntoResponse::into_response)
+    match Category::find_by_id_or_slug(&state.sea_db, id, slug).await {
+        Ok(Some(category)) => Ok((StatusCode::OK, Json(json!(category)))),
+        Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
+                      .with_message("Category not found")),
+        Err(err) => Err(err.into()),
+    }
 }
 
 /// Find all categories using SeaORM
 #[debug_handler]
-pub async fn find_all(State(state): State<AppState>) -> impl IntoResponse {
-    Category::find_all(&state.sea_db).await
-        .map(|categories| (StatusCode::OK, Json(json!(categories))))
-        .map_err(IntoResponse::into_response)
+pub async fn find_all(State(state): State<AppState>) -> Result<impl IntoResponse, ErrorResponse> {
+    match Category::find_all(&state.sea_db).await {
+        Ok(categories) => Ok((StatusCode::OK, Json(json!(categories)))),
+        Err(err) => Err(err.into()),
+    }
 }
 
 /// Find categories with query using SeaORM
@@ -117,18 +112,19 @@ pub async fn find_all(State(state): State<AppState>) -> impl IntoResponse {
 pub async fn find_with_query(
     State(state): State<AppState>,
     query: ValidatedQuery<V1CategoryQueryParams>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, ErrorResponse> {
     let category_query = query.0.into_category_query();
     let page = category_query.page_no;
 
-    Category::find_with_query(&state.sea_db, category_query).await
-        .map(|(categories, total)| (
+    match Category::find_with_query(&state.sea_db, category_query).await {
+        Ok((categories, total)) => Ok((
             StatusCode::OK,
             Json(json!({
                 "total": total,
                 "data": categories,
                 "page": page,
             }))
-        ))
-        .map_err(IntoResponse::into_response)
+        )),
+        Err(err) => Err(err.into()),
+    }
 }
