@@ -5,6 +5,7 @@ use axum::{
     Json,
 };
 use axum_macros::debug_handler;
+use sea_orm::EntityTrait;
 use serde_json::json;
 
 use crate::{
@@ -82,12 +83,23 @@ pub async fn delete(
 
 /// Find a category by ID using SeaORM
 #[debug_handler]
-pub async fn find_by_id(
+pub async fn find_by_id_or_slug(
     State(state): State<AppState>,
-    Path(category_id): Path<i32>,
+    Path(slug_or_id): Path<String>,
 ) -> impl IntoResponse {
-    // Using our new find_by_id method with built-in not found handling
-    Category::find_by_id_with_404(&state.sea_db, category_id).await
+    let mut id: Option<i32> = None;
+    let mut slug: Option<String> = None;
+    
+    match slug_or_id.parse::<i32>() {
+        Ok(parsed_id) => {
+            id = Some(parsed_id);
+        },
+        Err(_) => {
+            slug = Some(slug_or_id);
+        },
+    }
+
+    Category::find_by_id_or_slug(&state.sea_db, id, slug).await
         .map(|category| (StatusCode::OK, Json(json!(category))))
         .map_err(IntoResponse::into_response)
 }

@@ -102,7 +102,7 @@ pub fn router() -> Router<AppState> {
         .route("/list", get(category_v1::controller::find_all))
         .route(
             "/view/{category_id}",
-            get(category_v1::controller::find_by_id),
+            get(category_v1::controller::find_by_id_or_slug),
         );
 
     let tag_v1_routes = Router::new()

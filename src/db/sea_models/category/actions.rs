@@ -85,24 +85,27 @@ impl Entity {
     }
 
     // Find category by ID
-    pub async fn get_by_id(conn: &DbConn, category_id: i32) -> DbResult<Option<Model>> {
-        match Self::find_by_id(category_id).one(conn).await {
-            Ok(model) => Ok(model),
+    pub async fn find_by_id_or_slug(
+        conn: &DbConn,
+        category_id: Option<i32>,
+        category_slug: Option<String>,
+    ) -> DbResult<Option<Model>> {
+        if category_id.is_none() && category_slug.is_none() {
+            return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                .with_message("Either category_id or category_slug must be provided"));
+        }
+        let mut category_query = Self::find();
+        if let Some(id) = category_id {
+            category_query = category_query.filter(Column::Id.eq(id));
+        } else if let Some(slug) = category_slug {
+            category_query = category_query.filter(Column::Slug.eq(slug));
+        }
+        match category_query.one(conn).await {
+            Ok(category) => Ok(category),
             Err(err) => Err(err.into()),
         }
     }
 
-    // Find category by ID with not found handling
-    pub async fn find_by_id_with_404(conn: &DbConn, category_id: i32) -> DbResult<Model> {
-        match Self::find_by_id(category_id).one(conn).await {
-            Ok(Some(model)) => Ok(model),
-            Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                .with_message(&format!("Category with ID {} not found", category_id))),
-            Err(err) => Err(err.into()),
-        }
-    }
-
-    // Find all categories
     pub async fn find_all(conn: &DbConn) -> DbResult<Vec<Model>> {
         match Self::find()
             .order_by(Column::Name, Order::Desc)
