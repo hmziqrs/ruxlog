@@ -11,7 +11,7 @@ use serde_json::json;
 use crate::{
     db::sea_models::post,
     error::{ErrorCode, ErrorResponse},
-    extractors::{ValidatedJson, ValidatedQuery},
+    extractors::{ValidatedJson},
     modules::post_v1::validator::V1UpdatePostPayload,
     services::auth::AuthSession,
     AppState,
@@ -49,9 +49,7 @@ pub async fn find_by_id_or_slug(
         Ok(None) => {
             Err(ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Post not found"))
         }
-        Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
-            .with_message("Failed to fetch post")
-            .with_details(err.to_string())),
+        Err(err) => Err(err.into()),
     }
 }
 
@@ -68,9 +66,7 @@ pub async fn update(
         Ok(None) => {
             Err(ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Post does not exist"))
         }
-        Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
-            .with_message("Failed to update post")
-            .with_details(err.to_string())),
+        Err(err) => Err(err.into()),
     }
 }
 
@@ -89,9 +85,7 @@ pub async fn delete(
         }
         Ok(_) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
             .with_message("Internal server error occurred while deleting post")),
-        Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
-            .with_message("Failed to delete post")
-            .with_details(err.to_string())),
+        Err(err) => Err(err.into()),
     }
 }
 

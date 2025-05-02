@@ -1,4 +1,4 @@
-use crate::error::{DbResult, ErrorCode, ErrorResponse};
+use crate::error::{DbResult};
 use sea_orm::{entity::prelude::*,  Order, QueryOrder, Set, };
 
 use super::*;
@@ -70,16 +70,6 @@ impl Entity {
         }
     }
 
-    // Find comment by ID with not found handling
-    pub async fn find_by_id_with_404(conn: &DbConn, comment_id: i32) -> DbResult<Model> {
-        match Self::find_by_id(comment_id).one(conn).await {
-            Ok(Some(model)) => Ok(model),
-            Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                .with_message(&format!("Comment with ID {} not found", comment_id))),
-            Err(err) => Err(err.into()),
-        }
-    }
-
     // Unified method for fetching comments with various filtering options - always including user data
     pub async fn get_comments(
         conn: &DbConn,
@@ -87,6 +77,8 @@ impl Entity {
     ) -> DbResult<(Vec<CommentWithUser>, u64)> {
         use super::super::user::Column as UserColumn;
         use sea_orm::{JoinType, QuerySelect};
+
+        println!("Query: {:?}", query);
 
         // Start with a base query that joins comments with users
         let mut comment_query = Entity::find()
@@ -112,8 +104,6 @@ impl Entity {
         if let Some(user_id_filter) = query.user_id {
             comment_query = comment_query.filter(Column::UserId.eq(user_id_filter));
         }
-
-        // parent_id filter temporarily removed
 
         // Apply content search if provided
         if let Some(search_term) = &query.search_term {

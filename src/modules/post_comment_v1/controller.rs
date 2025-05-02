@@ -30,9 +30,7 @@ pub async fn create(
 
     match post_comment::Entity::create(&state.sea_db, new_comment).await {
         Ok(comment) => Ok((StatusCode::CREATED, Json(json!(comment)))),
-        Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
-            .with_message("Failed to create comment")
-            .with_details(err.to_string())),
+        Err(err) => Err(err.into()),
     }
 }
 
@@ -50,9 +48,7 @@ pub async fn update(
         Ok(Some(comment)) => Ok((StatusCode::OK, Json(json!(comment)))),
         Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
             .with_message("Comment does not exist")),
-        Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
-            .with_message("Failed to update comment")
-            .with_details(err.to_string())),
+        Err(err) => Err(err.into()),
     }
 }
 
@@ -72,19 +68,17 @@ pub async fn delete(
             .with_message("Comment does not exist")),
         Ok(_) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
             .with_message("Internal server error occurred while deleting comment")),
-        Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
-            .with_message("Failed to delete comment")
-            .with_details(err.to_string())),
+        Err(err) => Err(err.into()),
     }
 }
 
 #[debug_handler]
 pub async fn list(
     State(state): State<AppState>,
-    query: ValidatedQuery<V1PostCommentQueryParams>,
+    query: ValidatedJson<V1PostCommentQueryParams>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let post_comment_query = query.0.into_post_comment_query();
-    let page = post_comment_query.page_no;
+    let page = post_comment_query.page_no.unwrap_or(1);
 
     match post_comment::Entity::get_comments(&state.sea_db, post_comment_query).await {
         Ok((comments, total)) => Ok((
