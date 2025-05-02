@@ -1,4 +1,3 @@
-use chrono::NaiveDateTime;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -13,8 +12,8 @@ pub struct Model {
     pub description: Option<String>,
     pub cover_image: Option<String>,
     pub logo_image: Option<String>,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
+    pub created_at: DateTimeWithTimeZone,
+    pub updated_at: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

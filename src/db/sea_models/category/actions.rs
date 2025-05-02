@@ -8,7 +8,7 @@ impl Entity {
 
     // Create a new category
     pub async fn create(conn: &DbConn, new_category: NewCategory) -> DbResult<Model> {
-        let now = chrono::Utc::now().naive_utc();
+        let now = chrono::Utc::now().fixed_offset();
         let category = ActiveModel {
             name: Set(new_category.name),
             slug: Set(new_category.slug),
@@ -65,7 +65,7 @@ impl Entity {
                 category_active.logo_image = Set(logo_image);
             }
 
-            category_active.updated_at = Set(chrono::Utc::now().naive_utc());
+            category_active.updated_at = Set(chrono::Utc::now().fixed_offset());
 
             match category_active.update(conn).await {
                 Ok(updated_category) => Ok(Some(updated_category)),

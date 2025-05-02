@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
@@ -19,7 +19,7 @@ pub struct UpdateCategory {
     pub description: Option<Option<String>>,
     pub cover_image: Option<Option<String>>,
     pub logo_image: Option<Option<String>>,
-    pub updated_at: NaiveDateTime,
+    pub updated_at: DateTimeWithTimeZone,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq)]

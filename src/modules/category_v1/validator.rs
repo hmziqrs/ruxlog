@@ -51,7 +51,7 @@ impl V1UpdateCategoryPayload {
             description: self.description,
             cover_image: self.cover_image,
             logo_image: self.logo_image,
-            updated_at: chrono::Utc::now().naive_utc(),
+            updated_at: chrono::Utc::now().fixed_offset(),
         }
     }
 }
