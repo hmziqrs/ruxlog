@@ -10,7 +10,7 @@ use serde_json::json;
 use crate::{
     db::sea_models::post_comment,
     error::{ErrorCode, ErrorResponse},
-    extractors::{ValidatedJson, ValidatedQuery},
+    extractors::ValidatedJson,
     services::auth::AuthSession,
     AppState,
 };
@@ -46,8 +46,10 @@ pub async fn update(
 
     match post_comment::Entity::update(&state.sea_db, comment_id, user.id, update_comment).await {
         Ok(Some(comment)) => Ok((StatusCode::OK, Json(json!(comment)))),
-        Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-            .with_message("Comment does not exist")),
+        Ok(None) => {
+            Err(ErrorResponse::new(ErrorCode::RecordNotFound)
+                .with_message("Comment does not exist"))
+        }
         Err(err) => Err(err.into()),
     }
 }
@@ -64,8 +66,10 @@ pub async fn delete(
             StatusCode::OK,
             Json(json!({ "message": "Comment deleted successfully" })),
         )),
-        Ok(0) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-            .with_message("Comment does not exist")),
+        Ok(0) => {
+            Err(ErrorResponse::new(ErrorCode::RecordNotFound)
+                .with_message("Comment does not exist"))
+        }
         Ok(_) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
             .with_message("Internal server error occurred while deleting comment")),
         Err(err) => Err(err.into()),
@@ -97,11 +101,11 @@ pub async fn list(
 pub async fn list_by_post(
     State(state): State<AppState>,
     Path(post_id): Path<i32>,
-    query: ValidatedQuery<V1PostCommentQueryParams>,
+    query: ValidatedJson<V1PostCommentQueryParams>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let parsed_query = query.0.into_post_comment_query();
-    let page = parsed_query.page_no;
-    
+    let page = parsed_query.page_no.unwrap_or(1);
+
     match post_comment::Entity::get_comments(
         &state.sea_db,
         post_comment::CommentQuery {
@@ -119,9 +123,6 @@ pub async fn list_by_post(
                 "page": page,
             })),
         )),
-        Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
-            .with_message("Failed to fetch comments for the post")
-            .with_details(err.to_string())),
+        Err(err) => Err(err.into()),
     }
 }
-
