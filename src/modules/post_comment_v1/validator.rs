@@ -31,7 +31,7 @@ impl V1UpdatePostCommentPayload {
     pub fn into_update_post_comment(self) -> UpdateComment {
         UpdateComment {
             content: self.content,
-            updated_at: chrono::Utc::now().naive_utc(),
+            updated_at: chrono::Utc::now().fixed_offset(),
         }
     }
 }

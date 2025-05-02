@@ -1,5 +1,4 @@
-use chrono::NaiveDateTime;
-use sea_orm::FromQueryResult;
+use sea_orm::{prelude::DateTimeWithTimeZone, FromQueryResult};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
@@ -13,7 +12,7 @@ pub struct NewComment {
 #[derive(Deserialize, Debug)]
 pub struct UpdateComment {
     pub content: Option<String>,
-    pub updated_at: NaiveDateTime,
+    pub updated_at: DateTimeWithTimeZone,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -46,8 +45,8 @@ pub struct CommentWithUser {
     pub user_id: i32,
     pub content: String,
     pub likes_count: i32,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
+    pub created_at: DateTimeWithTimeZone,
+    pub updated_at: DateTimeWithTimeZone,
     pub user_name: String,
     pub user_avatar: Option<String>,
 }

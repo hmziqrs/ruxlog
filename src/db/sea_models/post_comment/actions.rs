@@ -8,7 +8,7 @@ impl Entity {
 
     // Create a new comment
     pub async fn create(conn: &DbConn, new_comment: NewComment) -> DbResult<Model> {
-        let now = chrono::Utc::now().naive_utc();
+        let now = chrono::Utc::now().fixed_offset();
         let comment = ActiveModel {
             post_id: Set(new_comment.post_id),
             user_id: Set(new_comment.user_id),
