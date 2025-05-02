@@ -1,7 +1,5 @@
 use sea_orm_migration::prelude::*;
 // Import the user model from your main project
-use sea_orm::{DbBackend, Schema};
-
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
