@@ -126,9 +126,7 @@ pub fn router() -> Router<AppState> {
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend));
 
-    // let super_admin_routes = Router::new()
-    //     .route("/pool_stats", post(super_admin_v1::controller::pool_stats))
-    //     .route("/pool_close", post(super_admin_v1::controller::close));
+
 
     let seed_routes = Router::new()
         .route("/seed_tags", post(seed_v1::controller::seed_tags))
