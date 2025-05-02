@@ -1,0 +1,27 @@
+[package]
+name = "migration"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "migration"
+path = "src/lib.rs"
+
+[dependencies]
+async-std = { version = "1", features = ["attributes", "tokio1"] }
+chrono = "0.4"
+clap = { version = "4.3", features = ["derive"] }
+dotenvy = "0.15"
+tokio = { version = "1", features = ["full"] }
+# Add a dependency on your main project
+ruxlog = { path = ".." }
+
+[dependencies.sea-orm-migration]
+version = "0.12"
+features = [
+  # Enable at least one `ASYNC_RUNTIME` and `DATABASE_DRIVER` feature if you want to run migration via CLI.
+  # View the list of supported features at https://www.sea-ql.org/SeaORM/docs/install-and-config/database-connection/
+  "runtime-tokio-rustls",  # `ASYNC_RUNTIME` feature
+  "sqlx-postgres",         # `DATABASE_DRIVER` feature
+]
