@@ -80,68 +80,8 @@ impl Entity {
         }
     }
 
-    // Find comments with query parameters
-    pub async fn search(conn: &DbConn, query: CommentQuery) -> DbResult<(Vec<Model>, u64)> {
-        let mut comment_query = Self::find().filter(Column::PostId.eq(query.post_id));
-
-        // Apply filters
-        if let Some(user_id) = query.user_id {
-            comment_query = comment_query.filter(Column::UserId.eq(user_id));
-        }
-
-        if let Some(parent_id) = query.parent_id {
-            comment_query = comment_query.filter(Column::ParentId.eq(parent_id));
-        } else {
-            // If parent_id is not provided, filter for root comments (where parent_id is null)
-            comment_query = comment_query.filter(Column::ParentId.is_null());
-        }
-
-        // Apply content search if provided
-        if let Some(search_term) = &query.search_term {
-            comment_query = comment_query.filter(Column::Content.contains(search_term));
-        }
-
-        // Handle sort_by fields
-        if let Some(sort_fields) = &query.sort_by {
-            for field in sort_fields {
-                let order = if query.sort_order.as_deref() == Some("asc") {
-                    Order::Asc
-                } else {
-                    Order::Desc
-                };
-
-                comment_query = match field.as_str() {
-                    "created_at" => comment_query.order_by(Column::CreatedAt, order),
-                    "updated_at" => comment_query.order_by(Column::UpdatedAt, order),
-                    "likes_count" => comment_query.order_by(Column::LikesCount, order),
-                    _ => comment_query,
-                };
-            }
-        } else {
-            // Default ordering
-            comment_query = comment_query.order_by(Column::CreatedAt, Order::Desc);
-        }
-
-        // Handle pagination
-        let page = match query.page_no {
-            Some(p) if p > 0 => p,
-            _ => 1,
-        };
-
-        let paginator = comment_query.paginate(conn, Self::PER_PAGE);
-
-        // Get total count and paginated results
-        match paginator.num_items().await {
-            Ok(total) => match paginator.fetch_page(page - 1).await {
-                Ok(results) => Ok((results, total)),
-                Err(err) => Err(err.into()),
-            },
-            Err(err) => Err(err.into()),
-        }
-    }
-
-    // Get comments with user information using Sea ORM's query builder
-    pub async fn get_comments_with_user(
+    // Unified method for fetching comments with various filtering options - always including user data
+    pub async fn get_comments(
         conn: &DbConn,
         query: CommentQuery,
     ) -> DbResult<(Vec<CommentWithUser>, u64)> {
@@ -161,18 +101,23 @@ impl Entity {
             .column(Column::UpdatedAt)
             .column_as(UserColumn::Name, "user_name")
             .column_as(UserColumn::Avatar, "user_avatar")
-            .join(JoinType::InnerJoin, Relation::User.def())
-            .filter(Column::PostId.eq(query.post_id));
-
-        // Apply user filter if present
-        if let Some(user_id) = query.user_id {
-            comment_query = comment_query.filter(Column::UserId.eq(user_id));
+            .join(JoinType::InnerJoin, Relation::User.def());
+        
+        // Apply post_id filter if provided
+        if let Some(post_id_filter) = query.post_id {
+            comment_query = comment_query.filter(Column::PostId.eq(post_id_filter));
         }
 
-        // Apply parent filter
-        if let Some(parent_id) = query.parent_id {
-            comment_query = comment_query.filter(Column::ParentId.eq(parent_id));
-        } else {
+        // Apply user_id filter if provided
+        if let Some(user_id_filter) = query.user_id {
+            comment_query = comment_query.filter(Column::UserId.eq(user_id_filter));
+        }
+
+        // Apply parent_id filter (for hierarchical comments)
+        if let Some(parent_id_filter) = query.parent_id {
+            comment_query = comment_query.filter(Column::ParentId.eq(parent_id_filter));
+        } else if query.post_id.is_some() && query.parent_id.is_none() {
+            // If parent_id is not provided but post_id is, filter for root comments (where parent_id is null)
             comment_query = comment_query.filter(Column::ParentId.is_null());
         }
 
@@ -204,6 +149,7 @@ impl Entity {
             _ => 1,
         };
 
+        // Create paginator and fetch results
         let paginator = comment_query
             .into_model::<CommentWithUser>()
             .paginate(conn, Self::PER_PAGE);
@@ -211,29 +157,8 @@ impl Entity {
         // Get total count
         let total = paginator.num_items().await?;
 
-        // Get paginated results and convert them to CommentWithUser
+        // Get paginated results
         let models = paginator.fetch_page(page - 1).await?;
-
-        // Convert the Model objects to CommentWithUser objects
-        // let comments: Vec<CommentWithUser> = models
-        //     .into_iter()
-        //     .map(|model| {
-        //         // Extract user_name and user_avatar from model using appropriate methods
-        //         // This will need proper implementation based on your actual Model structure
-        //         CommentWithUser {
-        //             id: model.id,
-        //             post_id: model.post_id,
-        //             user_id: model.user_id,
-        //             parent_id: model.parent_id,
-        //             content: model.content,
-        //             likes_count: model.likes_count,
-        //             created_at: model.created_at,
-        //             updated_at: model.updated_at,
-        //             user_name: model.user_name,
-        //             user_avatar: model.user_avatar,
-        //         }
-        //     })
-        // .collect();
 
         Ok((models, total))
     }
@@ -251,7 +176,7 @@ impl Entity {
             sort_order: Some("desc".to_string()),
         };
 
-        let (root_comments, _) = Self::get_comments_with_user(conn, root_query).await?;
+        let (root_comments, _) = Self::get_comments(conn, root_query).await?;
         let mut tree = Vec::new();
 
         // For each root comment, fetch its replies
@@ -266,7 +191,7 @@ impl Entity {
                 sort_order: Some("asc".to_string()),
             };
 
-            let (replies, _) = Self::get_comments_with_user(conn, replies_query).await?;
+            let (replies, _) = Self::get_comments(conn, replies_query).await?;
 
             tree.push(CommentTree {
                 comment: root_comment,
@@ -285,56 +210,5 @@ impl Entity {
             .await?;
 
         Ok(count as i64)
-    }
-
-    // List all comments (similar to previous implementation)
-    pub async fn list_all(conn: &DbConn) -> DbResult<Vec<Model>> {
-        let comments = Self::find().all(conn).await?;
-        Ok(comments)
-    }
-
-    // List comments by user (similar to previous implementation)
-    pub async fn list_by_user(
-        conn: &DbConn,
-        query_user_id: i32,
-        page: u64,
-    ) -> DbResult<(Vec<Model>, u64)> {
-        // Use a custom query just for user comments that ignores post_id
-        let user_comments_query = Self::find()
-            .filter(Column::UserId.eq(query_user_id))
-            .order_by(Column::CreatedAt, Order::Desc);
-
-        let paginator = user_comments_query.paginate(conn, Self::PER_PAGE);
-
-        // Get total count and paginated results
-        match paginator.num_items().await {
-            Ok(total) => match paginator.fetch_page(page - 1).await {
-                Ok(results) => Ok((results, total)),
-                Err(err) => Err(err.into()),
-            },
-            Err(err) => Err(err.into()),
-        }
-    }
-
-    // Find comments by content search (similar to previous implementation)
-    pub async fn search_by_content(
-        conn: &DbConn,
-        search_term: &str,
-        page: u64,
-    ) -> DbResult<(Vec<Model>, u64)> {
-        let content_search_query = Self::find()
-            .filter(Column::Content.contains(search_term))
-            .order_by(Column::CreatedAt, Order::Desc);
-
-        let paginator = content_search_query.paginate(conn, Self::PER_PAGE);
-
-        // Get total count and paginated results
-        match paginator.num_items().await {
-            Ok(total) => match paginator.fetch_page(page - 1).await {
-                Ok(results) => Ok((results, total)),
-                Err(err) => Err(err.into()),
-            },
-            Err(err) => Err(err.into()),
-        }
     }
 }
