@@ -7,12 +7,11 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         // Create post_status enum type
+
         manager
-            .create_type(
-                Type::create()
-                    .as_enum("post_status")
-                    .values(vec!["draft", "published", "archived"])
-                    .to_owned(),
+            .get_connection()
+            .execute_unprepared(
+                r#"CREATE TYPE "post_status" AS ENUM ('draft', 'published', 'archived');"#,
             )
             .await?;
 
@@ -35,10 +34,11 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Posts::Excerpt).text())
                     .col(ColumnDef::new(Posts::FeaturedImage).string())
                     .col(
-                        ColumnDef::new(Posts::Status)
-                            .enumeration("post_status", vec!["draft", "published", "archived"])
+                        ColumnDef::new(Posts::Status) // Changed from PostStatus to Status
+                            .custom(PostStatus::PostStatus) // Use the Iden for the custom type
                             .not_null()
-                            .default("draft"),
+                            .default(Expr::val("draft")),
+
                     )
                     .col(ColumnDef::new(Posts::PublishedAt).timestamp_with_time_zone())
                     .col(ColumnDef::new(Posts::AuthorId).integer().not_null())
@@ -98,10 +98,14 @@ impl MigrationTrait for Migration {
         manager
             .drop_table(Table::drop().table(Posts::Table).to_owned())
             .await?;
-        
+
         manager
-            .drop_type(Type::drop().name("post_status").to_owned())
-            .await
+            .get_connection()
+            .execute_unprepared(r#"DROP TYPE "post_status";"#) // Corrected type name
+            .await?;
+
+        Ok(())
+
     }
 }
 
@@ -123,6 +127,12 @@ enum Posts {
     TagIds,
     CreatedAt,
     UpdatedAt,
+}
+
+#[derive(Iden)]
+enum PostStatus {
+    #[iden = "post_status"]
+    PostStatus,
 }
 
 #[derive(Iden)]

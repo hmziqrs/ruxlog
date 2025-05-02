@@ -10,7 +10,7 @@ edition = "2021"
 rustflags = '-L /opt/homebrew/opt/libpq/lib -L /opt/homebrew/lib'
 
 [dependencies]
-# migration = { path = "migration" } 
+migration = { path = "./migration" } 
 axum = "0.8.4"
 axum-extra = { version = "0.10.1", features = [
     "typed-header",

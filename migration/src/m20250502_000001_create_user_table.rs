@@ -1,6 +1,5 @@
 use sea_orm_migration::prelude::*;
 // Import the user model from your main project
-use ruxlog::db::sea_models::user;
 use sea_orm::{DbBackend, Schema};
 
 #[derive(DeriveMigrationName)]
@@ -9,16 +8,10 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        let schema = Schema::new(DbBackend::Postgres);
-
-        // Create user_role enum type by directly using the enum values from your user model
-        let user_role_values: Vec<String> = user::UserRole::iter()
-            .map(|role| role.to_string())
-            .collect();
-
         manager
-            .create_type(
-                schema.create_enum_from_entity::<user::UserRole>()
+            .get_connection()
+            .execute_unprepared(
+                r#"CREATE TYPE "user_role" AS ENUM ('super-admin', 'admin, 'moderator', 'author', 'user');"#
             )
             .await?;
 
@@ -36,7 +29,12 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Users::Name).string().not_null())
-                    .col(ColumnDef::new(Users::Email).string().not_null().unique_key())
+                    .col(
+                        ColumnDef::new(Users::Email)
+                            .string()
+                            .not_null()
+                            .unique_key(),
+                    )
                     .col(ColumnDef::new(Users::Password).string().not_null())
                     .col(ColumnDef::new(Users::Avatar).string())
                     .col(
@@ -47,15 +45,10 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(Users::Role)
-                            .enumeration("user_role", vec![
-                                "super-admin",
-                                "admin",
-                                "moderator",
-                                "author",
-                                "user",
-                            ])
+                            .custom(UserRole::UserRole) // Use the Iden for the custom type
                             .not_null()
-                            .default("user"),
+                            .default(Expr::val("user")),
+
                     )
                     .col(
                         ColumnDef::new(Users::CreatedAt)
@@ -76,13 +69,23 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
+            .get_connection()
+            .execute_unprepared(r#"DROP TYPE "user_role";"#)
+            .await?;
+
+        manager
             .drop_table(Table::drop().table(Users::Table).to_owned())
             .await?;
-        
-        manager
-            .drop_type(Type::drop().name("user_role").to_owned())
-            .await
+
+        Ok(())
     }
+}
+
+// Define an Iden for the custom user_role type
+#[derive(Iden)]
+enum UserRole {
+    #[iden = "user_role"]
+    UserRole,
 }
 
 #[derive(Iden)]

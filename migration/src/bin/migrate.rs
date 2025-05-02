@@ -1,6 +1,7 @@
 use clap::{CommandFactory, Parser, Subcommand};
 use migration::{Migrator, MigratorTrait};
 use sea_orm_migration::prelude::*;
+use sea_orm::Database;
 use std::env;
 
 #[derive(Parser)]
