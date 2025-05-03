@@ -8,6 +8,7 @@ mod m20250502_000005_create_tag_table;
 mod m20250502_000006_create_post_table;
 mod m20250502_000007_create_post_comment_table;
 mod m20250502_000008_create_post_view_table;
+mod m20250503_000001_create_asset_table;
 
 pub struct Migrator;
 
@@ -23,6 +24,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250502_000006_create_post_table::Migration),
             Box::new(m20250502_000007_create_post_comment_table::Migration),
             Box::new(m20250502_000008_create_post_view_table::Migration),
+            Box::new(m20250503_000001_create_asset_table::Migration),
         ]
     }
 }

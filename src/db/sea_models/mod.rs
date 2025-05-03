@@ -7,3 +7,4 @@ pub mod post;
 pub mod post_comment;
 pub mod post_view;
 pub mod pagination;
+pub mod asset;
