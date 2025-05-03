@@ -19,7 +19,7 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(ForgotPasswords::UserId).integer().not_null())
-                    .col(ColumnDef::new(ForgotPasswords::Token).string().not_null())
+                    .col(ColumnDef::new(ForgotPasswords::Code).string().not_null())
                     .col(
                         ColumnDef::new(ForgotPasswords::CreatedAt)
                             .timestamp_with_time_zone()
@@ -56,7 +56,7 @@ enum ForgotPasswords {
     Table,
     Id,
     UserId,
-    Token,
+    Code,
     CreatedAt,
     ExpiresAt,
 }

@@ -361,7 +361,9 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
             name: user.name,
             email: user.email.clone(),
             password: user.email,
-            role: if rng.random_bool(0.5) {
+            role: if rng.random_bool(0.1) {
+                UserRole::Admin
+            } else if rng.random_bool(0.5) {
                 UserRole::Author
             } else {
                 UserRole::User

@@ -19,7 +19,7 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(EmailVerifications::UserId).integer().not_null())
-                    .col(ColumnDef::new(EmailVerifications::Token).string().not_null())
+                    .col(ColumnDef::new(EmailVerifications::Code).string().not_null())
                     .col(
                         ColumnDef::new(EmailVerifications::CreatedAt)
                             .timestamp_with_time_zone()
@@ -56,7 +56,7 @@ enum EmailVerifications {
     Table,
     Id,
     UserId,
-    Token,
+    Code,
     CreatedAt,
     ExpiresAt,
 }
