@@ -1,4 +1,4 @@
-use crate::error::{DbResult, ErrorCode, ErrorResponse};
+use crate::error::DbResult;
 use sea_orm::{entity::prelude::*, Condition, Order, QueryOrder, Set};
 
 use super::slice::*;
@@ -45,25 +45,11 @@ impl Entity {
                 asset_active.file_url = Set(file_url);
             }
 
-            if let Some(file_name) = update_asset.file_name {
-                asset_active.file_name = Set(file_name);
-            }
-
-            if let Some(mime_type) = update_asset.mime_type {
-                asset_active.mime_type = Set(mime_type);
-            }
-
-            if let Some(size) = update_asset.size {
-                asset_active.size = Set(size);
-            }
-
-            if let Some(owner_id) = update_asset.owner_id {
-                asset_active.owner_id = Set(owner_id);
-            }
-
-            if let Some(context) = update_asset.context {
-                asset_active.context = Set(context);
-            }
+            asset_active.file_name = Set(update_asset.file_name);
+            asset_active.mime_type = Set(update_asset.mime_type);
+            asset_active.size = Set(update_asset.size);
+            asset_active.owner_id = Set(update_asset.owner_id);
+            asset_active.context = Set(update_asset.context);
 
             match asset_active.update(conn).await {
                 Ok(updated_asset) => Ok(Some(updated_asset)),
@@ -81,6 +67,28 @@ impl Entity {
             Err(err) => Err(err.into()),
         }
     }
+
+    // Find asset by ID
+    pub async fn find_by_id_or_filename(
+        conn: &DbConn,
+        asset_id: Option<i32>,
+        file_name: Option<String>,
+    ) -> DbResult<Option<Model>> {
+        if asset_id.is_none() && file_name.is_none() {
+            return Err(DbErr::Custom("Either asset_id or file_name must be provided".to_string()).into());
+        }
+        let mut asset_query = Self::find();
+        if let Some(id) = asset_id {
+            asset_query = asset_query.filter(Column::Id.eq(id));
+        } else if let Some(name) = file_name {
+            asset_query = asset_query.filter(Column::FileName.eq(name));
+        }
+        match asset_query.one(conn).await {
+            Ok(asset) => Ok(asset),
+            Err(err) => Err(err.into()),
+        }
+    }
+
 
     // Find assets with query parameters
     pub async fn find_with_query(
