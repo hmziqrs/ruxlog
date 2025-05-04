@@ -33,6 +33,10 @@ pub enum ErrorCode {
     AccountLocked,
     #[serde(rename = "AUTH_007")]
     TooManyAttempts,
+    #[serde(rename = "AUTH_008")]
+    EmailVerificationRequired,
+    #[serde(rename = "AUTH_009")]
+    InvalidToken,
     
     // Validation errors (VAL_xxx) 
     #[serde(rename = "VAL_001")]
@@ -45,6 +49,8 @@ pub enum ErrorCode {
     InvalidLength,
     #[serde(rename = "VAL_005")]
     InvalidValue,
+    #[serde(rename = "VAL_006")]
+    ValidationError,
     
     // Database errors (DB_xxx)
     #[serde(rename = "DB_001")]
@@ -57,6 +63,10 @@ pub enum ErrorCode {
     QueryError,
     #[serde(rename = "DB_005")]
     TransactionError,
+    #[serde(rename = "DB_006")]
+    RelationshipError,
+    #[serde(rename = "DB_007")]
+    IntegrityError,
     
     // Server errors (SRV_xxx)
     #[serde(rename = "SRV_001")]
@@ -67,6 +77,8 @@ pub enum ErrorCode {
     Timeout,
     #[serde(rename = "SRV_004")]
     RateLimited,
+    #[serde(rename = "SRV_005")]
+    ConfigurationError,
     
     // Business logic errors (BIZ_xxx)
     #[serde(rename = "BIZ_001")]
@@ -75,6 +87,8 @@ pub enum ErrorCode {
     ResourceConflict,
     #[serde(rename = "BIZ_003")]
     BusinessRuleViolation,
+    #[serde(rename = "BIZ_004")]
+    DependencyExists,
     
     // External service errors (EXT_xxx)
     #[serde(rename = "EXT_001")]
@@ -83,6 +97,54 @@ pub enum ErrorCode {
     ExternalServiceTimeout,
     #[serde(rename = "EXT_003")]
     ExternalServiceUnavailable,
+    
+    // Asset errors (AST_xxx)
+    #[serde(rename = "AST_001")]
+    FileUploadError,
+    #[serde(rename = "AST_002")]
+    FileNotFound,
+    #[serde(rename = "AST_003")]
+    FileTooLarge,
+    #[serde(rename = "AST_004")]
+    InvalidFileType,
+    #[serde(rename = "AST_005")]
+    StorageError,
+    #[serde(rename = "AST_006")]
+    FileDeletionError,
+    #[serde(rename = "AST_007")]
+    AssetMetadataError,
+    
+    // Email errors (EML_xxx)
+    #[serde(rename = "EML_001")]
+    EmailSendingError,
+    #[serde(rename = "EML_002")]
+    InvalidEmailFormat,
+    #[serde(rename = "EML_003")]
+    EmailDeliveryError,
+    
+    // Post errors (PST_xxx)
+    #[serde(rename = "PST_001")]
+    PostNotFound,
+    #[serde(rename = "PST_002")]
+    InvalidPostStatus,
+    #[serde(rename = "PST_003")]
+    PostAlreadyPublished,
+    #[serde(rename = "PST_004")]
+    SlugAlreadyExists,
+    
+    // Category errors (CAT_xxx)
+    #[serde(rename = "CAT_001")]
+    CategoryNotFound,
+    #[serde(rename = "CAT_002")]
+    CategoryInUse,
+    #[serde(rename = "CAT_003")]
+    InvalidCategoryParent,
+    
+    // Tag errors (TAG_xxx)
+    #[serde(rename = "TAG_001")]
+    TagNotFound,
+    #[serde(rename = "TAG_002")]
+    TagAlreadyExists,
 }
 
 impl ErrorCode {
@@ -97,6 +159,8 @@ impl ErrorCode {
             Self::PasswordResetRequired => "Password reset is required",
             Self::AccountLocked => "Your account has been locked",
             Self::TooManyAttempts => "Too many attempts, please try again later",
+            Self::EmailVerificationRequired => "Email verification is required",
+            Self::InvalidToken => "The provided token is invalid or expired",
             
             // Validation errors
             Self::InvalidInput => "The provided input is invalid",
@@ -104,6 +168,7 @@ impl ErrorCode {
             Self::InvalidFormat => "The provided value has an invalid format",
             Self::InvalidLength => "The provided value has an invalid length",
             Self::InvalidValue => "The provided value is invalid",
+            Self::ValidationError => "Validation error occurred",
             
             // Database errors
             Self::DatabaseConnectionError => "Could not connect to the database",
@@ -111,22 +176,55 @@ impl ErrorCode {
             Self::DuplicateEntry => "A record with this value already exists",
             Self::QueryError => "There was an error executing your request",
             Self::TransactionError => "Transaction failed",
+            Self::RelationshipError => "Error with relationship between records",
+            Self::IntegrityError => "Database integrity constraint violation",
             
             // Server errors
             Self::InternalServerError => "An internal server error occurred",
             Self::ServiceUnavailable => "The service is currently unavailable",
             Self::Timeout => "The request timed out",
             Self::RateLimited => "Too many requests, please try again later",
+            Self::ConfigurationError => "Server configuration error",
             
             // Business logic errors
             Self::OperationNotAllowed => "This operation is not allowed",
             Self::ResourceConflict => "The operation would create a conflict",
             Self::BusinessRuleViolation => "The operation violates business rules",
+            Self::DependencyExists => "Cannot complete operation due to existing dependencies",
             
             // External service errors
             Self::ExternalServiceError => "Error communicating with external service",
             Self::ExternalServiceTimeout => "External service request timed out",
             Self::ExternalServiceUnavailable => "External service is unavailable",
+            
+            // Asset errors
+            Self::FileUploadError => "Failed to upload file",
+            Self::FileNotFound => "File not found",
+            Self::FileTooLarge => "File size exceeds maximum allowed limit",
+            Self::InvalidFileType => "File type is not supported",
+            Self::StorageError => "Error storing file in the storage service",
+            Self::FileDeletionError => "Failed to delete file from storage",
+            Self::AssetMetadataError => "Error processing asset metadata",
+            
+            // Email errors
+            Self::EmailSendingError => "Failed to send email",
+            Self::InvalidEmailFormat => "Invalid email format",
+            Self::EmailDeliveryError => "Email delivery failed",
+            
+            // Post errors
+            Self::PostNotFound => "Post not found",
+            Self::InvalidPostStatus => "Invalid post status",
+            Self::PostAlreadyPublished => "Post is already published",
+            Self::SlugAlreadyExists => "A post with this slug already exists",
+            
+            // Category errors
+            Self::CategoryNotFound => "Category not found",
+            Self::CategoryInUse => "Category is in use and cannot be deleted",
+            Self::InvalidCategoryParent => "Invalid parent category",
+            
+            // Tag errors
+            Self::TagNotFound => "Tag not found",
+            Self::TagAlreadyExists => "Tag already exists",
         }
     }
     
@@ -143,6 +241,8 @@ impl ErrorCode {
             Self::AccountLocked => StatusCode::FORBIDDEN,
             Self::TooManyAttempts => StatusCode::TOO_MANY_REQUESTS,
             Self::UserNotFound => StatusCode::NOT_FOUND,
+            Self::EmailVerificationRequired => StatusCode::FORBIDDEN,
+            Self::InvalidToken => StatusCode::UNAUTHORIZED,
             
             // Validation errors -> 400
             Self::InvalidInput => StatusCode::BAD_REQUEST,
@@ -150,6 +250,7 @@ impl ErrorCode {
             Self::InvalidFormat => StatusCode::BAD_REQUEST,
             Self::InvalidLength => StatusCode::BAD_REQUEST,
             Self::InvalidValue => StatusCode::BAD_REQUEST,
+            Self::ValidationError => StatusCode::BAD_REQUEST,
             
             // Database errors -> mostly 500, some 404 or 409
             Self::DatabaseConnectionError => StatusCode::INTERNAL_SERVER_ERROR,
@@ -157,22 +258,55 @@ impl ErrorCode {
             Self::DuplicateEntry => StatusCode::CONFLICT,
             Self::QueryError => StatusCode::INTERNAL_SERVER_ERROR,
             Self::TransactionError => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::RelationshipError => StatusCode::BAD_REQUEST,
+            Self::IntegrityError => StatusCode::CONFLICT,
             
             // Server errors -> 500 or 503
             Self::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
             Self::ServiceUnavailable => StatusCode::SERVICE_UNAVAILABLE,
             Self::Timeout => StatusCode::GATEWAY_TIMEOUT,
             Self::RateLimited => StatusCode::TOO_MANY_REQUESTS,
+            Self::ConfigurationError => StatusCode::INTERNAL_SERVER_ERROR,
             
             // Business logic errors -> 403 or 409
             Self::OperationNotAllowed => StatusCode::FORBIDDEN,
             Self::ResourceConflict => StatusCode::CONFLICT,
             Self::BusinessRuleViolation => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::DependencyExists => StatusCode::CONFLICT,
             
             // External service errors -> 502 or 504
             Self::ExternalServiceError => StatusCode::BAD_GATEWAY,
             Self::ExternalServiceTimeout => StatusCode::GATEWAY_TIMEOUT,
             Self::ExternalServiceUnavailable => StatusCode::SERVICE_UNAVAILABLE,
+            
+            // Asset errors
+            Self::FileUploadError => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::FileNotFound => StatusCode::NOT_FOUND,
+            Self::FileTooLarge => StatusCode::PAYLOAD_TOO_LARGE,
+            Self::InvalidFileType => StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            Self::StorageError => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::FileDeletionError => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::AssetMetadataError => StatusCode::BAD_REQUEST,
+            
+            // Email errors
+            Self::EmailSendingError => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::InvalidEmailFormat => StatusCode::BAD_REQUEST,
+            Self::EmailDeliveryError => StatusCode::INTERNAL_SERVER_ERROR,
+            
+            // Post errors
+            Self::PostNotFound => StatusCode::NOT_FOUND,
+            Self::InvalidPostStatus => StatusCode::BAD_REQUEST,
+            Self::PostAlreadyPublished => StatusCode::CONFLICT,
+            Self::SlugAlreadyExists => StatusCode::CONFLICT,
+            
+            // Category errors
+            Self::CategoryNotFound => StatusCode::NOT_FOUND,
+            Self::CategoryInUse => StatusCode::CONFLICT,
+            Self::InvalidCategoryParent => StatusCode::BAD_REQUEST,
+            
+            // Tag errors
+            Self::TagNotFound => StatusCode::NOT_FOUND,
+            Self::TagAlreadyExists => StatusCode::CONFLICT,
         }
     }
 }

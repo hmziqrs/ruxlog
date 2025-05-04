@@ -11,7 +11,7 @@ rustflags = '-L /opt/homebrew/opt/libpq/lib -L /opt/homebrew/lib'
 
 [dependencies]
 migration = { path = "./migration" } 
-axum = "0.8.4"
+axum = {version = "0.8.4", features = ["multipart"]}
 axum-extra = { version = "0.10.1", features = [
     "typed-header",
     "cookie",
@@ -74,7 +74,9 @@ lazy_static = "1.5.0"
 async-trait = "0.1.88"
 log = "0.4.27"
 envy = "0.4.2"
-
+aws-config = { version = "1.6.2", features = ["behavior-version-latest"] }
+aws-sdk-s3 = "1.83.0"
+uuid = { version = "1.16.0", features = ["v4", "fast-rng"] }
 
 [[bin]]
 name = "generate_hash"
