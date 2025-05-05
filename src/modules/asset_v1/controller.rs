@@ -1,4 +1,4 @@
-use aws_sdk_s3::{config, primitives::ByteStream, Client as S3Client};
+use aws_sdk_s3::{primitives::ByteStream, Client as S3Client};
 use axum::{
     extract::{Multipart, Path, State},
     http::StatusCode,
@@ -170,7 +170,7 @@ pub async fn upload(
 #[debug_handler]
 pub async fn update(
     State(state): State<AppState>,
-    auth: AuthSession,
+    // auth: AuthSession,
     Path(asset_id): Path<i32>,
     payload: ValidatedJson<V1UpdateAssetPayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
@@ -190,7 +190,7 @@ pub async fn update(
 #[debug_handler]
 pub async fn delete(
     State(state): State<AppState>,
-    auth: AuthSession,
+    // auth: AuthSession,
     Path(asset_id): Path<i32>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     // Find the asset to get the file URL

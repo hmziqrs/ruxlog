@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 use axum::body::Bytes;
-use std::path::PathBuf;
 
 use crate::db::sea_models::asset::{AssetQuery, NewAsset, UpdateAsset};
 

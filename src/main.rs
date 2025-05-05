@@ -11,7 +11,7 @@ use axum::{
     http::{HeaderName, HeaderValue},
     middleware, routing,
 };
-use axum_client_ip::{ClientIpSource};
+use axum_client_ip::ClientIpSource;
 use axum_login::AuthManagerLayerBuilder;
 use modules::csrf_v1;
 use std::{env, net::SocketAddr, time::Duration};
@@ -112,10 +112,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize AppConfig with R2 settings from environment
     let r2 = state::R2Config {
         region: env::var("R2_REGION").unwrap_or_else(|_| "auto".to_string()),
-        account_id: env::var("R2_ENDPOINT").expect("R2_ENDPOINT must be set"),
+        account_id: env::var("R2_ACCOUNT_ID").expect("R2_ACCOUNT_ID must be set"),
         bucket: env::var("R2_BUCKET").expect("R2_BUCKET must be set"),
         access_key: env::var("R2_ACCESS_KEY").expect("R2_ACCESS_KEY must be set"),
-        secret_key: env::var("R2_SECRET_KEY").expect("R2_SECRET_KEY must be set"),
+        secret_key: env::var("x").expect("R2_SECRET_KEY must be set"),
         public_url: env::var("R2_PUBLIC_URL").expect("R2_PUBLIC_URL must be set"),
     };
 
