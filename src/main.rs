@@ -110,21 +110,52 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mailer = services::mail::smtp::create_connection().await;
 
     // Initialize AppConfig with R2 settings from environment
-    let r2 = state::R2Config {
+    let mut r2 = state::R2Config {
         region: env::var("R2_REGION").unwrap_or_else(|_| "auto".to_string()),
         account_id: env::var("R2_ACCOUNT_ID").expect("R2_ACCOUNT_ID must be set"),
         bucket: env::var("R2_BUCKET").expect("R2_BUCKET must be set"),
         access_key: env::var("R2_ACCESS_KEY").expect("R2_ACCESS_KEY must be set"),
-        secret_key: env::var("x").expect("R2_SECRET_KEY must be set"),
+        secret_key: env::var("R2_SECRET_KEY").expect("R2_SECRET_KEY must be set"),
         public_url: env::var("R2_PUBLIC_URL").expect("R2_PUBLIC_URL must be set"),
     };
+
+
+    let endpoint_url = format!(
+        "https://{}.r2.cloudflarestorage.com",
+        &r2.secret_key
+    );
+
+    r2.public_url = format!(
+        "https://{}.r2.cloudflarestorage.com/{}",
+        &r2.secret_key, &r2.bucket
+    );
+
+
+
+    let r2_config = aws_config::from_env()
+        .endpoint_url(endpoint_url)
+        .credentials_provider(aws_sdk_s3::config::Credentials::new(
+            &r2.access_key,
+            &r2.secret_key,
+            None,
+            None,
+            "R2",
+        ))
+        .region("auto")
+        .load()
+        .await;
+
+    let s3_client = aws_sdk_s3::Client::new(&r2_config);
 
     let state = AppState {
         sea_db,
         redis_pool: redis_pool.clone(),
         mailer,
         r2,
+        s3_client,
     };
+
+
 
     tracing::info!("Redis successfully established.");
     let session_store = RedisStore::new(redis_pool);

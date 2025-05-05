@@ -1,62 +1,40 @@
-use aws_sdk_s3::{primitives::ByteStream, Client as S3Client};
+use aws_sdk_s3::{config::endpoint, primitives::ByteStream, Client as S3Client};
 use axum::{
-    extract::{Multipart, Path, State},
-    http::StatusCode,
-    response::IntoResponse,
-    Json,
+extract::{Multipart, Path, State}, http::StatusCode, response::IntoResponse, Json
 };
 use axum_macros::debug_handler;
+use fake::faker::address::en;
 use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    db::sea_models::asset::Entity as Asset, error::{ErrorCode, ErrorResponse}, extractors::{ValidatedJson, ValidatedQuery}, services::auth::AuthSession, state::R2Config, AppState
+    db::sea_models::asset::{ Entity as Asset, NewAsset}, error::{ErrorCode, ErrorResponse}, extractors::{ValidatedJson, ValidatedQuery}, services::auth::AuthSession, state::R2Config, AppState
 };
 
-use super::validator::{V1AssetQueryParams, V1UpdateAssetPayload, V1UploadAssetPayload};
+use super::validator::{V1AssetQueryParams, V1UpdateAssetPayload};
 
-fn get_r2_endpoint_url(r2: &R2Config) -> String {
-    format!(
-        "https://{}.r2.cloudflarestorage.com/{}",
-        &r2.secret_key, &r2.bucket
-    )
-}
-
-// Configure and get S3 client for Cloudflare R2
-async fn get_s3_client(state: &AppState) -> S3Client {
-
-    let region = aws_config::Region::new(state.r2.region.clone());
-
-    let r2_config = aws_sdk_s3::config::Builder::new()
-        .endpoint_url(get_r2_endpoint_url(&state.r2))
-        .region(region)
-        .credentials_provider(aws_sdk_s3::config::Credentials::new(
-            &state.r2.access_key,
-            &state.r2.secret_key,
-            None,
-            None,
-            "R2Credentials",
-        ))
-        .build();
-
-    S3Client::from_conf(r2_config)
-}
-
-/// Upload a file to R2 and create an asset record
 #[debug_handler]
 pub async fn upload(
     State(state): State<AppState>,
     auth: AuthSession,
     mut multipart: Multipart,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let mut payload = V1UploadAssetPayload {
-        file_data: None,
+    // Get owner_id from auth session, return error if not authenticated
+    let owner_id = match auth.user {
+        Some(user) => user.id,
+        None => return Err(ErrorResponse::new(ErrorCode::Unauthorized)
+            .with_message("Authentication required for file upload"))
+    };
+    let mut payload = NewAsset {
+        owner_id: Some(owner_id),
+        file_url: String::new(),
         file_name: None,
         mime_type: None,
-        file_size: None,
+        size: None,
         context: None,
-        owner_id: Some(auth.user.unwrap().id),
     };
+
+    let mut file_data = None;
 
     // Process the multipart form
     while let Some(field) = multipart.next_field().await.map_err(|e| {
@@ -73,8 +51,9 @@ pub async fn upload(
                     ErrorResponse::new(ErrorCode::ValidationError)
                         .with_message(&format!("Failed to read file data: {}", e))
                 })?;
-                payload.file_size = Some(data.len() as i32);
-                payload.file_data = Some(data);
+
+                payload.size = Some(data.len() as i32);
+                file_data = Some(data);
             }
             "context" => {
                 let text = field.text().await.map_err(|e| {
@@ -90,7 +69,7 @@ pub async fn upload(
     }
 
     // Validate we have file data
-    let file_data = payload.file_data.as_ref().ok_or_else(|| {
+    let file_data = file_data.as_ref().ok_or_else(|| {
         ErrorResponse::new(ErrorCode::MissingRequiredField).with_message("No file provided")
     })?;
 
@@ -131,11 +110,9 @@ pub async fn upload(
 
     let unique_filename = format!("{}{}", Uuid::new_v4(), extension);
 
-    // Get the S3 client for R2
-    let client = get_s3_client(&state).await;
 
     // Upload the file to R2
-    client
+    state.s3_client
         .put_object()
         .bucket(&state.r2.bucket)
         .key(&unique_filename)
@@ -154,12 +131,20 @@ pub async fn upload(
         })?;
 
     // Construct the file URL
-    let file_url = format!("{}/{}", get_r2_endpoint_url(&state.r2), unique_filename);
+    let file_url = format!("{}/{}", state.r2.public_url, unique_filename);
 
     // Create the asset record in the database
-    let new_asset = payload.into_new_asset(file_url);
+    payload.file_url = file_url.clone();
+    // let new_asset = asset::NewAsset {
+    //     file_url,
+    //     file_name: payload.file_name,
+    //     mime_type: payload.mime_type,
+    //     size: payload.size,
+    //     owner_id: Some(owner_id),
+    //     context: payload.context,
+    // };
 
-    match Asset::create(&state.sea_db, new_asset).await {
+    match Asset::create(&state.sea_db, payload).await {
         Ok(result) => Ok((StatusCode::CREATED, Json(json!(result)))),
         Err(err) => Err(ErrorResponse::new(ErrorCode::AssetMetadataError)
             .with_message(&format!("Failed to save asset metadata: {}", err))),
@@ -210,11 +195,8 @@ pub async fn delete(
         ErrorResponse::new(ErrorCode::InvalidValue).with_message("Invalid file URL")
     })?;
 
-    // Get the S3 client for R2
-    let client = get_s3_client(&state).await;
-
     // Delete the file from R2
-    client
+    state.s3_client
         .delete_object()
         .bucket(&state.r2.bucket)
         .key(file_name)

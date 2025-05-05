@@ -19,4 +19,5 @@ pub struct AppState {
     pub redis_pool: RedisPool,
     pub mailer: lettre::AsyncSmtpTransport<lettre::Tokio1Executor>,
     pub r2: R2Config,
+    pub s3_client: aws_sdk_s3::Client,
 }
