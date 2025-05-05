@@ -126,8 +126,6 @@ pub fn router() -> Router<AppState> {
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend));
 
-    let asset_v1_routes = Router::new()
-        .merge(asset_v1::routes());
 
     let seed_routes = Router::new()
         .route("/seed_tags", post(seed_v1::controller::seed_tags))
@@ -153,7 +151,7 @@ pub fn router() -> Router<AppState> {
         .nest("/category/v1", category_v1_routes)
         .nest("/tag/v1", tag_v1_routes)
         .nest("/admin/user/v1", admin_user_v1_routes)
-        .nest("/asset/v1", asset_v1_routes)
+        .nest("/asset/v1", asset_v1::routes())
         // .nest("/super_admin/v1", super_admin_routes)
         .nest("/admin/seed/v1", seed_routes)
         .layer(TraceLayer::new_for_http())

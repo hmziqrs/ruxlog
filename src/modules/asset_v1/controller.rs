@@ -1,3 +1,4 @@
+use aws_sdk_s3::{config, primitives::ByteStream, Client as S3Client};
 use axum::{
     extract::{Multipart, Path, State},
     http::StatusCode,
@@ -5,32 +6,37 @@ use axum::{
     Json,
 };
 use axum_macros::debug_handler;
-use aws_sdk_s3::{Client as S3Client, primitives::ByteStream};
 use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    db::sea_models::asset::Entity as Asset,
-    error::{ErrorCode, ErrorResponse},
-    extractors::{ValidatedJson, ValidatedQuery},
-    services::auth::AuthSession,
-    AppState,
+    db::sea_models::asset::Entity as Asset, error::{ErrorCode, ErrorResponse}, extractors::{ValidatedJson, ValidatedQuery}, services::auth::AuthSession, state::R2Config, AppState
 };
 
 use super::validator::{V1AssetQueryParams, V1UpdateAssetPayload, V1UploadAssetPayload};
 
+fn get_r2_endpoint_url(r2: &R2Config) -> String {
+    format!(
+        "https://{}.r2.cloudflarestorage.com/{}",
+        &r2.secret_key, &r2.bucket
+    )
+}
+
 // Configure and get S3 client for Cloudflare R2
 async fn get_s3_client(state: &AppState) -> S3Client {
+
+    let region = aws_config::Region::new(state.r2.region.clone());
+
     let r2_config = aws_sdk_s3::config::Builder::new()
-        .endpoint_url(&state.s3.r2_endpoint)
-        .region(aws_sdk_s3::config::Region::new(state.s3.r2_region.clone()))
-        .credentials_provider(
-            aws_sdk_s3::config::Credentials::new(
-                &state.s3.r2_access_key,
-                &state.s3.r2_secret_key,
-                None, None, "R2Credentials",
-            )
-        )
+        .endpoint_url(get_r2_endpoint_url(&state.r2))
+        .region(region)
+        .credentials_provider(aws_sdk_s3::config::Credentials::new(
+            &state.r2.access_key,
+            &state.r2.secret_key,
+            None,
+            None,
+            "R2Credentials",
+        ))
         .build();
 
     S3Client::from_conf(r2_config)
@@ -101,13 +107,19 @@ pub async fn upload(
     // Validate file type if needed
     if let Some(mime_type) = &payload.mime_type {
         let allowed_types = [
-            "image/jpeg", "image/png", "image/gif", "image/webp", 
-            "application/pdf", "text/plain", "application/zip"
+            "image/jpeg",
+            "image/png",
+            "image/gif",
+            "image/webp",
+            "application/pdf",
+            "text/plain",
+            "application/zip",
         ];
-        
+
         if !allowed_types.contains(&mime_type.as_str()) {
-            return Err(ErrorResponse::new(ErrorCode::InvalidFileType)
-                .with_message("Unsupported file type. Allowed types: JPEG, PNG, GIF, WEBP, PDF, TXT, ZIP"));
+            return Err(ErrorResponse::new(ErrorCode::InvalidFileType).with_message(
+                "Unsupported file type. Allowed types: JPEG, PNG, GIF, WEBP, PDF, TXT, ZIP",
+            ));
         }
     }
 
@@ -116,31 +128,37 @@ pub async fn upload(
         Some(ext) => format!(".{}", ext),
         None => String::new(),
     };
-    
+
     let unique_filename = format!("{}{}", Uuid::new_v4(), extension);
-    
+
     // Get the S3 client for R2
     let client = get_s3_client(&state).await;
-    
+
     // Upload the file to R2
-    client.put_object()
-        .bucket(&state.s3.r2_bucket)
+    client
+        .put_object()
+        .bucket(&state.r2.bucket)
         .key(&unique_filename)
         .body(ByteStream::from(file_data.clone()))
-        .content_type(payload.mime_type.as_deref().unwrap_or("application/octet-stream"))
+        .content_type(
+            payload
+                .mime_type
+                .as_deref()
+                .unwrap_or("application/octet-stream"),
+        )
         .send()
         .await
         .map_err(|e| {
             ErrorResponse::new(ErrorCode::StorageError)
                 .with_message(&format!("Failed to upload file to R2: {}", e))
         })?;
-    
+
     // Construct the file URL
-    let file_url = format!("{}/{}", state.s3.r2_public_url, unique_filename);
-    
+    let file_url = format!("{}/{}", get_r2_endpoint_url(&state.r2), unique_filename);
+
     // Create the asset record in the database
     let new_asset = payload.into_new_asset(file_url);
-    
+
     match Asset::create(&state.sea_db, new_asset).await {
         Ok(result) => Ok((StatusCode::CREATED, Json(json!(result)))),
         Err(err) => Err(ErrorResponse::new(ErrorCode::AssetMetadataError)
@@ -160,10 +178,11 @@ pub async fn update(
 
     match Asset::update(&state.sea_db, asset_id, update_asset).await {
         Ok(Some(asset)) => Ok((StatusCode::OK, Json(json!(asset)))),
-        Ok(None) => Err(ErrorResponse::new(ErrorCode::FileNotFound)
-                        .with_message("Asset does not exist")),
+        Ok(None) => {
+            Err(ErrorResponse::new(ErrorCode::FileNotFound).with_message("Asset does not exist"))
+        }
         Err(err) => Err(ErrorResponse::new(ErrorCode::AssetMetadataError)
-                        .with_message(&format!("Failed to update asset metadata: {}", err))),
+            .with_message(&format!("Failed to update asset metadata: {}", err))),
     }
 }
 
@@ -178,24 +197,26 @@ pub async fn delete(
     let asset = match Asset::find_by_id_or_filename(&state.sea_db, Some(asset_id), None).await {
         Ok(Some(asset)) => asset,
         Ok(None) => {
-            return Err(ErrorResponse::new(ErrorCode::FileNotFound)
-                       .with_message("Asset not found"));
+            return Err(ErrorResponse::new(ErrorCode::FileNotFound).with_message("Asset not found"));
         }
-        Err(err) => return Err(ErrorResponse::new(ErrorCode::QueryError)
-                               .with_message(&format!("Database error: {}", err))),
+        Err(err) => {
+            return Err(ErrorResponse::new(ErrorCode::QueryError)
+                .with_message(&format!("Database error: {}", err)))
+        }
     };
-    
+
     // Extract the filename from the URL
     let file_name = asset.file_url.split('/').last().ok_or_else(|| {
         ErrorResponse::new(ErrorCode::InvalidValue).with_message("Invalid file URL")
     })?;
-    
+
     // Get the S3 client for R2
     let client = get_s3_client(&state).await;
-    
+
     // Delete the file from R2
-    client.delete_object()
-        .bucket(&state.s3.r2_bucket)
+    client
+        .delete_object()
+        .bucket(&state.r2.bucket)
         .key(file_name)
         .send()
         .await
@@ -203,21 +224,22 @@ pub async fn delete(
             ErrorResponse::new(ErrorCode::FileDeletionError)
                 .with_message(&format!("Failed to delete file from storage: {}", e))
         })?;
-    
+
     // Delete the asset record from the database
     match Asset::delete(&state.sea_db, asset_id).await {
         Ok(1) => Ok((
             StatusCode::OK,
             Json(json!({ "message": "Asset deleted successfully" })),
         )),
-        Ok(0) => Err(ErrorResponse::new(ErrorCode::FileNotFound)
-                    .with_message("Asset does not exist")),
+        Ok(0) => {
+            Err(ErrorResponse::new(ErrorCode::FileNotFound).with_message("Asset does not exist"))
+        }
         Ok(_) => Ok((
             StatusCode::OK,
             Json(json!({ "message": "Asset deleted successfully" })),
         )),
         Err(err) => Err(ErrorResponse::new(ErrorCode::QueryError)
-                       .with_message(&format!("Failed to delete asset record: {}", err))),
+            .with_message(&format!("Failed to delete asset record: {}", err))),
     }
 }
 
@@ -229,10 +251,11 @@ pub async fn find_by_id(
 ) -> Result<impl IntoResponse, ErrorResponse> {
     match Asset::find_by_id_or_filename(&state.sea_db, Some(asset_id), None).await {
         Ok(Some(asset)) => Ok((StatusCode::OK, Json(json!(asset)))),
-        Ok(None) => Err(ErrorResponse::new(ErrorCode::FileNotFound)
-                      .with_message("Asset not found")),
+        Ok(None) => {
+            Err(ErrorResponse::new(ErrorCode::FileNotFound).with_message("Asset not found"))
+        }
         Err(err) => Err(ErrorResponse::new(ErrorCode::QueryError)
-                      .with_message(&format!("Database error: {}", err))),
+            .with_message(&format!("Database error: {}", err))),
     }
 }
 
@@ -252,9 +275,9 @@ pub async fn find_with_query(
                 "total": total,
                 "data": assets,
                 "page": page,
-            }))
+            })),
         )),
         Err(err) => Err(ErrorResponse::new(ErrorCode::QueryError)
-                      .with_message(&format!("Failed to query assets: {}", err))),
+            .with_message(&format!("Failed to query assets: {}", err))),
     }
 }

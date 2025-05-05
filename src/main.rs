@@ -110,20 +110,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mailer = services::mail::smtp::create_connection().await;
 
     // Initialize AppConfig with R2 settings from environment
-    let s3 = state::S3Config {
-        r2_region: env::var("R2_REGION").unwrap_or_else(|_| "auto".to_string()),
-        r2_endpoint: env::var("R2_ENDPOINT").expect("R2_ENDPOINT must be set"),
-        r2_bucket: env::var("R2_BUCKET").expect("R2_BUCKET must be set"),
-        r2_access_key: env::var("R2_ACCESS_KEY").expect("R2_ACCESS_KEY must be set"),
-        r2_secret_key: env::var("R2_SECRET_KEY").expect("R2_SECRET_KEY must be set"),
-        r2_public_url: env::var("R2_PUBLIC_URL").expect("R2_PUBLIC_URL must be set"),
+    let r2 = state::R2Config {
+        region: env::var("R2_REGION").unwrap_or_else(|_| "auto".to_string()),
+        account_id: env::var("R2_ENDPOINT").expect("R2_ENDPOINT must be set"),
+        bucket: env::var("R2_BUCKET").expect("R2_BUCKET must be set"),
+        access_key: env::var("R2_ACCESS_KEY").expect("R2_ACCESS_KEY must be set"),
+        secret_key: env::var("R2_SECRET_KEY").expect("R2_SECRET_KEY must be set"),
+        public_url: env::var("R2_PUBLIC_URL").expect("R2_PUBLIC_URL must be set"),
     };
 
     let state = AppState {
         sea_db,
         redis_pool: redis_pool.clone(),
         mailer,
-        s3,
+        r2,
     };
 
     tracing::info!("Redis successfully established.");
