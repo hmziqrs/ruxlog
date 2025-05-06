@@ -69,7 +69,7 @@ pub async fn upload(
     }
 
     // Validate we have file data
-    let file_data = file_data.as_ref().ok_or_else(|| {
+    let file_data = file_data.ok_or_else(|| {
         ErrorResponse::new(ErrorCode::MissingRequiredField).with_message("No file provided")
     })?;
 
@@ -110,45 +110,46 @@ pub async fn upload(
 
     let unique_filename = format!("{}{}", Uuid::new_v4(), extension);
 
+    println!("Unique filename: {}", unique_filename);
 
-    // Upload the file to R2
-    state.s3_client
+    // Upload the file to R2 - Create the ByteStream without cloning
+    let byte_stream = ByteStream::from(file_data);
+    
+    // Use the content type from the payload or default
+    let content_type = payload
+        .mime_type
+        .as_deref()
+        .unwrap_or("application/octet-stream");
+        
+    // Upload to R2
+    match state.s3_client
         .put_object()
         .bucket(&state.r2.bucket)
         .key(&unique_filename)
-        .body(ByteStream::from(file_data.clone()))
-        .content_type(
-            payload
-                .mime_type
-                .as_deref()
-                .unwrap_or("application/octet-stream"),
-        )
+        .body(byte_stream)
+        .content_type(content_type)
         .send()
-        .await
-        .map_err(|e| {
-            ErrorResponse::new(ErrorCode::StorageError)
-                .with_message(&format!("Failed to upload file to R2: {}", e))
-        })?;
-
-    // Construct the file URL
-    let file_url = format!("{}/{}", state.r2.public_url, unique_filename);
-
-    // Create the asset record in the database
-    payload.file_url = file_url.clone();
-    // let new_asset = asset::NewAsset {
-    //     file_url,
-    //     file_name: payload.file_name,
-    //     mime_type: payload.mime_type,
-    //     size: payload.size,
-    //     owner_id: Some(owner_id),
-    //     context: payload.context,
-    // };
-
-    match Asset::create(&state.sea_db, payload).await {
-        Ok(result) => Ok((StatusCode::CREATED, Json(json!(result)))),
-        Err(err) => Err(ErrorResponse::new(ErrorCode::AssetMetadataError)
-            .with_message(&format!("Failed to save asset metadata: {}", err))),
-    }
+        .await {
+            Ok(_) => {
+                // Construct the file URL
+                let file_url = format!("{}/{}", state.r2.public_url, unique_filename);
+                
+                // Create the asset record in the database
+                payload.file_url = file_url.clone();
+                
+                match Asset::create(&state.sea_db, payload).await {
+                    Ok(result) => Ok((StatusCode::CREATED, Json(json!(result)))),
+                    Err(err) => Err(ErrorResponse::new(ErrorCode::AssetMetadataError)
+                        .with_message(&format!("Failed to save asset metadata: {}", err))),
+                }
+            },
+            Err(e) => {
+                println!("Error uploading to R2: {:?}", e);
+                println!("Error uploading to R2: {:?}", e.raw_response());
+                Err(ErrorResponse::new(ErrorCode::StorageError)
+                    .with_message(&format!("Failed to upload file to R2: {}", e)))
+            }
+        }
 }
 
 /// Update an existing asset

@@ -2,7 +2,7 @@ use lettre;
 use sea_orm::DatabaseConnection;
 use tower_sessions_redis_store::fred::prelude::Pool as RedisPool;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct R2Config {
     // R2 configuration
     pub region: String,

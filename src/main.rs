@@ -122,15 +122,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let endpoint_url = format!(
         "https://{}.r2.cloudflarestorage.com",
-        &r2.secret_key
+        &r2.account_id
     );
 
-    r2.public_url = format!(
-        "https://{}.r2.cloudflarestorage.com/{}",
-        &r2.secret_key, &r2.bucket
-    );
+    r2.public_url = "https://pub-63743cad4ace41b5903015b89d79fb27.r2.dev".to_string();
+    // r2.public_url = format!(
+    //     "https://{}.r2.cloudflarestorage.com/{}",
+    //     &r2.secret_key, &r2.bucket
+    // );
 
-
+    println!("R2 Config: {:?}", r2);
 
     let r2_config = aws_config::from_env()
         .endpoint_url(endpoint_url)
@@ -146,6 +147,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await;
 
     let s3_client = aws_sdk_s3::Client::new(&r2_config);
+
+      let list_buckets_output = s3_client.list_buckets().send().await?;
+
+    println!("Buckets:");
+    for bucket in list_buckets_output.buckets() {
+        println!("  - {}: {}",
+            bucket.name().unwrap_or_default(),
+            bucket.creation_date().map_or_else(
+                || "Unknown creation date".to_string(),
+                |date| date.fmt(aws_sdk_s3::primitives::DateTimeFormat::DateTime).unwrap()
+            )
+        );
+    }
+
 
     let state = AppState {
         sea_db,
