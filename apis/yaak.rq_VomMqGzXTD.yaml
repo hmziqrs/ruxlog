@@ -1,0 +1,36 @@
+type: http_request
+model: http_request
+id: rq_VomMqGzXTD
+createdAt: 2025-04-30T05:38:48.992712
+updatedAt: 2025-04-30T05:54:24.989772
+workspaceId: wk_udoUbrFfLp
+folderId: fl_Azf93JQ58Q
+authentication: {}
+authenticationType: null
+body:
+  text: |-
+    {
+      "email": "hmziqasss@gmail.com",
+      "password": "hello",
+      "name": "hamzaa"
+    }
+bodyType: application/json
+description: ''
+headers:
+- enabled: true
+  name: csrf-token
+  value: ${[ csrf ]}
+  id: aA64M6mvXe
+- enabled: true
+  name: ''
+  value: ''
+  id: D57mjz6dN3
+- enabled: true
+  name: Content-Type
+  value: application/json
+  id: d2bpjFn2wa
+method: POST
+name: ''
+sortPriority: 1000.001
+url: ${[ host ]}/auth/v1/register
+urlParameters: []

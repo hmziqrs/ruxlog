@@ -1,0 +1,35 @@
+type: http_request
+model: http_request
+id: rq_ikQFGVKij7
+createdAt: 2025-04-30T06:34:01.558997
+updatedAt: 2025-04-30T08:47:36.979101
+workspaceId: wk_udoUbrFfLp
+folderId: fl_EL5B2na6mv
+authentication: {}
+authenticationType: null
+body:
+  text: |-
+    {
+      "code": "udzhmz",
+      "email": "hmziqnew@gmail.com"
+    }
+bodyType: application/json
+description: ''
+headers:
+- enabled: true
+  name: csrf-token
+  value: ${[ csrf ]}
+  id: aA64M6mvXe
+- enabled: true
+  name: ''
+  value: ''
+  id: D57mjz6dN3
+- enabled: true
+  name: Content-Type
+  value: application/json
+  id: d2bpjFn2wa
+method: POST
+name: ''
+sortPriority: 1000.0049
+url: ${[ host ]}/forgot_password/v1/verify
+urlParameters: []

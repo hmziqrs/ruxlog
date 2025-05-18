@@ -1,0 +1,37 @@
+type: http_request
+model: http_request
+id: rq_Yz4vucnjsh
+createdAt: 2025-04-30T06:34:56.392405
+updatedAt: 2025-04-30T23:34:45.927270
+workspaceId: wk_udoUbrFfLp
+folderId: fl_EL5B2na6mv
+authentication: {}
+authenticationType: null
+body:
+  text: |-
+    {
+      "code": "3rloff",
+      "email": "hmziqnew@gmail.com",
+      "password": "helloa",
+      "confirm_password": "helloa"
+    }
+bodyType: application/json
+description: ''
+headers:
+- enabled: true
+  name: csrf-token
+  value: ${[ csrf ]}
+  id: aA64M6mvXe
+- enabled: true
+  name: ''
+  value: ''
+  id: D57mjz6dN3
+- enabled: true
+  name: Content-Type
+  value: application/json
+  id: d2bpjFn2wa
+method: POST
+name: ''
+sortPriority: 1000.00586
+url: ${[ host ]}/forgot_password/v1/reset
+urlParameters: []

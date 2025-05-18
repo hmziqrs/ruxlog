@@ -1,0 +1,43 @@
+type: http_request
+model: http_request
+id: rq_CuGynn9kZd
+createdAt: 2025-05-05T12:04:00.851004
+updatedAt: 2025-05-05T12:25:30.641138
+workspaceId: wk_udoUbrFfLp
+folderId: fl_G8qXpEz2vW
+authentication: {}
+authenticationType: null
+body:
+  form:
+  - enabled: true
+    file: /Users/hmziq/Downloads/111.webp
+    id: tfU5E9msd7
+    name: file
+  - enabled: true
+    id: 0VfzyqCPeT
+    name: context
+    value: category
+  - enabled: true
+    id: WahUvqkBmi
+    name: ''
+    value: ''
+bodyType: multipart/form-data
+description: ''
+headers:
+- enabled: true
+  name: csrf-token
+  value: ${[ csrf ]}
+  id: aA64M6mvXe
+- enabled: true
+  name: ''
+  value: ''
+  id: D57mjz6dN3
+- enabled: true
+  name: Content-Type
+  value: multipart/form-data
+  id: S0fvQsPhWf
+method: POST
+name: ''
+sortPriority: 0.0
+url: ${[ host ]}/asset/v1/upload
+urlParameters: []

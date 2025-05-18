@@ -1,0 +1,32 @@
+type: http_request
+model: http_request
+id: rq_fRWZymwwQB
+createdAt: 2025-04-27T07:39:56.733166
+updatedAt: 2025-04-27T17:56:46.325280
+workspaceId: wk_udoUbrFfLp
+folderId: fl_ScVUnrkM6P
+authentication: {}
+authenticationType: null
+body:
+  text: |2+
+
+bodyType: application/json
+description: ''
+headers:
+- enabled: true
+  name: csrf-token
+  value: ${[ csrf ]}
+  id: 6HyHGj4k6f
+- enabled: true
+  name: ''
+  value: ''
+  id: tagqQN2dDR
+- enabled: true
+  name: Content-Type
+  value: application/json
+  id: XMCGBm0fnd
+method: GET
+name: ''
+sortPriority: 5000.0
+url: ${[ host ]}/tag/v1/list
+urlParameters: []

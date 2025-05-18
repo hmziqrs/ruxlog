@@ -1,0 +1,35 @@
+type: http_request
+model: http_request
+id: rq_EyeYwr2t88
+createdAt: 2025-05-02T06:06:46.466034
+updatedAt: 2025-05-02T06:48:19.170275
+workspaceId: wk_udoUbrFfLp
+folderId: fl_FqtWsVGhax
+authentication: {}
+authenticationType: null
+body:
+  text: |-
+    {
+      "post_id": 533,
+      "content": "Hello"
+    }
+bodyType: application/json
+description: ''
+headers:
+- enabled: true
+  name: csrf-token
+  value: ${[ csrf ]}
+  id: aA64M6mvXe
+- enabled: true
+  name: ''
+  value: ''
+  id: D57mjz6dN3
+- enabled: true
+  name: Content-Type
+  value: application/json
+  id: d2bpjFn2wa
+method: POST
+name: ''
+sortPriority: 1000.0
+url: ${[ host ]}/post/comment/v1/create
+urlParameters: []

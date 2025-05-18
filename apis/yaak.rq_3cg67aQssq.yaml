@@ -1,0 +1,34 @@
+type: http_request
+model: http_request
+id: rq_3cg67aQssq
+createdAt: 2025-05-02T14:49:14.503863
+updatedAt: 2025-05-02T14:49:14.503863
+workspaceId: wk_udoUbrFfLp
+folderId: fl_TQswtzwsbf
+authentication: {}
+authenticationType: null
+body:
+  text: |-
+    {
+      "code": "xehw25"
+    }
+bodyType: application/json
+description: ''
+headers:
+- enabled: true
+  name: csrf-token
+  value: ${[ csrf ]}
+  id: aA64M6mvXe
+- enabled: true
+  name: ''
+  value: ''
+  id: D57mjz6dN3
+- enabled: true
+  name: Content-Type
+  value: application/json
+  id: d2bpjFn2wa
+method: POST
+name: ''
+sortPriority: 1000.0039
+url: ${[ host ]}/email_verification/v1/verify
+urlParameters: []

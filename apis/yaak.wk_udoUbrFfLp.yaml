@@ -1,0 +1,10 @@
+type: workspace
+model: workspace
+id: wk_udoUbrFfLp
+createdAt: 2025-04-25T16:17:55.851792
+updatedAt: 2025-04-25T16:17:55.851792
+name: Yaak
+description: ''
+settingValidateCertificates: true
+settingFollowRedirects: true
+settingRequestTimeout: 0

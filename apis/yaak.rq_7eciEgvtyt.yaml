@@ -1,0 +1,34 @@
+type: http_request
+model: http_request
+id: rq_7eciEgvtyt
+createdAt: 2025-04-30T05:59:06.348682
+updatedAt: 2025-04-30T06:01:51.198358
+workspaceId: wk_udoUbrFfLp
+folderId: fl_acDbsay6TX
+authentication: {}
+authenticationType: null
+body:
+  text: |-
+    {
+      "code": "hamzaa"
+    }
+bodyType: application/json
+description: ''
+headers:
+- enabled: true
+  name: csrf-token
+  value: ${[ csrf ]}
+  id: aA64M6mvXe
+- enabled: true
+  name: ''
+  value: ''
+  id: D57mjz6dN3
+- enabled: true
+  name: Content-Type
+  value: application/json
+  id: d2bpjFn2wa
+method: POST
+name: ''
+sortPriority: 1000.0039
+url: ${[ host ]}/email_verification/v1/resend
+urlParameters: []

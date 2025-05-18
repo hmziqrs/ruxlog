@@ -1,0 +1,35 @@
+type: http_request
+model: http_request
+id: rq_k84NYAWCep
+createdAt: 2025-05-02T09:19:18.295188
+updatedAt: 2025-05-02T09:19:18.295188
+workspaceId: wk_udoUbrFfLp
+folderId: fl_jatCY2DVY4
+authentication: {}
+authenticationType: null
+body:
+  text: |-
+    {
+      "name": "dragon",
+      "slug": "dragon"
+    }
+bodyType: application/json
+description: ''
+headers:
+- enabled: true
+  name: csrf-token
+  value: ${[ csrf ]}
+  id: 6HyHGj4k6f
+- enabled: true
+  name: ''
+  value: ''
+  id: tagqQN2dDR
+- enabled: true
+  name: Content-Type
+  value: application/json
+  id: XMCGBm0fnd
+method: GET
+name: ''
+sortPriority: 3000.001
+url: ${[ host ]}/tag/v1/view/131
+urlParameters: []

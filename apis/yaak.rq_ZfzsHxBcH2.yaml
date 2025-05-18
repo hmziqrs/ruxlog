@@ -1,0 +1,37 @@
+type: http_request
+model: http_request
+id: rq_ZfzsHxBcH2
+createdAt: 2025-05-01T09:59:59.909037
+updatedAt: 2025-05-01T11:08:15.811331
+workspaceId: wk_udoUbrFfLp
+folderId: fl_qgXRbryiBV
+authentication: {}
+authenticationType: null
+body:
+  text: |-
+    {
+      "title": "hamza",
+      "content": "heeeaasdaee",
+      "slug": "uoazooaaasdasdsa",
+      "tags": [99999]
+    }
+bodyType: application/json
+description: ''
+headers:
+- enabled: true
+  name: csrf-token
+  value: ${[ csrf ]}
+  id: aA64M6mvXe
+- enabled: true
+  name: ''
+  value: ''
+  id: D57mjz6dN3
+- enabled: true
+  name: Content-Type
+  value: application/json
+  id: d2bpjFn2wa
+method: POST
+name: ''
+sortPriority: 1000.0039
+url: ${[ host ]}/post/v1/view/533
+urlParameters: []

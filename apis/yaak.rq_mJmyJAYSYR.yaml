@@ -1,0 +1,37 @@
+type: http_request
+model: http_request
+id: rq_mJmyJAYSYR
+createdAt: 2025-05-01T00:06:13.497946
+updatedAt: 2025-05-01T10:07:49.362908
+workspaceId: wk_udoUbrFfLp
+folderId: fl_qgXRbryiBV
+authentication: {}
+authenticationType: null
+body:
+  text: |-
+    {
+      "title": "hamza",
+      "content": "heeeaasdaee",
+      "slug": "12aaaaaa",
+      "tag_ids": [0,1,2,3,4,11,28,36,63]
+    }
+bodyType: application/json
+description: ''
+headers:
+- enabled: true
+  name: csrf-token
+  value: ${[ csrf ]}
+  id: aA64M6mvXe
+- enabled: true
+  name: ''
+  value: ''
+  id: D57mjz6dN3
+- enabled: true
+  name: Content-Type
+  value: application/json
+  id: d2bpjFn2wa
+method: POST
+name: ''
+sortPriority: 1000.0029
+url: ${[ host ]}/post/v1/create
+urlParameters: []

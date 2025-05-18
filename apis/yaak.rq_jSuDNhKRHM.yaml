@@ -1,0 +1,34 @@
+type: http_request
+model: http_request
+id: rq_jSuDNhKRHM
+createdAt: 2025-04-30T05:43:50.299260
+updatedAt: 2025-05-02T14:49:51.624338
+workspaceId: wk_udoUbrFfLp
+folderId: fl_acDbsay6TX
+authentication: {}
+authenticationType: null
+body:
+  text: |-
+    {
+      "code": "xehw25"
+    }
+bodyType: application/json
+description: ''
+headers:
+- enabled: true
+  name: csrf-token
+  value: ${[ csrf ]}
+  id: aA64M6mvXe
+- enabled: true
+  name: ''
+  value: ''
+  id: D57mjz6dN3
+- enabled: true
+  name: Content-Type
+  value: application/json
+  id: d2bpjFn2wa
+method: POST
+name: ''
+sortPriority: 1000.0029
+url: ${[ host ]}/admin/seed/v1/seed
+urlParameters: []

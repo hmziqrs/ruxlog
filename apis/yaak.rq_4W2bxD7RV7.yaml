@@ -1,0 +1,26 @@
+type: http_request
+model: http_request
+id: rq_4W2bxD7RV7
+createdAt: 2025-04-25T16:20:25.429814
+updatedAt: 2025-05-05T12:03:49.203222
+workspaceId: wk_udoUbrFfLp
+folderId: null
+authentication: {}
+authenticationType: null
+body: {}
+bodyType: null
+description: ''
+headers:
+- enabled: true
+  name: csrf-token
+  value: ${[ csrf ]}
+  id: MHRnSij9s5
+- enabled: true
+  name: ''
+  value: ''
+  id: 2iIzKu9W8u
+method: POST
+name: ''
+sortPriority: 0.0
+url: ${[ host ]}/csrf/v1/generate
+urlParameters: []
