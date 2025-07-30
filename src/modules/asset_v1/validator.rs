@@ -1,6 +1,6 @@
+use axum::body::Bytes;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
-use axum::body::Bytes;
 
 use crate::db::sea_models::asset::{AssetQuery, NewAsset, UpdateAsset};
 
@@ -11,19 +11,19 @@ use crate::db::sea_models::asset::{AssetQuery, NewAsset, UpdateAsset};
 //     // and populated in the controller
 //     #[serde(skip)]
 //     pub file_data: Option<Bytes>,
-    
+
 //     #[serde(skip)]
 //     pub file_name: Option<String>,
-    
+
 //     #[serde(skip)]
 //     pub mime_type: Option<String>,
-    
+
 //     #[serde(skip)]
 //     pub file_size: Option<i32>,
-    
+
 //     // Optional context field to categorize assets
 //     pub context: Option<String>,
-    
+
 //     // owner_id is now derived from auth session
 //     #[serde(skip)]
 //     pub owner_id: Option<i32>,
