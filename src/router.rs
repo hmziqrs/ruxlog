@@ -1,6 +1,6 @@
 use axum::{
     middleware,
-    routing::{ get, post, put},
+    routing::{get, post, put},
     Router,
 };
 use axum_login::login_required;
@@ -47,6 +47,8 @@ pub fn router() -> Router<AppState> {
         .route_layer(middleware::from_fn(user_status::only_unauthenticated));
 
     let post_v1_routes = Router::new()
+        .route("/query", post(post_v1::controller::query))
+        .route_layer(middleware::from_fn(user_permission::author))
         .route("/create", post(post_v1::controller::create))
         .route("/update/{post_id}", post(post_v1::controller::update))
         .route("/delete/{post_id}", post(post_v1::controller::delete))
@@ -125,7 +127,6 @@ pub fn router() -> Router<AppState> {
         .route_layer(middleware::from_fn(user_permission::admin))
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend));
-
 
     let seed_routes = Router::new()
         .route("/seed_tags", post(seed_v1::controller::seed_tags))

@@ -1,6 +1,9 @@
 use aws_sdk_s3::{config::endpoint, primitives::ByteStream, Client as S3Client};
 use axum::{
-extract::{Multipart, Path, State}, http::StatusCode, response::IntoResponse, Json
+    extract::{Multipart, Path, State},
+    http::StatusCode,
+    response::IntoResponse,
+    Json,
 };
 use axum_macros::debug_handler;
 use fake::faker::address::en;
@@ -8,7 +11,12 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    db::sea_models::asset::{ Entity as Asset, NewAsset}, error::{ErrorCode, ErrorResponse}, extractors::{ValidatedJson, ValidatedQuery}, services::auth::AuthSession, state::R2Config, AppState
+    db::sea_models::asset::{Entity as Asset, NewAsset},
+    error::{ErrorCode, ErrorResponse},
+    extractors::{ValidatedJson, ValidatedQuery},
+    services::auth::AuthSession,
+    state::R2Config,
+    AppState,
 };
 
 use super::validator::{V1AssetQueryParams, V1UpdateAssetPayload};
@@ -22,8 +30,10 @@ pub async fn upload(
     // Get owner_id from auth session, return error if not authenticated
     let owner_id = match auth.user {
         Some(user) => user.id,
-        None => return Err(ErrorResponse::new(ErrorCode::Unauthorized)
-            .with_message("Authentication required for file upload"))
+        None => {
+            return Err(ErrorResponse::new(ErrorCode::Unauthorized)
+                .with_message("Authentication required for file upload"))
+        }
     };
     let mut payload = NewAsset {
         owner_id: Some(owner_id),
@@ -114,42 +124,44 @@ pub async fn upload(
 
     // Upload the file to R2 - Create the ByteStream without cloning
     let byte_stream = ByteStream::from(file_data);
-    
+
     // Use the content type from the payload or default
     let content_type = payload
         .mime_type
         .as_deref()
         .unwrap_or("application/octet-stream");
-        
+
     // Upload to R2
-    match state.s3_client
+    match state
+        .s3_client
         .put_object()
         .bucket(&state.r2.bucket)
         .key(&unique_filename)
         .body(byte_stream)
         .content_type(content_type)
         .send()
-        .await {
-            Ok(_) => {
-                // Construct the file URL
-                let file_url = format!("{}/{}", state.r2.public_url, unique_filename);
-                
-                // Create the asset record in the database
-                payload.file_url = file_url.clone();
-                
-                match Asset::create(&state.sea_db, payload).await {
-                    Ok(result) => Ok((StatusCode::CREATED, Json(json!(result)))),
-                    Err(err) => Err(ErrorResponse::new(ErrorCode::AssetMetadataError)
-                        .with_message(&format!("Failed to save asset metadata: {}", err))),
-                }
-            },
-            Err(e) => {
-                println!("Error uploading to R2: {:?}", e);
-                println!("Error uploading to R2: {:?}", e.raw_response());
-                Err(ErrorResponse::new(ErrorCode::StorageError)
-                    .with_message(&format!("Failed to upload file to R2: {}", e)))
+        .await
+    {
+        Ok(_) => {
+            // Construct the file URL
+            let file_url = format!("{}/{}", state.r2.public_url, unique_filename);
+
+            // Create the asset record in the database
+            payload.file_url = file_url.clone();
+
+            match Asset::create(&state.sea_db, payload).await {
+                Ok(result) => Ok((StatusCode::CREATED, Json(json!(result)))),
+                Err(err) => Err(ErrorResponse::new(ErrorCode::AssetMetadataError)
+                    .with_message(&format!("Failed to save asset metadata: {}", err))),
             }
         }
+        Err(e) => {
+            println!("Error uploading to R2: {:?}", e);
+            println!("Error uploading to R2: {:?}", e.raw_response());
+            Err(ErrorResponse::new(ErrorCode::StorageError)
+                .with_message(&format!("Failed to upload file to R2: {}", e)))
+        }
+    }
 }
 
 /// Update an existing asset
@@ -197,7 +209,8 @@ pub async fn delete(
     })?;
 
     // Delete the file from R2
-    state.s3_client
+    state
+        .s3_client
         .delete_object()
         .bucket(&state.r2.bucket)
         .key(file_name)

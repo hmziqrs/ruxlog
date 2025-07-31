@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_EEurqPJGSA
 createdAt: 2025-05-02T05:54:41.847834
-updatedAt: 2025-05-02T05:54:41.847835
+updatedAt: 2025-07-31T10:30:40.246310
 workspaceId: wk_udoUbrFfLp
 folderId: fl_qgXRbryiBV
 authentication: {}
@@ -29,6 +29,6 @@ headers:
   id: d2bpjFn2wa
 method: POST
 name: ''
-sortPriority: 1000.00586
-url: ${[ host ]}/post/v1/list/published
+sortPriority: 1000.005859375
+url: ${[ host ]}/post/v1/query
 urlParameters: []

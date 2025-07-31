@@ -8,10 +8,11 @@ use axum::{
 use axum_macros::debug_handler;
 use serde_json::json;
 
+use crate::db::sea_models::user::UserRole;
 use crate::{
     db::sea_models::post,
     error::{ErrorCode, ErrorResponse},
-    extractors::{ValidatedJson},
+    extractors::ValidatedJson,
     modules::post_v1::validator::V1UpdatePostPayload,
     services::auth::AuthSession,
     AppState,
@@ -94,7 +95,6 @@ pub async fn find_published_posts(
     State(state): State<AppState>,
     payload: ValidatedJson<V1PostQueryParams>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    
     let page = payload.page.clone().unwrap_or(1);
     match post::Entity::find_published_paginated(&state.sea_db, payload.0.into_post_query()).await {
         Ok((posts, total)) => Ok((
@@ -135,5 +135,51 @@ pub async fn sitemap(State(state): State<AppState>) -> Result<impl IntoResponse,
         Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
             .with_message("Failed to fetch posts")
             .with_details(err.to_string())),
+    }
+}
+
+#[debug_handler]
+pub async fn query(
+    State(state): State<AppState>,
+    auth: AuthSession,
+    payload: ValidatedJson<V1PostQueryParams>,
+) -> Result<impl IntoResponse, ErrorResponse> {
+    let user = auth.user.unwrap();
+    let mut query_params = payload.0.clone();
+
+    // Role-based access control
+    match user.role {
+        UserRole::Author => {
+            query_params.author_id = Some(user.id);
+        }
+        UserRole::Admin | UserRole::SuperAdmin => {
+            // Admins and SuperAdmins can query any author's posts
+            // No modification needed - use the author_id from the request if provided
+        }
+        UserRole::Moderator => {
+            // Moderators can view all posts for moderation purposes
+            // No modification needed
+        }
+        UserRole::User => {
+            // Regular users shouldn't have access to this endpoint
+            return Err(
+                ErrorResponse::new(ErrorCode::OperationNotAllowed).with_message("Access denied")
+            );
+        }
+    }
+
+    let page = query_params.page.clone().unwrap_or(1);
+
+    match post::Entity::search(&state.sea_db, query_params.into_post_query()).await {
+        Ok((posts, total)) => Ok((
+            StatusCode::OK,
+            Json(json!({
+                "data": posts,
+                "total": total,
+                "per_page": post::Entity::PER_PAGE,
+                "page": page,
+            })),
+        )),
+        Err(err) => Err(err.into()),
     }
 }
