@@ -8,3 +8,11 @@
 prod_users.sql
 
 prod.acl
+
+# Logs
+logs/
+*.log
+
+# PID files
+.cargo-watch.pid
+.cargo.pid

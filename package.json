@@ -1,0 +1,31 @@
+{
+  "name": "ruxlog-backend",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "scripts": {
+    "dev": "cargo run",
+    "dev:w": "cargo watch -x run",
+    "dev:nohup": "mkdir -p logs && nohup cargo watch -x run > logs/dev.log 2>&1 & echo $! > .cargo-watch.pid",
+    "debug": "RUST_LOG=debug cargo run 2>&1 | tee logs/debug.log",
+    "debug:w": "mkdir -p logs && RUST_LOG=debug cargo watch -x 'run' 2>&1 | tee logs/debug.log",
+    "debug:nohup": "mkdir -p logs && nohup sh -c 'RUST_LOG=debug cargo watch -x run' > logs/debug-nohup.log 2>&1 & echo $! > .cargo-watch.pid",
+    "prod": "cargo run --release",
+    "prod:build": "cargo build --release",
+    "prod:nohup": "mkdir -p logs && nohup cargo run --release > logs/production.log 2>&1 & echo $! > .cargo.pid",
+    "kill": "pkill -f 'cargo watch' || pkill -f 'cargo run' || echo 'No cargo processes found'",
+    "kill:nohup": "[ -f .cargo-watch.pid ] && kill $(cat .cargo-watch.pid) && rm .cargo-watch.pid || [ -f .cargo.pid ] && kill $(cat .cargo.pid) && rm .cargo.pid || echo 'No PID file found'",
+    "kill:all": "pkill -f cargo || echo 'No cargo processes found'",
+    "logs": "tail -f logs/*.log",
+    "logs:debug": "tail -f logs/debug*.log",
+    "logs:dev": "tail -f logs/dev.log",
+    "logs:prod": "tail -f logs/production.log",
+    "clean:logs": "rm -rf logs/*.log"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
