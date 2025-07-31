@@ -19,6 +19,7 @@
     "kill": "pkill -f 'cargo watch' || pkill -f 'cargo run' || echo 'No cargo processes found'",
     "kill:nohup": "[ -f .cargo-watch.pid ] && kill $(cat .cargo-watch.pid) && rm .cargo-watch.pid || [ -f .cargo.pid ] && kill $(cat .cargo.pid) && rm .cargo.pid || echo 'No PID file found'",
     "kill:all": "pkill -f cargo || echo 'No cargo processes found'",
+    "kill:port": "lsof -ti:8888 | xargs kill -9 2>/dev/null || echo 'No process found on port 8888'",
     "logs": "tail -f logs/*.log",
     "logs:debug": "tail -f logs/debug*.log",
     "logs:dev": "tail -f logs/dev.log",
