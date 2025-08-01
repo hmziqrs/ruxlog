@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "cargo run",
+    "lsof": "lsof -i :8888",
     "dev:w": "cargo watch -x run",
     "dev:nohup": "mkdir -p logs && nohup cargo watch -x run > logs/dev.log 2>&1 & echo $! > .cargo-watch.pid",
     "debug": "RUST_LOG=debug cargo run 2>&1 | tee logs/debug.log",
