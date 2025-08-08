@@ -52,7 +52,7 @@ pub struct V1TagQueryParams {
 }
 
 impl V1TagQueryParams {
-    pub fn into_tag_query(self) -> TagQuery {
+    pub fn into_query(self) -> TagQuery {
         TagQuery {
             page_no: self.page,
             search: self.search,

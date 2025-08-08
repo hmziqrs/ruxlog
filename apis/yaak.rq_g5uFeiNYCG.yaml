@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_g5uFeiNYCG
 createdAt: 2025-05-02T09:19:18.293581
-updatedAt: 2025-05-02T09:19:18.293582
+updatedAt: 2025-08-08T14:59:46.001562
 workspaceId: wk_udoUbrFfLp
 folderId: fl_jatCY2DVY4
 authentication: {}
@@ -10,8 +10,6 @@ authenticationType: null
 body:
   text: |-
     {
-      "name": "dragon",
-      "slug": "dragon"
     }
 bodyType: application/json
 description: ''
@@ -30,14 +28,14 @@ headers:
   id: XMCGBm0fnd
 method: GET
 name: ''
-sortPriority: 4000.001
+sortPriority: 4000.0009765625
 url: ${[ host ]}/tag/v1/list/query
 urlParameters:
-- enabled: true
+- enabled: false
   name: page
   value: a
   id: 6HJ3G2EsEu
 - enabled: true
   name: ''
   value: ''
-  id: jgY8XF68Vs
+  id: sRNQTEBEPG
