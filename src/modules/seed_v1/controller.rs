@@ -92,6 +92,9 @@ pub async fn seed_categories(
             description: None,
             logo_image: None,
             cover_image: None,
+            color: Some("#3b82f6".to_string()),
+            text_color: None,
+            is_active: Some(true),
         };
 
         match category::Entity::create(&state.sea_db, new_cat).await {
@@ -394,6 +397,9 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
             parent_id: None,
             cover_image: None,
             logo_image: None,
+            color: Some("#3b82f6".to_string()),
+            text_color: None,
+            is_active: Some(true),
         };
 
         match category::Entity::create(&state.sea_db, new_category).await {
