@@ -3,12 +3,41 @@ use sea_orm::{entity::prelude::*, Condition, Order, QueryOrder, Set};
 
 use super::*;
 
+fn parse_hex_to_rgb(hex: &str) -> Option<(u8, u8, u8)> {
+    let s = hex.trim().trim_start_matches('#');
+    if s.len() != 6 {
+        return None;
+    }
+    let r = u8::from_str_radix(&s[0..2], 16).ok()?;
+    let g = u8::from_str_radix(&s[2..4], 16).ok()?;
+    let b = u8::from_str_radix(&s[4..6], 16).ok()?;
+    Some((r, g, b))
+}
+
+fn contrast_text_for_bg(hex: &str) -> String {
+    if let Some((r, g, b)) = parse_hex_to_rgb(hex) {
+        let yiq = (r as u32 * 299 + g as u32 * 587 + b as u32 * 114) / 1000;
+        if yiq >= 128 {
+            "#111111".to_string()
+        } else {
+            "#ffffff".to_string()
+        }
+    } else {
+        "#111111".to_string()
+    }
+}
+
 impl Entity {
     const PER_PAGE: u64 = 20;
 
     // Create a new category
     pub async fn create(conn: &DbConn, new_category: NewCategory) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
+        let color = new_category.color.unwrap_or_else(|| "#3b82f6".to_string());
+        let text_color = new_category
+            .text_color
+            .unwrap_or_else(|| contrast_text_for_bg(&color));
+        let is_active = new_category.is_active.unwrap_or(true);
         let category = ActiveModel {
             name: Set(new_category.name),
             slug: Set(new_category.slug),
@@ -16,6 +45,9 @@ impl Entity {
             description: Set(new_category.description),
             cover_image: Set(new_category.cover_image),
             logo_image: Set(new_category.logo_image),
+            color: Set(color),
+            text_color: Set(text_color),
+            is_active: Set(is_active),
             created_at: Set(now),
             updated_at: Set(now),
             ..Default::default()
@@ -63,6 +95,22 @@ impl Entity {
 
             if let Some(logo_image) = update_category.logo_image {
                 category_active.logo_image = Set(logo_image);
+            }
+
+            let mut recolor_dep: Option<String> = None;
+            if let Some(color) = update_category.color {
+                category_active.color = Set(color.clone());
+                recolor_dep = Some(color);
+            }
+
+            if let Some(text_color) = update_category.text_color {
+                category_active.text_color = Set(text_color);
+            } else if let Some(color) = recolor_dep {
+                category_active.text_color = Set(contrast_text_for_bg(&color));
+            }
+
+            if let Some(is_active) = update_category.is_active {
+                category_active.is_active = Set(is_active);
             }
 
             category_active.updated_at = Set(chrono::Utc::now().fixed_offset());

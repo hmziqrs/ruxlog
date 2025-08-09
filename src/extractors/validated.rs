@@ -1,6 +1,9 @@
-use axum::extract::{rejection::JsonRejection, rejection::QueryRejection, FromRequest, FromRequestParts, Request, Query};
-use axum::Json;
+use axum::extract::{
+    rejection::JsonRejection, rejection::QueryRejection, FromRequest, FromRequestParts, Query,
+    Request,
+};
 use axum::http::request::Parts;
+use axum::Json;
 
 use serde::de::DeserializeOwned;
 use std::ops::Deref;

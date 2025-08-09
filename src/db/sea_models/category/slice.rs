@@ -9,6 +9,9 @@ pub struct NewCategory {
     pub description: Option<String>,
     pub cover_image: Option<String>,
     pub logo_image: Option<String>,
+    pub color: Option<String>,
+    pub text_color: Option<String>,
+    pub is_active: Option<bool>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -19,6 +22,9 @@ pub struct UpdateCategory {
     pub description: Option<Option<String>>,
     pub cover_image: Option<Option<String>>,
     pub logo_image: Option<Option<String>>,
+    pub color: Option<String>,
+    pub text_color: Option<String>,
+    pub is_active: Option<bool>,
     pub updated_at: DateTimeWithTimeZone,
 }
 

@@ -3,6 +3,25 @@ use validator::Validate;
 
 use crate::db::sea_models::category::{CategoryQuery, NewCategory, UpdateCategory};
 
+fn validate_hex_color(s: &str) -> Result<(), validator::ValidationError> {
+    let s = s.trim();
+    let s = s.strip_prefix('#').unwrap_or(s);
+    let ok = s.len() == 6 && s.chars().all(|c| c.is_ascii_hexdigit());
+    if ok {
+        Ok(())
+    } else {
+        Err(validator::ValidationError::new("hex_color"))
+    }
+}
+
+fn validate_hex_color_nested(s: &Option<Option<String>>) -> Result<(), validator::ValidationError> {
+    if let Some(Some(ref value)) = s {
+        validate_hex_color(value)
+    } else {
+        Ok(())
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1CreateCategoryPayload {
     #[validate(length(min = 1, max = 255))]
@@ -14,6 +33,11 @@ pub struct V1CreateCategoryPayload {
     pub description: Option<String>,
     pub cover_image: Option<String>,
     pub logo_image: Option<String>,
+    #[validate(custom(function = "validate_hex_color"), skip)]
+    pub color: String,
+    #[validate(custom(function = "validate_hex_color"), skip)]
+    pub text_color: Option<String>,
+    pub is_active: Option<bool>,
 }
 
 impl V1CreateCategoryPayload {
@@ -25,6 +49,9 @@ impl V1CreateCategoryPayload {
             description: self.description,
             cover_image: self.cover_image,
             logo_image: self.logo_image,
+            color: Some(self.color),
+            text_color: self.text_color,
+            is_active: self.is_active,
         }
     }
 }
@@ -40,6 +67,11 @@ pub struct V1UpdateCategoryPayload {
     pub description: Option<Option<String>>,
     pub cover_image: Option<Option<String>>,
     pub logo_image: Option<Option<String>>,
+    #[validate(custom(function = "validate_hex_color"), skip)]
+    pub color: Option<String>,
+    #[validate(custom(function = "validate_hex_color"), skip)]
+    pub text_color: Option<String>,
+    pub is_active: Option<bool>,
 }
 
 impl V1UpdateCategoryPayload {
@@ -51,6 +83,9 @@ impl V1UpdateCategoryPayload {
             description: self.description,
             cover_image: self.cover_image,
             logo_image: self.logo_image,
+            color: self.color,
+            text_color: self.text_color,
+            is_active: self.is_active,
             updated_at: chrono::Utc::now().fixed_offset(),
         }
     }

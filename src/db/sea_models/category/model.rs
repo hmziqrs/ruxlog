@@ -12,6 +12,9 @@ pub struct Model {
     pub description: Option<String>,
     pub cover_image: Option<String>,
     pub logo_image: Option<String>,
+    pub color: String,
+    pub text_color: String,
+    pub is_active: bool,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }
