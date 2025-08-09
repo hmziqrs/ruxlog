@@ -114,7 +114,7 @@ pub async fn find_with_query(
     payload: ValidatedJson<V1TagQueryParams>,
 ) -> impl IntoResponse {
     let tag_query = payload.0.into_query();
-    let page = tag_query.page_no;
+    let page = tag_query.page.clone().unwrap_or(1);
 
     Tag::find_with_query(&state.sea_db, tag_query)
         .await
@@ -122,8 +122,9 @@ pub async fn find_with_query(
             (
                 StatusCode::OK,
                 Json(json!({
-                    "total": total,
                     "data": tags,
+                    "total": total,
+                    "per_page": Tag::PER_PAGE,
                     "page": page,
                 })),
             )

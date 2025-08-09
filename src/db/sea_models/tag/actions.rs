@@ -1,18 +1,52 @@
-use sea_orm::{entity::prelude::*, Condition, Order, QueryOrder, Set};
 use crate::error::{DbResult, ErrorCode, ErrorResponse};
+use sea_orm::{entity::prelude::*, Condition, Order, QueryOrder, Set};
 
 use super::*;
 
+fn parse_hex_to_rgb(hex: &str) -> Option<(u8, u8, u8)> {
+    let s = hex.trim();
+    let s = s.strip_prefix('#').unwrap_or(s);
+    if s.len() == 6 {
+        let r = u8::from_str_radix(&s[0..2], 16).ok()?;
+        let g = u8::from_str_radix(&s[2..4], 16).ok()?;
+        let b = u8::from_str_radix(&s[4..6], 16).ok()?;
+        Some((r, g, b))
+    } else {
+        None
+    }
+}
+
+fn contrast_text_for_bg(hex: &str) -> String {
+    if let Some((r, g, b)) = parse_hex_to_rgb(hex) {
+        let yiq = (r as u32 * 299 + g as u32 * 587 + b as u32 * 114) / 1000;
+        if yiq >= 128 {
+            "#111111".to_string()
+        } else {
+            "#ffffff".to_string()
+        }
+    } else {
+        "#111111".to_string()
+    }
+}
+
 impl Entity {
-    const PER_PAGE: u64 = 20;
+    pub const PER_PAGE: u64 = 20;
 
     // Create a new tag
     pub async fn create(conn: &DbConn, new_tag: NewTag) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
+        let color = new_tag.color.unwrap_or_else(|| "#3b82f6".to_string());
+        let text_color = new_tag
+            .text_color
+            .unwrap_or_else(|| contrast_text_for_bg(&color));
+        let is_active = new_tag.is_active.unwrap_or(true);
         let tag = ActiveModel {
             name: Set(new_tag.name),
             slug: Set(new_tag.slug),
             description: Set(new_tag.description),
+            color: Set(color),
+            text_color: Set(text_color),
+            is_active: Set(is_active),
             created_at: Set(now),
             updated_at: Set(now),
             ..Default::default()
@@ -51,6 +85,22 @@ impl Entity {
                 tag_active.description = Set(Some(description));
             }
 
+            let mut recolor_dep: Option<String> = None;
+            if let Some(color) = update_tag.color {
+                tag_active.color = Set(color.clone());
+                recolor_dep = Some(color);
+            }
+
+            if let Some(text_color) = update_tag.text_color {
+                tag_active.text_color = Set(text_color);
+            } else if let Some(color) = recolor_dep {
+                tag_active.text_color = Set(contrast_text_for_bg(&color));
+            }
+
+            if let Some(is_active) = update_tag.is_active {
+                tag_active.is_active = Set(is_active);
+            }
+
             tag_active.updated_at = Set(chrono::Utc::now().fixed_offset());
 
             match tag_active.update(conn).await {
@@ -78,14 +128,14 @@ impl Entity {
             Err(err) => Err(err.into()),
         }
     }
-    
+
     // Find tag by ID with not found handling
     pub async fn find_by_id_with_404(conn: &DbConn, tag_id: i32) -> DbResult<Model> {
         // Use the basic get_by_id and transform the Option result
         match Self::find_by_id(tag_id).one(conn).await {
             Ok(Some(model)) => Ok(model),
             Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                          .with_message(&format!("Tag with ID {} not found", tag_id))),
+                .with_message(&format!("Tag with ID {} not found", tag_id))),
             Err(err) => Err(err.into()),
         }
     }
@@ -103,10 +153,7 @@ impl Entity {
     }
 
     // Find tags with query parameters
-    pub async fn find_with_query(
-        conn: &DbConn,
-        query: TagQuery,
-    ) -> DbResult<(Vec<Model>, u64)> {
+    pub async fn find_with_query(conn: &DbConn, query: TagQuery) -> DbResult<(Vec<Model>, u64)> {
         let mut tag_query = Self::find();
 
         // Handle search filter
@@ -130,19 +177,17 @@ impl Entity {
         }
 
         // Handle pagination
-        let page = match query.page_no {
+        let page = match query.page {
             Some(p) if p > 0 => p,
             _ => 1,
         };
         let paginator = tag_query.paginate(conn, Self::PER_PAGE);
-        
+
         // Get total count and paginated results
         match paginator.num_items().await {
-            Ok(total) => {
-                match paginator.fetch_page(page - 1).await {
-                    Ok(results) => Ok((results, total)),
-                    Err(err) => Err(err.into()),
-                }
+            Ok(total) => match paginator.fetch_page(page - 1).await {
+                Ok(results) => Ok((results, total)),
+                Err(err) => Err(err.into()),
             },
             Err(err) => Err(err.into()),
         }

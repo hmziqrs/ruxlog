@@ -16,13 +16,7 @@ struct FakeWord(#[dummy(faker = "Word()")] String);
 
 use crate::db::sea_models::user::{self, AdminUserQuery};
 use crate::{
-    db::sea_models::{
-        category,
-        post,
-        post_comment,
-        tag,
-        user::UserRole,
-    },
+    db::sea_models::{category, post, post_comment, tag, user::UserRole},
     services::auth::AuthSession,
     AppState,
 };
@@ -54,6 +48,9 @@ pub async fn seed_tags(State(state): State<AppState>, _auth: AuthSession) -> imp
             name: tag.clone(),
             slug: tag.to_lowercase(),
             description: None,
+            color: Some("#3b82f6".to_string()),
+            text_color: None,
+            is_active: Some(true),
         };
 
         match tag::Entity::create(&state.sea_db, new_tag).await {
@@ -211,14 +208,18 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
             let post_excerpt = l::Words(EN, 1..8).fake::<Vec<String>>().join(" ");
             let post_content: String = l::Paragraphs(EN, 1..8).fake::<Vec<String>>().join(" ");
             let is_published = rng.random_bool(0.8);
-            
+
             let new_post = post::NewPost {
                 title: post_title.clone(),
                 slug: post_slug,
                 content: post_content,
                 excerpt: Some(post_excerpt),
                 featured_image: None,
-                status: if is_published { post::PostStatus::Published } else { post::PostStatus::Draft },
+                status: if is_published {
+                    post::PostStatus::Published
+                } else {
+                    post::PostStatus::Draft
+                },
                 author_id: user.id,
                 published_at: if is_published {
                     Some(chrono::Utc::now().fixed_offset())
@@ -413,6 +414,9 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
             name,
             slug,
             description: None,
+            color: Some("#3b82f6".to_string()),
+            text_color: None,
+            is_active: Some(true),
         };
 
         match tag::Entity::create(&state.sea_db, new_tag).await {
@@ -439,14 +443,18 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
                 let post_excerpt = l::Words(EN, 1..8).fake::<Vec<String>>().join(" ");
                 let post_content: String = l::Paragraph(EN, 1..8).fake();
                 let is_published = rng.random_bool(0.5);
-                
+
                 let new_post = post::NewPost {
                     title: post_title.clone(),
                     slug: post_title.to_lowercase().replace(' ', "-"),
                     content: post_content,
                     excerpt: Some(post_excerpt),
                     featured_image: None,
-                    status: if is_published { post::PostStatus::Published } else { post::PostStatus::Draft },
+                    status: if is_published {
+                        post::PostStatus::Published
+                    } else {
+                        post::PostStatus::Draft
+                    },
                     author_id: user.id,
                     published_at: if is_published {
                         Some(chrono::Utc::now().fixed_offset())

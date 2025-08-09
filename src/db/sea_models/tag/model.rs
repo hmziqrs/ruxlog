@@ -10,6 +10,9 @@ pub struct Model {
     pub name: String,
     pub slug: String,
     pub description: Option<String>,
+    pub color: String,
+    pub text_color: String,
+    pub is_active: bool,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }
