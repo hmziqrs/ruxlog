@@ -27,12 +27,13 @@ Wiring:
 
 ## 2) Newsletter Module (`newsletter_v1`)
 Why: Direct audience engagement with minimal surface area.
-Status: In progress — Routes wired and DB/migration added. Verified subscribe (201) via POST /newsletter/v1/subscribe; unsubscribe with invalid token returns expected error. Admin send/list require auth; confirm endpoint pending; sending is synchronous for now.
+Status: In progress — Routes wired and DB/migration added. Verified subscribe (201) and confirm; unsubscribe with invalid token returns expected error. Admin send/list require auth; subscribe is rate-limited; sending is synchronous for now.
 
 
 Required Endpoints:
 - POST /newsletter/v1/subscribe — Subscribe
 - POST /newsletter/v1/unsubscribe — Unsubscribe
+- POST /newsletter/v1/confirm — Confirm subscription
 - POST /newsletter/v1/send — Manual send (admin)
 - POST /newsletter/v1/subscribers/list — List subscribers (admin)
 
@@ -41,15 +42,17 @@ Implementation Notes:
 - Basic subscriber store
 - Plain-text and simple HTML support
 - Use background job for send to avoid blocking
+- Rate limiting on /subscribe to mitigate abuse
 
 Wiring:
 - Router: add `.nest("/newsletter/v1", newsletter_v1::routes())` in `src/router.rs`. Inside `routes()`:
   - `.route("/subscribe", post(controller::subscribe))`
   - `.route("/unsubscribe", post(controller::unsubscribe))`
+  - `.route("/confirm", post(controller::confirm))`
   - Admin routes: `.route("/send", post(controller::send))` and `.route("/subscribers/list", post(controller::list_subscribers))`
     - Apply middleware order: `.route_layer(user_permission::admin).route_layer(user_status::only_verified).route_layer(login_required!(AuthBackend))`.
 - Module: `src/modules/newsletter_v1/{mod.rs,controller.rs,validator.rs}`.
-  - Controllers: `subscribe`, `unsubscribe`, `send`, `list_subscribers` with signature pattern:
+  - Controllers: `subscribe`, `unsubscribe`, `confirm`, `send`, `list_subscribers` with signature pattern:
     - `#[debug_handler] pub async fn handler(State(state): State<AppState>, ...) -> Result<impl IntoResponse, ErrorResponse>`.
   - Validators: `V1SubscribePayload { email }`, `V1UnsubscribePayload { email, token }`, `V1SendNewsletterPayload { subject, text, html? }`, `V1ListSubscribersQuery { page?, search? }`.
 - SeaORM: `src/db/sea_models/newsletter_subscriber/{mod.rs,model.rs,slice.rs,actions.rs}`.

@@ -12,7 +12,10 @@ use crate::{
     },
     error::{ErrorCode, ErrorResponse},
     extractors::ValidatedJson,
-    services::auth::AuthSession,
+    services::{
+        abuse_limiter::{limiter, AbuseLimiterConfig},
+        auth::AuthSession,
+    },
     AppState,
 };
 
@@ -69,6 +72,18 @@ pub async fn subscribe(
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let email = payload.email.trim().to_lowercase();
     let token = Uuid::new_v4().to_string();
+
+    // Abuse limiter: per-email subscription attempts
+    let key = format!("newsletter:subscribe:{}", email);
+    let config = AbuseLimiterConfig {
+        temp_block_attempts: 5,
+        temp_block_range: 60,
+        temp_block_duration: 60 * 60,
+        block_retry_limit: 20,
+        block_range: 24 * 60 * 60,
+        block_duration: 24 * 60 * 60,
+    };
+    limiter(&state.redis_pool, &key, config).await?;
 
     let new_sub = NewSubscriber {
         email: email.clone(),
@@ -176,6 +191,22 @@ pub async fn list_subscribers(
             "total": total,
             "page": payload.page_or_default()
         }))),
+        Err(err) => Err(err.into()),
+    }
+}
+
+#[debug_handler]
+pub async fn confirm(
+    State(state): State<AppState>,
+    payload: ValidatedJson<V1UnsubscribePayload>,
+) -> Result<impl IntoResponse, ErrorResponse> {
+    let email = payload.email.trim().to_lowercase();
+    let token = payload.token.trim().to_string();
+
+    match SubscriberEntity::confirm(&state.sea_db, &email, &token).await {
+        Ok(Some(_)) => Ok(Json(json!({ "message": "Subscription confirmed" }))),
+        Ok(None) => Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
+            .with_message("Invalid token or subscriber not found")),
         Err(err) => Err(err.into()),
     }
 }

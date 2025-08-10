@@ -13,7 +13,8 @@ pub mod validator;
 pub fn routes() -> Router<AppState> {
     let public = Router::new()
         .route("/subscribe", post(controller::subscribe))
-        .route("/unsubscribe", post(controller::unsubscribe));
+        .route("/unsubscribe", post(controller::unsubscribe))
+        .route("/confirm", post(controller::confirm));
 
     let admin = Router::new()
         .route("/send", post(controller::send))

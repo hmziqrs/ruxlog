@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-/// Subscribe to newsletter
+/// Subscribe to newsletter (double opt-in)
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1SubscribePayload {
     #[validate(email)]
@@ -16,6 +16,8 @@ pub struct V1UnsubscribePayload {
     #[validate(length(min = 6, max = 128))]
     pub token: String,
 }
+/// Confirm newsletter subscription (same as unsubscribe payload)
+pub type V1ConfirmPayload = V1UnsubscribePayload;
 
 /// Send a newsletter (admin)
 #[derive(Debug, Deserialize, Serialize, Validate)]
