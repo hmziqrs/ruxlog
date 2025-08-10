@@ -98,6 +98,10 @@ pub fn router() -> Router<AppState> {
             "/delete/{category_id}",
             post(category_v1::controller::delete),
         )
+        .route(
+            "/list/query",
+            post(category_v1::controller::find_with_query),
+        )
         .route_layer(middleware::from_fn(user_permission::admin))
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend))

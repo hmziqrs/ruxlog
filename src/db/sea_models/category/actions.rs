@@ -5,7 +5,7 @@ use super::*;
 use crate::utils::color::{derive_text_color, DEFAULT_BG_COLOR};
 
 impl Entity {
-    const PER_PAGE: u64 = 20;
+    pub const PER_PAGE: u64 = 20;
 
     pub async fn create(conn: &DbConn, new_category: NewCategory) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();

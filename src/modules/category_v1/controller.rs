@@ -10,12 +10,12 @@ use serde_json::json;
 use crate::{
     db::sea_models::category::Entity as Category,
     error::{ErrorCode, ErrorResponse},
-    extractors::{ValidatedJson, ValidatedQuery},
+    extractors::ValidatedJson,
     services::auth::AuthSession,
     AppState,
 };
 
-use super::validator::{V1CreateCategoryPayload, V1CategoryQueryParams, V1UpdateCategoryPayload};
+use super::validator::{V1CategoryQueryParams, V1CreateCategoryPayload, V1UpdateCategoryPayload};
 
 /// Create a new category using SeaORM
 #[debug_handler]
@@ -44,8 +44,10 @@ pub async fn update(
 
     match Category::update(&state.sea_db, category_id, update_category).await {
         Ok(Some(category)) => Ok((StatusCode::OK, Json(json!(category)))),
-        Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                        .with_message("Category does not exist")),
+        Ok(None) => {
+            Err(ErrorResponse::new(ErrorCode::RecordNotFound)
+                .with_message("Category does not exist"))
+        }
         Err(err) => Err(err.into()),
     }
 }
@@ -62,8 +64,10 @@ pub async fn delete(
             StatusCode::OK,
             Json(json!({ "message": "Category deleted successfully" })),
         )),
-        Ok(0) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                    .with_message("Category does not exist")),
+        Ok(0) => {
+            Err(ErrorResponse::new(ErrorCode::RecordNotFound)
+                .with_message("Category does not exist"))
+        }
         Ok(_) => Ok((
             StatusCode::OK,
             Json(json!({ "message": "Category deleted successfully" })),
@@ -84,16 +88,17 @@ pub async fn find_by_id_or_slug(
     match slug_or_id.parse::<i32>() {
         Ok(parsed_id) => {
             id = Some(parsed_id);
-        },
+        }
         Err(_) => {
             slug = Some(slug_or_id);
-        },
+        }
     }
 
     match Category::find_by_id_or_slug(&state.sea_db, id, slug).await {
         Ok(Some(category)) => Ok((StatusCode::OK, Json(json!(category)))),
-        Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                      .with_message("Category not found")),
+        Ok(None) => {
+            Err(ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Category not found"))
+        }
         Err(err) => Err(err.into()),
     }
 }
@@ -111,19 +116,20 @@ pub async fn find_all(State(state): State<AppState>) -> Result<impl IntoResponse
 #[debug_handler]
 pub async fn find_with_query(
     State(state): State<AppState>,
-    query: ValidatedQuery<V1CategoryQueryParams>,
+    payload: ValidatedJson<V1CategoryQueryParams>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let category_query = query.0.into_category_query();
-    let page = category_query.page_no;
+    let category_query = payload.0.into_category_query();
+    let page = category_query.page_no.unwrap_or(1);
 
     match Category::find_with_query(&state.sea_db, category_query).await {
         Ok((categories, total)) => Ok((
             StatusCode::OK,
             Json(json!({
-                "total": total,
                 "data": categories,
+                "total": total,
+                "per_page": Category::PER_PAGE,
                 "page": page,
-            }))
+            })),
         )),
         Err(err) => Err(err.into()),
     }
