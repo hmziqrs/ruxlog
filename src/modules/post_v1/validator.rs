@@ -114,3 +114,43 @@ impl V1PostQueryParams {
         }
     }
 }
+
+#[derive(Debug, Deserialize, Serialize, Validate)]
+pub struct V1AutosavePayload {
+    pub post_id: i32,
+    #[validate(length(min = 1))]
+    pub content: String,
+    pub updated_at: DateTimeWithTimeZone,
+}
+
+#[derive(Debug, Deserialize, Serialize, Validate)]
+pub struct V1SchedulePayload {
+    pub post_id: i32,
+    pub publish_at: DateTimeWithTimeZone,
+}
+
+#[derive(Debug, Deserialize, Serialize, Validate)]
+pub struct V1SeriesCreatePayload {
+    #[validate(length(min = 3, max = 255))]
+    pub name: String,
+    #[validate(length(min = 3, max = 255))]
+    pub slug: String,
+    #[validate(length(max = 500))]
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Validate)]
+pub struct V1SeriesUpdatePayload {
+    #[validate(length(min = 3, max = 255))]
+    pub name: Option<String>,
+    #[validate(length(min = 3, max = 255))]
+    pub slug: Option<String>,
+    #[validate(length(max = 500))]
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Validate, Clone)]
+pub struct V1SeriesListQuery {
+    pub page: Option<u64>,
+    pub search: Option<String>,
+}
