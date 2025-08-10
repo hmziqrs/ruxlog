@@ -116,7 +116,23 @@ echo
 # Log in (establish session)
 # -----------------------------
 echo "==> Log in"
-post_json "/auth/v1/log_in" "$(jq -nc --arg e "$EMAIL" --arg p "$PASSWORD" '{email:$e, password:$p}')" 200
+login_payload="$(jq -nc --arg e "$EMAIL" --arg p "$PASSWORD" '{email:$e, password:$p}')"
+login_out="$TMP_DIR/login.json"
+login_code=$(curl -sS -X POST \
+  -H "csrf-token: $CSRF_TOKEN" \
+  -H "Content-Type: application/json" \
+  -c "$COOKIES_FILE" \
+  -d "$login_payload" \
+  -o "$login_out" \
+  -w "%{http_code}" \
+  "$BASE_URL/auth/v1/log_in")
+echo "POST /auth/v1/log_in -> $login_code"
+cat "$login_out" | jq -C . || cat "$login_out"
+echo
+if [[ "$login_code" != "200" ]]; then
+  echo "ERROR: login failed"
+  exit 1
+fi
 
 # -----------------------------
 # Seed baseline data (tags, categories, posts, comments)
