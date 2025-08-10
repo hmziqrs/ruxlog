@@ -4,8 +4,9 @@ This document captures focused, low-complexity features for a senior engineer’
 
 Additionally, this file enumerates concrete wiring: router additions, controller/validator stubs, SeaORM models (actions/model/slice), and migration stubs per module to integrate cleanly with the current codebase and CLAUDE.md patterns.
 
-## 1) Feed Module (`feed_v1`)
+## 1) Feed Module (`feed_v1`) — Completed
 Why: Standard syndication for readers and aggregators.
+Status: Completed — Implemented GET /feed/v1/rss and /feed/v1/atom; added `.nest("/feed/v1", feed_v1::routes())`; proper XML escaping, configurable limit, cache headers; verified with curl on localhost:8888.
 
 Required Endpoints:
 - GET /feed/v1/rss — Main RSS feed
