@@ -110,10 +110,19 @@ pub async fn subscribe(
             // Best-effort email; do not fail subscription on send error
             let _ = send_mail(&state.mailer, &email, subject, Some(&html), None).await;
 
-            Ok((
-                StatusCode::CREATED,
-                Json(json!({ "message": "Please check your email to confirm your subscription" })),
-            ))
+            #[allow(unused_mut)]
+            let mut body =
+                json!({ "message": "Please check your email to confirm your subscription" });
+            #[cfg(debug_assertions)]
+            {
+                if let Some(obj) = body.as_object_mut() {
+                    obj.insert(
+                        "debug".to_string(),
+                        json!({ "token": token, "confirm_url": confirm_url }),
+                    );
+                }
+            }
+            Ok((StatusCode::CREATED, Json(body)))
         }
         Err(err) => Err(err.into()),
     }
