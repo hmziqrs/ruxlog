@@ -27,6 +27,8 @@ Wiring:
 
 ## 2) Newsletter Module (`newsletter_v1`)
 Why: Direct audience engagement with minimal surface area.
+Status: In progress — Routes wired and DB/migration added. Verified subscribe (201) via POST /newsletter/v1/subscribe; unsubscribe with invalid token returns expected error. Admin send/list require auth; confirm endpoint pending; sending is synchronous for now.
+
 
 Required Endpoints:
 - POST /newsletter/v1/subscribe — Subscribe
