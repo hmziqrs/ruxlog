@@ -150,34 +150,38 @@ pub async fn send(
     _auth: AuthSession,
     payload: ValidatedJson<V1SendNewsletterPayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    // Load confirmed subscribers
-    let subscribers = SubscriberEntity::find()
-        .filter(SubscriberColumn::Status.eq(SubscriberStatus::Confirmed))
-        .all(&state.sea_db)
-        .await?;
+    // Offload to background task
+    let subject = payload.subject.clone();
+    let text = payload.text.clone();
+    let html = payload.html.clone();
+    let state_cloned = state.clone();
 
-    let mut sent_count: u64 = 0;
-    for sub in subscribers {
-        let to = sub.email.as_str();
-        // Try best-effort; continue on failure
-        if send_mail(
-            &state.mailer,
-            to,
-            &payload.subject,
-            payload.html.as_deref(),
-            Some(&payload.text),
-        )
-        .await
-        .is_ok()
-        {
-            sent_count += 1;
+    tokio::spawn(async move {
+        // Load confirmed subscribers and send best-effort
+        let Ok(subscribers) = SubscriberEntity::find()
+            .filter(SubscriberColumn::Status.eq(SubscriberStatus::Confirmed))
+            .all(&state_cloned.sea_db)
+            .await
+        else {
+            return;
+        };
+
+        for sub in subscribers {
+            let _ = send_mail(
+                &state_cloned.mailer,
+                &sub.email,
+                &subject,
+                html.as_deref(),
+                Some(&text),
+            )
+            .await;
         }
-    }
+    });
 
-    Ok(Json(json!({
-        "message": "Newsletter sent",
-        "sent": sent_count
-    })))
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(json!({ "message": "Newsletter send queued" })),
+    ))
 }
 
 #[debug_handler]
