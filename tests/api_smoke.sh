@@ -20,11 +20,40 @@ CSRF_KEY="${CSRF_KEY:-ultra-instinct-goku}"        # must match server's middlew
 CSRF_TOKEN="$(printf %s "$CSRF_KEY" | base64)"
 COOKIES_FILE="${COOKIES_FILE:-$(dirname "$0")/cookies.txt}"
 TMP_DIR="$(mktemp -d)"
+RETRY_ATTEMPTS="${RETRY_ATTEMPTS:-20}"
+RETRY_SLEEP_SECS="${RETRY_SLEEP_SECS:-1}"
+SERVER_WAIT_TIMEOUT_SECS="${SERVER_WAIT_TIMEOUT_SECS:-180}"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 # -----------------------------
 # Helpers
 # -----------------------------
+# Wait until the server is ready (use a public GET route)
+wait_for_server() {
+  local deadline=$(( $(date +%s) + SERVER_WAIT_TIMEOUT_SECS ))
+  local code=""
+  echo "Waiting for $BASE_URL to be ready (timeout: ${SERVER_WAIT_TIMEOUT_SECS}s)..."
+  while :; do
+    set +e
+    code=$(curl -sS -X GET \
+      -H "csrf-token: $CSRF_TOKEN" \
+      -o /dev/null \
+      -w "%{http_code}" \
+      "$BASE_URL/tag/v1/list")
+    local curl_status=$?
+    set -e
+    if [[ $curl_status -eq 0 && "$code" != "000" ]]; then
+      echo "Server ready (HTTP $code)"
+      break
+    fi
+    if [[ $(date +%s) -ge $deadline ]]; then
+      echo "Timeout waiting for server at $BASE_URL"
+      exit 1
+    fi
+    sleep "$RETRY_SLEEP_SECS"
+  done
+}
+
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || { echo "Missing required command: $1"; exit 1; }
 }
@@ -37,20 +66,40 @@ post_json() {
   local quiet="${1:-}"; shift || true
 
   local out_file="$TMP_DIR/resp.$RANDOM.json"
-  local code
-  code="$(curl -sS -X POST \
-    -H "csrf-token: $CSRF_TOKEN" \
-    -H "Content-Type: application/json" \
-    -b "$COOKIES_FILE" -c "$COOKIES_FILE" \
-    -d "$data" \
-    -o "$out_file" \
-    -w "%{http_code}" \
-    "$BASE_URL$path")"
+  local code=""
+  local attempt=1
+
+  while (( attempt <= RETRY_ATTEMPTS )); do
+    set +e
+    code=$(curl -sS -X POST \
+      -H "csrf-token: $CSRF_TOKEN" \
+      -H "Content-Type: application/json" \
+      -b "$COOKIES_FILE" -c "$COOKIES_FILE" \
+      -d "$data" \
+      -o "$out_file" \
+      -w "%{http_code}" \
+      "$BASE_URL$path")
+    local curl_status=$?
+    set -e
+
+    # Print attempt info if verbose
+    if [[ -z "$quiet" ]]; then
+      echo "POST $path (attempt $attempt/$RETRY_ATTEMPTS) -> ${code:-curl_status:$curl_status}" >&2
+    fi
+
+    # Break on successful transport (non-zero curl means transport error)
+    if [[ $curl_status -eq 0 && "$code" != "000" ]]; then
+      break
+    fi
+
+    # Retry on transport failure or http_code 000
+    sleep "$RETRY_SLEEP_SECS"
+    attempt=$((attempt + 1))
+  done
 
   if [[ -z "$quiet" ]]; then
-    echo "POST $path -> $code"
-    cat "$out_file" | jq -C . || cat "$out_file"
-    echo
+    (cat "$out_file" | jq -C . || cat "$out_file") >&2
+    echo >&2
   fi
 
   if [[ "$code" != "$expect" ]]; then
@@ -68,18 +117,35 @@ get_json() {
   local quiet="${1:-}"; shift || true
 
   local out_file="$TMP_DIR/resp.$RANDOM.json"
-  local code
-  code="$(curl -sS -X GET \
-    -H "csrf-token: $CSRF_TOKEN" \
-    -b "$COOKIES_FILE" -c "$COOKIES_FILE" \
-    -o "$out_file" \
-    -w "%{http_code}" \
-    "$BASE_URL$path")"
+  local code=""
+  local attempt=1
+
+  while (( attempt <= RETRY_ATTEMPTS )); do
+    set +e
+    code=$(curl -sS -X GET \
+      -H "csrf-token: $CSRF_TOKEN" \
+      -b "$COOKIES_FILE" -c "$COOKIES_FILE" \
+      -o "$out_file" \
+      -w "%{http_code}" \
+      "$BASE_URL$path")
+    local curl_status=$?
+    set -e
+
+    if [[ -z "$quiet" ]]; then
+      echo "GET  $path (attempt $attempt/$RETRY_ATTEMPTS) -> ${code:-curl_status:$curl_status}" >&2
+    fi
+
+    if [[ $curl_status -eq 0 && "$code" != "000" ]]; then
+      break
+    fi
+
+    sleep "$RETRY_SLEEP_SECS"
+    attempt=$((attempt + 1))
+  done
 
   if [[ -z "$quiet" ]]; then
-    echo "GET  $path -> $code"
-    cat "$out_file" | jq -C . || cat "$out_file"
-    echo
+    (cat "$out_file" | jq -C . || cat "$out_file") >&2
+    echo >&2
   fi
 
   if [[ "$code" != "$expect" ]]; then
@@ -111,6 +177,9 @@ touch "$COOKIES_FILE"
 echo "==== API SMOKE TEST START ===="
 echo "BASE_URL: $BASE_URL"
 echo
+echo "==> Waiting for server readiness (cargo watch -x run may be rebuilding)..."
+wait_for_server
+echo
 
 # -----------------------------
 # Log in (establish session)
@@ -118,16 +187,33 @@ echo
 echo "==> Log in"
 login_payload="$(jq -nc --arg e "$EMAIL" --arg p "$PASSWORD" '{email:$e, password:$p}')"
 login_out="$TMP_DIR/login.json"
-login_code=$(curl -sS -X POST \
-  -H "csrf-token: $CSRF_TOKEN" \
-  -H "Content-Type: application/json" \
-  -c "$COOKIES_FILE" \
-  -d "$login_payload" \
-  -o "$login_out" \
-  -w "%{http_code}" \
-  "$BASE_URL/auth/v1/log_in")
-echo "POST /auth/v1/log_in -> $login_code"
-cat "$login_out" | jq -C . || cat "$login_out"
+# Small delay to avoid race right after readiness
+sleep 2
+attempt=1
+login_code=""
+while (( attempt <= RETRY_ATTEMPTS )); do
+  set +e
+  wait_for_server
+  login_code=$(curl -sS -X POST \
+    -H "csrf-token: $CSRF_TOKEN" \
+    -H "Content-Type: application/json" \
+    -c "$COOKIES_FILE" \
+    -d "$login_payload" \
+    -o "$login_out" \
+    -w "%{http_code}" \
+    "$BASE_URL/auth/v1/log_in")
+  curl_status=$?
+  set -e
+  echo "POST /auth/v1/log_in (attempt $attempt/$RETRY_ATTEMPTS) -> ${login_code:-curl_status:$curl_status}"
+  if [[ $curl_status -eq 0 && "$login_code" == "200" ]]; then
+    break
+  fi
+  sleep "$RETRY_SLEEP_SECS"
+  attempt=$((attempt + 1))
+done
+if [[ -s "$login_out" ]]; then
+  (cat "$login_out" | jq -C . || cat "$login_out")
+fi
 echo
 if [[ "$login_code" != "200" ]]; then
   echo "ERROR: login failed"
@@ -137,15 +223,28 @@ fi
 # -----------------------------
 # Seed baseline data (tags, categories, posts, comments)
 # -----------------------------
-echo "==> Seed baseline data"
-post_json "/admin/seed/v1/seed" "{}" 200
+echo "==> Ensure baseline data (categories/tags)"
+# Ensure categories exist; seed only if empty
+cats_probe_path="$(get_json "/category/v1/list" 200 --quiet)"
+have_categories="$(jq -r 'length > 0' "$cats_probe_path" 2>/dev/null || echo false)"
+if [[ "${have_categories}" != "true" ]]; then
+  echo "No categories found. Seeding categories..."
+  post_json "/admin/seed/v1/seed_categories" "{}" 200
+fi
+# Ensure tags exist; seed only if empty
+tags_probe_path="$(get_json "/tag/v1/list" 200 --quiet)"
+have_tags="$(jq -r 'length > 0' "$tags_probe_path" 2>/dev/null || echo false)"
+if [[ "${have_tags}" != "true" ]]; then
+  echo "No tags found. Seeding tags..."
+  post_json "/admin/seed/v1/seed_tags" "{}" 200
+fi
 
 # -----------------------------
 # Fetch base refs: category_id, tag_ids
 # -----------------------------
 echo "==> Get categories"
-cats_file="$(get_json "/category/v1/list" 200)"
-category_id="$(jq '.[0].id // empty' -r "$cats_file")"
+cats_path="$(get_json "/category/v1/list" 200)"
+category_id="$(jq -r '.[0].id // empty' "$cats_path")"
 if [[ -z "${category_id:-}" ]]; then
   echo "ERROR: No categories found"
   exit 1
@@ -154,8 +253,8 @@ echo "Selected category_id: $category_id"
 echo
 
 echo "==> Get tags"
-tags_file="$(get_json "/tag/v1/list" 200)"
-tag_ids="$(jq '[.[0].id, .[1].id] | map(select(. != null))' -c "$tags_file" || echo '[]')"
+tags_path="$(get_json "/tag/v1/list" 200)"
+tag_ids="$(jq -c '[.[0].id, .[1].id] | map(select(. != null))' "$tags_path" 2>/dev/null || echo '[]')"
 echo "Selected tag_ids: $tag_ids"
 echo
 
@@ -176,7 +275,7 @@ create_payload="$(jq -nc \
   '{ title:$title, content:$content, slug:$slug, is_published:false, excerpt:"Smoke test excerpt", featured_image:null, category_id:$category_id, tag_ids:$tag_ids }')"
 
 post_file="$(post_json "/post/v1/create" "$create_payload" 201)"
-post_id="$(jq '.id' -r "$post_file")"
+post_id="$(jq -r '.id' "$post_file")"
 echo "Created post_id: $post_id, slug: $slug"
 echo
 
@@ -191,7 +290,7 @@ autosave_payload="$(jq -nc \
   '{ post_id:$post_id, content:$content, updated_at:$updated_at }')"
 
 auto_file="$(post_json "/post/v1/autosave" "$autosave_payload" 200)"
-revision_id_created="$(jq '.id' -r "$auto_file")"
+revision_id_created="$(jq -r '.id' "$auto_file")"
 echo "Autosave created revision_id: $revision_id_created"
 echo
 
@@ -200,7 +299,7 @@ echo
 # -----------------------------
 echo "==> Revisions list"
 rev_list_file="$(post_json "/post/v1/revisions/$post_id/list" "{}" 200)"
-first_rev_id="$(jq '.data[0].id // empty' -r "$rev_list_file")"
+first_rev_id="$(jq -r '.data[0].id // empty' "$rev_list_file")"
 echo "First revision id (if any): ${first_rev_id:-<none>}"
 echo
 
@@ -234,7 +333,7 @@ echo "==> Series create"
 series_slug="series-$(date +%s)"
 series_payload="$(jq -nc --arg name "My Series" --arg slug "$series_slug" --arg desc "Series created by smoke test" '{name:$name, slug:$slug, description:$desc}')"
 series_file="$(post_json "/post/v1/series/create" "$series_payload" 201)"
-series_id="$(jq '.id' -r "$series_file")"
+series_id="$(jq -r '.id' "$series_file")"
 echo "Series created with id: $series_id"
 echo
 
