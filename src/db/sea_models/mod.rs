@@ -8,3 +8,5 @@ pub mod post_comment;
 pub mod post_view;
 pub mod tag;
 pub mod user;
+
+pub use crate::utils::color as color_utils;

@@ -2,31 +2,14 @@ use crate::error::{DbResult, ErrorCode, ErrorResponse};
 use sea_orm::{entity::prelude::*, Condition, Order, QueryOrder, Set};
 
 use super::*;
+use crate::utils::color::{derive_text_color, DEFAULT_BG_COLOR};
 
 fn parse_hex_to_rgb(hex: &str) -> Option<(u8, u8, u8)> {
-    let s = hex.trim();
-    let s = s.strip_prefix('#').unwrap_or(s);
-    if s.len() == 6 {
-        let r = u8::from_str_radix(&s[0..2], 16).ok()?;
-        let g = u8::from_str_radix(&s[2..4], 16).ok()?;
-        let b = u8::from_str_radix(&s[4..6], 16).ok()?;
-        Some((r, g, b))
-    } else {
-        None
-    }
+    crate::utils::color::parse_hex_to_rgb(hex)
 }
 
 fn contrast_text_for_bg(hex: &str) -> String {
-    if let Some((r, g, b)) = parse_hex_to_rgb(hex) {
-        let yiq = (r as u32 * 299 + g as u32 * 587 + b as u32 * 114) / 1000;
-        if yiq >= 128 {
-            "#111111".to_string()
-        } else {
-            "#ffffff".to_string()
-        }
-    } else {
-        "#111111".to_string()
-    }
+    crate::utils::color::contrast_text_for_bg(hex)
 }
 
 impl Entity {
@@ -35,10 +18,10 @@ impl Entity {
     // Create a new tag
     pub async fn create(conn: &DbConn, new_tag: NewTag) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
-        let color = new_tag.color.unwrap_or_else(|| "#3b82f6".to_string());
-        let text_color = new_tag
-            .text_color
-            .unwrap_or_else(|| contrast_text_for_bg(&color));
+        let color = new_tag
+            .color
+            .unwrap_or_else(|| DEFAULT_BG_COLOR.to_string());
+        let text_color = derive_text_color(&color, new_tag.text_color.as_deref());
         let is_active = new_tag.is_active.unwrap_or(true);
         let tag = ActiveModel {
             name: Set(new_tag.name),
@@ -94,7 +77,7 @@ impl Entity {
             if let Some(text_color) = update_tag.text_color {
                 tag_active.text_color = Set(text_color);
             } else if let Some(color) = recolor_dep {
-                tag_active.text_color = Set(contrast_text_for_bg(&color));
+                tag_active.text_color = Set(derive_text_color(&color, None));
             }
 
             if let Some(is_active) = update_tag.is_active {

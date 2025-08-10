@@ -6,6 +6,7 @@ pub mod modules;
 mod router;
 pub mod services;
 pub mod state;
+pub mod utils;
 
 use axum::{
     http::{HeaderName, HeaderValue},
@@ -84,7 +85,6 @@ fn get_allowed_origins() -> Vec<HeaderValue> {
         .collect()
 }
 
-
 #[derive(serde::Deserialize)]
 struct IpConfig {
     ip_source: ClientIpSource,
@@ -119,11 +119,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         public_url: env::var("R2_PUBLIC_URL").expect("R2_PUBLIC_URL must be set"),
     };
 
-
-    let endpoint_url = format!(
-        "https://{}.r2.cloudflarestorage.com",
-        &r2.account_id
-    );
+    let endpoint_url = format!("https://{}.r2.cloudflarestorage.com", &r2.account_id);
 
     r2.public_url = "https://pub-63743cad4ace41b5903015b89d79fb27.r2.dev".to_string();
     // r2.public_url = format!(
@@ -148,19 +144,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let s3_client = aws_sdk_s3::Client::new(&r2_config);
 
-      let list_buckets_output = s3_client.list_buckets().send().await?;
+    let list_buckets_output = s3_client.list_buckets().send().await?;
 
     println!("Buckets:");
     for bucket in list_buckets_output.buckets() {
-        println!("  - {}: {}",
+        println!(
+            "  - {}: {}",
             bucket.name().unwrap_or_default(),
             bucket.creation_date().map_or_else(
                 || "Unknown creation date".to_string(),
-                |date| date.fmt(aws_sdk_s3::primitives::DateTimeFormat::DateTime).unwrap()
+                |date| date
+                    .fmt(aws_sdk_s3::primitives::DateTimeFormat::DateTime)
+                    .unwrap()
             )
         );
     }
-
 
     let state = AppState {
         sea_db,
@@ -169,8 +167,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         r2,
         s3_client,
     };
-
-
 
     tracing::info!("Redis successfully established.");
     let session_store = RedisStore::new(redis_pool);

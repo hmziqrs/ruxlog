@@ -1,16 +1,7 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-fn validate_hex_color(s: &str) -> Result<(), validator::ValidationError> {
-    let s = s.trim();
-    let s = s.strip_prefix('#').unwrap_or(s);
-    let ok = s.len() == 6 && s.chars().all(|c| c.is_ascii_hexdigit());
-    if ok {
-        Ok(())
-    } else {
-        Err(validator::ValidationError::new("hex_color"))
-    }
-}
+use crate::utils::color::validate_optional_hex_color as validate_hex_color;
 
 use crate::db::sea_models::tag::{NewTag, TagQuery, UpdateTag};
 

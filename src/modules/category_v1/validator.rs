@@ -3,24 +3,7 @@ use validator::Validate;
 
 use crate::db::sea_models::category::{CategoryQuery, NewCategory, UpdateCategory};
 
-fn validate_hex_color(s: &str) -> Result<(), validator::ValidationError> {
-    let s = s.trim();
-    let s = s.strip_prefix('#').unwrap_or(s);
-    let ok = s.len() == 6 && s.chars().all(|c| c.is_ascii_hexdigit());
-    if ok {
-        Ok(())
-    } else {
-        Err(validator::ValidationError::new("hex_color"))
-    }
-}
-
-fn validate_hex_color_nested(s: &Option<Option<String>>) -> Result<(), validator::ValidationError> {
-    if let Some(Some(ref value)) = s {
-        validate_hex_color(value)
-    } else {
-        Ok(())
-    }
-}
+use crate::utils::color::validate_hex_color;
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1CreateCategoryPayload {
