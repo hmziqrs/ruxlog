@@ -27,7 +27,7 @@ Wiring:
 
 ## 2) Newsletter Module (`newsletter_v1`)
 Why: Direct audience engagement with minimal surface area.
-Status: In progress — Routes wired and DB/migration added. Verified subscribe (201) and confirm; unsubscribe with invalid token returns expected error. Admin send/list require auth; subscribe is rate-limited; sending is synchronous for now.
+Status: Completed — Verified subscribe (201), confirm (200), unsubscribe (200 valid / 403 invalid), admin subscribers/list (200), and admin send (202 queued async). Routes wired; migration in place; rate limiting active.
 
 
 Required Endpoints:
