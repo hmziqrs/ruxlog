@@ -63,6 +63,7 @@ Wiring:
 
 ## 3) Post Content Enhancements (extend `post_v1`)
 Why: Improve writing flow without introducing a new `content` module.
+Status: Completed — Implemented autosave, revisions list/restore, schedule, series CRUD and add/remove; routes wired; SeaORM models and migrations added; verified via tests/api_smoke.sh (covers new endpoints).
 
 Required Endpoints (all under /post/v1):
 - POST /post/v1/autosave — Autosave draft for a post
@@ -81,6 +82,7 @@ Implementation Notes:
 - Keep last N (e.g., 10) revisions per post
 - Scheduled publishing via background job
 - Series slug + order index for posts in series
+- Smoke tests: `tests/api_smoke.sh` runs end-to-end (login, idempotent seeding, autosave, revisions list/restore, schedule, series CRUD/add/remove, query, sitemap, publish list, track view, update, delete)
 
 Wiring:
 - Router: extend `post_v1_routes` in `src/router.rs` (inside the author-protected section) to add:

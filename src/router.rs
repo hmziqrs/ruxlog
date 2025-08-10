@@ -52,6 +52,34 @@ pub fn router() -> Router<AppState> {
         .route("/create", post(post_v1::controller::create))
         .route("/update/{post_id}", post(post_v1::controller::update))
         .route("/delete/{post_id}", post(post_v1::controller::delete))
+        .route("/autosave", post(post_v1::controller::autosave))
+        .route(
+            "/revisions/{post_id}/list",
+            post(post_v1::controller::revisions_list),
+        )
+        .route(
+            "/revisions/{post_id}/restore/{revision_id}",
+            post(post_v1::controller::revisions_restore),
+        )
+        .route("/schedule", post(post_v1::controller::schedule))
+        .route("/series/create", post(post_v1::controller::series_create))
+        .route(
+            "/series/update/{series_id}",
+            post(post_v1::controller::series_update),
+        )
+        .route(
+            "/series/delete/{series_id}",
+            post(post_v1::controller::series_delete),
+        )
+        .route("/series/list", post(post_v1::controller::series_list))
+        .route(
+            "/series/add/{post_id}/{series_id}",
+            post(post_v1::controller::series_add),
+        )
+        .route(
+            "/series/remove/{post_id}/{series_id}",
+            post(post_v1::controller::series_remove),
+        )
         .route_layer(middleware::from_fn(user_permission::author))
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend))
