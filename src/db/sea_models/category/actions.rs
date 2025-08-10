@@ -4,10 +4,6 @@ use sea_orm::{entity::prelude::*, Condition, Order, QueryOrder, Set};
 use super::*;
 use crate::utils::color::{derive_text_color, DEFAULT_BG_COLOR};
 
-// moved to utils::color
-
-// moved to utils::color
-
 impl Entity {
     const PER_PAGE: u64 = 20;
 

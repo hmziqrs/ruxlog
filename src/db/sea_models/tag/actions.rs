@@ -4,14 +4,6 @@ use sea_orm::{entity::prelude::*, Condition, Order, QueryOrder, Set};
 use super::*;
 use crate::utils::color::{derive_text_color, DEFAULT_BG_COLOR};
 
-fn parse_hex_to_rgb(hex: &str) -> Option<(u8, u8, u8)> {
-    crate::utils::color::parse_hex_to_rgb(hex)
-}
-
-fn contrast_text_for_bg(hex: &str) -> String {
-    crate::utils::color::contrast_text_for_bg(hex)
-}
-
 impl Entity {
     pub const PER_PAGE: u64 = 20;
 
