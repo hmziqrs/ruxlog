@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_k84NYAWCep
 createdAt: 2025-05-02T09:19:18.295188
-updatedAt: 2025-05-02T09:19:18.295188
+updatedAt: 2025-08-10T08:50:14.789671
 workspaceId: wk_udoUbrFfLp
 folderId: fl_jatCY2DVY4
 authentication: {}
@@ -28,8 +28,8 @@ headers:
   name: Content-Type
   value: application/json
   id: XMCGBm0fnd
-method: GET
+method: POST
 name: ''
-sortPriority: 3000.001
-url: ${[ host ]}/tag/v1/view/131
+sortPriority: 3000.0009765625
+url: ${[ host ]}/tag/v1/view/11
 urlParameters: []
