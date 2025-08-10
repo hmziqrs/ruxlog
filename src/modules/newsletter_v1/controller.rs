@@ -130,8 +130,7 @@ pub async fn send(
     let subscribers = SubscriberEntity::find()
         .filter(SubscriberColumn::Status.eq(SubscriberStatus::Confirmed))
         .all(&state.sea_db)
-        .await
-        .map_err(|e| e.into())?;
+        .await?;
 
     let mut sent_count: u64 = 0;
     for sub in subscribers {

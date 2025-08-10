@@ -62,28 +62,42 @@ impl MigrationTrait for Migration {
                             .timestamp_with_time_zone()
                             .not_null(),
                     )
-                    // Unique email
-                    .index(
-                        Index::create()
-                            .name("uq_newsletter_subscribers_email")
-                            .col(NewsletterSubscribers::Email)
-                            .unique(),
-                    )
-                    // Status index for admin listings
-                    .index(
-                        Index::create()
-                            .name("idx_newsletter_subscribers_status")
-                            .col(NewsletterSubscribers::Status),
-                    )
-                    // CreatedAt index for pagination/sorting
-                    .index(
-                        Index::create()
-                            .name("idx_newsletter_subscribers_created_at")
-                            .col(NewsletterSubscribers::CreatedAt),
-                    )
                     .to_owned(),
             )
-            .await
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("uq_newsletter_subscribers_email")
+                    .table(NewsletterSubscribers::Table)
+                    .col(NewsletterSubscribers::Email)
+                    .unique()
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_newsletter_subscribers_status")
+                    .table(NewsletterSubscribers::Table)
+                    .col(NewsletterSubscribers::Status)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_newsletter_subscribers_created_at")
+                    .table(NewsletterSubscribers::Table)
+                    .col(NewsletterSubscribers::CreatedAt)
+                    .to_owned(),
+            )
+            .await?;
+
+        Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
