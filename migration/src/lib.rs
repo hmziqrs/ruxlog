@@ -11,6 +11,7 @@ mod m20250502_000008_create_post_view_table;
 mod m20250503_000001_create_asset_table;
 mod m20250509_000009_alter_tag_add_appearance;
 mod m20250510_000010_alter_category_add_color_is_active;
+mod m20250811_000011_create_newsletter_subscribers_table;
 
 pub struct Migrator;
 
@@ -29,6 +30,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250503_000001_create_asset_table::Migration),
             Box::new(m20250509_000009_alter_tag_add_appearance::Migration),
             Box::new(m20250510_000010_alter_category_add_color_is_active::Migration),
+            Box::new(m20250811_000011_create_newsletter_subscribers_table::Migration),
         ]
     }
 }
