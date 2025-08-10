@@ -1,5 +1,4 @@
 use sea_orm_migration::prelude::*;
-// Import the user model from your main project
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -13,7 +12,6 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // Create users table
         manager
             .create_table(
                 Table::create()
@@ -79,7 +77,6 @@ impl MigrationTrait for Migration {
     }
 }
 
-// Define an Iden for the custom user_role type
 #[derive(Iden)]
 enum UserRole {
     #[iden = "user_role"]

@@ -1,7 +1,6 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-// Define the user role enum
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "user_role")]
 #[serde(rename_all = "kebab-case")]
@@ -71,7 +70,6 @@ impl From<UserRole> for i32 {
     }
 }
 
-// Define the entity for 'users' table
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "users")]
 pub struct Model {
@@ -114,7 +112,6 @@ impl Model {
     }
 }
 
-// Define the relations
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(has_many = "super::super::email_verification::Entity")]
@@ -143,7 +140,6 @@ impl Related<super::super::post::Entity> for Entity {
     }
 }
 
-// ActiveModel is the mutable version of Model
 impl ActiveModelBehavior for ActiveModel {
     // Add custom ActiveModel behavior here if needed
 }

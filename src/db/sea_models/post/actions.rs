@@ -26,7 +26,6 @@ impl Entity {
         Ok(sanitized_ids)
     }
 
-    // Create a new post
     pub async fn create(conn: &DbConn, new_post: NewPost) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
 
@@ -56,7 +55,6 @@ impl Entity {
         }
     }
 
-    // Update an existing post
     pub async fn update(
         conn: &DbConn,
         post_id: i32,
@@ -122,7 +120,6 @@ impl Entity {
         }
     }
 
-    // Delete post
     pub async fn delete(conn: &DbConn, post_id: i32) -> DbResult<u64> {
         match Self::delete_by_id(post_id).exec(conn).await {
             Ok(result) => Ok(result.rows_affected),
@@ -130,7 +127,6 @@ impl Entity {
         }
     }
 
-    // Find post by ID or slug with relations
     pub async fn find_by_id_or_slug(
         conn: &DbConn,
         post_id: Option<i32>,
@@ -153,7 +149,6 @@ impl Entity {
             .join(JoinType::InnerJoin, Relation::User.def())
             .join(JoinType::LeftJoin, Relation::Category.def());
 
-        // Apply filter by ID or slug
         query = match (post_id, post_slug.clone()) {
             (Some(id), _) => query.filter(Column::Id.eq(id)),
             (_, Some(slug)) => query.filter(Column::Slug.eq(slug)),
@@ -178,7 +173,6 @@ impl Entity {
                 }
             }
 
-            // Construct the final PostWithRelations from the joined data
             return Ok(Some(post_data.into_relation(tags)));
         }
 
@@ -190,7 +184,6 @@ impl Entity {
         conn: &DbConn,
         query: PostQuery,
     ) -> DbResult<(Vec<PostWithRelations>, u64)> {
-        // Start with a basic query
         let mut post_query = Self::find();
 
         // If relations are needed, join the related tables
@@ -211,7 +204,6 @@ impl Entity {
             .join(JoinType::InnerJoin, Relation::User.def())
             .join(JoinType::LeftJoin, Relation::Category.def());
 
-        // Apply filters
         if let Some(title_filter) = &query.title {
             let pattern = format!("%{}%", title_filter);
             post_query = post_query.filter(Column::Title.contains(&pattern));
@@ -265,7 +257,6 @@ impl Entity {
             }
         }
 
-        // Handle sort_by fields
         if let Some(sort_fields) = &query.sort_by {
             for field in sort_fields {
                 let order = if query.sort_order.as_deref() == Some("asc") {
@@ -286,7 +277,6 @@ impl Entity {
                 };
             }
         } else {
-            // Default ordering
             let order = if query.sort_order.as_deref() == Some("asc") {
                 Order::Asc
             } else {
@@ -295,17 +285,14 @@ impl Entity {
             post_query = post_query.order_by(Column::CreatedAt, order);
         }
 
-        // Handle pagination
         let page = match query.page_no {
             Some(p) if p > 0 => p,
             _ => 1,
         };
 
-        // Apply pagination and fetch results
         
 
 
-        // Use joined data approach
         let paginated = post_query
             .into_model::<PostWithJoinedData>()
             .paginate(conn, Self::PER_PAGE);
@@ -349,7 +336,6 @@ impl Entity {
         let posts_with_relations: Vec<PostWithRelations> = posts_joined
             .into_iter()
             .map(|joined_data| {
-                // Get post tags for this post
                 let post_tags = joined_data
                     .tag_ids
                     .iter()
@@ -364,7 +350,6 @@ impl Entity {
         Ok((posts_with_relations, total))
     }
 
-    // Find published posts with pagination and relations
     pub async fn find_published_paginated(
         conn: &DbConn,
         query: PostQuery,
@@ -384,7 +369,6 @@ impl Entity {
             tag_ids: query.tag_ids,
         };
 
-        // Use the optimized search method
         Self::search(conn, query).await
     }
 
@@ -408,7 +392,6 @@ impl Entity {
         ip_address: Option<String>,
         user_agent: Option<String>,
     ) -> DbResult<()> {
-        // Create a view record
         let now = chrono::Utc::now().fixed_offset();
         let view = super::super::post_view::ActiveModel {
             post_id: Set(post_id),
@@ -419,7 +402,6 @@ impl Entity {
             ..Default::default()
         };
 
-        // Use a transaction manually
         let transaction = conn.begin().await?;
 
         // Insert the view
@@ -431,7 +413,6 @@ impl Entity {
             }
         }
 
-        // Increment view count in the post
         let post = Self::find_by_id(post_id).one(&transaction).await?;
         if let Some(post_model) = post {
             let mut post_active: ActiveModel = post_model.into();

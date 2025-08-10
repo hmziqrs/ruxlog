@@ -7,7 +7,6 @@ use super::*;
 impl Entity {
     pub const PER_PAGE: u64 = 20;
 
-    // Create a new user
     pub async fn create(conn: &DbConn, new_user: NewUser) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
         let hash = task::spawn_blocking(move || password_auth::generate_hash(new_user.password))
@@ -25,7 +24,6 @@ impl Entity {
             updated_at: Set(now),
             ..Default::default()
         };
-        // create a transaction
         let transaction = conn.begin().await.map_err(|_| {
             ErrorResponse::new(ErrorCode::TransactionError)
                 .with_message("Failed to begin transaction")
@@ -49,13 +47,11 @@ impl Entity {
         }
     }
 
-    // Update an existing user
     pub async fn update(
         conn: &DbConn,
         user_id: i32,
         update_user: UpdateUser,
     ) -> DbResult<Option<Model>> {
-        // Find the user by ID
         let user: Option<Model> = match Self::find_by_id(user_id).one(conn).await {
             Ok(user) => user,
             Err(err) => return Err(err.into()),
@@ -83,7 +79,6 @@ impl Entity {
         }
     }
 
-    // Verify a user
     pub async fn verify(conn: &DbConn, user_id: i32) -> DbResult<Model> {
         let user = Self::find_by_id_with_404(conn, user_id).await?;
         let mut user_active: ActiveModel = user.into();
@@ -97,7 +92,6 @@ impl Entity {
         }
     }
 
-    // Change user password
     pub async fn change_password<T: ConnectionTrait>(
         conn: &T,
         user_id: i32,
@@ -120,7 +114,6 @@ impl Entity {
         }
     }
 
-    // Find user by ID
     pub async fn get_by_id(conn: &DbConn, user_id: i32) -> DbResult<Option<Model>> {
         match Self::find_by_id(user_id).one(conn).await {
             Ok(model) => Ok(model),
@@ -128,7 +121,6 @@ impl Entity {
         }
     }
     
-    // Find user by ID with not found handling
     pub async fn find_by_id_with_404<T: ConnectionTrait>(conn: &T, user_id: i32) -> DbResult<Model> {
         match Self::find_by_id(user_id).one(conn).await {
             Ok(Some(model)) => Ok(model),
@@ -138,7 +130,6 @@ impl Entity {
         }
     }
 
-    // Find user by email
     pub async fn find_by_email(conn: &DbConn, user_email: String) -> DbResult<Option<Model>> {
         match Self::find()
             .filter(Column::Email.eq(user_email))
@@ -150,7 +141,6 @@ impl Entity {
         }
     }
     
-    // Find user by email and forgot password code
     pub async fn find_by_email_and_forgot_password(
         conn: &DbConn, 
         user_email: String, 
@@ -182,9 +172,7 @@ impl Entity {
         }
     }
 
-    // Admin operations
 
-    // Admin create user
     pub async fn admin_create(conn: &DbConn, new_user: AdminCreateUser) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
         let hash = task::spawn_blocking(move || password_auth::generate_hash(new_user.password))
@@ -210,7 +198,6 @@ impl Entity {
         }
     }
 
-    // Admin update user
     pub async fn admin_update(
         conn: &DbConn,
         user_id: i32,
@@ -260,7 +247,6 @@ impl Entity {
         }
     }
 
-    // Admin delete user
     pub async fn admin_delete(conn: &DbConn, user_id: i32) -> DbResult<u64> {
         match Self::delete_by_id(user_id).exec(conn).await {
             Ok(result) => Ok(result.rows_affected),
@@ -268,14 +254,12 @@ impl Entity {
         }
     }
 
-    // Find users with query parameters for admin
     pub async fn admin_list(
         conn: &DbConn,
         query: AdminUserQuery,
     ) -> DbResult<(Vec<Model>, u64)> {
         let mut user_query = Self::find();
 
-        // Apply filters
         if let Some(email_filter) = query.email {
             let email_pattern = format!("%{}%", email_filter);
             user_query = user_query.filter(Column::Email.contains(&email_pattern));
@@ -302,7 +286,6 @@ impl Entity {
             user_query = user_query.filter(Column::UpdatedAt.eq(updated_at_filter));
         }
 
-        // Handle sort_by fields
         if let Some(sort_fields) = &query.sort_by {
             for field in sort_fields {
                 let order = if query.sort_order.as_deref() == Some("asc") {
@@ -322,7 +305,6 @@ impl Entity {
                 };
             }
         } else {
-            // Default ordering
             let order = if query.sort_order.as_deref() == Some("asc") {
                 Order::Asc
             } else {
@@ -331,7 +313,6 @@ impl Entity {
             user_query = user_query.order_by(Column::Id, order);
         }
 
-        // Handle pagination
         let page = match query.page_no {
             Some(p) if p > 0 => p,
             _ => 1,
@@ -339,7 +320,6 @@ impl Entity {
         
         let paginator = user_query.paginate(conn, Self::PER_PAGE);
         
-        // Get total count and paginated results
         match paginator.num_items().await {
             Ok(total) => match paginator.fetch_page(page - 1).await {
                 Ok(results) => Ok((results, total)),

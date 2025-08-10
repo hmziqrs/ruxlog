@@ -37,7 +37,6 @@ pub async fn seed_tags(State(state): State<AppState>, _auth: AuthSession) -> imp
     let mut tags: Vec<tag::Model> = vec![];
     let mut fake_tags_set: HashSet<String> = HashSet::new();
 
-    // Create 50 fake tags
     for _ in 0..50 {
         let fake_tag = l::Word(EN).fake::<String>();
         fake_tags_set.insert(fake_tag);
@@ -384,7 +383,6 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
         }
     }
 
-    // Create 10 categories
     let mut categories: Vec<category::Model> = vec![];
     for _ in 0..10 {
         let fake_name: FakeWord = Faker.fake();
@@ -410,7 +408,6 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
         }
     }
 
-    // Create 50 tags
     let mut tags: Vec<tag::Model> = vec![];
     for _ in 0..50 {
         let fake_name: FakeWord = Faker.fake();
@@ -433,7 +430,6 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
         }
     }
 
-    // Create posts for authors
     for user in fake_users.iter() {
         if user.role == UserRole::Author {
             let num_posts = rng.random_range(2..16);

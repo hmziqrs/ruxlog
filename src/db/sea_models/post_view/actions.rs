@@ -6,7 +6,6 @@ use super::*;
 impl Entity {
     const PER_PAGE: u64 = 20;
 
-    // Create a new post view
     pub async fn create(conn: &DbConn, new_post_view: NewPostView) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
         let post_view = ActiveModel {
@@ -24,7 +23,6 @@ impl Entity {
         }
     }
 
-    // Find post views by post_id
     pub async fn find_by_post_id(
         conn: &DbConn,
         post_id: i32,
@@ -32,7 +30,6 @@ impl Entity {
     ) -> DbResult<(Vec<Model>, u64)> {
         let mut post_view_query = Self::find().filter(Column::PostId.eq(post_id));
 
-        // Apply filters
         if let Some(ip_address) = &query.ip_address {
             post_view_query = post_view_query.filter(Column::IpAddress.eq(ip_address));
         }
@@ -45,7 +42,6 @@ impl Entity {
             post_view_query = post_view_query.filter(Column::CreatedAt.eq(created_at));
         }
 
-        // Handle sort_by fields
         if let Some(sort_fields) = &query.sort_by {
             for field in sort_fields {
                 let order = if query.sort_order.as_deref() == Some("asc") {
@@ -60,11 +56,9 @@ impl Entity {
                 };
             }
         } else {
-            // Default ordering
             post_view_query = post_view_query.order_by(Column::CreatedAt, Order::Desc);
         }
 
-        // Handle pagination
         let page = match query.page_no {
             Some(p) if p > 0 => p,
             _ => 1,
@@ -72,7 +66,6 @@ impl Entity {
         
         let paginator = post_view_query.paginate(conn, Self::PER_PAGE);
         
-        // Get total count and paginated results
         match paginator.num_items().await {
             Ok(total) => match paginator.fetch_page(page - 1).await {
                 Ok(results) => Ok((results, total)),
@@ -82,7 +75,6 @@ impl Entity {
         }
     }
 
-    // Check if IP address has viewed post in the last 24 hours
     pub async fn has_viewed_recently(
         conn: &DbConn,
         post_id: i32,
@@ -103,7 +95,6 @@ impl Entity {
         Ok(count > 0)
     }
 
-    // Count views by post ID
     pub async fn count_by_post_id(conn: &DbConn, post_id: i32) -> DbResult<i64> {
         let count = Self::find()
             .filter(Column::PostId.eq(post_id))

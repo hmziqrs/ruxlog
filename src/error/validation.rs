@@ -11,9 +11,7 @@ impl IntoErrorResponse for JsonRejection {
     fn into_error_response(self) -> ErrorResponse {
         match self {
             JsonRejection::JsonDataError(err) => {
-                // Check if this is a validation error
                 if let Some(validation_err) = err.source().and_then(|source| source.downcast_ref::<ValidationErrors>()) {
-                    // Convert ValidationErrors to a JSON-serializable format
                     let error_json = serde_json::to_value(validation_err).unwrap_or(Value::Null);
                     
                     ErrorResponse::new(ErrorCode::InvalidInput)
@@ -62,9 +60,7 @@ impl IntoErrorResponse for FormRejection {
     fn into_error_response(self) -> ErrorResponse {
         match self {
             FormRejection::FailedToDeserializeForm(err) => {
-                // Check if this is a validation error
                 if let Some(validation_err) = err.source().and_then(|source| source.downcast_ref::<ValidationErrors>()) {
-                    // Convert ValidationErrors to a JSON-serializable format
                     let error_json = serde_json::to_value(validation_err).unwrap_or(Value::Null);
                     
                     ErrorResponse::new(ErrorCode::InvalidInput)
@@ -113,9 +109,7 @@ impl IntoErrorResponse for QueryRejection {
     fn into_error_response(self) -> ErrorResponse {
         match self {
             QueryRejection::FailedToDeserializeQueryString(err) => {
-                // Check if this is a validation error
                 if let Some(validation_err) = err.source().and_then(|source| source.downcast_ref::<ValidationErrors>()) {
-                    // Convert ValidationErrors to a JSON-serializable format
                     let error_json = serde_json::to_value(validation_err).unwrap_or(Value::Null);
                     
                     ErrorResponse::new(ErrorCode::InvalidInput)

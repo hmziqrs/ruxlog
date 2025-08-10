@@ -2,7 +2,6 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-// Define the post status enum
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "post_status")]
 pub enum PostStatus {
@@ -24,7 +23,6 @@ impl fmt::Display for PostStatus {
     }
 }
 
-// Define the entity for 'posts' table
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "posts")]
 pub struct Model {
@@ -48,7 +46,6 @@ pub struct Model {
     pub updated_at: DateTimeWithTimeZone,
 }
 
-// Define the relations
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
@@ -68,7 +65,6 @@ pub enum Relation {
     )]
     Category,
     // We're using a tag_ids array directly in the Post model for now
-    // For a real many-to-many we'd use a join table,
     // but for now, just removing this relation
 }
 
@@ -96,7 +92,5 @@ impl Related<super::super::category::Entity> for Entity {
     }
 }
 
-// Tags are stored as array directly in the post model
 
-// ActiveModel is the mutable version of Model
 impl ActiveModelBehavior for ActiveModel {}

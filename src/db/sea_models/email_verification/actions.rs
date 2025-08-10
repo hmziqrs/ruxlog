@@ -4,11 +4,9 @@ use sea_orm::{entity::prelude::*, Order, QueryOrder, Set};
 
 use super::*;
 
-// Admin-specific constants
 const ADMIN_PER_PAGE: u64 = 20;
 
 impl Entity {
-    // Create a new email verification record
     pub async fn create<T: ConnectionTrait>(conn: &T, user_id: i32) -> DbResult<Model> {
         let code = Self::generate_code();
         let now = Utc::now().fixed_offset();
@@ -26,7 +24,6 @@ impl Entity {
         }
     }
 
-    // Find email verification record by user_id and code
     pub async fn find_by_user_id_or_code(
         conn: &DbConn,
         user_id: Option<i32>,
@@ -59,7 +56,6 @@ impl Entity {
         
     }
 
-    // Update email verification record
     pub async fn update(
         conn: &DbConn,
         verification_id: i32,
@@ -88,12 +84,10 @@ impl Entity {
         }
     }
 
-    // Regenerate a verification code for a user
     pub async fn regenerate(conn: &DbConn, user_id: i32) -> DbResult<Model> {
         let now = Utc::now().fixed_offset();
         let new_code = Self::generate_code();
 
-        // Create the active model
         let verification = ActiveModel {
             user_id: Set(user_id),
             code: Set(new_code.clone()),
@@ -101,7 +95,6 @@ impl Entity {
             ..Default::default()
         };
 
-        // Use Sea-ORM's insert or update functionality
         let result = Entity::insert(verification)
             .on_conflict(
                 sea_orm::sea_query::OnConflict::column(Column::UserId)
@@ -117,14 +110,12 @@ impl Entity {
         }
     }
 
-    // Admin query for email verifications with pagination and filtering
     pub async fn admin_query(
         conn: &DbConn,
         query: &AdminEmailVerificationQuery,
     ) -> DbResult<(Vec<Model>, u64)> {
         let mut db_query = Self::find();
 
-        // Apply filters
         if let Some(user_id) = query.user_id {
             db_query = db_query.filter(Column::UserId.eq(user_id));
         }
@@ -141,7 +132,6 @@ impl Entity {
             db_query = db_query.filter(Column::UpdatedAt.gte(updated_at));
         }
 
-        // Apply sorting
         if let (Some(sort_by), Some(sort_order)) = (&query.sort_by, &query.sort_order) {
             for field in sort_by {
                 let order = if sort_order == "asc" {
@@ -160,11 +150,9 @@ impl Entity {
                 }
             }
         } else {
-            // Default sort by id descending
             db_query = db_query.order_by(Column::Id, Order::Desc);
         }
 
-        // Handle pagination
         let page = match query.page_no {
             Some(p) if p > 0 => p as u64,
             _ => 1,
@@ -172,7 +160,6 @@ impl Entity {
 
         let paginator = db_query.paginate(conn, ADMIN_PER_PAGE);
 
-        // Get total count and paginated results
         match paginator.num_items().await {
             Ok(total) => match paginator.fetch_page(page - 1).await {
                 Ok(results) => Ok((results, total)),

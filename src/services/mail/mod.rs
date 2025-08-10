@@ -34,7 +34,6 @@ pub async fn send_email_verification_code(
     let no_reply = format!("No reply <no-reply@{}>", DOMAIN);
     let subject = "Email verification code";
     let body = html_templates::email_otp_html(code);
-    // let body = format!("Verification code: {}", code);
 
     send_email(mailer, email, &no_reply, subject, body).await
 }

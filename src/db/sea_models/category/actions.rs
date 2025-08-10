@@ -7,7 +7,6 @@ use crate::utils::color::{derive_text_color, DEFAULT_BG_COLOR};
 impl Entity {
     const PER_PAGE: u64 = 20;
 
-    // Create a new category
     pub async fn create(conn: &DbConn, new_category: NewCategory) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
         let color = new_category
@@ -36,7 +35,6 @@ impl Entity {
         }
     }
 
-    // Update an existing category
     pub async fn update(
         conn: &DbConn,
         category_id: i32,
@@ -101,7 +99,6 @@ impl Entity {
         }
     }
 
-    // Delete a category
     pub async fn delete(conn: &DbConn, category_id: i32) -> DbResult<u64> {
         match Self::delete_by_id(category_id).exec(conn).await {
             Ok(result) => Ok(result.rows_affected),
@@ -109,7 +106,6 @@ impl Entity {
         }
     }
 
-    // Find category by ID
     pub async fn find_by_id_or_slug(
         conn: &DbConn,
         category_id: Option<i32>,
@@ -142,14 +138,12 @@ impl Entity {
         }
     }
 
-    // Find categories with query parameters
     pub async fn find_with_query(
         conn: &DbConn,
         query: CategoryQuery,
     ) -> DbResult<(Vec<Model>, u64)> {
         let mut category_query = Self::find();
 
-        // Handle search filter
         if let Some(search_term) = query.search {
             let search_pattern = format!("%{}%", search_term.to_lowercase());
             category_query = category_query.filter(
@@ -159,12 +153,10 @@ impl Entity {
             );
         }
 
-        // Handle parent_id filter
         if let Some(parent_id_filter) = query.parent_id {
             category_query = category_query.filter(Column::ParentId.eq(parent_id_filter));
         }
 
-        // Handle ordering
         match query.sort_order.as_deref() {
             Some("asc") => {
                 category_query = category_query.order_by(Column::Name, Order::Asc);
@@ -174,14 +166,12 @@ impl Entity {
             }
         }
 
-        // Handle pagination
         let page = match query.page_no {
             Some(p) if p > 0 => p,
             _ => 1,
         };
         let paginator = category_query.paginate(conn, Self::PER_PAGE);
 
-        // Get total count and paginated results
         match paginator.num_items().await {
             Ok(total) => match paginator.fetch_page(page - 1).await {
                 Ok(results) => Ok((results, total)),

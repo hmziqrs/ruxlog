@@ -15,11 +15,9 @@ lazy_static! {
         let patterns = vec![
             r"^/admin/seed/v1",
             r"^/auth/v1/register$",
-            //
             r"^/forgot_password/v1/request$",
             r"^/forgot_password/v1/verify$",
             r"^/forgot_password/v1/reset$",
-            //
             r"^/email_verification/v1/verify$",
             r"^/email_verification/v1/resend$",
         ];
@@ -31,19 +29,15 @@ lazy_static! {
 }
 
 pub async fn block_routes(req: Request, next: Next) -> Result<Response, Response> {
-    // Get path from request
     let path = req.uri().path();
 
-    // Check if we're in development mode
     let is_development =
         env::var("APP_ENV").unwrap_or_else(|_| "development".to_string()) == "development";
 
-    // If we're in development, allow all routes
     if is_development {
         return Ok(next.run(req).await);
     }
 
-    // Check if the path matches any blocked pattern
     for pattern in BLOCKED_ROUTES.iter() {
         if pattern.is_match(path) {
             return Err((

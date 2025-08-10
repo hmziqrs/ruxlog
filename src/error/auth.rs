@@ -10,12 +10,10 @@ impl IntoErrorResponse for AuthError {
             AuthError::InvalidCredentials => ErrorResponse::new(ErrorCode::InvalidCredentials),
             AuthError::PasswordVerificationError => {
                 // Map to the same error code as invalid credentials for security
-                // (don't reveal if the user exists or not)
                 ErrorResponse::new(ErrorCode::InvalidCredentials)
             }
             AuthError::UserNotFound => {
                 // In APIs, we might want to map this to InvalidCredentials as well
-                // to avoid leaking information about existing users
                 ErrorResponse::new(ErrorCode::InvalidCredentials)
             }
             AuthError::Unauthorized => ErrorResponse::new(ErrorCode::Unauthorized),

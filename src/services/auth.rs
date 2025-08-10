@@ -39,7 +39,6 @@ impl std::fmt::Debug for AuthBackend {
 impl IntoResponse for AuthError {
     fn into_response(self) -> axum::http::Response<axum::body::Body> {
         // Convert AuthError to our standard ErrorResponse using the conversion
-        // defined in error/auth.rs
         let error_response: ErrorResponse = self.into();
         error_response.into_response()
     }
@@ -102,18 +101,15 @@ impl AuthnBackend for AuthBackend {
     ) -> Result<Option<Self::User>, Self::Error> {
         match creds {
             Credentials::Password(password_creds) => {
-                // Find user by email
                 let user_result =
                     user::Entity::find_by_email(&self.pool, password_creds.email).await;
 
                 let user = match user_result {
                     Ok(Some(user)) => user,
                     Ok(None) => {
-                        // Don't reveal whether the user exists or not for security reasons
                         return Ok(None);
                     }
                     Err(err) => {
-                        // Convert ErrorResponse to AuthError::DatabaseError
                         return Err(AuthError::DatabaseError(err));
                     }
                 };
@@ -137,7 +133,6 @@ impl AuthnBackend for AuthBackend {
                 if password_valid {
                     Ok(Some(user))
                 } else {
-                    // Don't reveal that the password was incorrect (as opposed to user not existing)
                     Ok(None)
                 }
             } // Add other credential types here if needed
@@ -149,9 +144,7 @@ impl AuthnBackend for AuthBackend {
         user::Entity::get_by_id(&self.pool, *user_id)
             .await
             .map_err(|err| {
-                // Log the error for debugging purposes
                 eprintln!("Error retrieving user {}: {:?}", user_id, err);
-                // Convert ErrorResponse to AuthError::DatabaseError
                 AuthError::DatabaseError(err)
             })
     }

@@ -6,7 +6,6 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        // Create post_status enum type
 
         manager
             .get_connection()
@@ -15,7 +14,6 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // Create posts table
         manager
             .create_table(
                 Table::create()

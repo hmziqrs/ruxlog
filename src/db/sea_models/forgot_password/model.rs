@@ -33,11 +33,9 @@ impl Related<super::super::user::Entity> for Entity {
 impl ActiveModelBehavior for ActiveModel {}
 
 impl Entity {
-    // Constants for timing
     pub const DELAY_TIME: Duration = Duration::minutes(1);
     pub const EXPIRY_TIME: Duration = Duration::hours(3);
 
-    // Generate a random verification code
     pub fn generate_code() -> String {
         rand::rng()
             .sample_iter(&Alphanumeric)
@@ -49,12 +47,10 @@ impl Entity {
 }
 
 impl Model {
-    // Check if a forgot password code has expired
     pub fn is_expired(&self) -> bool {
         Utc::now().fixed_offset() > self.updated_at + Entity::EXPIRY_TIME
     }
 
-    // Check if a forgot password code is still in the delay period
     pub fn is_in_delay(&self) -> bool {
         let delay_time = self.updated_at + Entity::DELAY_TIME;
         Utc::now().fixed_offset() < delay_time

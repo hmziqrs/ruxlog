@@ -48,7 +48,6 @@ pub async fn limiter(
             return Err(ErrorResponse::new(ErrorCode::TooManyAttempts)
                 .with_message("You have been temporarily blocked due to too many verification attempts. Please try again later"));
         } else {
-            // Unblock the user if the block duration has passed
             let _: () = redis_pool.del(&block_key).await.unwrap();
         }
     }
@@ -89,7 +88,6 @@ pub async fn limiter(
         .await
         .unwrap();
 
-    // Block the user if the limits are exceeded
     if temp_block_attempts > config.temp_block_attempts {
         let block_until = current_time + config.temp_block_duration;
         let _: () = redis_pool

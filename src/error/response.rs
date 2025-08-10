@@ -71,7 +71,6 @@ impl ErrorResponse {
     
     /// Add detailed information (only included in development mode)
     pub fn with_details(mut self, details: impl Into<String>) -> Self {
-        // In production, this should check an environment variable
         // and only include details in development mode
         #[cfg(debug_assertions)]
         {
@@ -85,7 +84,6 @@ impl ErrorResponse {
         match serde_json::to_value(context) {
             Ok(value) => self.context = Some(value),
             Err(err) => {
-                // Log the error but don't fail
                 eprintln!("Failed to serialize error context: {}", err);
             }
         }
@@ -103,11 +101,9 @@ impl IntoResponse for ErrorResponse {
     fn into_response(self) -> axum::response::Response {
         use axum::http::StatusCode;
         
-        // Get the status code
         let status = StatusCode::from_u16(self.status)
             .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
         
-        // Log the error if it's a server error (5xx)
         if status.is_server_error() {
             eprintln!("Server error {}: {}", self.code, self.message);
             if let Some(details) = &self.details {
@@ -115,7 +111,6 @@ impl IntoResponse for ErrorResponse {
             }
         }
         
-        // Convert to a response
         (status, Json(self)).into_response()
     }
 }

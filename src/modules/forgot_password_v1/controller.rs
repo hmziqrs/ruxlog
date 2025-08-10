@@ -153,7 +153,6 @@ pub async fn reset(
             return Err(err.to_owned().into());
         }
     }
-    // SAFETY: `result` is checked to be `Some` above
     let res = result.unwrap();
     match forgot_password::Entity::reset(&state.sea_db, res.user_id, payload.password.clone()).await {
         Ok(_) => {

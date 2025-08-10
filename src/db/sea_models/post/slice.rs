@@ -72,7 +72,6 @@ pub struct PostAuthor {
     pub avatar: Option<String>,
 }
 
-// Consolidated post model with all possible relations and stats
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PostWithRelations {
     // Core post data
@@ -93,7 +92,6 @@ pub struct PostWithRelations {
     pub tags: Vec<PostTag>,
     pub author: PostAuthor,
 
-    // Additional counters that might be populated from joins
     pub comment_count: i64,
 }
 
@@ -142,7 +140,6 @@ pub struct PostWithJoinedData {
     // Category fields from join
     pub category_name: String,
 
-    // Comment count from subquery
     pub comment_count: i64,
 }
 

@@ -34,7 +34,6 @@ impl Related<super::super::user::Entity> for Entity {
 impl ActiveModelBehavior for ActiveModel {}
 
 impl Entity {
-    // Get assets by owner
     pub async fn find_by_owner(
         db: &DbConn,
         owner_id: i32,
@@ -45,7 +44,6 @@ impl Entity {
             .await
     }
 
-    // Get assets by context
     pub async fn find_by_context(
         db: &DbConn,
         context: &str,
@@ -58,7 +56,6 @@ impl Entity {
 }
 
 impl Model {
-    // Calculate asset file size in human-readable format
     pub fn human_readable_size(&self) -> String {
         match self.size {
             Some(size) => {
@@ -76,7 +73,6 @@ impl Model {
         }
     }
 
-    // Get file extension from mime_type or filename
     pub fn get_extension(&self) -> Option<String> {
         if let Some(ref file_name) = self.file_name {
             let parts: Vec<&str> = file_name.split('.').collect();

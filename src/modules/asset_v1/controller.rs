@@ -27,7 +27,6 @@ pub async fn upload(
     auth: AuthSession,
     mut multipart: Multipart,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    // Get owner_id from auth session, return error if not authenticated
     let owner_id = match auth.user {
         Some(user) => user.id,
         None => {
@@ -73,12 +72,10 @@ pub async fn upload(
                 payload.context = Some(text);
             }
             _ => {
-                // Ignore unknown fields
             }
         }
     }
 
-    // Validate we have file data
     let file_data = file_data.ok_or_else(|| {
         ErrorResponse::new(ErrorCode::MissingRequiredField).with_message("No file provided")
     })?;
@@ -87,13 +84,11 @@ pub async fn upload(
         ErrorResponse::new(ErrorCode::MissingRequiredField).with_message("No filename provided")
     })?;
 
-    // Check file size limitations (10MB limit example)
     if file_data.len() > 10 * 1024 * 1024 {
         return Err(ErrorResponse::new(ErrorCode::FileTooLarge)
             .with_message("File size exceeds the maximum allowed size of 10MB"));
     }
 
-    // Validate file type if needed
     if let Some(mime_type) = &payload.mime_type {
         let allowed_types = [
             "image/jpeg",
@@ -112,7 +107,6 @@ pub async fn upload(
         }
     }
 
-    // Generate a unique filename with a UUID
     let extension = match file_name.split('.').last() {
         Some(ext) => format!(".{}", ext),
         None => String::new(),
@@ -122,16 +116,13 @@ pub async fn upload(
 
     println!("Unique filename: {}", unique_filename);
 
-    // Upload the file to R2 - Create the ByteStream without cloning
     let byte_stream = ByteStream::from(file_data);
 
-    // Use the content type from the payload or default
     let content_type = payload
         .mime_type
         .as_deref()
         .unwrap_or("application/octet-stream");
 
-    // Upload to R2
     match state
         .s3_client
         .put_object()
@@ -143,10 +134,8 @@ pub async fn upload(
         .await
     {
         Ok(_) => {
-            // Construct the file URL
             let file_url = format!("{}/{}", state.r2.public_url, unique_filename);
 
-            // Create the asset record in the database
             payload.file_url = file_url.clone();
 
             match Asset::create(&state.sea_db, payload).await {
@@ -191,7 +180,6 @@ pub async fn delete(
     // auth: AuthSession,
     Path(asset_id): Path<i32>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    // Find the asset to get the file URL
     let asset = match Asset::find_by_id_or_filename(&state.sea_db, Some(asset_id), None).await {
         Ok(Some(asset)) => asset,
         Ok(None) => {
@@ -203,12 +191,10 @@ pub async fn delete(
         }
     };
 
-    // Extract the filename from the URL
     let file_name = asset.file_url.split('/').last().ok_or_else(|| {
         ErrorResponse::new(ErrorCode::InvalidValue).with_message("Invalid file URL")
     })?;
 
-    // Delete the file from R2
     state
         .s3_client
         .delete_object()
@@ -221,7 +207,6 @@ pub async fn delete(
                 .with_message(&format!("Failed to delete file from storage: {}", e))
         })?;
 
-    // Delete the asset record from the database
     match Asset::delete(&state.sea_db, asset_id).await {
         Ok(1) => Ok((
             StatusCode::OK,

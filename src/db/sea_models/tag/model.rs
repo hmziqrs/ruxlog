@@ -1,7 +1,6 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-// Define the entity for 'tags' table
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "tags")]
 pub struct Model {
@@ -17,9 +16,7 @@ pub struct Model {
     pub updated_at: DateTimeWithTimeZone,
 }
 
-// Define the relations
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {}
 
-// ActiveModel is the mutable version of Model
 impl ActiveModelBehavior for ActiveModel {}

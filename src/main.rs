@@ -22,7 +22,6 @@ use tower_http::{
     limit::RequestBodyLimitLayer,
 };
 
-// use axum_csrf::{CsrfConfig, CsrfLayer, Key as CsrfKey};
 use axum_extra::extract::cookie::SameSite;
 use services::{auth::AuthBackend, redis::init_redis_store};
 pub use state::AppState;
@@ -69,7 +68,6 @@ fn get_allowed_origins() -> Vec<HeaderValue> {
     .map(|val| val.to_string())
     .collect();
 
-    // Get additional origins from environment variable
     if let Ok(env_allowed_origin) = env::var("ALLOWED_ORIGINS") {
         let env_origins: Vec<String> = env_allowed_origin
             .split(',')
@@ -100,16 +98,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let cookie_key_str = env::var("COOKIE_KEY").expect("COOKIE_KEY must be set");
-    // let csrf_key_str = env::var("CSRF_KEY").expect("CSRF_KEY must be set");
 
-    // Initialize SeaORM connection
     let sea_db = db::sea_connect::get_sea_connection().await;
 
     let backend = AuthBackend::new(&sea_db);
     let (redis_pool, redis_connection) = init_redis_store().await?;
     let mailer = services::mail::smtp::create_connection().await;
 
-    // Initialize AppConfig with R2 settings from environment
     let mut r2 = state::R2Config {
         region: env::var("R2_REGION").unwrap_or_else(|_| "auto".to_string()),
         account_id: env::var("R2_ACCOUNT_ID").expect("R2_ACCOUNT_ID must be set"),
@@ -125,7 +120,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // r2.public_url = format!(
     //     "https://{}.r2.cloudflarestorage.com/{}",
     //     &r2.secret_key, &r2.bucket
-    // );
 
     println!("R2 Config: {:?}", r2);
 
@@ -173,23 +167,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cookie_key_byes = hex_to_512bit_key(&cookie_key_str);
     let cookie_key = Key::from(&cookie_key_byes);
 
-    // let csrf_key_byes = hex_to_512bit_key(&csrf_key_str);
-    // let csrf_key = CsrfKey::from(&csrf_key_byes);
-    // let csrf_config = CsrfConfig::default()
-    //     .with_key(Some(csrf_key))
-    //     .with_secure(true)
-    //     .with_cookie_same_site(SameSite::Strict);
-    // .with_cookie_domain(Some("127.0.0.1"));
-    // let cookie_domain = env::var("COOKIE_DOMAIN").unwrap_or_else(|_| "hmziq.rs".to_string());
 
     let session_layer = SessionManagerLayer::new(session_store)
         .with_expiry(Expiry::OnInactivity(time::Duration::hours(24 * 14)))
         .with_same_site(SameSite::Lax)
         .with_secure(false)
         .with_http_only(false)
-        // .with_domain("hmziq.rs")
-        // .with_domain("localhost")
-        // .with_domain("hmziq.rs")
         .with_private(cookie_key);
 
     let compression = CompressionLayer::new();
@@ -213,44 +196,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN,
             axum::http::header::SET_COOKIE,
         ])
-        // .allow_headers(tower_http::cors::Any)
-        // .expose_headers(tower_http::cors::Any)
-        // .allow_origin(tower_http::cors::Any)
-        // .allow_origin("http://localhost:3000".parse::<HeaderValue>()?)
-        // .allow_origin(allowed_origins)
         .allow_origin(AllowOrigin::list(get_allowed_origins()))
-        // .allow_origin("http://127.0.0.1:3000".parse::<HeaderValue>()?)
         .allow_credentials(true)
-        // .allow_headers()
-        // .allow_origin("*".parse::<HeaderValue>()?)
-        // .allow_credentials(true)
-        // .allow_origin("http://localhost:8000".parse::<HeaderValue>()?)
         .max_age(Duration::from_secs(360));
     let request_size = RequestBodyLimitLayer::new(1024 * 512);
-    // let governor_conf = Arc::new(
-    //     GovernorConfigBuilder::default()
-    //         .per_second(4)
-    //         .burst_size(25)
-    //         .error_handler(|e| {
-    //             let status = StatusCode::TOO_MANY_REQUESTS;
-    //             let body = e.to_string();
     //             (
     //                 status,
-    //                 Json(json!({"error": "Too many requests", "message": body})),
     //             )
-    //                 .into_response()
     //         })
-    //         .finish()
-    //         .unwrap(),
-    // );
-    // let governor_limiter = governor_conf.limiter().clone();
-    // let interval = Duration::from_secs(60);
     // a separate background task to clean up
-    // std::thread::spawn(move || loop {
-    //     std::thread::sleep(interval);
-    //     tracing::info!("rate limiting storage size: {}", governor_limiter.len());
-    //     governor_limiter.retain_recent();
-    // });
 
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
@@ -259,7 +213,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = router::router()
         .layer(ip_config.ip_source.into_extension())
         .layer(auth_layer)
-        // .layer(GovernorLayer {
         //     config: governor_conf,
         // })
         .layer(compression)

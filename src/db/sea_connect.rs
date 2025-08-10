@@ -36,7 +36,6 @@ pub async fn get_sea_connection() -> DatabaseConnection {
         }
     };
 
-    // Test the connection
     if let Err(e) = conn.ping().await {
         panic!("Failed to ping database with SeaORM: {:?}", e);
     }

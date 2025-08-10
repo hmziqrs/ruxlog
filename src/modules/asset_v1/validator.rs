@@ -4,33 +4,21 @@ use validator::Validate;
 
 use crate::db::sea_models::asset::{AssetQuery, NewAsset, UpdateAsset};
 
-// // Struct for file upload with validation
-// #[derive(Debug, Deserialize, Serialize, Validate)]
-// pub struct V1UploadAssetPayload {
-//     // These will be extracted from the multipart form data
 //     // and populated in the controller
 //     #[serde(skip)]
-//     pub file_data: Option<Bytes>,
 
 //     #[serde(skip)]
-//     pub file_name: Option<String>,
 
 //     #[serde(skip)]
-//     pub mime_type: Option<String>,
 
 //     #[serde(skip)]
-//     pub file_size: Option<i32>,
 
 //     // Optional context field to categorize assets
-//     pub context: Option<String>,
 
 //     // owner_id is now derived from auth session
 //     #[serde(skip)]
-//     pub owner_id: Option<i32>,
 // }
 
-// impl V1UploadAssetPayload {
-//     pub fn into_new_asset(self, file_url: String) -> NewAsset {
 //         NewAsset {
 //             file_url,
 //             file_name: self.file_name,

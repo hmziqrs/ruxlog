@@ -7,7 +7,6 @@ use super::*;
 impl Entity {
     const PER_PAGE: u64 = 20;
 
-    // Create a new asset
     pub async fn create(conn: &DbConn, new_asset: NewAsset) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
         let asset = ActiveModel {
@@ -27,7 +26,6 @@ impl Entity {
         }
     }
 
-    // Update an existing asset
     pub async fn update(
         conn: &DbConn,
         asset_id: i32,
@@ -60,7 +58,6 @@ impl Entity {
         }
     }
 
-    // Delete an asset
     pub async fn delete(conn: &DbConn, asset_id: i32) -> DbResult<u64> {
         match Self::delete_by_id(asset_id).exec(conn).await {
             Ok(result) => Ok(result.rows_affected),
@@ -68,7 +65,6 @@ impl Entity {
         }
     }
 
-    // Find asset by ID
     pub async fn find_by_id_or_filename(
         conn: &DbConn,
         asset_id: Option<i32>,
@@ -90,14 +86,12 @@ impl Entity {
     }
 
 
-    // Find assets with query parameters
     pub async fn find_with_query(
         conn: &DbConn,
         query: AssetQuery,
     ) -> DbResult<(Vec<Model>, u64)> {
         let mut asset_query = Self::find();
 
-        // Handle search filter
         if let Some(search_term) = query.search {
             let search_pattern = format!("%{}%", search_term.to_lowercase());
             asset_query = asset_query.filter(
@@ -108,17 +102,14 @@ impl Entity {
             );
         }
 
-        // Handle owner_id filter
         if let Some(owner_id_filter) = query.owner_id {
             asset_query = asset_query.filter(Column::OwnerId.eq(owner_id_filter));
         }
 
-        // Handle context filter
         if let Some(context_filter) = query.context {
             asset_query = asset_query.filter(Column::Context.eq(context_filter));
         }
 
-        // Handle ordering
         match query.sort_order.as_deref() {
             Some("asc") => {
                 asset_query = asset_query.order_by(Column::UploadedAt, Order::Asc);
@@ -128,14 +119,12 @@ impl Entity {
             }
         }
 
-        // Handle pagination
         let page = match query.page_no {
             Some(p) if p > 0 => p,
             _ => 1,
         };
         let paginator = asset_query.paginate(conn, Self::PER_PAGE);
 
-        // Get total count and paginated results
         match paginator.num_items().await {
             Ok(total) => match paginator.fetch_page(page - 1).await {
                 Ok(results) => Ok((results, total)),

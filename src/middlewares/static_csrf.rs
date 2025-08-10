@@ -14,7 +14,6 @@ pub fn get_static_csrf_key() -> String {
     return key;
 }
 
-// pub async fn csrf_gaurd(req: Request, next: Next) -> Result<Response, impl IntoResponse> {
 pub async fn csrf_gaurd(req: Request, next: Next) -> Result<Response, Response> {
     let err_json = Json(
         json!({"error": "invalid request", "message": "requset is from a un verified client" }),
@@ -23,7 +22,6 @@ pub async fn csrf_gaurd(req: Request, next: Next) -> Result<Response, Response> 
         if let Ok(token_str) = token.to_str() {
             use base64::prelude::*;
 
-            // let joined = token_str.to_owned() + "==";
             let parsed_token = BASE64_STANDARD.decode(token_str);
             match parsed_token {
                 Ok(parsed_token) => {

@@ -153,15 +153,12 @@ pub async fn query(
             query_params.author_id = Some(user.id);
         }
         UserRole::Admin | UserRole::SuperAdmin => {
-            // Admins and SuperAdmins can query any author's posts
-            // No modification needed - use the author_id from the request if provided
         }
         UserRole::Moderator => {
             // Moderators can view all posts for moderation purposes
             // No modification needed
         }
         UserRole::User => {
-            // Regular users shouldn't have access to this endpoint
             return Err(
                 ErrorResponse::new(ErrorCode::OperationNotAllowed).with_message("Access denied")
             );

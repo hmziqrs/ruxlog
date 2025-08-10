@@ -20,7 +20,6 @@ pub struct Page {
 
 impl Page {
     pub fn new(page_number: u64, page_size: u64, total_items: u64) -> Self {
-        // Handle page_size = 0 to avoid division by zero
         let total_pages = if page_size == 0 {
             0 // Or perhaps 1 if total_items > 0, depending on desired behavior
         } else {
@@ -42,7 +41,6 @@ impl Page {
     }
 }
 
-// Use async_trait to simplify async trait method definition
 #[async_trait::async_trait]
 pub trait Paginate<E>
 where
@@ -71,25 +69,19 @@ where
         page_number: u64,
         page_size: u64,
     ) -> Result<PagedResult<<E as EntityTrait>::Model>, DbErr> {
-        // Ensure page_number is at least 1 for user-facing display and calculations
         let current_page = if page_number == 0 { 1 } else { page_number };
         // SeaORM's fetch_page is 0-indexed
         let page_index = current_page - 1;
 
-        // Create the paginator using the PaginatorTrait method explicitly
         let paginator = PaginatorTrait::paginate(self, conn, page_size);
 
-        // Get total items first
         let total_items = paginator.num_items().await?;
 
         // Fetch the items for the requested page
-        // Handle potential error if page_index is out of bounds (though num_items should help)
         let items = paginator.fetch_page(page_index).await?;
 
-        // Create the page metadata
         let page = Page::new(current_page, page_size, total_items);
 
-        // Construct the final result
         Ok(PagedResult { data: items, page })
     }
 }

@@ -153,7 +153,6 @@ pub fn router() -> Router<AppState> {
         .nest("/tag/v1", tag_v1_routes)
         .nest("/admin/user/v1", admin_user_v1_routes)
         .nest("/asset/v1", asset_v1::routes())
-        // .nest("/super_admin/v1", super_admin_routes)
         .nest("/admin/seed/v1", seed_routes)
         .layer(TraceLayer::new_for_http())
 }

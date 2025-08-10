@@ -91,7 +91,6 @@ pub async fn find_by_id(
     State(state): State<AppState>,
     Path(tag_id): Path<i32>,
 ) -> impl IntoResponse {
-    // Using our new find_by_id method with built-in not found handling
     Tag::find_by_id_with_404(&state.sea_db, tag_id)
         .await
         .map(|tag| (StatusCode::OK, Json(json!(tag))))
