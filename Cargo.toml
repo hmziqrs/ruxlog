@@ -77,6 +77,9 @@ envy = "0.4.2"
 aws-config = { version = "1.6.2", features = ["behavior-version-latest"] }
 aws-sdk-s3 = "1.83.0"
 uuid = { version = "1.16.0", features = ["v4", "fast-rng"] }
+base32 = "0.4.0"
+hmac = "0.12.1"
+sha1 = "0.10.6"
 urlencoding = "2.1.3"
 
 [[bin]]

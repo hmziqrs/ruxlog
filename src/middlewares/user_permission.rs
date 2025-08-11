@@ -44,6 +44,15 @@ pub async fn moderator(
 }
 pub async fn admin(auth: AuthSession, request: Request, next: Next) -> Result<Response, Response> {
     check_user_role(auth.user, UserRole::Admin)?;
+    if let Some(user) = auth.user {
+        if !user.two_fa_enabled {
+            return Ok((
+                axum::http::StatusCode::FORBIDDEN,
+                axum::Json(serde_json::json!({ "message": "Two-factor authentication required" })),
+            )
+                .into_response());
+        }
+    }
     Ok(next.run(request).await)
 }
 pub async fn super_admin(

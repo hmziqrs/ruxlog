@@ -7,6 +7,8 @@ use axum::{
 use axum_macros::debug_handler;
 
 use axum_client_ip::ClientIp;
+
+use sea_orm::ActiveModelTrait;
 use serde_json::json;
 
 use crate::{
@@ -17,6 +19,7 @@ use crate::{
         V1LoginPayload, V1RegisterPayload, V1TwoFADisablePayload, V1TwoFAVerifyPayload,
     },
     services::auth::{AuthSession, Credentials},
+    utils::twofa,
     AppState,
 };
 
@@ -78,60 +81,142 @@ pub async fn register(
 
 #[debug_handler]
 pub async fn twofa_setup(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     auth: AuthSession,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let user = auth.user.unwrap();
 
-    // Stub secret generation (hex). Real TOTP should use base32 and persist to DB.
-    let secret_bytes: [u8; 20] = rand::random();
-    let secret_hex = hex::encode(secret_bytes);
-    let issuer = "Ruxlog";
-    let label = format!("{}:{}", issuer, user.email);
-    let otpauth_url = format!(
-        "otpauth://totp/{}?secret={}&issuer={}&algorithm=SHA1&digits=6&period=30",
-        urlencoding::encode(&label),
-        secret_hex,
-        urlencoding::encode(issuer)
+    // Generate base32 secret and backup codes, persist to user
+    let secret_b32 = twofa::generate_secret_base32(20);
+    let otpauth_url = twofa::build_otpauth_url(
+        &user.email,
+        "Ruxlog",
+        &secret_b32,
+        twofa::DEFAULT_TOTP_DIGITS,
     );
+
+    // Generate and hash backup codes (store hashes only)
+    let backup_codes = twofa::generate_backup_codes(10);
+    let backup_hashes = twofa::hash_backup_codes(&backup_codes);
+    let backup_hashes_json = serde_json::json!(backup_hashes);
+
+    // Persist on user
+    let existing = user::Entity::find_by_id_with_404(&state.sea_db, user.id).await?;
+    let mut active: user::ActiveModel = existing.into();
+    active.two_fa_enabled = sea_orm::Set(false);
+    active.two_fa_secret = sea_orm::Set(Some(secret_b32.clone()));
+    active.two_fa_backup_codes = sea_orm::Set(Some(backup_hashes_json));
+    active.updated_at = sea_orm::Set(chrono::Utc::now().fixed_offset());
+    let _ = active.update(&state.sea_db).await.map_err(|e| e.into())?;
 
     Ok((
         StatusCode::OK,
         Json(json!({
-            "secret": secret_hex,
+            "secret": secret_b32,
             "otpauth_url": otpauth_url,
+            "backup_codes": backup_codes,
         })),
     ))
 }
 
 #[debug_handler]
 pub async fn twofa_verify(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     auth: AuthSession,
     payload: ValidatedJson<V1TwoFAVerifyPayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let _user = auth.user.unwrap();
-    let _payload = payload.0;
+    let user = auth.user.unwrap();
+    let payload = payload.0;
 
-    Ok((
-        StatusCode::NOT_IMPLEMENTED,
-        Json(json!({ "message": "2FA verification is not implemented yet" })),
-    ))
+    let existing = user::Entity::find_by_id_with_404(&state.sea_db, user.id).await?;
+    let secret = match &existing.two_fa_secret {
+        Some(s) => s.clone(),
+        None => {
+            return Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
+                .with_message("2FA not initialized"))
+        }
+    };
+
+    // If code matches TOTP, enable 2FA. Otherwise, try backup code consumption.
+    let totp_ok = twofa::verify_totp_code_now(&secret, &payload.code);
+
+    if totp_ok {
+        let mut active: user::ActiveModel = existing.into();
+        active.two_fa_enabled = sea_orm::Set(true);
+        active.updated_at = sea_orm::Set(chrono::Utc::now().fixed_offset());
+        let updated = active.update(&state.sea_db).await?;
+        return Ok((StatusCode::OK, Json(json!(updated))));
+    }
+
+    // Try backup code if provided
+    if let Some(backup_code) = payload.backup_code {
+        if let Some(stored) = &existing.two_fa_backup_codes {
+            let stored_vec: Vec<String> =
+                serde_json::from_value(stored.clone()).unwrap_or_else(|_| vec![]);
+            if let Some(updated_hashes) = twofa::consume_backup_code(&stored_vec, &backup_code) {
+                let mut active: user::ActiveModel = existing.into();
+                active.two_fa_enabled = sea_orm::Set(true);
+                active.two_fa_backup_codes = sea_orm::Set(Some(serde_json::json!(updated_hashes)));
+                active.updated_at = sea_orm::Set(chrono::Utc::now().fixed_offset());
+                let updated = active.update(&state.sea_db).await?;
+                return Ok((StatusCode::OK, Json(json!(updated))));
+            }
+        }
+    }
+
+    Err(ErrorResponse::new(ErrorCode::InvalidToken).with_message("Invalid 2FA code"))
 }
 
 #[debug_handler]
 pub async fn twofa_disable(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     auth: AuthSession,
     payload: ValidatedJson<V1TwoFADisablePayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let _user = auth.user.unwrap();
-    let _payload = payload.0;
+    let user = auth.user.unwrap();
+    let payload = payload.0;
 
-    Ok((
-        StatusCode::NOT_IMPLEMENTED,
-        Json(json!({ "message": "2FA disable is not implemented yet" })),
-    ))
+    let existing = user::Entity::find_by_id_with_404(&state.sea_db, user.id).await?;
+
+    // If 2FA is enabled and a code is provided, verify it; allow disable with valid code or backup code
+    if existing.two_fa_enabled {
+        if let Some(code) = payload.code.clone() {
+            let secret = existing.two_fa_secret.clone().unwrap_or_default();
+            let totp_ok = if secret.is_empty() {
+                false
+            } else {
+                twofa::verify_totp_code_now(&secret, &code)
+            };
+
+            let mut backup_ok = false;
+            if !totp_ok {
+                if let Some(stored) = &existing.two_fa_backup_codes {
+                    let stored_vec: Vec<String> =
+                        serde_json::from_value(stored.clone()).unwrap_or_else(|_| vec![]);
+                    backup_ok = twofa::consume_backup_code(&stored_vec, &code).is_some();
+                }
+            }
+
+            if !totp_ok && !backup_ok {
+                return Err(ErrorResponse::new(ErrorCode::InvalidToken)
+                    .with_message("Invalid 2FA or backup code"));
+            }
+        } else {
+            // Require a code if 2FA is enabled
+            return Err(ErrorResponse::new(ErrorCode::MissingRequiredField)
+                .with_message("code is required"));
+        }
+    }
+
+    // Disable and clear secrets
+    let mut active: user::ActiveModel = existing.into();
+    active.two_fa_enabled = sea_orm::Set(false);
+    active.two_fa_secret = sea_orm::Set(None);
+    active.two_fa_backup_codes = sea_orm::Set(None);
+    active.updated_at = sea_orm::Set(chrono::Utc::now().fixed_offset());
+    let updated = active.update(&state.sea_db).await?;
+
+    Ok((StatusCode::OK, Json(json!(updated))))
 }
 
 #[debug_handler]

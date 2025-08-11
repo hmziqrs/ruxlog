@@ -1045,6 +1045,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "349a06037c7bf932dd7e7d1f653678b2038b9ad46a74102f1fc7bd7872678cce"
 
 [[package]]
+name = "base32"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23ce669cd6c8588f79e15cf450314f9638f967fc5770ff1c7c1deb0925ea7cfa"
+
+[[package]]
 name = "base64"
 version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4028,6 +4034,7 @@ dependencies = [
  "axum-macros",
  "axum-valid",
  "axum_csrf",
+ "base32",
  "base64 0.22.1",
  "chrono",
  "dotenv",
@@ -4036,6 +4043,7 @@ dependencies = [
  "fred",
  "governor",
  "hex",
+ "hmac",
  "lazy_static",
  "lettre",
  "log",
@@ -4047,6 +4055,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
+ "sha1",
  "sha2",
  "thiserror 2.0.12",
  "time",
