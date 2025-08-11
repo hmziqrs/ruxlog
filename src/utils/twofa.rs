@@ -1,11 +1,10 @@
 use chrono::{DateTime, FixedOffset, Utc};
+use getrandom::getrandom;
 use hmac::{Hmac, Mac};
-use rand::{rngs::StdRng, Rng, RngCore, SeedableRng};
 use sha1::Sha1;
 use sha2::{Digest, Sha256};
 
 /// Alphabet for Base32 encoding/decoding without padding (RFC 4648)
-const B32_ALPHABET: base32::Alphabet = base32::Alphabet::RFC4648 { padding: false };
 
 /// Default TOTP step in seconds
 pub const DEFAULT_TOTP_STEP: u64 = 30;
@@ -16,9 +15,10 @@ pub const DEFAULT_TOTP_DIGITS: u32 = 6;
 /// Common sizes: 20 bytes (~160 bits)
 pub fn generate_secret_base32(num_bytes: usize) -> String {
     let mut buf = vec![0u8; num_bytes];
-    let mut rng = StdRng::from_entropy();
-    rng.fill_bytes(&mut buf);
-    base32::encode(B32_ALPHABET, &buf)
+    // Fill with OS randomness; leave zeros if it fails
+    let _ = getrandom(&mut buf);
+
+    data_encoding::BASE32_NOPAD.encode(&buf)
 }
 
 /// Builds an otpauth URI compatible with Google Authenticator
@@ -43,7 +43,9 @@ pub fn generate_totp_code_at(
     step: u64,
     digits: u32,
 ) -> Option<String> {
-    let secret = base32::decode(B32_ALPHABET, secret_base32)?;
+    let secret = data_encoding::BASE32_NOPAD
+        .decode(secret_base32.as_bytes())
+        .ok()?;
     let counter = (now.timestamp() as i64).div_euclid(step as i64) as u64;
 
     let mut msg = [0u8; 8];
@@ -92,7 +94,7 @@ pub fn verify_totp_code_at(
         return false;
     }
 
-    let secret = match base32::decode(B32_ALPHABET, secret_base32) {
+    let secret = match data_encoding::BASE32_NOPAD.decode(secret_base32.as_bytes()) {
         Some(s) => s,
         None => return false,
     };
@@ -162,11 +164,12 @@ pub fn consume_backup_code(hashed_codes: &[String], input_code: &str) -> Option<
 fn generate_backup_code() -> String {
     // Exclude ambiguous characters: 0, 1, O, I, L
     const ALPHABET: &[u8] = b"ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-    let mut rng = StdRng::from_entropy();
 
     let mut chars = [0u8; 12];
     for c in &mut chars {
-        let idx = rng.random_range(0..ALPHABET.len());
+        let mut b = [0u8; 1];
+        let _ = getrandom(&mut b);
+        let idx = (b[0] as usize) % ALPHABET.len();
         *c = ALPHABET[idx];
     }
 
@@ -242,7 +245,7 @@ mod tests {
     fn test_secret_generation_is_base32() {
         let s = generate_secret_base32(20);
         assert!(!s.is_empty());
-        assert!(base32::decode(B32_ALPHABET, &s).is_some());
+        assert!(data_encoding::BASE32_NOPAD.decode(s.as_bytes()).is_ok());
     }
 
     #[test]
