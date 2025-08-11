@@ -95,8 +95,8 @@ pub fn verify_totp_code_at(
     }
 
     let secret = match data_encoding::BASE32_NOPAD.decode(secret_base32.as_bytes()) {
-        Some(s) => s,
-        None => return false,
+        Ok(s) => s,
+        Err(_) => return false,
     };
 
     let current_counter = (now.timestamp() as i64).div_euclid(step as i64);
