@@ -107,7 +107,7 @@ pub async fn twofa_setup(
     active.two_fa_secret = sea_orm::Set(Some(secret_b32.clone()));
     active.two_fa_backup_codes = sea_orm::Set(Some(backup_hashes_json));
     active.updated_at = sea_orm::Set(chrono::Utc::now().fixed_offset());
-    let _ = active.update(&state.sea_db).await.map_err(|e| e.into())?;
+    active.update(&state.sea_db).await?;
 
     Ok((
         StatusCode::OK,

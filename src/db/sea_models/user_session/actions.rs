@@ -132,13 +132,10 @@ impl Entity {
 
         // Sorting
         if let Some(sort_fields) = &query.sort_by {
-            let order = if query.sort_order.as_deref() == Some("asc") {
-                Order::Asc
-            } else {
-                Order::Desc
-            };
+            let is_asc = query.sort_order.as_deref() == Some("asc");
 
             for field in sort_fields {
+                let order = if is_asc { Order::Asc } else { Order::Desc };
                 q = match field.as_str() {
                     "last_seen" => q.order_by(Column::LastSeen, order),
                     "revoked_at" => q.order_by(Column::RevokedAt, order),
