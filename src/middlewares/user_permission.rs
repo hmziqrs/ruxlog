@@ -46,22 +46,6 @@ pub async fn admin(auth: AuthSession, request: Request, next: Next) -> Result<Re
     let user_opt = auth.user.clone();
     check_user_role(user_opt.clone(), UserRole::Admin)?;
 
-    // Allow admin to access 2FA setup without requiring 2FA to be already enabled
-    let path = request.uri().path();
-    if !path.contains("/2fa/setup") {
-        if let Some(user) = user_opt {
-            if !user.two_fa_enabled {
-                return Ok((
-                    axum::http::StatusCode::FORBIDDEN,
-                    axum::Json(
-                        serde_json::json!({ "message": "Two-factor authentication required" }),
-                    ),
-                )
-                    .into_response());
-            }
-        }
-    }
-
     Ok(next.run(request).await)
 }
 pub async fn super_admin(
