@@ -48,7 +48,7 @@ pub async fn admin(auth: AuthSession, request: Request, next: Next) -> Result<Re
 
     // Allow admin to access 2FA setup without requiring 2FA to be already enabled
     let path = request.uri().path();
-    if path != "/auth/v1/2fa/setup" {
+    if !path.contains("/2fa/setup") {
         if let Some(user) = user_opt {
             if !user.two_fa_enabled {
                 return Ok((
