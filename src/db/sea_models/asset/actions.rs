@@ -5,7 +5,7 @@ use super::slice::*;
 use super::*;
 
 impl Entity {
-    const PER_PAGE: u64 = 20;
+    pub const PER_PAGE: u64 = 20;
 
     pub async fn create(conn: &DbConn, new_asset: NewAsset) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
@@ -71,7 +71,9 @@ impl Entity {
         file_name: Option<String>,
     ) -> DbResult<Option<Model>> {
         if asset_id.is_none() && file_name.is_none() {
-            return Err(DbErr::Custom("Either asset_id or file_name must be provided".to_string()).into());
+            return Err(
+                DbErr::Custom("Either asset_id or file_name must be provided".to_string()).into(),
+            );
         }
         let mut asset_query = Self::find();
         if let Some(id) = asset_id {
@@ -85,11 +87,7 @@ impl Entity {
         }
     }
 
-
-    pub async fn find_with_query(
-        conn: &DbConn,
-        query: AssetQuery,
-    ) -> DbResult<(Vec<Model>, u64)> {
+    pub async fn find_with_query(conn: &DbConn, query: AssetQuery) -> DbResult<(Vec<Model>, u64)> {
         let mut asset_query = Self::find();
 
         if let Some(search_term) = query.search {

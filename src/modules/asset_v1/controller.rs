@@ -1,4 +1,4 @@
-use aws_sdk_s3::{config::endpoint, primitives::ByteStream, Client as S3Client};
+use aws_sdk_s3::primitives::ByteStream;
 use axum::{
     extract::{Multipart, Path, State},
     http::StatusCode,
@@ -6,16 +6,15 @@ use axum::{
     Json,
 };
 use axum_macros::debug_handler;
-use fake::faker::address::en;
+
 use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
     db::sea_models::asset::{Entity as Asset, NewAsset},
     error::{ErrorCode, ErrorResponse},
-    extractors::{ValidatedJson, ValidatedQuery},
+    extractors::ValidatedJson,
     services::auth::AuthSession,
-    state::R2Config,
     AppState,
 };
 
@@ -71,8 +70,7 @@ pub async fn upload(
                 })?;
                 payload.context = Some(text);
             }
-            _ => {
-            }
+            _ => {}
         }
     }
 
@@ -244,17 +242,18 @@ pub async fn find_by_id(
 #[debug_handler]
 pub async fn find_with_query(
     State(state): State<AppState>,
-    query: ValidatedQuery<V1AssetQueryParams>,
+    payload: ValidatedJson<V1AssetQueryParams>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let asset_query = query.0.into_asset_query();
-    let page = asset_query.page_no;
+    let asset_query = payload.0.into_asset_query();
+    let page = asset_query.page_no.unwrap_or(1);
 
     match Asset::find_with_query(&state.sea_db, asset_query).await {
         Ok((assets, total)) => Ok((
             StatusCode::OK,
             Json(json!({
-                "total": total,
                 "data": assets,
+                "total": total,
+                "per_page": Asset::PER_PAGE,
                 "page": page,
             })),
         )),
