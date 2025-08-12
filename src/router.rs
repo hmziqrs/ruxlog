@@ -25,6 +25,14 @@ pub fn router() -> Router<AppState> {
         .merge(
             Router::new()
                 .route("/log_out", post(auth_v1::controller::log_out))
+                .route("/2fa/setup", post(auth_v1::controller::twofa_setup))
+                .route("/2fa/verify", post(auth_v1::controller::twofa_verify))
+                .route("/2fa/disable", post(auth_v1::controller::twofa_disable))
+                .route("/sessions/list", post(auth_v1::controller::sessions_list))
+                .route(
+                    "/sessions/terminate/{id}",
+                    post(auth_v1::controller::sessions_terminate),
+                )
                 .route_layer(middleware::from_fn(user_status::only_authenticated)),
         );
 

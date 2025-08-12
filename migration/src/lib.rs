@@ -13,6 +13,8 @@ mod m20250509_000009_alter_tag_add_appearance;
 mod m20250510_000010_alter_category_add_color_is_active;
 mod m20250811_000011_create_newsletter_subscribers_table;
 mod m20250812_000012_create_post_revisions_table;
+mod m20250812_000012_create_user_sessions_table;
+mod m20250812_000013_alter_user_add_twofa_fields;
 mod m20250812_000013_create_scheduled_posts_table;
 mod m20250812_000014_create_post_series_tables;
 
@@ -37,6 +39,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20250812_000012_create_post_revisions_table::Migration),
             Box::new(m20250812_000013_create_scheduled_posts_table::Migration),
             Box::new(m20250812_000014_create_post_series_tables::Migration),
+            Box::new(m20250812_000012_create_user_sessions_table::Migration),
+            Box::new(m20250812_000013_alter_user_add_twofa_fields::Migration),
         ]
     }
 }

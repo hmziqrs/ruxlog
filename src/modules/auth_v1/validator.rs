@@ -41,3 +41,22 @@ impl V1RegisterPayload {
         }
     }
 }
+
+#[derive(Debug, Deserialize, Serialize, Validate)]
+pub struct V1TwoFAVerifyPayload {
+    #[validate(length(min = 6, max = 12))]
+    pub code: String,
+    #[validate(length(min = 6, max = 64))]
+    pub backup_code: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Validate)]
+pub struct V1TwoFADisablePayload {
+    #[validate(length(min = 6, max = 12))]
+    pub code: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Validate)]
+pub struct V1TerminateSessionPath {
+    pub id: i32,
+}
