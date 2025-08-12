@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# ruxlog-backend/tests/auth/auth_v1_smoke.sh
+# ruxlog-backend/tests/auth_v1_smoke.sh
 # Smoke test for auth_v1: sessions list/terminate and 2FA setup/verify/disable.
-# - Requires: bash, curl, jq, base64
+# - Requires: bash, curl, jq, base64, oathtool
 # - Assumes server is running locally and DB is migrated.
 # - Uses the same default creds and CSRF handling as the post_v1 smoke test.
 #
 # Usage:
-#   bash tests/auth/auth_v1_smoke.sh
+#   bash tests/auth_v1_smoke.sh
 set -euo pipefail
 
 # -----------------------------
@@ -17,7 +17,7 @@ EMAIL="${EMAIL:-adolph_nesciunt@yahoo.com}"
 PASSWORD="${PASSWORD:-adolph_nesciunt@yahoo.com}"
 CSRF_KEY="${CSRF_KEY:-ultra-instinct-goku}"
 CSRF_TOKEN="$(printf %s "$CSRF_KEY" | base64)"
-COOKIES_FILE="${COOKIES_FILE:-$(dirname "$0")/../cookies.txt}"
+COOKIES_FILE="${COOKIES_FILE:-$(dirname "$0")/cookies.txt}"
 TMP_DIR="$(mktemp -d)"
 RETRY_ATTEMPTS="${RETRY_ATTEMPTS:-20}"
 RETRY_SLEEP_SECS="${RETRY_SLEEP_SECS:-1}"
@@ -145,6 +145,7 @@ get_json() {
 require_cmd curl
 require_cmd jq
 require_cmd base64
+
 touch "$COOKIES_FILE"
 
 echo "==== AUTH API SMOKE TEST START ===="
@@ -228,21 +229,39 @@ echo "POST /auth/v1/2fa/setup -> ${setup_code:-curl_status:$curl_status}"
 if [[ "$setup_code" == "200" ]]; then
   (cat "$TMP_DIR/twofa_setup.json" | jq -C . || cat "$TMP_DIR/twofa_setup.json")
   secret="$(jq -r '.secret' "$TMP_DIR/twofa_setup.json")"
+  otpauth_url="$(jq -r '.otpauth_url' "$TMP_DIR/twofa_setup.json")"
   backup1="$(jq -r '.backup_codes[0]' "$TMP_DIR/twofa_setup.json")"
   backup2="$(jq -r '.backup_codes[1]' "$TMP_DIR/twofa_setup.json")"
 
-  if [[ -z "${backup1:-}" || -z "${backup2:-}" ]]; then
-    echo "ERROR: Missing backup codes from setup response"
+  if [[ -z "${secret:-}" || -z "${otpauth_url:-}" ]]; then
+    echo "ERROR: Missing 2FA secret or otpauth URL from setup response"
     exit 1
   fi
 
-  echo "==> 2FA verify (using backup code)"
-  verify_payload="$(jq -nc --arg code "000000" --arg backup "$backup1" '{code:$code, backup_code:$backup}')"
-  post_json "/auth/v1/2fa/verify" "$verify_payload" 200
+  if command -v oathtool >/dev/null 2>&1; then
+    echo "==> 2FA verify (using TOTP via oathtool)"
+    totp_code="$(oathtool --totp -b "$secret")"
+    if [[ -z "${totp_code:-}" ]]; then
+      echo "ERROR: Failed to generate TOTP via oathtool"
+      exit 1
+    fi
+    verify_payload="$(jq -nc --arg code "$totp_code" '{code:$code}')"
+    post_json "/auth/v1/2fa/verify" "$verify_payload" 200
 
-  echo "==> 2FA disable (using second backup code)"
-  disable_payload="$(jq -nc --arg code "$backup2" '{code:$code}')"
-  post_json "/auth/v1/2fa/disable" "$disable_payload" 200
+    echo "==> 2FA disable (using fresh TOTP)"
+    sleep 1
+    totp_code2="$(oathtool --totp -b "$secret")"
+    disable_payload="$(jq -nc --arg code "$totp_code2" '{code:$code}')"
+    post_json "/auth/v1/2fa/disable" "$disable_payload" 200
+  else
+    echo "==> 2FA verify (using backup code fallback)"
+    verify_payload="$(jq -nc --arg code "000000" --arg backup "$backup1" '{code:$code, backup_code:$backup}')"
+    post_json "/auth/v1/2fa/verify" "$verify_payload" 200
+
+    echo "==> 2FA disable (using second backup code fallback)"
+    disable_payload="$(jq -nc --arg code "$backup2" '{code:$code}')"
+    post_json "/auth/v1/2fa/disable" "$disable_payload" 200
+  fi
 elif [[ "$setup_code" == "401" || "$setup_code" == "403" ]]; then
   echo "2FA setup is protected (HTTP $setup_code). Skipping 2FA checks due to admin/2FA guard."
 else
