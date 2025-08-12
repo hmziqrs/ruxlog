@@ -112,7 +112,7 @@ Wiring:
 Why: Keep everything under `auth_v1` while adding advanced features.
 
 Required Endpoints:
-- POST /auth/v1/2fa/setup — Generate TOTP secret + QR (admin)
+- POST /auth/v1/2fa/setup — Generate TOTP secret + QR (authenticated)
 - POST /auth/v1/2fa/verify — Verify TOTP and enable 2FA
 - POST /auth/v1/2fa/disable — Disable 2FA with re-auth
 - POST /auth/v1/sessions/list — List active sessions
@@ -132,7 +132,7 @@ Wiring:
     - `.route("/2fa/disable", post(auth_v1::controller::twofa_disable))`
     - `.route("/sessions/list", post(auth_v1::controller::sessions_list))`
     - `.route("/sessions/terminate/{id}", post(auth_v1::controller::sessions_terminate))`
-  - Protect with `.route_layer(middleware::from_fn(user_status::only_authenticated))` (already applied) and use `user_permission::admin` for `/2fa/setup` if desired.
+  - Protect with `.route_layer(middleware::from_fn(user_status::only_authenticated))` (already applied). Do not require admin for `/2fa/setup`; each authenticated user configures their own 2FA.
 - Module: extend `src/modules/auth_v1/{controller.rs,validator.rs}`.
   - Validators: `V1TwoFAVerifyPayload { code, backup_code? }`, `V1TwoFADisablePayload { code? }`, `V1TerminateSessionPath { id }`.
 - SeaORM:

@@ -43,7 +43,9 @@ pub async fn moderator(
     Ok(next.run(request).await)
 }
 pub async fn admin(auth: AuthSession, request: Request, next: Next) -> Result<Response, Response> {
-    check_user_role(auth.user, UserRole::Admin)?;
+    let user_opt = auth.user.clone();
+    check_user_role(user_opt.clone(), UserRole::Admin)?;
+
     Ok(next.run(request).await)
 }
 pub async fn super_admin(

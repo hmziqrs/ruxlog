@@ -82,6 +82,9 @@ pub struct Model {
     pub avatar: Option<String>,
     pub is_verified: bool,
     pub role: UserRole,
+    pub two_fa_enabled: bool,
+    pub two_fa_secret: Option<String>,
+    pub two_fa_backup_codes: Option<Json>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }
