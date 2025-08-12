@@ -52,7 +52,7 @@ pub struct V1TwoFAVerifyPayload {
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1TwoFADisablePayload {
-    #[validate(length(min = 6, max = 12))]
+    #[validate(length(min = 6, max = 64))]
     pub code: Option<String>,
 }
 
