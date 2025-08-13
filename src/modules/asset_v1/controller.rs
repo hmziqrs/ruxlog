@@ -69,26 +69,7 @@ pub async fn upload(
                     ErrorResponse::new(ErrorCode::ValidationError)
                         .with_message(&format!("Failed to read context: {}", e))
                 })?;
-                let raw = text.to_lowercase();
-                let normalized = match raw.as_str() {
-                    "user" | "avatar" | "profile" | "user-avatar" | "user-avatar-v1" => {
-                        "user-avatar".to_string()
-                    }
-                    "category" | "categories" | "cover" | "cover-image" | "category-cover"
-                    | "category-cover-v1" => "category-cover".to_string(),
-                    "logo" | "logo-image" | "category-logo" | "category-logo-v1" => {
-                        "category-logo".to_string()
-                    }
-                    "post" | "featured" | "featured-image" | "post-featured"
-                    | "post-featured-v1" => "post-featured".to_string(),
-                    "inline" | "inline-image" | "inline-images" | "content-image"
-                    | "content-images" | "post-inline" | "post-inline-v1" => {
-                        "post-inline".to_string()
-                    }
-                    _ if raw.ends_with("-v1") => raw.trim_end_matches("-v1").to_string(),
-                    _ => raw,
-                };
-                let ctx = AssetContext::from_str(&normalized).map_err(|_| {
+                let ctx = AssetContext::from_str(&text).map_err(|_| {
                     ErrorResponse::new(ErrorCode::ValidationError)
                         .with_message("Invalid asset context")
                 })?;
