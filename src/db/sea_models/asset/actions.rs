@@ -95,8 +95,7 @@ impl Entity {
             asset_query = asset_query.filter(
                 Condition::any()
                     .add(Column::FileName.contains(&search_pattern))
-                    .add(Column::MimeType.contains(&search_pattern))
-                    .add(Column::Context.contains(&search_pattern)),
+                    .add(Column::MimeType.contains(&search_pattern)),
             );
         }
 

@@ -17,6 +17,7 @@ mod m20250812_000012_create_user_sessions_table;
 mod m20250812_000013_alter_user_add_twofa_fields;
 mod m20250812_000013_create_scheduled_posts_table;
 mod m20250812_000014_create_post_series_tables;
+mod m20250813_000015_alter_asset_context_enum;
 
 pub struct Migrator;
 
@@ -41,6 +42,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250812_000014_create_post_series_tables::Migration),
             Box::new(m20250812_000012_create_user_sessions_table::Migration),
             Box::new(m20250812_000013_alter_user_add_twofa_fields::Migration),
+            Box::new(m20250813_000015_alter_asset_context_enum::Migration),
         ]
     }
 }

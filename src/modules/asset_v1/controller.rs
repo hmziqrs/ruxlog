@@ -8,10 +8,11 @@ use axum::{
 use axum_macros::debug_handler;
 
 use serde_json::json;
+
 use uuid::Uuid;
 
 use crate::{
-    db::sea_models::asset::{Entity as Asset, NewAsset},
+    db::sea_models::asset::{AssetContext, Entity as Asset, NewAsset},
     error::{ErrorCode, ErrorResponse},
     extractors::ValidatedJson,
     services::auth::AuthSession,
@@ -68,7 +69,26 @@ pub async fn upload(
                     ErrorResponse::new(ErrorCode::ValidationError)
                         .with_message(&format!("Failed to read context: {}", e))
                 })?;
-                payload.context = Some(text);
+                let raw = text.to_lowercase();
+                let normalized = match raw.as_str() {
+                    "user" | "avatar" | "profile" | "user-avatar" | "user-avatar-v1" => {
+                        "user-avatar".to_string()
+                    }
+                    "category" | "categories" | "cover" | "cover-image" | "category-cover"
+                    | "category-cover-v1" => "category-cover".to_string(),
+                    "logo" | "logo-image" | "category-logo" | "category-logo-v1" => {
+                        "category-logo".to_string()
+                    }
+                    "post" | "featured" | "featured-image" | "post-featured"
+                    | "post-featured-v1" => "post-featured".to_string(),
+                    _ if raw.ends_with("-v1") => raw.trim_end_matches("-v1").to_string(),
+                    _ => raw,
+                };
+                let ctx = AssetContext::from_str(&normalized).map_err(|_| {
+                    ErrorResponse::new(ErrorCode::ValidationError)
+                        .with_message("Invalid asset context")
+                })?;
+                payload.context = Some(ctx);
             }
             _ => {}
         }

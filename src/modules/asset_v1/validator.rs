@@ -1,34 +1,7 @@
-use axum::body::Bytes;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::db::sea_models::asset::{AssetQuery, NewAsset, UpdateAsset};
-
-//     // and populated in the controller
-//     #[serde(skip)]
-
-//     #[serde(skip)]
-
-//     #[serde(skip)]
-
-//     #[serde(skip)]
-
-//     // Optional context field to categorize assets
-
-//     // owner_id is now derived from auth session
-//     #[serde(skip)]
-// }
-
-//         NewAsset {
-//             file_url,
-//             file_name: self.file_name,
-//             mime_type: self.mime_type,
-//             size: self.file_size,
-//             owner_id: self.owner_id,
-//             context: self.context,
-//         }
-//     }
-// }
+use crate::db::sea_models::asset::{AssetContext, AssetQuery, UpdateAsset};
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1UpdateAssetPayload {
@@ -37,7 +10,7 @@ pub struct V1UpdateAssetPayload {
     pub mime_type: Option<String>,
     pub size: Option<i32>,
     pub owner_id: Option<i32>,
-    pub context: Option<String>,
+    pub context: Option<AssetContext>,
 }
 
 impl V1UpdateAssetPayload {
@@ -59,7 +32,7 @@ pub struct V1AssetQueryParams {
     pub search: Option<String>,
     pub sort_order: Option<String>,
     pub owner_id: Option<i32>,
-    pub context: Option<String>,
+    pub context: Option<AssetContext>,
 }
 
 impl V1AssetQueryParams {

@@ -1,6 +1,54 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "asset_context")]
+#[serde(rename_all = "kebab-case")]
+pub enum AssetContext {
+    #[sea_orm(string_value = "user-avatar")]
+    UserAvatar,
+    #[sea_orm(string_value = "category-cover")]
+    CategoryCover,
+    #[sea_orm(string_value = "category-logo")]
+    CategoryLogo,
+    #[sea_orm(string_value = "post-featured")]
+    PostFeatured,
+}
+
+impl AssetContext {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AssetContext::UserAvatar => "user-avatar",
+            AssetContext::CategoryCover => "category-cover",
+            AssetContext::CategoryLogo => "category-logo",
+            AssetContext::PostFeatured => "post-featured",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        match s.to_lowercase().as_str() {
+            "user-avatar" => Ok(AssetContext::UserAvatar),
+            "category-cover" => Ok(AssetContext::CategoryCover),
+            "category-logo" => Ok(AssetContext::CategoryLogo),
+            "post-featured" => Ok(AssetContext::PostFeatured),
+            _ => Err(format!("Invalid asset context: {}", s)),
+        }
+    }
+}
+
+impl std::str::FromStr for AssetContext {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        AssetContext::from_str(s)
+    }
+}
+
+impl From<&str> for AssetContext {
+    fn from(s: &str) -> Self {
+        AssetContext::from_str(s).unwrap_or(AssetContext::UserAvatar)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "assets")]
 pub struct Model {
@@ -12,7 +60,7 @@ pub struct Model {
     pub size: Option<i32>,
     pub uploaded_at: DateTimeWithTimeZone,
     pub owner_id: Option<i32>,
-    pub context: Option<String>,
+    pub context: Option<AssetContext>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -34,20 +82,14 @@ impl Related<super::super::user::Entity> for Entity {
 impl ActiveModelBehavior for ActiveModel {}
 
 impl Entity {
-    pub async fn find_by_owner(
-        db: &DbConn,
-        owner_id: i32,
-    ) -> Result<Vec<Model>, DbErr> {
+    pub async fn find_by_owner(db: &DbConn, owner_id: i32) -> Result<Vec<Model>, DbErr> {
         Self::find()
             .filter(Column::OwnerId.eq(owner_id))
             .all(db)
             .await
     }
 
-    pub async fn find_by_context(
-        db: &DbConn,
-        context: &str,
-    ) -> Result<Vec<Model>, DbErr> {
+    pub async fn find_by_context(db: &DbConn, context: AssetContext) -> Result<Vec<Model>, DbErr> {
         Self::find()
             .filter(Column::Context.eq(context))
             .all(db)
@@ -80,14 +122,14 @@ impl Model {
                 return Some(parts.last().unwrap().to_string());
             }
         }
-        
+
         if let Some(ref mime) = self.mime_type {
             let parts: Vec<&str> = mime.split('/').collect();
             if parts.len() > 1 {
                 return Some(parts.last().unwrap().to_string());
             }
         }
-        
+
         None
     }
 }
