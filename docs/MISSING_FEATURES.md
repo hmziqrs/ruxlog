@@ -110,6 +110,8 @@ Wiring:
 
 ## 4) Authentication Enhancements (`auth_v1`)
 Why: Keep everything under `auth_v1` while adding advanced features.
+Status: Completed — Implemented TOTP 2FA (setup/verify/disable) with backup codes and sessions list/terminate; routes wired; admin 2FA enforcement applied where configured.
+
 
 Required Endpoints:
 - POST /auth/v1/2fa/setup — Generate TOTP secret + QR (authenticated)
