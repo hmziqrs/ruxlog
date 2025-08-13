@@ -17,7 +17,8 @@ impl MigrationTrait for Migration {
                 'user-avatar',
                 'category-cover',
                 'category-logo',
-                'post-featured'
+                'post-featured',
+                'post-inline'
             )"
             .to_owned(),
         ))
@@ -34,6 +35,7 @@ impl MigrationTrait for Migration {
                 WHEN lower(context) IN ('category-cover','cover','cover-image','category','category-v1','category-cover-v1','categories','categories-v1') THEN 'category-cover'
                 WHEN lower(context) IN ('category-logo','logo','logo-image','category-logo-v1') THEN 'category-logo'
                 WHEN lower(context) IN ('post','featured','featured-image','post-featured','post-v1','post-featured-v1') THEN 'post-featured'
+                WHEN lower(context) IN ('inline','inline-image','inline-images','content-image','content-images','post-inline','post-inline-v1') THEN 'post-inline'
                 ELSE 'user-avatar'
             END
             WHERE context IS NOT NULL

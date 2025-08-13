@@ -81,6 +81,10 @@ pub async fn upload(
                     }
                     "post" | "featured" | "featured-image" | "post-featured"
                     | "post-featured-v1" => "post-featured".to_string(),
+                    "inline" | "inline-image" | "inline-images" | "content-image"
+                    | "content-images" | "post-inline" | "post-inline-v1" => {
+                        "post-inline".to_string()
+                    }
                     _ if raw.ends_with("-v1") => raw.trim_end_matches("-v1").to_string(),
                     _ => raw,
                 };

@@ -13,6 +13,8 @@ pub enum AssetContext {
     CategoryLogo,
     #[sea_orm(string_value = "post-featured")]
     PostFeatured,
+    #[sea_orm(string_value = "post-inline")]
+    PostInline,
 }
 
 impl AssetContext {
@@ -22,6 +24,7 @@ impl AssetContext {
             AssetContext::CategoryCover => "category-cover",
             AssetContext::CategoryLogo => "category-logo",
             AssetContext::PostFeatured => "post-featured",
+            AssetContext::PostInline => "post-inline",
         }
     }
 
@@ -31,6 +34,7 @@ impl AssetContext {
             "category-cover" => Ok(AssetContext::CategoryCover),
             "category-logo" => Ok(AssetContext::CategoryLogo),
             "post-featured" => Ok(AssetContext::PostFeatured),
+            "post-inline" => Ok(AssetContext::PostInline),
             _ => Err(format!("Invalid asset context: {}", s)),
         }
     }
