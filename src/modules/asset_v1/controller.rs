@@ -266,3 +266,15 @@ pub async fn find_with_query(
             .with_message(&format!("Failed to query assets: {}", err))),
     }
 }
+
+#[debug_handler]
+pub async fn contexts(State(_state): State<AppState>) -> Result<impl IntoResponse, ErrorResponse> {
+    let contexts = vec![
+        AssetContext::UserAvatar.as_str(),
+        AssetContext::CategoryCover.as_str(),
+        AssetContext::CategoryLogo.as_str(),
+        AssetContext::PostFeatured.as_str(),
+        AssetContext::PostInline.as_str(),
+    ];
+    Ok((StatusCode::OK, Json(json!(contexts))))
+}

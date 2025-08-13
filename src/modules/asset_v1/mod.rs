@@ -21,6 +21,7 @@ pub fn routes() -> Router<AppState> {
         .route("/{asset_id}", delete(controller::delete))
         .route("/{asset_id}", get(controller::find_by_id))
         .route("/query", post(controller::find_with_query))
+        .route("/contexts", get(controller::contexts))
         .route_layer(middleware::from_fn(user_permission::author))
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend))
