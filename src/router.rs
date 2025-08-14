@@ -176,7 +176,6 @@ pub fn router() -> Router<AppState> {
         .nest("/post/comment/v1", post_comment_v1::routes())
         .nest("/category/v1", category_v1_routes)
         .nest("/tag/v1", tag_v1_routes)
-        .nest("/admin/post/comment/v1", post_comment_v1::routes())
         .nest("/admin/user/v1", admin_user_v1_routes)
         .nest("/asset/v1", asset_v1::routes())
         .nest("/feed/v1", feed_v1::routes())

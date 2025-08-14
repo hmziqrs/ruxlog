@@ -23,9 +23,9 @@ pub fn routes() -> Router<AppState> {
         // Public route for listing comments by post
         .route("/{post_id}", post(controller::find_all_by_post));
 
-    // Admin moderation routes
+    // Admin moderation routes nested under /admin
     let admin = Router::new()
-        .route("/list/query", post(controller::find_with_query))
+        .route("/list", post(controller::find_with_query))
         .route("/hide/{comment_id}", post(controller::admin_hide))
         .route("/unhide/{comment_id}", post(controller::admin_unhide))
         .route("/delete/{comment_id}", post(controller::admin_delete))
@@ -42,5 +42,5 @@ pub fn routes() -> Router<AppState> {
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend));
 
-    base.merge(admin)
+    base.nest("/admin", admin)
 }

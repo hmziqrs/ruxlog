@@ -2,20 +2,20 @@
 # ruxlog-backend/tests/comment_moderation_v1_smoke.sh
 #
 # Smoke test for comment moderation & flagging:
-#   Public/author (moderator-protected) comment routes:
+#   Public/author comment routes:
 #     - POST /post/comment/v1/create
 #     - POST /post/comment/v1/update/{comment_id}
 #     - POST /post/comment/v1/delete/{comment_id}
 #     - POST /post/comment/v1/flag/{comment_id}
 #     - POST /post/comment/v1/{post_id}                 (public list by post)
 #   Admin moderation routes:
-#     - POST /admin/post/comment/v1/list/query
-#     - POST /admin/post/comment/v1/hide/{comment_id}
-#     - POST /admin/post/comment/v1/unhide/{comment_id}
-#     - POST /admin/post/comment/v1/delete/{comment_id}
-#     - POST /admin/post/comment/v1/flags/clear/{comment_id}
-#     - POST /admin/post/comment/v1/flags/list
-#     - POST /admin/post/comment/v1/flags/summary/{comment_id}
+#     - POST /post/comment/v1/admin/list
+#     - POST /post/comment/v1/admin/hide/{comment_id}
+#     - POST /post/comment/v1/admin/unhide/{comment_id}
+#     - POST /post/comment/v1/admin/delete/{comment_id}
+#     - POST /post/comment/v1/admin/flags/clear/{comment_id}
+#     - POST /post/comment/v1/admin/flags/list
+#     - POST /post/comment/v1/admin/flags/summary/{comment_id}
 #
 # Assumptions:
 #   - Server running at BASE_URL
@@ -322,66 +322,66 @@ echo "Flags count (after second submit by same user) = $flags_count_2 (should st
 echo
 
 # -----------------------------
-# Admin list (all comments) - NEW ROUTE
+# Admin list (all comments) - NEW ROUTE STRUCTURE
 # -----------------------------
 echo "==> Admin list comments (new route)"
 admin_list_payload="$(jq -nc '{page:1, include_hidden:true}')"
-post_json "/admin/post/comment/v1/list/query" "$admin_list_payload" 200
+post_json "/post/comment/v1/admin/list" "$admin_list_payload" 200
 echo
 
 # -----------------------------
-# Admin flagged (min_flags>=1) - UPDATED TO USE NEW ROUTE
+# Admin flagged (min_flags>=1) - USING NEW ROUTE
 # -----------------------------
-echo "==> Admin flagged comments (using list/query with min_flags)"
+echo "==> Admin flagged comments (using admin/list with min_flags)"
 flagged_payload="$(jq -nc '{page:1, min_flags:1}')"
-post_json "/admin/post/comment/v1/list/query" "$flagged_payload" 200
+post_json "/post/comment/v1/admin/list" "$flagged_payload" 200
 echo
 
 # -----------------------------
 # Admin hide comment1
 # -----------------------------
 echo "==> Hide comment1"
-post_json "/admin/post/comment/v1/hide/$comment1_id" "{}" 200
+post_json "/post/comment/v1/admin/hide/$comment1_id" "{}" 200
 
 echo "==> List without include_hidden (comment1 should be absent)"
-post_json "/admin/post/comment/v1/list/query" "$(jq -nc '{page:1}')" 200
+post_json "/post/comment/v1/admin/list" "$(jq -nc '{page:1}')" 200
 
 echo "==> List with include_hidden true (comment1 should appear as hidden)"
-post_json "/admin/post/comment/v1/list/query" "$(jq -nc '{page:1, include_hidden:true}')" 200
+post_json "/post/comment/v1/admin/list" "$(jq -nc '{page:1, include_hidden:true}')" 200
 echo
 
 # -----------------------------
 # Admin unhide comment1
 # -----------------------------
 echo "==> Unhide comment1"
-post_json "/admin/post/comment/v1/unhide/$comment1_id" "{}" 200
+post_json "/post/comment/v1/admin/unhide/$comment1_id" "{}" 200
 echo
 
 # -----------------------------
 # Admin flags list / summary
 # -----------------------------
 echo "==> Flags list (comment1)"
-post_json "/admin/post/comment/v1/flags/list" "$(jq -nc --argjson cid "$comment1_id" '{page:1, comment_id:$cid}')" 200
+post_json "/post/comment/v1/admin/flags/list" "$(jq -nc --argjson cid "$comment1_id" '{page:1, comment_id:$cid}')" 200
 
 echo "==> Flags summary (comment1)"
-post_json "/admin/post/comment/v1/flags/summary/$comment1_id" "{}" 200
+post_json "/post/comment/v1/admin/flags/summary/$comment1_id" "{}" 200
 echo
 
 # -----------------------------
 # Admin clear flags
 # -----------------------------
 echo "==> Clear flags for comment1"
-post_json "/admin/post/comment/v1/flags/clear/$comment1_id" "{}" 200
+post_json "/post/comment/v1/admin/flags/clear/$comment1_id" "{}" 200
 
 echo "==> Flags summary (after clear)"
-post_json "/admin/post/comment/v1/flags/summary/$comment1_id" "{}" 200
+post_json "/post/comment/v1/admin/flags/summary/$comment1_id" "{}" 200
 echo
 
 # -----------------------------
 # Admin delete comment2
 # -----------------------------
 echo "==> Delete comment2"
-post_json "/admin/post/comment/v1/delete/$comment2_id" "{}" 200
+post_json "/post/comment/v1/admin/delete/$comment2_id" "{}" 200
 echo
 
 # -----------------------------
@@ -394,7 +394,7 @@ echo
 # -----------------------------
 # Cleanup / Final assertions (basic)
 # -----------------------------
-echo "==> Final public list after deletions (new route)"
+echo "==> Final public list after deletions"
 post_json "/post/comment/v1/$post_id" "{}" 200
 echo
 
@@ -403,15 +403,15 @@ echo
 # -----------------------------
 echo "==> Test query functionality - search filter"
 search_payload="$(jq -nc --argjson post_id "$post_id" '{page:1, post_id:$post_id, search:"nonexistent"}')"
-post_json "/admin/post/comment/v1/list/query" "$search_payload" 200
+post_json "/post/comment/v1/admin/list" "$search_payload" 200
 
 echo "==> Test query functionality - sort by created_at desc"
 sort_payload="$(jq -nc '{page:1, sort_by:["created_at"], sort_order:"desc"}')"
-post_json "/admin/post/comment/v1/list/query" "$sort_payload" 200
+post_json "/post/comment/v1/admin/list" "$sort_payload" 200
 
 echo "==> Test query functionality - filter by user_id"
 user_payload="$(jq -nc --argjson uid "999999" '{page:1, user_id:$uid}')"
-post_json "/admin/post/comment/v1/list/query" "$user_payload" 200
+post_json "/post/comment/v1/admin/list" "$user_payload" 200
 echo
 
 echo "==== COMMENT MODERATION SMOKE TEST COMPLETED SUCCESSFULLY ===="
