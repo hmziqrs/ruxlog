@@ -146,60 +146,58 @@ Wiring:
 
 ## 5) Admin Comment Moderation (admin-style, no manual approval flow)
 Why: Lightweight moderation without approval queues. Follow admin nesting style used for users.
-Status: In Progress — schema/migration for hidden, flags_count; admin routes wired; handlers pending (hide/unhide/delete/flags clear, flagged filter).
+Status: Completed — hidden & flags_count fields live; unified public + admin listing; admin actions (hide/unhide/delete/flags clear/list/summary) implemented; flagged filtering via `min_flags` param (no separate /flagged endpoint).
 
-Required Endpoints:
-- POST /admin/post/comment/v1/list — Filterable/paginated comments
-- POST /admin/post/comment/v1/flagged — List flagged comments
-- POST /admin/post/comment/v1/hide/{comment_id} — Hide comment (soft)
-- POST /admin/post/comment/v1/unhide/{comment_id} — Unhide comment
-- POST /admin/post/comment/v1/delete/{comment_id} — Hard delete
-- POST /admin/post/comment/v1/flags/clear/{comment_id} — Clear flags
+Endpoints (Final):
+Public (authenticated for mutations):
+- POST /post/comment/v1/create
+- POST /post/comment/v1/update/{comment_id}
+- POST /post/comment/v1/delete/{comment_id}
+- POST /post/comment/v1/flag/{comment_id}
+- POST /post/comment/v1/{post_id}                       (public list by post; non-hidden only)
 
-Implementation Notes:
-- No approve/reject workflow; comments are live on create
-- Hidden comments excluded from public lists
-- Basic keyword-based auto-flag (optional)
-- Admin audit trail for moderation actions
-
-Wiring:
-- Router: add admin nest mirroring users:
-  - `.nest("/admin/post/comment/v1", Router::new()`
-    - `.route("/list", post(post_comment_v1::controller::admin_list))`
-    - `.route("/flagged", post(post_comment_v1::controller::admin_flagged))`
-    - `.route("/hide/{comment_id}", post(post_comment_v1::controller::admin_hide))`
-    - `.route("/unhide/{comment_id}", post(post_comment_v1::controller::admin_unhide))`
-    - `.route("/delete/{comment_id}", post(post_comment_v1::controller::admin_delete))`
-    - `.route("/flags/clear/{comment_id}", post(post_comment_v1::controller::admin_flags_clear))`
-    - `.route_layer(middleware::from_fn(user_permission::admin))`
-    - `.route_layer(middleware::from_fn(user_status::only_verified))`
-    - `.route_layer(login_required!(AuthBackend)))`
-- Module: extend `src/modules/post_comment_v1/controller.rs` with `admin_*` handlers; add any DTOs to `src/modules/post_comment_v1/validator.rs`.
-- SeaORM:
-  - Alter `post_comment` model to add `hidden bool` (default false), `flags_count i32` (default 0).
-  - New `comment_flag` entity: `id, comment_id, user_id, reason, created_at`.
-  - Actions: `flag/clear_flags/hide/unhide/admin_list/admin_flagged`.
-- Migrations:
-  - `migration/src/mYYYYMMDD_hhmmss_alter_post_comment_add_moderation.rs`
-  - `migration/src/mYYYYMMDD_hhmmss_create_comment_flags_table.rs`.
-
-## 6) API Enhancements (trimmed)
-Why: Improve DX and consistency without expanding surface area.
-
-Included:
-- OpenAPI/Swagger documentation (serve JSON + Swagger UI)
-- Standardized error format (code, message, details, trace_id)
+Admin (nested under /post/comment/v1/admin):
+- POST /post/comment/v1/admin/list                      (filter/paginate; supports min_flags/include_hidden/search/sort)
+- POST /post/comment/v1/admin/hide/{comment_id}
+- POST /post/comment/v1/admin/unhide/{comment_id}
+- POST /post/comment/v1/admin/delete/{comment_id}
+- POST /post/comment/v1/admin/flags/clear/{comment_id}
+- POST /post/comment/v1/admin/flags/list
+- POST /post/comment/v1/admin/flags/summary/{comment_id}
 
 Implementation Notes:
-- Auto-generate spec from routes/validators where possible
-- Error codes mapped to stable enums; hide internals in production
+- No approve/reject workflow; comments visible immediately on create
+- Hidden comments excluded from public route output
+- Flagging idempotent per user (re-flag updates reason but not count)
+- Flagged filtering via `min_flags` in admin list payload
+- Unified query handler replaces separate `/flagged` route
+- Admin list returns: { data, total, per_page, page }
+- Public list by post returns simple array (no pagination)
 
-Wiring:
-- Router: expose spec at `/docs/openapi.json` and UI at `/docs` (serve static UI or integrate Swagger UI).
-- Module: `src/modules/docs_v1/{mod.rs,controller.rs}` optional; or integrate in `main`/`router` with feature-guard.
-- Validators/SeaORM/Migrations: none.
+Wiring (Updated):
+- Router: single nest `.nest("/post/comment/v1", post_comment_v1::routes())`
+  - Module internally nests admin under `/admin`:
+    ```
+    /post/comment/v1/{post_id}
+    /post/comment/v1/create|update|delete|flag/{comment_id}
+    /post/comment/v1/admin/list|hide|unhide|delete|flags/...
+    ```
+- Removed legacy separate `/admin/post/comment/v1` mount.
 
-## 7) Crypto Monetization (`monetization_v1`)
+SeaORM:
+- `post_comments` model includes `hidden bool` (default false), `flags_count i32` (default 0).
+- `comment_flags` entity supports individual user flags.
+- Actions implemented: `find_all_by_post`, `find_with_query`, `admin_hide`, `admin_unhide`, `admin_delete`, `admin_flags_clear`, plus flag sync.
+
+Migrations:
+- `alter_post_comment_add_moderation` (hidden, flags_count)
+- `create_comment_flags_table` (flag storage)
+
+Follow-ups (Optional Enhancements):
+- Keyword auto-flag heuristic (future)
+- Audit trail table for moderation actions (future)
+
+## 6) Crypto Monetization (`monetization_v1`)
 Why: Simple crypto-first paywall for selected posts.
 
 Required Endpoints:
@@ -226,7 +224,7 @@ Wiring:
 - SeaORM: `src/db/sea_models/payment/{mod.rs,model.rs,slice.rs,actions.rs}` with fields from schema below.
 - Migrations: `migration/src/mYYYYMMDD_hhmmss_create_payments_table.rs`.
 
-## 8) Backup & Export (`backup_v1`)
+## 7) Backup & Export (`backup_v1`)
 Why: Data ownership and portability.
 
 Required Endpoints:
@@ -264,6 +262,22 @@ Database Schema Additions:
 - newsletter_subscribers (email, status, token, timestamps)
 - user_sessions (user_id, device, ip, last_seen, revoked_at)
 - payments (tx_id, currency, amount, post_id, user_id, status, timestamps)
+
+## 8) API Enhancements (trimmed)
+Why: Improve DX and consistency without expanding surface area.
+
+Included:
+- OpenAPI/Swagger documentation (serve JSON + Swagger UI)
+- Standardized error format (code, message, details, trace_id)
+
+Implementation Notes:
+- Auto-generate spec from routes/validators where possible
+- Error codes mapped to stable enums; hide internals in production
+
+Wiring:
+- Router: expose spec at `/docs/openapi.json` and UI at `/docs` (serve static UI or integrate Swagger UI).
+- Module: `src/modules/docs_v1/{mod.rs,controller.rs}` optional; or integrate in `main`/`router` with feature-guard.
+- Validators/SeaORM/Migrations: none.
 - export_jobs (id, status, formats, location, created_at, completed_at)
 - post_comments: add hidden (bool), flags_count (int)
 - comment_flags (comment_id, user_id, reason, created_at)
