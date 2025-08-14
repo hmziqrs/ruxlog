@@ -197,23 +197,7 @@ Follow-ups (Optional Enhancements):
 - Keyword auto-flag heuristic (future)
 - Audit trail table for moderation actions (future)
 
-## 6) API Enhancements (trimmed)
-Why: Improve DX and consistency without expanding surface area.
-
-Included:
-- OpenAPI/Swagger documentation (serve JSON + Swagger UI)
-- Standardized error format (code, message, details, trace_id)
-
-Implementation Notes:
-- Auto-generate spec from routes/validators where possible
-- Error codes mapped to stable enums; hide internals in production
-
-Wiring:
-- Router: expose spec at `/docs/openapi.json` and UI at `/docs` (serve static UI or integrate Swagger UI).
-- Module: `src/modules/docs_v1/{mod.rs,controller.rs}` optional; or integrate in `main`/`router` with feature-guard.
-- Validators/SeaORM/Migrations: none.
-
-## 7) Crypto Monetization (`monetization_v1`)
+## 6) Crypto Monetization (`monetization_v1`)
 Why: Simple crypto-first paywall for selected posts.
 
 Required Endpoints:
@@ -240,7 +224,7 @@ Wiring:
 - SeaORM: `src/db/sea_models/payment/{mod.rs,model.rs,slice.rs,actions.rs}` with fields from schema below.
 - Migrations: `migration/src/mYYYYMMDD_hhmmss_create_payments_table.rs`.
 
-## 8) Backup & Export (`backup_v1`)
+## 7) Backup & Export (`backup_v1`)
 Why: Data ownership and portability.
 
 Required Endpoints:
@@ -278,6 +262,22 @@ Database Schema Additions:
 - newsletter_subscribers (email, status, token, timestamps)
 - user_sessions (user_id, device, ip, last_seen, revoked_at)
 - payments (tx_id, currency, amount, post_id, user_id, status, timestamps)
+
+## 8) API Enhancements (trimmed)
+Why: Improve DX and consistency without expanding surface area.
+
+Included:
+- OpenAPI/Swagger documentation (serve JSON + Swagger UI)
+- Standardized error format (code, message, details, trace_id)
+
+Implementation Notes:
+- Auto-generate spec from routes/validators where possible
+- Error codes mapped to stable enums; hide internals in production
+
+Wiring:
+- Router: expose spec at `/docs/openapi.json` and UI at `/docs` (serve static UI or integrate Swagger UI).
+- Module: `src/modules/docs_v1/{mod.rs,controller.rs}` optional; or integrate in `main`/`router` with feature-guard.
+- Validators/SeaORM/Migrations: none.
 - export_jobs (id, status, formats, location, created_at, completed_at)
 - post_comments: add hidden (bool), flags_count (int)
 - comment_flags (comment_id, user_id, reason, created_at)

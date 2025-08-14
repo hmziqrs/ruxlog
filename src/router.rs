@@ -8,7 +8,7 @@ use tower_http::trace::TraceLayer;
 
 use crate::{
     middlewares::{route_blocker::block_routes, user_permission, user_status},
-    modules::{asset_v1, category_v1, docs_v1, feed_v1, newsletter_v1, post_v1, seed_v1, tag_v1},
+    modules::{asset_v1, category_v1, feed_v1, newsletter_v1, post_v1, seed_v1, tag_v1},
 };
 use crate::{modules::post_comment_v1, services::auth::AuthBackend};
 
@@ -181,7 +181,5 @@ pub fn router() -> Router<AppState> {
         .nest("/feed/v1", feed_v1::routes())
         .nest("/newsletter/v1", newsletter_v1::routes())
         .nest("/admin/seed/v1", seed_routes)
-        .route("/docs/openapi.json", get(docs_v1::openapi_json))
-        .route("/docs", get(docs_v1::swagger_ui))
         .layer(TraceLayer::new_for_http())
 }
