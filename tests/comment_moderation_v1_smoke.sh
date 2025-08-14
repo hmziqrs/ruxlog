@@ -7,10 +7,9 @@
 #     - POST /post/comment/v1/update/{comment_id}
 #     - POST /post/comment/v1/delete/{comment_id}
 #     - POST /post/comment/v1/flag/{comment_id}
-#     - GET  /post/comment/v1/list/{post_id}            (public list by post)
+#     - POST /post/comment/v1/{post_id}                 (public list by post)
 #   Admin moderation routes:
-#     - POST /admin/post/comment/v1/list
-#     - POST /admin/post/comment/v1/flagged
+#     - POST /admin/post/comment/v1/list/query
 #     - POST /admin/post/comment/v1/hide/{comment_id}
 #     - POST /admin/post/comment/v1/unhide/{comment_id}
 #     - POST /admin/post/comment/v1/delete/{comment_id}
@@ -300,10 +299,10 @@ post_json "/post/comment/v1/update/$comment2_id" "$update_c2_payload" 200
 echo
 
 # -----------------------------
-# List comments by post (public)
+# List comments by post (public) - NEW ROUTE
 # -----------------------------
-echo "==> Public list by post"
-post_comments_public="$(get_json "/post/comment/v1/list/$post_id" 200)"
+echo "==> Public list by post (new route)"
+post_comments_public="$(post_json "/post/comment/v1/$post_id" "{}" 200)"
 echo
 
 # -----------------------------
@@ -323,18 +322,19 @@ echo "Flags count (after second submit by same user) = $flags_count_2 (should st
 echo
 
 # -----------------------------
-# Admin list (all comments)
+# Admin list (all comments) - NEW ROUTE
 # -----------------------------
-echo "==> Admin list comments"
+echo "==> Admin list comments (new route)"
 admin_list_payload="$(jq -nc '{page:1, include_hidden:true}')"
-post_json "/admin/post/comment/v1/list" "$admin_list_payload" 200
+post_json "/admin/post/comment/v1/list/query" "$admin_list_payload" 200
 echo
 
 # -----------------------------
-# Admin flagged (min_flags>=1)
+# Admin flagged (min_flags>=1) - UPDATED TO USE NEW ROUTE
 # -----------------------------
-echo "==> Admin flagged comments"
-post_json "/admin/post/comment/v1/flagged" "$(jq -nc '{page:1}')" 200
+echo "==> Admin flagged comments (using list/query with min_flags)"
+flagged_payload="$(jq -nc '{page:1, min_flags:1}')"
+post_json "/admin/post/comment/v1/list/query" "$flagged_payload" 200
 echo
 
 # -----------------------------
@@ -344,10 +344,10 @@ echo "==> Hide comment1"
 post_json "/admin/post/comment/v1/hide/$comment1_id" "{}" 200
 
 echo "==> List without include_hidden (comment1 should be absent)"
-post_json "/admin/post/comment/v1/list" "$(jq -nc '{page:1}')" 200
+post_json "/admin/post/comment/v1/list/query" "$(jq -nc '{page:1}')" 200
 
 echo "==> List with include_hidden true (comment1 should appear as hidden)"
-post_json "/admin/post/comment/v1/list" "$(jq -nc '{page:1, include_hidden:true}')" 200
+post_json "/admin/post/comment/v1/list/query" "$(jq -nc '{page:1, include_hidden:true}')" 200
 echo
 
 # -----------------------------
@@ -394,8 +394,24 @@ echo
 # -----------------------------
 # Cleanup / Final assertions (basic)
 # -----------------------------
-echo "==> Final public list after deletions"
-get_json "/post/comment/v1/list/$post_id" 200
+echo "==> Final public list after deletions (new route)"
+post_json "/post/comment/v1/$post_id" "{}" 200
+echo
+
+# -----------------------------
+# Test additional query functionality
+# -----------------------------
+echo "==> Test query functionality - search filter"
+search_payload="$(jq -nc --argjson post_id "$post_id" '{page:1, post_id:$post_id, search:"nonexistent"}')"
+post_json "/admin/post/comment/v1/list/query" "$search_payload" 200
+
+echo "==> Test query functionality - sort by created_at desc"
+sort_payload="$(jq -nc '{page:1, sort_by:["created_at"], sort_order:"desc"}')"
+post_json "/admin/post/comment/v1/list/query" "$sort_payload" 200
+
+echo "==> Test query functionality - filter by user_id"
+user_payload="$(jq -nc --argjson uid "999999" '{page:1, user_id:$uid}')"
+post_json "/admin/post/comment/v1/list/query" "$user_payload" 200
 echo
 
 echo "==== COMMENT MODERATION SMOKE TEST COMPLETED SUCCESSFULLY ===="
