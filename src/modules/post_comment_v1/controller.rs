@@ -17,7 +17,7 @@ use crate::{
 
 use super::validator::{
     V1AdminCommentFlagListQuery, V1AdminPostCommentListQuery, V1CreatePostCommentPayload,
-    V1FlagCommentPayload, V1PostCommentQueryParams, V1UpdatePostCommentPayload,
+    V1FlagCommentPayload, V1UpdatePostCommentPayload,
 };
 
 #[debug_handler]
@@ -71,103 +71,43 @@ pub async fn delete(
             Err(ErrorResponse::new(ErrorCode::RecordNotFound)
                 .with_message("Comment does not exist"))
         }
-        Ok(_) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
-            .with_message("Internal server error occurred while deleting comment")),
-        Err(err) => Err(err.into()),
-    }
-}
-
-#[debug_handler]
-pub async fn list(
-    State(state): State<AppState>,
-    query: ValidatedJson<V1PostCommentQueryParams>,
-) -> Result<impl IntoResponse, ErrorResponse> {
-    let post_comment_query = query.0.into_post_comment_query();
-    let page = post_comment_query.page_no.unwrap_or(1);
-
-    match post_comment::Entity::get_comments(&state.sea_db, post_comment_query).await {
-        Ok((comments, total)) => Ok((
+        Ok(_) => Ok((
             StatusCode::OK,
-            Json(json!({
-                "data": comments,
-                "total": total,
-                "page": page,
-            })),
+            Json(json!({ "message": "Comment deleted successfully" })),
         )),
         Err(err) => Err(err.into()),
     }
 }
 
+/// Find comments by post ID (public use)
 #[debug_handler]
-pub async fn list_by_post(
+pub async fn find_all_by_post(
     State(state): State<AppState>,
     Path(post_id): Path<i32>,
-    query: ValidatedJson<V1PostCommentQueryParams>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let parsed_query = query.0.into_post_comment_query();
-    let page = parsed_query.page_no.unwrap_or(1);
+    match post_comment::Entity::find_all_by_post(&state.sea_db, post_id).await {
+        Ok(comments) => Ok((StatusCode::OK, Json(json!(comments)))),
+        Err(err) => Err(err.into()),
+    }
+}
 
-    match post_comment::Entity::get_comments(
-        &state.sea_db,
-        post_comment::CommentQuery {
-            post_id: Some(post_id),
-            ..parsed_query
-        },
-    )
-    .await
-    {
+/// Find comments with query (dashboard use)
+#[debug_handler]
+pub async fn find_with_query(
+    State(state): State<AppState>,
+    payload: ValidatedJson<V1AdminPostCommentListQuery>,
+) -> Result<impl IntoResponse, ErrorResponse> {
+    let comment_query = payload.0.into_post_comment_query();
+    let page = comment_query.page_no.unwrap_or(1);
+
+    match post_comment::Entity::find_with_query(&state.sea_db, comment_query).await {
         Ok((comments, total)) => Ok((
             StatusCode::OK,
             Json(json!({
                 "data": comments,
                 "total": total,
+                "per_page": post_comment::Entity::PER_PAGE,
                 "page": page,
-            })),
-        )),
-        Err(err) => Err(err.into()),
-    }
-}
-
-#[debug_handler]
-pub async fn admin_list(
-    State(state): State<AppState>,
-    _auth: AuthSession,
-    payload: ValidatedJson<V1AdminPostCommentListQuery>,
-) -> Result<impl IntoResponse, ErrorResponse> {
-    let query = payload.0.into_post_comment_query();
-    let page = query.page_no.unwrap_or(1);
-
-    match post_comment::Entity::get_comments(&state.sea_db, query).await {
-        Ok((comments, total)) => Ok((
-            StatusCode::OK,
-            Json(json!({
-                "data": comments,
-                "total": total,
-                "page": page
-            })),
-        )),
-        Err(err) => Err(err.into()),
-    }
-}
-
-#[debug_handler]
-pub async fn admin_flagged(
-    State(state): State<AppState>,
-    _auth: AuthSession,
-    payload: ValidatedJson<V1AdminPostCommentListQuery>,
-) -> Result<impl IntoResponse, ErrorResponse> {
-    // Placeholder: flagged filtering to be added when moderation fields exist
-    let mut query = payload.0.into_post_comment_query();
-    query.min_flags = Some(query.min_flags.unwrap_or(1));
-    let page = query.page_no.unwrap_or(1);
-
-    match post_comment::Entity::get_comments(&state.sea_db, query).await {
-        Ok((comments, total)) => Ok((
-            StatusCode::OK,
-            Json(json!({
-                "data": comments,
-                "total": total,
-                "page": page
             })),
         )),
         Err(err) => Err(err.into()),
@@ -307,30 +247,6 @@ pub async fn admin_flags_summary(
 ) -> Result<impl IntoResponse, ErrorResponse> {
     match comment_flag::Entity::summary_for_comment(&state.sea_db, comment_id).await {
         Ok(summary) => Ok(Json(json!(summary))),
-        Err(err) => Err(err.into()),
-    }
-}
-
-#[debug_handler]
-pub async fn list_by_post_get(
-    State(state): State<AppState>,
-    Path(post_id): Path<i32>,
-) -> Result<impl IntoResponse, ErrorResponse> {
-    // Default page = 1, no extra filters; reuse existing query pipeline
-    let base_query = post_comment::CommentQuery {
-        post_id: Some(post_id),
-        ..Default::default()
-    };
-    let page = 1;
-    match post_comment::Entity::get_comments(&state.sea_db, base_query).await {
-        Ok((comments, total)) => Ok((
-            StatusCode::OK,
-            Json(json!({
-                "data": comments,
-                "total": total,
-                "page": page,
-            })),
-        )),
         Err(err) => Err(err.into()),
     }
 }

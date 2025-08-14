@@ -4,14 +4,13 @@ use sea_orm::{entity::prelude::*, Order, QueryOrder, Set};
 use super::*;
 
 impl Entity {
-    const PER_PAGE: u64 = 20;
+    pub const PER_PAGE: u64 = 20;
 
     pub async fn create(conn: &DbConn, new_comment: NewComment) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
         let comment = ActiveModel {
             post_id: Set(new_comment.post_id),
             user_id: Set(new_comment.user_id),
-            // parent_id field temporarily removed
             content: Set(new_comment.content),
             likes_count: Set(new_comment.likes_count.unwrap_or(0)),
             created_at: Set(now),
@@ -65,21 +64,48 @@ impl Entity {
         }
     }
 
-    pub async fn get_comments(
+    /// Find all comments by post ID (public use)
+    pub async fn find_all_by_post(conn: &DbConn, post_id: i32) -> DbResult<Vec<CommentWithUser>> {
+        use super::super::user::Column as UserColumn;
+        use sea_orm::{JoinType, QuerySelect};
+
+        let comments = Self::find()
+            .select_only()
+            .column(Column::Id)
+            .column(Column::PostId)
+            .column(Column::UserId)
+            .column(Column::Content)
+            .column(Column::LikesCount)
+            .column(Column::Hidden)
+            .column(Column::FlagsCount)
+            .column(Column::CreatedAt)
+            .column(Column::UpdatedAt)
+            .column_as(UserColumn::Name, "user_name")
+            .column_as(UserColumn::Avatar, "user_avatar")
+            .join(JoinType::InnerJoin, Relation::User.def())
+            .filter(Column::PostId.eq(post_id))
+            .filter(Column::Hidden.eq(false))
+            .order_by(Column::CreatedAt, Order::Asc)
+            .into_model::<CommentWithUser>()
+            .all(conn)
+            .await?;
+
+        Ok(comments)
+    }
+
+    /// Find comments with query (dashboard use)
+    pub async fn find_with_query(
         conn: &DbConn,
         query: CommentQuery,
     ) -> DbResult<(Vec<CommentWithUser>, u64)> {
         use super::super::user::Column as UserColumn;
         use sea_orm::{JoinType, QuerySelect};
 
-        println!("Query: {:?}", query);
-
-        let mut comment_query = Entity::find()
+        let mut comment_query = Self::find()
             .select_only()
             .column(Column::Id)
             .column(Column::PostId)
             .column(Column::UserId)
-            // parent_id column temporarily removed
             .column(Column::Content)
             .column(Column::LikesCount)
             .column(Column::Hidden)
@@ -137,7 +163,6 @@ impl Entity {
             .paginate(conn, Self::PER_PAGE);
 
         let total = paginator.num_items().await?;
-
         let models = paginator.fetch_page(page - 1).await?;
 
         Ok((models, total))

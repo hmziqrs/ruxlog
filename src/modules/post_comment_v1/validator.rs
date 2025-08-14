@@ -36,31 +36,6 @@ impl V1UpdatePostCommentPayload {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Validate)]
-pub struct V1PostCommentQueryParams {
-    pub page: Option<u64>,
-    pub user_id: Option<i32>,
-    pub post_id: Option<i32>,
-    pub search: Option<String>,
-    pub sort_by: Option<Vec<String>>,
-    pub sort_order: Option<String>,
-}
-
-impl V1PostCommentQueryParams {
-    pub fn into_post_comment_query(self) -> CommentQuery {
-        CommentQuery {
-            page_no: self.page,
-            user_id: self.user_id,
-            post_id: self.post_id,
-            search_term: self.search,
-            include_hidden: None,
-            min_flags: None,
-            sort_by: self.sort_by,
-            sort_order: self.sort_order,
-        }
-    }
-}
-
 #[derive(Debug, Deserialize, Serialize, Validate, Clone)]
 pub struct V1AdminPostCommentListQuery {
     pub page: Option<u64>,
