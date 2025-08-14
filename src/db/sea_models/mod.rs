@@ -1,5 +1,6 @@
 pub mod asset;
 pub mod category;
+pub mod comment_flag;
 pub mod email_verification;
 pub mod forgot_password;
 pub mod newsletter_subscriber;

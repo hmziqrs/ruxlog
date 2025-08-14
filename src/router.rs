@@ -117,6 +117,10 @@ pub fn router() -> Router<AppState> {
             "/delete/{comment_id}",
             post(post_comment_v1::controller::delete),
         )
+        .route(
+            "/flag/{comment_id}",
+            post(post_comment_v1::controller::flag),
+        )
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend))
         .route(
@@ -158,6 +162,36 @@ pub fn router() -> Router<AppState> {
         .route_layer(login_required!(AuthBackend))
         .route("/list", get(tag_v1::controller::find_all));
 
+    let admin_post_comment_v1_routes = Router::new()
+        .route("/list", post(post_comment_v1::controller::admin_list))
+        .route("/flagged", post(post_comment_v1::controller::admin_flagged))
+        .route(
+            "/hide/{comment_id}",
+            post(post_comment_v1::controller::admin_hide),
+        )
+        .route(
+            "/unhide/{comment_id}",
+            post(post_comment_v1::controller::admin_unhide),
+        )
+        .route(
+            "/delete/{comment_id}",
+            post(post_comment_v1::controller::admin_delete),
+        )
+        .route(
+            "/flags/clear/{comment_id}",
+            post(post_comment_v1::controller::admin_flags_clear),
+        )
+        .route(
+            "/flags/list",
+            post(post_comment_v1::controller::admin_flags_list),
+        )
+        .route(
+            "/flags/summary/{comment_id}",
+            post(post_comment_v1::controller::admin_flags_summary),
+        )
+        .route_layer(middleware::from_fn(user_permission::admin))
+        .route_layer(middleware::from_fn(user_status::only_verified))
+        .route_layer(login_required!(AuthBackend));
     let admin_user_v1_routes = Router::new()
         .route("/list", post(user_v1::controller::admin_list))
         .route("/view/{user_id}", get(user_v1::controller::admin_view))
@@ -191,6 +225,7 @@ pub fn router() -> Router<AppState> {
         .nest("/post/comment/v1", post_comment_v1_routes)
         .nest("/category/v1", category_v1_routes)
         .nest("/tag/v1", tag_v1_routes)
+        .nest("/admin/post/comment/v1", admin_post_comment_v1_routes)
         .nest("/admin/user/v1", admin_user_v1_routes)
         .nest("/asset/v1", asset_v1::routes())
         .nest("/feed/v1", feed_v1::routes())

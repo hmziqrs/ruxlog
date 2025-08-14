@@ -146,6 +146,7 @@ Wiring:
 
 ## 5) Admin Comment Moderation (admin-style, no manual approval flow)
 Why: Lightweight moderation without approval queues. Follow admin nesting style used for users.
+Status: In Progress — schema/migration for hidden, flags_count; admin routes wired; handlers pending (hide/unhide/delete/flags clear, flagged filter).
 
 Required Endpoints:
 - POST /admin/post/comment/v1/list — Filterable/paginated comments

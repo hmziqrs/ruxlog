@@ -1,5 +1,5 @@
-use crate::error::{DbResult};
-use sea_orm::{entity::prelude::*,  Order, QueryOrder, Set, };
+use crate::error::DbResult;
+use sea_orm::{entity::prelude::*, Order, QueryOrder, Set};
 
 use super::*;
 
@@ -82,12 +82,14 @@ impl Entity {
             // parent_id column temporarily removed
             .column(Column::Content)
             .column(Column::LikesCount)
+            .column(Column::Hidden)
+            .column(Column::FlagsCount)
             .column(Column::CreatedAt)
             .column(Column::UpdatedAt)
             .column_as(UserColumn::Name, "user_name")
             .column_as(UserColumn::Avatar, "user_avatar")
             .join(JoinType::InnerJoin, Relation::User.def());
-        
+
         if let Some(post_id_filter) = query.post_id {
             comment_query = comment_query.filter(Column::PostId.eq(post_id_filter));
         }
@@ -98,6 +100,14 @@ impl Entity {
 
         if let Some(search_term) = &query.search_term {
             comment_query = comment_query.filter(Column::Content.contains(search_term));
+        }
+
+        if query.include_hidden != Some(true) {
+            comment_query = comment_query.filter(Column::Hidden.eq(false));
+        }
+
+        if let Some(min_flags) = query.min_flags {
+            comment_query = comment_query.filter(Column::FlagsCount.gte(min_flags));
         }
 
         let order = if query.sort_order.as_deref() == Some("asc") {
@@ -111,6 +121,7 @@ impl Entity {
                 "created_at" => comment_query.order_by(Column::CreatedAt, order),
                 "updated_at" => comment_query.order_by(Column::UpdatedAt, order),
                 "likes_count" => comment_query.order_by(Column::LikesCount, order),
+                "flags_count" => comment_query.order_by(Column::FlagsCount, order),
                 _ => comment_query.order_by(Column::CreatedAt, order),
             },
             _ => comment_query.order_by(Column::CreatedAt, order),
@@ -139,5 +150,49 @@ impl Entity {
             .await?;
 
         Ok(count as i64)
+    }
+
+    pub async fn admin_hide(conn: &DbConn, comment_id: i32) -> DbResult<Option<Model>> {
+        let existing = Self::find_by_id(comment_id).one(conn).await?;
+        if let Some(model) = existing {
+            let mut active: ActiveModel = model.into();
+            active.hidden = Set(true);
+            active.updated_at = Set(chrono::Utc::now().fixed_offset());
+            let updated = active.update(conn).await?;
+            Ok(Some(updated))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub async fn admin_unhide(conn: &DbConn, comment_id: i32) -> DbResult<Option<Model>> {
+        let existing = Self::find_by_id(comment_id).one(conn).await?;
+        if let Some(model) = existing {
+            let mut active: ActiveModel = model.into();
+            active.hidden = Set(false);
+            active.updated_at = Set(chrono::Utc::now().fixed_offset());
+            let updated = active.update(conn).await?;
+            Ok(Some(updated))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub async fn admin_delete(conn: &DbConn, comment_id: i32) -> DbResult<u64> {
+        let res = Self::delete_by_id(comment_id).exec(conn).await?;
+        Ok(res.rows_affected)
+    }
+
+    pub async fn admin_flags_clear(conn: &DbConn, comment_id: i32) -> DbResult<Option<Model>> {
+        let existing = Self::find_by_id(comment_id).one(conn).await?;
+        if let Some(model) = existing {
+            let mut active: ActiveModel = model.into();
+            active.flags_count = Set(0);
+            active.updated_at = Set(chrono::Utc::now().fixed_offset());
+            let updated = active.update(conn).await?;
+            Ok(Some(updated))
+        } else {
+            Ok(None)
+        }
     }
 }

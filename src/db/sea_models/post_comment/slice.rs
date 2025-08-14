@@ -21,6 +21,8 @@ pub struct CommentQuery {
     pub post_id: Option<i32>,
     pub user_id: Option<i32>,
     pub search_term: Option<String>,
+    pub include_hidden: Option<bool>,
+    pub min_flags: Option<i32>,
     pub sort_by: Option<Vec<String>>,
     pub sort_order: Option<String>,
 }
@@ -32,6 +34,8 @@ impl Default for CommentQuery {
             post_id: None,
             user_id: None,
             search_term: None,
+            include_hidden: None,
+            min_flags: None,
             sort_by: None,
             sort_order: None,
         }
@@ -45,6 +49,8 @@ pub struct CommentWithUser {
     pub user_id: i32,
     pub content: String,
     pub likes_count: i32,
+    pub hidden: bool,
+    pub flags_count: i32,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
     pub user_name: String,

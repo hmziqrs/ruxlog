@@ -2,28 +2,24 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "post_comments")]
+#[sea_orm(table_name = "comment_flags")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub post_id: i32,
+    pub comment_id: i32,
     pub user_id: i32,
-    pub content: String,
-    pub likes_count: i32,
-    pub hidden: bool,
-    pub flags_count: i32,
+    pub reason: Option<String>,
     pub created_at: DateTimeWithTimeZone,
-    pub updated_at: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::super::post::Entity",
-        from = "Column::PostId",
-        to = "super::super::post::Column::Id"
+        belongs_to = "super::super::post_comment::Entity",
+        from = "Column::CommentId",
+        to = "super::super::post_comment::Column::Id"
     )]
-    Post,
+    Comment,
     #[sea_orm(
         belongs_to = "super::super::user::Entity",
         from = "Column::UserId",
@@ -32,9 +28,9 @@ pub enum Relation {
     User,
 }
 
-impl Related<super::super::post::Entity> for Entity {
+impl Related<super::super::post_comment::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Post.def()
+        Relation::Comment.def()
     }
 }
 

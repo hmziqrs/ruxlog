@@ -53,8 +53,58 @@ impl V1PostCommentQueryParams {
             user_id: self.user_id,
             post_id: self.post_id,
             search_term: self.search,
+            include_hidden: None,
+            min_flags: None,
             sort_by: self.sort_by,
             sort_order: self.sort_order,
         }
     }
+}
+
+#[derive(Debug, Deserialize, Serialize, Validate, Clone)]
+pub struct V1AdminPostCommentListQuery {
+    pub page: Option<u64>,
+    pub user_id: Option<i32>,
+    pub post_id: Option<i32>,
+    pub search: Option<String>,
+    pub include_hidden: Option<bool>,
+    pub min_flags: Option<i32>,
+    pub sort_by: Option<Vec<String>>,
+    pub sort_order: Option<String>,
+}
+
+impl V1AdminPostCommentListQuery {
+    pub fn into_post_comment_query(self) -> CommentQuery {
+        CommentQuery {
+            page_no: self.page,
+            user_id: self.user_id,
+            post_id: self.post_id,
+            search_term: self.search,
+            include_hidden: self.include_hidden,
+            min_flags: self.min_flags,
+            sort_by: self.sort_by,
+            sort_order: self.sort_order,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Validate)]
+pub struct V1AdminModerationPayload {
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Validate)]
+pub struct V1FlagCommentPayload {
+    #[validate(length(min = 1, max = 500))]
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Validate, Clone)]
+pub struct V1AdminCommentFlagListQuery {
+    pub page: Option<u64>,
+    pub comment_id: Option<i32>,
+    pub user_id: Option<i32>,
+    pub search: Option<String>,
+    pub sort_by: Option<Vec<String>>,
+    pub sort_order: Option<String>,
 }
