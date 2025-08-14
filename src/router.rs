@@ -106,7 +106,7 @@ pub fn router() -> Router<AppState> {
         );
 
     let post_comment_v1_routes = Router::new()
-        .route("/list", get(post_comment_v1::controller::list))
+        .route("/list", post(post_comment_v1::controller::list))
         .route_layer(middleware::from_fn(user_permission::moderator))
         .route("/create", post(post_comment_v1::controller::create))
         .route(
@@ -125,7 +125,7 @@ pub fn router() -> Router<AppState> {
         .route_layer(login_required!(AuthBackend))
         .route(
             "/list/{post_id}",
-            get(post_comment_v1::controller::list_by_post),
+            post(post_comment_v1::controller::list_by_post),
         );
 
     let category_v1_routes = Router::new()
@@ -192,6 +192,7 @@ pub fn router() -> Router<AppState> {
         .route_layer(middleware::from_fn(user_permission::admin))
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend));
+
     let admin_user_v1_routes = Router::new()
         .route("/list", post(user_v1::controller::admin_list))
         .route("/view/{user_id}", get(user_v1::controller::admin_view))

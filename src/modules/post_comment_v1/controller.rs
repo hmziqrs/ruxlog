@@ -310,3 +310,27 @@ pub async fn admin_flags_summary(
         Err(err) => Err(err.into()),
     }
 }
+
+#[debug_handler]
+pub async fn list_by_post_get(
+    State(state): State<AppState>,
+    Path(post_id): Path<i32>,
+) -> Result<impl IntoResponse, ErrorResponse> {
+    // Default page = 1, no extra filters; reuse existing query pipeline
+    let base_query = post_comment::CommentQuery {
+        post_id: Some(post_id),
+        ..Default::default()
+    };
+    let page = 1;
+    match post_comment::Entity::get_comments(&state.sea_db, base_query).await {
+        Ok((comments, total)) => Ok((
+            StatusCode::OK,
+            Json(json!({
+                "data": comments,
+                "total": total,
+                "page": page,
+            })),
+        )),
+        Err(err) => Err(err.into()),
+    }
+}
