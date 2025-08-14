@@ -105,28 +105,7 @@ pub fn router() -> Router<AppState> {
             post(post_v1::controller::track_view),
         );
 
-    let post_comment_v1_routes = Router::new()
-        .route("/list", post(post_comment_v1::controller::list))
-        .route_layer(middleware::from_fn(user_permission::moderator))
-        .route("/create", post(post_comment_v1::controller::create))
-        .route(
-            "/update/{comment_id}",
-            post(post_comment_v1::controller::update),
-        )
-        .route(
-            "/delete/{comment_id}",
-            post(post_comment_v1::controller::delete),
-        )
-        .route(
-            "/flag/{comment_id}",
-            post(post_comment_v1::controller::flag),
-        )
-        .route_layer(middleware::from_fn(user_status::only_verified))
-        .route_layer(login_required!(AuthBackend))
-        .route(
-            "/list/{post_id}",
-            post(post_comment_v1::controller::list_by_post),
-        );
+    // post_comment_v1 routes moved into module::post_comment_v1::routes()
 
     let category_v1_routes = Router::new()
         .route("/create", post(category_v1::controller::create))
@@ -162,36 +141,7 @@ pub fn router() -> Router<AppState> {
         .route_layer(login_required!(AuthBackend))
         .route("/list", get(tag_v1::controller::find_all));
 
-    let admin_post_comment_v1_routes = Router::new()
-        .route("/list", post(post_comment_v1::controller::admin_list))
-        .route("/flagged", post(post_comment_v1::controller::admin_flagged))
-        .route(
-            "/hide/{comment_id}",
-            post(post_comment_v1::controller::admin_hide),
-        )
-        .route(
-            "/unhide/{comment_id}",
-            post(post_comment_v1::controller::admin_unhide),
-        )
-        .route(
-            "/delete/{comment_id}",
-            post(post_comment_v1::controller::admin_delete),
-        )
-        .route(
-            "/flags/clear/{comment_id}",
-            post(post_comment_v1::controller::admin_flags_clear),
-        )
-        .route(
-            "/flags/list",
-            post(post_comment_v1::controller::admin_flags_list),
-        )
-        .route(
-            "/flags/summary/{comment_id}",
-            post(post_comment_v1::controller::admin_flags_summary),
-        )
-        .route_layer(middleware::from_fn(user_permission::admin))
-        .route_layer(middleware::from_fn(user_status::only_verified))
-        .route_layer(login_required!(AuthBackend));
+    // admin post_comment_v1 routes now provided via post_comment_v1::routes()
 
     let admin_user_v1_routes = Router::new()
         .route("/list", post(user_v1::controller::admin_list))
@@ -223,10 +173,10 @@ pub fn router() -> Router<AppState> {
         .nest("/email_verification/v1", email_verification_v1_routes)
         .nest("/forgot_password/v1", forgot_password_v1_routes)
         .nest("/post/v1", post_v1_routes)
-        .nest("/post/comment/v1", post_comment_v1_routes)
+        .nest("/post/comment/v1", post_comment_v1::routes())
         .nest("/category/v1", category_v1_routes)
         .nest("/tag/v1", tag_v1_routes)
-        .nest("/admin/post/comment/v1", admin_post_comment_v1_routes)
+        .nest("/admin/post/comment/v1", post_comment_v1::routes())
         .nest("/admin/user/v1", admin_user_v1_routes)
         .nest("/asset/v1", asset_v1::routes())
         .nest("/feed/v1", feed_v1::routes())
