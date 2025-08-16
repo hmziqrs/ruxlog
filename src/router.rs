@@ -26,7 +26,6 @@ pub fn router() -> Router<AppState> {
         .nest("/post/comment/v1", post_comment_v1::routes())
         .nest("/category/v1", category_v1::routes())
         .nest("/tag/v1", tag_v1::routes())
-        .nest("/admin/user/v1", user_v1::admin_routes())
         .nest("/asset/v1", asset_v1::routes())
         .nest("/feed/v1", feed_v1::routes())
         .nest("/newsletter/v1", newsletter_v1::routes())
