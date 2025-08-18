@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::utils::color::validate_optional_hex_color as validate_hex_color;
-
 use crate::db::sea_models::tag::{NewTag, TagQuery, UpdateTag};
 
 #[derive(Debug, Deserialize, Serialize, Validate)]

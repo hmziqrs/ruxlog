@@ -9,7 +9,7 @@ use serde_json::json;
 
 use crate::{
     db::sea_models::tag::Entity as Tag,
-    extractors::{ValidatedJson, ValidatedQuery},
+    extractors::ValidatedJson,
     services::auth::AuthSession,
     AppState,
 };

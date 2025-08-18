@@ -3,8 +3,6 @@ use validator::Validate;
 
 use crate::db::sea_models::category::{CategoryQuery, NewCategory, UpdateCategory};
 
-use crate::utils::color::validate_hex_color;
-
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1CreateCategoryPayload {
     #[validate(length(min = 1, max = 255))]
