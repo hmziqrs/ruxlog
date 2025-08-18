@@ -110,11 +110,9 @@ impl ErrorResponse {
 
 impl IntoResponse for ErrorResponse {
     fn into_response(self) -> axum::response::Response {
-        use axum::http::StatusCode;
-        
-        let status = StatusCode::from_u16(self.status)
-            .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
-        
+        // Always derive the HTTP status from the error code mapping
+        let status = self.code.status_code();
+
         if status.is_server_error() {
             eprintln!("Server error {}: {}", self.code, self.message);
             if let Some(details) = &self.details {
@@ -124,7 +122,12 @@ impl IntoResponse for ErrorResponse {
 
         // Capture retry-after before moving self
         let retry_after = self.retry_after;
-        let mut response = (status, Json(self)).into_response();
+
+        // Ensure the JSON body's status field matches the derived HTTP status
+        let mut body = self;
+        body.status = status.as_u16();
+
+        let mut response = (status, Json(body)).into_response();
 
         if let Some(secs) = retry_after {
             if let Ok(value) = axum::http::HeaderValue::from_str(&secs.to_string()) {
