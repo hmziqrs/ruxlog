@@ -42,6 +42,10 @@ pub struct ErrorResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context: Option<serde_json::Value>,
     
+    /// Optional retry-after seconds for rate-limited errors
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_after: Option<u64>,
+    
     /// Request ID for tracing (if available)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
@@ -59,6 +63,7 @@ impl ErrorResponse {
             status: status.as_u16(),
             details: None,
             context: None,
+            retry_after: None,
             request_id: None,
         }
     }
@@ -90,6 +95,12 @@ impl ErrorResponse {
         self
     }
     
+    /// Set Retry-After seconds for rate-limited errors
+    pub fn with_retry_after(mut self, secs: u64) -> Self {
+        self.retry_after = Some(secs);
+        self
+    }
+    
     /// Add a request ID for tracing
     pub fn with_request_id(mut self, request_id: impl Into<String>) -> Self {
         self.request_id = Some(request_id.into());
@@ -110,8 +121,20 @@ impl IntoResponse for ErrorResponse {
                 eprintln!("  Details: {}", details);
             }
         }
-        
-        (status, Json(self)).into_response()
+
+        // Capture retry-after before moving self
+        let retry_after = self.retry_after;
+        let mut response = (status, Json(self)).into_response();
+
+        if let Some(secs) = retry_after {
+            if let Ok(value) = axum::http::HeaderValue::from_str(&secs.to_string()) {
+                response
+                    .headers_mut()
+                    .insert(axum::http::header::RETRY_AFTER, value);
+            }
+        }
+
+        response
     }
 }
 

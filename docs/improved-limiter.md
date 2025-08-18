@@ -92,9 +92,12 @@ Functions:
 - `check(redis_pool, key_prefix, config) -> Result<LimiterDecision, ErrorResponse>`
   - Executes the Lua script and parses the return.
   - Replaces `.unwrap()` with proper error mapping.
+  - On Redis connectivity/timeouts, map errors to `ErrorCode::ServiceUnavailable` (or `ErrorCode::InternalServerError` for unexpected parsing issues) with details in debug builds.
 - Backward-compatible wrapper (preserve current signature):
   - `limiter(...) -> Result<(), ErrorResponse>`
-  - Calls `check(...)`. On `Blocked`, build `ErrorResponse` with message + `context.retryAfter` (and optionally `Retry-After` header).
+  - Calls `check(...)`. On `Blocked`, return `ErrorResponse::new(ErrorCode::TooManyAttempts)` (or `ErrorCode::RateLimited` for generic flows)
+    - `.with_message("Too many attempts. Try again in X seconds.")`
+    - `.with_retry_after(X)` so `Retry-After` header is set automatically and `context.retryAfter = X` is mirrored.
 
 Config alignment:
 - Use i64 seconds for times; convert to f64 only when required by Redis ZSET.
@@ -102,17 +105,20 @@ Config alignment:
 
 ## ErrorResponse and Headers
 
-- Minimal change (Option A): keep `ErrorResponse` shape as-is and include `retryAfter` in `context`. Controller may set `Retry-After` header explicitly.
-- Clean change (Option B): add `retry_after: Option<u64>` to `ErrorResponse` and set the `Retry-After` header in `IntoResponse` when present. Also mirror to `context` for clients.
-- Recommended: Option B for consistency across endpoints.
+- Adopted: add `retry_after: Option<u64>` to `ErrorResponse` and automatically set the `Retry-After` header in `ErrorResponse`'s `IntoResponse` when present.
+- Also mirror `retry_after` to `context.retryAfter` for clients that rely on the JSON field.
+- Use existing `ErrorCode` values from `src/error/codes.rs`:
+  - Prefer `ErrorCode::TooManyAttempts` for auth/verification flows (maps to 429).
+  - Prefer `ErrorCode::RateLimited` for generic rate-limits outside auth.
 
 ## Controller Integration Example (`src/modules/email_verification_v1/controller.rs`)
 
 - Keep call site intact using the wrapper (`abuse_limiter::limiter(...)`).
-- When blocked, the returned `ErrorResponse` includes a message like:
-  - "Too many attempts for verification code. Try again in X seconds."
-  - `context.retryAfter = X`
-  - Optionally set `Retry-After` header (either via `IntoResponse` or at controller level if using Option A).
+- When blocked, the returned `ErrorResponse` includes:
+  - `code = ErrorCode::TooManyAttempts`, `status = 429`
+  - Message like: "Too many attempts for verification code. Try again in X seconds."
+  - `retry_after = Some(X)` so the `Retry-After: X` header is automatically added.
+  - `context.retryAfter = X` mirrored for clients reading JSON only.
 
 ## Logging and Metrics
 
@@ -149,6 +155,6 @@ Lua scripting is chosen for correctness and simplicity of atomic sliding-window 
 
 ## Operational Notes
 
-- Handle Redis errors gracefully: map to `ErrorCode::Database` or `Internal`, include details in debug builds.
+- Handle Redis errors gracefully: map to `ErrorCode::ServiceUnavailable` (connectivity/timeout) or `ErrorCode::InternalServerError` (unexpected parsing), include details in debug builds.
 - Time source: rely on Redis `TIME`, not local clocks.
 - Security: key prefixes should avoid user-controlled raw strings; sanitize or prefix with fixed namespaces.
