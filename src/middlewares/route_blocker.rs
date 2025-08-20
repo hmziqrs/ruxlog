@@ -1,14 +1,12 @@
 use axum::{
     extract::Request,
-    http::StatusCode,
     middleware::Next,
     response::{IntoResponse, Response},
-    Json,
 };
 use lazy_static::lazy_static;
 use regex::Regex;
-use serde_json::json;
 use std::env;
+use crate::error::{ErrorCode, ErrorResponse};
 
 lazy_static! {
     static ref BLOCKED_ROUTES: Vec<Regex> = {
@@ -40,14 +38,11 @@ pub async fn block_routes(req: Request, next: Next) -> Result<Response, Response
 
     for pattern in BLOCKED_ROUTES.iter() {
         if pattern.is_match(path) {
-            return Err((
-                StatusCode::FORBIDDEN,
-                Json(json!({
-                    "error": "access_denied",
-                    "message": "This route is currently unavailable"
-                })),
-            )
-                .into_response());
+            return Err(
+                ErrorResponse::new(ErrorCode::OperationNotAllowed)
+                    .with_message("This route is currently unavailable")
+                    .into_response(),
+            );
         }
     }
 
