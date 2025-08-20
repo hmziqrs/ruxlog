@@ -1,5 +1,6 @@
 use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
+use crate::utils::SortParam;
 
 #[derive(Deserialize, Debug)]
 pub struct NewTag {
@@ -20,12 +21,6 @@ pub struct UpdateTag {
     pub text_color: Option<String>,
     pub is_active: Option<bool>,
     pub updated_at: DateTimeWithTimeZone,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct SortParam {
-    pub field: String,
-    pub order: Option<String>, // "asc" | "desc" (case-insensitive), default desc
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq)]

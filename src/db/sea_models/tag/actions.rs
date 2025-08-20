@@ -154,20 +154,11 @@ impl Entity {
                     };
 
                     if let Some(col) = column {
-                        let ord = match s.order.as_deref() {
-                            Some("asc") | Some("ASC") => Order::Asc,
-                            _ => Order::Desc,
-                        };
+                        let ord = s.order.clone();
                         tag_query = tag_query.order_by(col, ord);
                     }
                 }
-            } else {
-                // Empty sorts vector -> default sort
-                tag_query = tag_query.order_by(Column::Name, Order::Desc);
             }
-        } else {
-            // No dynamic sorts provided -> default sort
-            tag_query = tag_query.order_by(Column::Name, Order::Desc);
         }
 
         let page = match query.page {

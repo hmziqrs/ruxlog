@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::db::sea_models::tag::{NewTag, SortParam, TagQuery, UpdateTag};
+use crate::db::sea_models::tag::{NewTag, TagQuery, UpdateTag};
+use crate::utils::SortParam;
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1CreateTagPayload {
