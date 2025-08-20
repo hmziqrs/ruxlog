@@ -22,9 +22,18 @@ pub struct UpdateTag {
     pub updated_at: DateTimeWithTimeZone,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct SortParam {
+    pub field: String,
+    pub order: Option<String>, // "asc" | "desc" (case-insensitive), default desc
+}
+
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct TagQuery {
     pub page: Option<u64>,
     pub search: Option<String>,
-    pub sort_order: Option<String>,
+    // New: dynamic multi-field sorts
+    pub sorts: Option<Vec<SortParam>>,
+    // Optional filter for active state
+    pub is_active: Option<bool>,
 }

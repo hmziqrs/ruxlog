@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::db::sea_models::tag::{NewTag, TagQuery, UpdateTag};
+use crate::db::sea_models::tag::{NewTag, SortParam, TagQuery, UpdateTag};
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1CreateTagPayload {
@@ -64,7 +64,8 @@ impl V1UpdateTagPayload {
 pub struct V1TagQueryParams {
     pub page: Option<u64>,
     pub search: Option<String>,
-    pub sort_order: Option<String>,
+    pub sorts: Option<Vec<SortParam>>, // [{ field, order }]
+    pub is_active: Option<bool>,
 }
 
 impl V1TagQueryParams {
@@ -72,7 +73,8 @@ impl V1TagQueryParams {
         TagQuery {
             page: self.page,
             search: self.search,
-            sort_order: self.sort_order,
+            sorts: self.sorts,
+            is_active: self.is_active,
         }
     }
 }

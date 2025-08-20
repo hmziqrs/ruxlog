@@ -130,13 +130,44 @@ impl Entity {
             );
         }
 
-        match query.sort_order.as_deref() {
-            Some("asc") => {
-                tag_query = tag_query.order_by(Column::Name, Order::Asc);
-            }
-            _ => {
+        // Optional is_active filter
+        if let Some(active) = query.is_active {
+            tag_query = tag_query.filter(Column::IsActive.eq(active));
+        }
+
+        // Sorting: prefer dynamic multi-field sorts if provided, else default to name desc
+        if let Some(sorts) = &query.sorts {
+            if !sorts.is_empty() {
+                for s in sorts {
+                    // Map string field names to columns; unknown fields are ignored
+                    let column = match s.field.as_str() {
+                        "id" => Some(Column::Id),
+                        "name" => Some(Column::Name),
+                        "slug" => Some(Column::Slug),
+                        "description" => Some(Column::Description),
+                        "color" => Some(Column::Color),
+                        "text_color" => Some(Column::TextColor),
+                        "is_active" => Some(Column::IsActive),
+                        "created_at" => Some(Column::CreatedAt),
+                        "updated_at" => Some(Column::UpdatedAt),
+                        _ => None,
+                    };
+
+                    if let Some(col) = column {
+                        let ord = match s.order.as_deref() {
+                            Some("asc") | Some("ASC") => Order::Asc,
+                            _ => Order::Desc,
+                        };
+                        tag_query = tag_query.order_by(col, ord);
+                    }
+                }
+            } else {
+                // Empty sorts vector -> default sort
                 tag_query = tag_query.order_by(Column::Name, Order::Desc);
             }
+        } else {
+            // No dynamic sorts provided -> default sort
+            tag_query = tag_query.order_by(Column::Name, Order::Desc);
         }
 
         let page = match query.page {
