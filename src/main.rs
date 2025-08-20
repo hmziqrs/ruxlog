@@ -217,7 +217,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // })
         .layer(compression)
         .layer(request_size)
-        .layer(middleware::from_fn(middlewares::static_csrf::csrf_gaurd))
+        .layer(middleware::from_fn(middlewares::static_csrf::csrf_guard))
         .route(
             "/csrf/v1/generate",
             routing::post(csrf_v1::controller::generate),

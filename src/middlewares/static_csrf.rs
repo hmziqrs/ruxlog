@@ -12,7 +12,7 @@ pub fn get_static_csrf_key() -> String {
     return key;
 }
 
-pub async fn csrf_gaurd(req: Request, next: Next) -> Result<Response, Response> {
+pub async fn csrf_guard(req: Request, next: Next) -> Result<Response, Response> {
     let err_resp = ErrorResponse::new(ErrorCode::InvalidToken)
         .with_message("Request is from an unverified client");
     if let Some(token) = req.headers().get("csrf-token") {
