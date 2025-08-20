@@ -1,7 +1,7 @@
 pub mod controller;
 pub mod validator;
 
-use axum::{middleware, routing::{get, post, put}, Router};
+use axum::{middleware, routing::{get, post}, Router};
 use axum_login::login_required;
 
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
 pub fn routes() -> Router<AppState> {
     // Only verified users can update
     let base = Router::new()
-        .route("/update", put(controller::update_profile))
+        .route("/update", post(controller::update_profile))
         .route_layer(middleware::from_fn(user_status::only_verified))
         // Any authenticated user can get their profile
         .merge(Router::new().route("/get", get(controller::get_profile)))

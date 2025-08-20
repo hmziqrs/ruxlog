@@ -3,7 +3,7 @@ pub mod validator;
 
 use axum::{
     middleware,
-    routing::{delete, get, post, put},
+    routing::{get, post},
     Router,
 };
 use axum_login::login_required;
@@ -17,8 +17,8 @@ use crate::{
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/upload", post(controller::upload))
-        .route("/{asset_id}", put(controller::update))
-        .route("/{asset_id}", delete(controller::delete))
+        .route("/update/{asset_id}", post(controller::update))
+        .route("/delete/{asset_id}", post(controller::delete))
         .route("/{asset_id}", get(controller::find_by_id))
         .route("/query", post(controller::find_with_query))
         .route("/contexts", get(controller::contexts))
