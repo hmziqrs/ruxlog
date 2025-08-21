@@ -169,6 +169,14 @@ create_tag() {
   post_json "/tag/v1/create" "$payload" 201 >/dev/null
 }
 
+update_tag() {
+  local id="$1"; shift
+  local desc="$1"; shift
+  local payload
+  payload=$(jq -nc --arg desc "$desc" '{description:$desc}')
+  post_json "/tag/v1/update/$id" "$payload" 200 >/dev/null
+}
+
 # Define names to exercise lexicographic ordering
 # Ensure unique slugs by appending TOKEN
 create_tag "Alpha"   "alpha-$TOKEN"   true  "$TOKEN alpha"
@@ -186,6 +194,19 @@ fetch_tags() {
   local sorts_json="$1"; shift
   local payload
   payload=$(jq -nc --arg token "$TOKEN" --argjson sorts "$sorts_json" '{page:1, search:$token, sorts:$sorts}')
+  post_json "/tag/v1/list/query" "$payload" 200
+}
+
+# Helper: fetch list with arbitrary extra filters merged
+fetch_tags_with_filters() {
+  local sorts_json="$1"; shift
+  local filters_json="$1"; shift
+  local payload
+  payload=$(jq -nc \
+    --arg token "$TOKEN" \
+    --argjson sorts "$sorts_json" \
+    --argjson filters "$filters_json" \
+    '$filters + {page:1, search:$token, sorts:$sorts}')
   post_json "/tag/v1/list/query" "$payload" 200
 }
 
@@ -281,6 +302,42 @@ check_single_sort "is_active" "desc"
 echo "==> Multi-field sort cases"
 check_multi_sort_primary_then_secondary "is_active" "desc" "name" "asc"
 check_multi_sort_primary_then_secondary "name" "asc" "created_at" "desc"
+
+echo "==> Date-based filter cases"
+# Prepare full lists sorted by created_at asc/desc
+sort_created_asc=$(jq -nc '[{field:"created_at", order:"asc"}]')
+out_created_asc=$(fetch_tags "$sort_created_asc")
+sort_created_desc=$(jq -nc '[{field:"created_at", order:"desc"}]')
+out_created_desc=$(fetch_tags "$sort_created_desc")
+
+# created_at_gt: use earliest timestamp; expect remaining 4
+created_earliest=$(jq -r '.data[0].created_at' "$out_created_asc")
+out_gt=$(fetch_tags_with_filters "$sort_created_asc" "$(jq -nc --arg t "$created_earliest" '{created_at_gt:$t}')")
+len_gt=$(jq -r '.data | length' "$out_gt")
+assert_true "$(test "$len_gt" -eq 4 && echo true || echo false)" "created_at_gt filter expected 4 results, got $len_gt"
+
+# created_at_lt: use latest timestamp; expect remaining 4
+created_latest=$(jq -r '.data[0].created_at' "$out_created_desc")
+out_lt=$(fetch_tags_with_filters "$sort_created_desc" "$(jq -nc --arg t "$created_latest" '{created_at_lt:$t}')")
+len_lt=$(jq -r '.data | length' "$out_lt")
+assert_true "$(test "$len_lt" -eq 4 && echo true || echo false)" "created_at_lt filter expected 4 results, got $len_lt"
+
+# updated_at_gt: capture current max updated_at, update one tag, expect exactly 1 newer
+sort_updated_desc=$(jq -nc '[{field:"updated_at", order:"desc"}]')
+out_updated_desc=$(fetch_tags "$sort_updated_desc")
+prev_max_updated=$(jq -r '.data[0].updated_at' "$out_updated_desc")
+# choose a tag id to update (prefer name=="Gamma", else first)
+id_to_update=$(jq -r '.data[] | select(.name=="Gamma") | .id' "$out_updated_desc")
+if [[ -z "$id_to_update" || "$id_to_update" == "null" ]]; then
+  id_to_update=$(jq -r '.data[0].id' "$out_updated_desc")
+fi
+update_tag "$id_to_update" "$TOKEN updated"
+
+# fetch after update with filter
+out_upd_gt=$(fetch_tags_with_filters "$sort_updated_desc" "$(jq -nc --arg t "$prev_max_updated" '{updated_at_gt:$t}')")
+len_upd_gt=$(jq -r '.data | length' "$out_upd_gt")
+first_id_after=$(jq -r '.data[0].id' "$out_upd_gt")
+assert_true "$(test "$len_upd_gt" -eq 1 && test "$first_id_after" -eq "$id_to_update" && echo true || echo false)" "updated_at_gt expected exactly the updated tag ($id_to_update); got len=$len_upd_gt first_id=$first_id_after"
 
 echo
 echo "==== TAG SORT SMOKE TEST COMPLETED SUCCESSFULLY ===="
