@@ -47,6 +47,5 @@ pub async fn get_sea_connection() -> DatabaseConnection {
         Err(e) => panic!("Failed to run migrations: {:?}", e),
     }
 
-
     conn
 }

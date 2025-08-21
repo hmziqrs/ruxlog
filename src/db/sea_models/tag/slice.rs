@@ -31,4 +31,9 @@ pub struct TagQuery {
     pub sorts: Option<Vec<SortParam>>,
     // Optional filter for active state
     pub is_active: Option<bool>,
+    // Optional created_at/updated_at range filters
+    pub created_at_gt: Option<DateTimeWithTimeZone>,
+    pub created_at_lt: Option<DateTimeWithTimeZone>,
+    pub updated_at_gt: Option<DateTimeWithTimeZone>,
+    pub updated_at_lt: Option<DateTimeWithTimeZone>,
 }

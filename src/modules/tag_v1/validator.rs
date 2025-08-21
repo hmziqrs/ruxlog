@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use sea_orm::prelude::DateTimeWithTimeZone;
 use validator::Validate;
 
 use crate::db::sea_models::tag::{NewTag, TagQuery, UpdateTag};
@@ -67,6 +68,11 @@ pub struct V1TagQueryParams {
     pub search: Option<String>,
     pub sorts: Option<Vec<SortParam>>, // [{ field, order }]
     pub is_active: Option<bool>,
+    // Optional created_at/updated_at range filters (ISO8601)
+    pub created_at_gt: Option<DateTimeWithTimeZone>,
+    pub created_at_lt: Option<DateTimeWithTimeZone>,
+    pub updated_at_gt: Option<DateTimeWithTimeZone>,
+    pub updated_at_lt: Option<DateTimeWithTimeZone>,
 }
 
 impl V1TagQueryParams {
@@ -76,6 +82,10 @@ impl V1TagQueryParams {
             search: self.search,
             sorts: self.sorts,
             is_active: self.is_active,
+            created_at_gt: self.created_at_gt,
+            created_at_lt: self.created_at_lt,
+            updated_at_gt: self.updated_at_gt,
+            updated_at_lt: self.updated_at_lt,
         }
     }
 }

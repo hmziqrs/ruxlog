@@ -135,6 +135,20 @@ impl Entity {
             tag_query = tag_query.filter(Column::IsActive.eq(active));
         }
 
+        // Optional created_at/updated_at range filters
+        if let Some(ts) = query.created_at_gt {
+            tag_query = tag_query.filter(Column::CreatedAt.gt(ts));
+        }
+        if let Some(ts) = query.created_at_lt {
+            tag_query = tag_query.filter(Column::CreatedAt.lt(ts));
+        }
+        if let Some(ts) = query.updated_at_gt {
+            tag_query = tag_query.filter(Column::UpdatedAt.gt(ts));
+        }
+        if let Some(ts) = query.updated_at_lt {
+            tag_query = tag_query.filter(Column::UpdatedAt.lt(ts));
+        }
+
         // Sorting: prefer dynamic multi-field sorts if provided, else default to name desc
         if let Some(sorts) = &query.sorts {
             if !sorts.is_empty() {
