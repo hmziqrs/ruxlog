@@ -316,11 +316,27 @@ out_gt=$(fetch_tags_with_filters "$sort_created_asc" "$(jq -nc --arg t "$created
 len_gt=$(jq -r '.data | length' "$out_gt")
 assert_true "$(test "$len_gt" -eq 4 && echo true || echo false)" "created_at_gt filter expected 4 results, got $len_gt"
 
+# Save actual and expected ID sets for created_at_gt and compare
+CREATED_GT_IDS_ACTUAL="$TMP_DIR/actual_created_gt_ids.json"
+CREATED_GT_IDS_EXPECTED="$TMP_DIR/expected_created_gt_ids.json"
+jq '.data | map(.id)' "$out_gt" > "$CREATED_GT_IDS_ACTUAL"
+jq '.data | .[1:] | map(.id)' "$out_created_asc" > "$CREATED_GT_IDS_EXPECTED"
+ok_ids=$(jq -e -S 'input == .' "$CREATED_GT_IDS_EXPECTED" "$CREATED_GT_IDS_ACTUAL" >/dev/null 2>&1 && echo true || echo false)
+assert_true "$ok_ids" "created_at_gt IDs do not match expected. See $CREATED_GT_IDS_EXPECTED vs $CREATED_GT_IDS_ACTUAL"
+
 # created_at_lt: use latest timestamp; expect remaining 4
 created_latest=$(jq -r '.data[0].created_at' "$out_created_desc")
 out_lt=$(fetch_tags_with_filters "$sort_created_desc" "$(jq -nc --arg t "$created_latest" '{created_at_lt:$t}')")
 len_lt=$(jq -r '.data | length' "$out_lt")
 assert_true "$(test "$len_lt" -eq 4 && echo true || echo false)" "created_at_lt filter expected 4 results, got $len_lt"
+
+# Save actual and expected ID sets for created_at_lt and compare
+CREATED_LT_IDS_ACTUAL="$TMP_DIR/actual_created_lt_ids.json"
+CREATED_LT_IDS_EXPECTED="$TMP_DIR/expected_created_lt_ids.json"
+jq '.data | map(.id)' "$out_lt" > "$CREATED_LT_IDS_ACTUAL"
+jq '.data | .[1:] | map(.id)' "$out_created_desc" > "$CREATED_LT_IDS_EXPECTED"
+ok_ids=$(jq -e -S 'input == .' "$CREATED_LT_IDS_EXPECTED" "$CREATED_LT_IDS_ACTUAL" >/dev/null 2>&1 && echo true || echo false)
+assert_true "$ok_ids" "created_at_lt IDs do not match expected. See $CREATED_LT_IDS_EXPECTED vs $CREATED_LT_IDS_ACTUAL"
 
 # updated_at_gt: capture current max updated_at, update one tag, expect exactly 1 newer
 sort_updated_desc=$(jq -nc '[{field:"updated_at", order:"desc"}]')
@@ -338,6 +354,14 @@ out_upd_gt=$(fetch_tags_with_filters "$sort_updated_desc" "$(jq -nc --arg t "$pr
 len_upd_gt=$(jq -r '.data | length' "$out_upd_gt")
 first_id_after=$(jq -r '.data[0].id' "$out_upd_gt")
 assert_true "$(test "$len_upd_gt" -eq 1 && test "$first_id_after" -eq "$id_to_update" && echo true || echo false)" "updated_at_gt expected exactly the updated tag ($id_to_update); got len=$len_upd_gt first_id=$first_id_after"
+
+# Save actual and expected ID sets for updated_at_gt and compare
+UPDATED_GT_IDS_ACTUAL="$TMP_DIR/actual_updated_gt_ids.json"
+UPDATED_GT_IDS_EXPECTED="$TMP_DIR/expected_updated_gt_ids.json"
+jq '.data | map(.id)' "$out_upd_gt" > "$UPDATED_GT_IDS_ACTUAL"
+jq -nc --arg id "$id_to_update" '[( $id|tonumber )]' > "$UPDATED_GT_IDS_EXPECTED"
+ok_ids=$(jq -e -S 'input == .' "$UPDATED_GT_IDS_EXPECTED" "$UPDATED_GT_IDS_ACTUAL" >/dev/null 2>&1 && echo true || echo false)
+assert_true "$ok_ids" "updated_at_gt IDs do not match expected. See $UPDATED_GT_IDS_EXPECTED vs $UPDATED_GT_IDS_ACTUAL"
 
 echo
 echo "==== TAG SORT SMOKE TEST COMPLETED SUCCESSFULLY ===="
