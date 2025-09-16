@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_g5uFeiNYCG
 createdAt: 2025-05-02T09:19:18.293581
-updatedAt: 2025-08-08T15:21:07.261321
+updatedAt: 2025-09-16T11:01:51.417911
 workspaceId: wk_udoUbrFfLp
 folderId: fl_jatCY2DVY4
 authentication: {}
@@ -10,6 +10,14 @@ authenticationType: null
 body:
   text: |-
     {
+        "page": 1,
+        "search": null,
+        "sorts": null,
+        "is_active": null,
+        "created_at_gt": null,
+        "created_at_lt": null,
+        "updated_at_gt": null,
+        "updated_at_lt": null
     }
 bodyType: application/json
 description: ''
