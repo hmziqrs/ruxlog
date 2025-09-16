@@ -1,0 +1,30 @@
+version: "3.9"
+name: ${PROJECT}
+
+services:
+  traefik:
+    image: traefik:v3.1
+    container_name: ${PROJECT}_traefik
+    env_file:
+      - .env.prod
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.storage=/var/lib/traefik/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./traefik.prod.yml:/etc/traefik/traefik.yml:ro
+      - ./data:/var/lib/traefik
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - external_network
+    restart: always
+
+networks:
+  external_network:
+    name: ${PROJECT}_network
+    external: true

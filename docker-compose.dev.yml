@@ -10,6 +10,15 @@ services:
     restart: always
     ports:
       - "0.0.0.0:8888:8888"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.backend.rule=Host(`${BACKEND_DOMAIN:-backend.localhost}`)
+      - traefik.http.routers.backend.entrypoints=web
+      - traefik.http.routers.backend.middlewares=backend-rate@docker
+      - traefik.http.middlewares.backend-rate.ratelimit.average=${BACKEND_RATE_AVG:-10}
+      - traefik.http.middlewares.backend-rate.ratelimit.burst=${BACKEND_RATE_BURST:-20}
+      - traefik.http.services.backend.loadbalancer.server.port=8888
+      - traefik.docker.network=${PROJECT}_network
     depends_on:
       postgres:
         condition: service_healthy

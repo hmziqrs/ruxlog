@@ -1,0 +1,15 @@
+entryPoints:
+  web:
+    address: ":80"
+  websecure:
+    address: ":443"
+
+log:
+  level: INFO
+
+accessLog: {}
+
+providers:
+  docker:
+    exposedByDefault: false
+    watch: true

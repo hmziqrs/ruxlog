@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 - `src/main.rs` starts the Axum server and composes middleware from `src/middlewares` with routes in `src/router.rs`.
 - Versioned features live in `src/modules` (`*_v1` folders); database helpers sit in `src/db` and the `migration/` crate, while shared utilities live in `src/utils` and `src/extractors`.
-- Operational docs are in `docs/`, shell smoke suites in `tests/`, and Docker assets under `docker/` plus `traefik/` for edge proxy configs.
+- Operational docs are in `docs/`, shell smoke suites in `tests/`, and Docker assets under `docker/` plus `traefik/` for edge proxy configs (see `docs/TRAEFIK_SETUP.md`).
 
 ## Build, Test, and Development Commands
 - `cargo run` (or `npm run dev`) loads the API using `.env`; use `cargo run --release` or `npm run prod` for optimized binaries.
@@ -28,4 +28,4 @@
 ## Security & Configuration Tips
 - Copy `.env.example` to `.env`, store credentials outside git, and rotate shared secrets frequently.
 - Generate CSRF and session helpers with `cargo run --bin generate_csrf` and `cargo run --bin generate_hash`.
-- Review `docker-compose.prod.yml` and `traefik/` updates for TLS, CORS, and rate-limit coverage before releasing.
+- Review `docker-compose.prod.yml`, `traefik/`, and `docs/TRAEFIK_SETUP.md` updates for TLS, CORS, and rate-limit coverage before releasing.

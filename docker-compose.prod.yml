@@ -8,6 +8,16 @@ services:
       dockerfile: Dockerfile
     container_name: ${PROJECT}_backend
     restart: always
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.backend.rule=Host(`${BACKEND_DOMAIN}`)
+      - traefik.http.routers.backend.entrypoints=websecure
+      - traefik.http.routers.backend.tls.certresolver=letsencrypt
+      - traefik.http.routers.backend.middlewares=backend-rate@docker
+      - traefik.http.middlewares.backend-rate.ratelimit.average=${BACKEND_RATE_AVG:-10}
+      - traefik.http.middlewares.backend-rate.ratelimit.burst=${BACKEND_RATE_BURST:-20}
+      - traefik.http.services.backend.loadbalancer.server.port=8888
+      - traefik.docker.network=${PROJECT}_network
     depends_on:
       postgres:
         condition: service_healthy
