@@ -1,35 +1,23 @@
-# Builder stage
-FROM rust:1.82-slim-bullseye as builder
-
+FROM rust:1.89.0-slim-trixie AS builder
 WORKDIR /app
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
-    pkg-config \
-    libssl-dev \
-    libpq-dev \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        pkg-config libssl-dev libpq-dev build-essential ca-certificates binutils \
     && rm -rf /var/lib/apt/lists/*
 
 COPY . .
-
-
+ENV RUSTFLAGS="-C strip=symbols"
 RUN cargo build --release
 
-# Runtime stage
-FROM debian:bullseye-slim
-
+FROM debian:trixie-slim AS runtime
 WORKDIR /app
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
-    libpq5 \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends libpq5 ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -r -u 10001 appuser
 
-# Copy the binary from builder
 COPY --from=builder /app/target/release/ruxlog /app/ruxlog
 
-# Expose the port
+USER appuser
 EXPOSE 8888
-
-# Command to run the binary
 CMD ["/app/ruxlog"]

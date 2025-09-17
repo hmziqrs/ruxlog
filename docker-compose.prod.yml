@@ -31,7 +31,7 @@ services:
       - no-new-privileges:true
 
   postgres:
-    image: postgres:17
+    image: postgres:17.6-trixie
     container_name: ${PROJECT}_postgres
     restart: always
     environment:
@@ -68,7 +68,7 @@ services:
       - network
 
   redis:
-    image: redis:7.4.1-alpine
+    image: redis:7.4.5-alpine
     container_name: ${PROJECT}_redis
     restart: always
     command: >
