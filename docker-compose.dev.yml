@@ -30,6 +30,13 @@ services:
       - .env.docker
     security_opt:
       - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl --fail --silent http://localhost:8888/healthz || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   postgres: # Will become myapp_postgres
     image: postgres:17.6-trixie

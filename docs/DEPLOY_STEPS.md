@@ -32,7 +32,7 @@ docker compose --env-file traefik/.env.prod -f traefik/docker-compose.prod.yml u
 
 # 7. Inspect proxy logs (ACME + routing) and test HTTPS endpoint
 docker logs ruxlog_traefik
-open https://api.example.com
+curl -I https://api.example.com/healthz
 ```
 
 ## Optional: Local Label-Based Routing
