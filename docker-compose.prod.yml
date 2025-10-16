@@ -142,28 +142,15 @@ services:
       --interval 300 \
       --cleanup \
       --include-restarting \
-      --rolling-restart \
-      --http-api-update
+      --rolling-restart
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     env_file:
       - .env.prod
     environment:
-      # If your GHCR images are private, ensure the host has `docker login ghcr.io`
-      # or provide GHCR creds in .env.prod (GHCR_USER/GHCR_TOKEN not read by watchtower directly).
       - WATCHTOWER_NOTIFICATIONS_LEVEL=info
-      # Optional token to secure HTTP API; set WATCHTOWER_TOKEN in .env.prod
-      - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_TOKEN:-}
     networks:
       - network
-    labels:
-      # Expose HTTP API via Traefik only when WATCHTOWER_EXPOSE=true
-      - traefik.enable=${WATCHTOWER_EXPOSE:-false}
-      - traefik.http.routers.watchtower.rule=Host(`${WATCHTOWER_DOMAIN}`)
-      - traefik.http.routers.watchtower.entrypoints=websecure
-      - traefik.http.routers.watchtower.tls.certresolver=letsencrypt
-      - traefik.http.services.watchtower.loadbalancer.server.port=8080
-      - traefik.docker.network=${PROJECT}_network
 
 volumes:
   postgres_data:

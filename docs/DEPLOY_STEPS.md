@@ -46,7 +46,7 @@ docker compose --env-file deploy.env -f traefik/docker-compose.dev.yml up -d
 This repo includes a workflow at `.github/workflows/cicd.yml` that:
 
 - Builds and pushes a container image to GHCR when you push a Git tag like `v1.2.3`.
-- Optionally triggers a Watchtower webhook for immediate rollout (no SSH).
+- Deployment is handled by Watchtower polling on your VPS (no SSH, no webhooks).
 
 ### Prerequisites on the VPS
 
@@ -83,7 +83,7 @@ On push of a version tag (e.g., `v1.2.3`):
 	- `ghcr.io/<owner>/<repo>:v1.2.3` (full tag)
 	- `ghcr.io/<owner>/<repo>:1.2.3` (raw semver)
 	- `ghcr.io/<owner>/<repo>:latest` (only for stable semver x.y.z)
-2. Your VPS auto-detects and rolls out the update via Watchtower (polling) or immediately if you configure the webhook.
+2. Your VPS auto-detects and rolls out the update via Watchtower polling.
 
 ### Default: SSH-less auto-deploy (Watchtower)
 
@@ -93,12 +93,7 @@ You can avoid SSH entirely and let the server auto-update containers when new im
 - Make sure your server can pull from GHCR:
 	- Either make the package public, or
 	- Run `docker login ghcr.io` once on the VPS (use a PAT with `read:packages`).
-- Optional webhook trigger:
-	- Set `WATCHTOWER_TOKEN` in `.env.prod` and `WATCHTOWER_EXPOSE=true` plus `WATCHTOWER_DOMAIN=watchtower.example.com`.
-	- Traefik will expose Watchtower’s HTTP API at `https://watchtower.example.com/v1/update?token=<WATCHTOWER_TOKEN>`.
-	- Have GitHub Actions call that URL after pushing the image to trigger an immediate update instead of waiting for the poll interval.
-
-To trigger from Actions, add a repository secret `WATCHTOWER_WEBHOOK_URL` set to the HTTPS URL above; the workflow will curl it if present.
+There is no webhook in this setup; Watchtower will pick up new images on its polling interval (5 minutes by default).
 
 For a step-by-step Watchtower setup guide, see `docs/WATCHTOWER_SETUP.md`.
 

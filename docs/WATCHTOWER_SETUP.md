@@ -9,7 +9,7 @@ Our repo already ships a Watchtower service in `docker-compose.prod.yml` and lab
 - Periodically checks container images for updates in your registry.
 - Pulls newer image tags and restarts only the labeled containers.
 - Performs rolling restarts and cleans up old images (as configured).
-- Optional HTTP API lets you trigger an immediate update (webhook) after a CI push.
+  
 
 ## Prerequisites
 
@@ -34,7 +34,6 @@ docker login ghcr.io  # use a GitHub Personal Access Token with read:packages
   - `--interval 300` (check every 5 minutes) — adjustable
   - `--cleanup` (remove old/dangling images)
   - `--rolling-restart` (safer restarts)
-  - `--http-api-update` (enables optional webhook)
   - Docker socket volume mounted (`/var/run/docker.sock`)
   - Attached to the same `network` as `backend`
 
@@ -47,19 +46,7 @@ Ensure the following files exist on the VPS in your app directory (e.g., `/opt/r
 - `deploy.env` — compose interpolation vars used by labels/Traefik (see `docs/DEPLOY_STEPS.md`).
 - `.env.prod` — your production secrets used by the containers.
 
-Optional (only if you want webhook-triggered instant updates): add to `.env.prod`:
-
-```env
-# Expose Watchtower HTTP API through Traefik (disabled by default)
-WATCHTOWER_EXPOSE=true
-WATCHTOWER_DOMAIN=watchtower.example.com
-# Long random token; required to access the API safely
-WATCHTOWER_TOKEN=replace-with-a-long-random-string
-```
-
-Notes:
-- If you do not set `WATCHTOWER_EXPOSE=true`, the API won’t be reachable externally (safer default). Watchtower will still poll every 5 minutes.
-- The Traefik labels for Watchtower are already in `docker-compose.prod.yml` and honor these variables.
+There is no webhook or external API exposure in this setup; Watchtower will simply poll every 5 minutes and update labeled containers when a new image tag is available.
 
 ## Step 3 — Start or restart Watchtower
 
@@ -90,29 +77,13 @@ You should see it scanning containers and reporting nothing to update initially.
    - `docker ps` (new image tag on `backend`)
    - `docker logs ruxlog_backend` or your app health endpoint (`/healthz`).
 
-## Step 5 — Optional webhook for instant updates
+## Step 5 — Release and let Watchtower roll
 
-If you configured `WATCHTOWER_EXPOSE=true`, `WATCHTOWER_DOMAIN`, and `WATCHTOWER_TOKEN` in `.env.prod`, Traefik exposes the Watchtower API at:
-
-```
-https://<WATCHTOWER_DOMAIN>/v1/update?token=<WATCHTOWER_TOKEN>
-```
-
-- Manual trigger from your machine:
-
-```bash
-curl -fsSL "https://watchtower.example.com/v1/update?token=your-long-token"
-```
-
-- CI trigger (GitHub Actions):
-  - Add a repo secret `WATCHTOWER_WEBHOOK_URL` set to the full HTTPS URL above.
-  - The workflow includes a job that curls this URL after a successful push (only runs if the secret is present).
+There’s nothing else to configure: as you tag releases (`vX.Y.Z`), the CI builds and pushes your image to GHCR, and within up to 5 minutes Watchtower will pull the new tag and restart the backend.
 
 ## Security best practices
 
-- Keep the Watchtower API disabled by default. When enabling, always require a strong token.
-- Prefer HTTPS via Traefik with a proper domain and certificate.
-- Consider IP allowlists, Traefik rate limits, or BasicAuth in front of the webhook if exposed publicly.
+- Prefer HTTPS via Traefik with a proper domain and certificate for your app traffic.
 - Use pinned tags (e.g., `v1.2.3`) for predictable rollouts; avoid floating tags in production unless you understand the trade-offs.
 - Limit your PAT scopes for `docker login ghcr.io` to `read:packages` on the VPS.
 

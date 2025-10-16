@@ -93,17 +93,4 @@ jobs:
         run: |
           echo "ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.version }}" >> $GITHUB_OUTPUT
 
-  notify-watchtower:
-    name: Notify Watchtower (optional)
-    needs: [ build-and-push ]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger Watchtower webhook if configured
-        env:
-          WATCHTOWER_WEBHOOK_URL: ${{ secrets.WATCHTOWER_WEBHOOK_URL }}
-        run: |
-          if [ -n "${WATCHTOWER_WEBHOOK_URL:-}" ]; then
-            curl -fsSL "$WATCHTOWER_WEBHOOK_URL"
-          else
-            echo "WATCHTOWER_WEBHOOK_URL not set; skipping webhook trigger"
-          fi
+  # Deployment is handled by Watchtower polling on the VPS. No webhook/SSH.
