@@ -20,6 +20,8 @@ services:
       - traefik.http.middlewares.backend-rate.ratelimit.burst=${BACKEND_RATE_BURST:-20}
       - traefik.http.services.backend.loadbalancer.server.port=8888
       - traefik.docker.network=${PROJECT}_network
+      # Enable auto-updates by Watchtower (only labeled services will be updated)
+      - com.centurylinklabs.watchtower.enable=true
     depends_on:
       postgres:
         condition: service_healthy
@@ -129,6 +131,39 @@ services:
       - network
     depends_on:
       - redis
+
+  # Optional: Auto-update service containers when a new image is published
+  watchtower:
+    image: containrrr/watchtower:1.7.1
+    container_name: ${PROJECT}_watchtower
+    restart: always
+    command: >
+      --label-enable \
+      --interval 300 \
+      --cleanup \
+      --include-restarting \
+      --rolling-restart \
+      --http-api-update
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - .env.prod
+    environment:
+      # If your GHCR images are private, ensure the host has `docker login ghcr.io`
+      # or provide GHCR creds in .env.prod (GHCR_USER/GHCR_TOKEN not read by watchtower directly).
+      - WATCHTOWER_NOTIFICATIONS_LEVEL=info
+      # Optional token to secure HTTP API; set WATCHTOWER_TOKEN in .env.prod
+      - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_TOKEN:-}
+    networks:
+      - network
+    labels:
+      # Expose HTTP API via Traefik only when WATCHTOWER_EXPOSE=true
+      - traefik.enable=${WATCHTOWER_EXPOSE:-false}
+      - traefik.http.routers.watchtower.rule=Host(`${WATCHTOWER_DOMAIN}`)
+      - traefik.http.routers.watchtower.entrypoints=websecure
+      - traefik.http.routers.watchtower.tls.certresolver=letsencrypt
+      - traefik.http.services.watchtower.loadbalancer.server.port=8080
+      - traefik.docker.network=${PROJECT}_network
 
 volumes:
   postgres_data:

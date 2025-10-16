@@ -2,11 +2,12 @@ name: CI/CD
 
 on:
   push:
-    branches: [ master ]
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
-      image_tag:
-        description: "Override image tag (default: <sha>)"
+      version:
+        description: "Release version tag to build (e.g., v1.2.3)"
         required: false
         default: ""
 
@@ -19,7 +20,9 @@ jobs:
     name: Build and Push Image
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.vars.outputs.tag }}
+      version: ${{ steps.vars.outputs.version }}
+      raw: ${{ steps.vars.outputs.raw }}
+      is_stable: ${{ steps.vars.outputs.is_stable }}
       image_ref: ${{ steps.image.outputs.ref }}
     permissions:
       contents: read
@@ -39,14 +42,41 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Determine tag
+      - name: Determine version/tag
         id: vars
         env:
-          INPUT_TAG: ${{ github.event.inputs.image_tag }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
         run: |
-          TAG="${INPUT_TAG:-}"
-          if [ -z "$TAG" ]; then TAG=${GITHUB_SHA::7}; fi
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          # Prefer explicit workflow input (manual), otherwise use the pushed tag
+          VERSION="${INPUT_VERSION:-${GITHUB_REF_NAME}}"
+          if [ -z "$VERSION" ]; then
+            echo "No version provided and not a tag push" >&2
+            exit 1
+          fi
+          # Support tags like v1.2.3
+          RAW="${VERSION#v}"
+          if [[ "$RAW" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            IS_STABLE=1
+          else
+            IS_STABLE=0
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "raw=$RAW" >> $GITHUB_OUTPUT
+          echo "is_stable=$IS_STABLE" >> $GITHUB_OUTPUT
+
+      - name: Compose tag list
+        id: tags
+        run: |
+          TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.version }}"
+          TAGS="$TAGS"$'\n'"${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.raw }}"
+          if [ "${{ steps.vars.outputs.is_stable }}" = "1" ]; then
+            TAGS="$TAGS"$'\n'"${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          fi
+          {
+            echo 'tags<<EOF'
+            echo "$TAGS"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -54,94 +84,26 @@ jobs:
           context: .
           file: Dockerfile
           push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.tag }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Expose image reference
         id: image
         run: |
-          echo "ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.tag }}" >> $GITHUB_OUTPUT
+          echo "ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.version }}" >> $GITHUB_OUTPUT
 
-  deploy:
-    name: Deploy to VPS
+  notify-watchtower:
+    name: Notify Watchtower (optional)
     needs: [ build-and-push ]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master'
-    concurrency:
-      group: deploy-${{ github.ref }}
-      cancel-in-progress: true
     steps:
-      - name: Install ssh client
-        run: sudo apt-get update && sudo apt-get install -y openssh-client
-
-      - name: Add SSH key
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Add VPS to known_hosts
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Ensure app dir exists on VPS
-        run: ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} 'mkdir -p ${{ secrets.VPS_APP_DIR }}/docker/redis ${{ secrets.VPS_APP_DIR }}/backups/redis'
-
-      - name: Sync required files to VPS
-        run: |
-          scp docker-compose.prod.yml ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_APP_DIR }}/
-          scp docker/redis/prod.acl ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_APP_DIR }}/docker/redis/prod.acl
-
-      - name: Push deploy.env to VPS
-        run: |
-          cat > deploy.env <<'EOF_ENV'
-          PROJECT=${{ secrets.PROJECT }}
-          BACKEND_DOMAIN=${{ secrets.BACKEND_DOMAIN }}
-          BACKEND_RATE_AVG=${{ secrets.BACKEND_RATE_AVG }}
-          BACKEND_RATE_BURST=${{ secrets.BACKEND_RATE_BURST }}
-          EOF_ENV
-          scp deploy.env ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_APP_DIR }}/deploy.env
-
-      - name: Deploy via SSH
+      - name: Trigger Watchtower webhook if configured
         env:
-          VPS_USER: ${{ secrets.VPS_USER }}
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
-          PROJECT: ${{ secrets.PROJECT }}
-          BACKEND_DOMAIN: ${{ secrets.BACKEND_DOMAIN }}
-          BACKEND_RATE_AVG: ${{ secrets.BACKEND_RATE_AVG }}
-          BACKEND_RATE_BURST: ${{ secrets.BACKEND_RATE_BURST }}
-          IMAGE_REF: ${{ needs.build-and-push.outputs.image_ref }}
-          IMAGE_TAG: ${{ needs.build-and-push.outputs.tag }}
-          GHCR_USER: ${{ secrets.GHCR_USER }}
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          WATCHTOWER_WEBHOOK_URL: ${{ secrets.WATCHTOWER_WEBHOOK_URL }}
         run: |
-          ssh $VPS_USER@$VPS_HOST <<EOSSH
-            set -euo pipefail
-            cd "$VPS_APP_DIR"
-            # Ensure compose files are present on the server
-            if [ ! -f docker-compose.prod.yml ]; then
-              echo "docker-compose.prod.yml not found in $VPS_APP_DIR" >&2
-              exit 1
-            fi
-            # Require .env.prod (should be created manually with production secrets)
-            if [ ! -f .env.prod ]; then
-              echo ".env.prod missing - create it manually with production secrets" >&2
-              exit 1
-            fi
-            # Pull the new image and restart the backend
-            export BACKEND_IMAGE="${IMAGE_REF}"
-            export IMAGE_TAG="${IMAGE_TAG}"
-            if [ -n "${GHCR_USER:-}" ] && [ -n "${GHCR_TOKEN:-}" ]; then
-              docker login ghcr.io -u "${GHCR_USER}" -p "${GHCR_TOKEN}"
-            else
-              echo "Skipping GHCR login (assuming image is public)"
-            fi
-            docker pull "${BACKEND_IMAGE}"
-            docker compose --env-file deploy.env -f docker-compose.prod.yml up -d backend
-            # Optional: remove dangling images
-            docker image prune -f
-          EOSSH
+          if [ -n "${WATCHTOWER_WEBHOOK_URL:-}" ]; then
+            curl -fsSL "$WATCHTOWER_WEBHOOK_URL"
+          else
+            echo "WATCHTOWER_WEBHOOK_URL not set; skipping webhook trigger"
+          fi

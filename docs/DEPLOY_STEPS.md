@@ -45,8 +45,8 @@ docker compose --env-file deploy.env -f traefik/docker-compose.dev.yml up -d
 
 This repo includes a workflow at `.github/workflows/cicd.yml` that:
 
-- Builds and pushes a container image to GHCR on every push to `master`.
-- SSHes into your VPS to pull the image and restart the `backend` service using `docker-compose.prod.yml`.
+- Builds and pushes a container image to GHCR when you push a Git tag like `v1.2.3`.
+- Optionally triggers a Watchtower webhook for immediate rollout (no SSH).
 
 ### Prerequisites on the VPS
 
@@ -78,20 +78,40 @@ Note: The workflow uses the GitHub-provided `GITHUB_TOKEN` to push to GHCR durin
 
 ### How it works
 
-On push to `master`:
+On push of a version tag (e.g., `v1.2.3`):
 
-1. Build & push image to `ghcr.io/<owner>/<repo>:<short-sha>` and `:latest`.
-2. SSH to VPS, ensure app directory exists and required files are present.
-3. Write `deploy.env` if missing with `PROJECT` and Traefik label vars.
-4. Log in to GHCR (if credentials provided), pull the new image, and run:
+1. Build & push image with tags:
+	- `ghcr.io/<owner>/<repo>:v1.2.3` (full tag)
+	- `ghcr.io/<owner>/<repo>:1.2.3` (raw semver)
+	- `ghcr.io/<owner>/<repo>:latest` (only for stable semver x.y.z)
+2. Your VPS auto-detects and rolls out the update via Watchtower (polling) or immediately if you configure the webhook.
 
-	 `docker compose --env-file deploy.env -f docker-compose.prod.yml up -d backend`
+### Default: SSH-less auto-deploy (Watchtower)
 
-Compose picks up `BACKEND_IMAGE` from the deploy step, so the backend uses the pre-built image instead of building on the server.
+You can avoid SSH entirely and let the server auto-update containers when new images are available:
 
-### Manual run with a custom tag
+- The compose file includes a `watchtower` service that checks for new images every 5 minutes and restarts only containers labeled with `com.centurylinklabs.watchtower.enable=true` (already set on `backend`).
+- Make sure your server can pull from GHCR:
+	- Either make the package public, or
+	- Run `docker login ghcr.io` once on the VPS (use a PAT with `read:packages`).
+- Optional webhook trigger:
+	- Set `WATCHTOWER_TOKEN` in `.env.prod` and `WATCHTOWER_EXPOSE=true` plus `WATCHTOWER_DOMAIN=watchtower.example.com`.
+	- Traefik will expose Watchtower’s HTTP API at `https://watchtower.example.com/v1/update?token=<WATCHTOWER_TOKEN>`.
+	- Have GitHub Actions call that URL after pushing the image to trigger an immediate update instead of waiting for the poll interval.
 
-From the Actions tab, use “Run workflow” and set `image_tag` to any tag (e.g. `staging-123`). This will build/push and deploy that tag.
+To trigger from Actions, add a repository secret `WATCHTOWER_WEBHOOK_URL` set to the HTTPS URL above; the workflow will curl it if present.
+
+### Optional: SSH-based deploy (legacy)
+
+If you prefer explicit SSH-driven deployments (to run DB migrations, coordinated multi-service changes, or custom health gates), we can keep a separate workflow that connects to your VPS and runs `docker compose up -d backend`. The default pipeline no longer uses SSH.
+
+### Manual run
+
+From the Actions tab, use “Run workflow” and set `version` to a tag (e.g. `v1.2.3`) if you want to rebuild/redeploy that exact version.
+
+### Pre-releases
+
+If you push a tag that doesn’t match strict `x.y.z` (like `v1.2.3-rc.1`), images are pushed with `v1.2.3-rc.1` and `1.2.3-rc.1` tags, but `latest` is not updated.
 
 ### Rollback
 
