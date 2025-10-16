@@ -1,6 +1,6 @@
 # Watchtower Setup Guide
 
-This guide walks you through enabling zero-SSH deployments using Watchtower. With Watchtower running on your VPS, new images pushed to your registry (GHCR) will be pulled automatically and your containers will be restarted safely.
+This guide walks you through enabling zero-SSH deployments using Watchtower. With Watchtower running on your VPS, new images pushed to your public registry (GHCR) will be pulled automatically and your containers will be restarted safely.
 
 Our repo already ships a Watchtower service in `docker-compose.prod.yml` and labels the `backend` for safe updates. Follow the steps below to finish the setup.
 
@@ -16,14 +16,7 @@ Our repo already ships a Watchtower service in `docker-compose.prod.yml` and lab
 - VPS with Docker and Docker Compose plugin installed (`docker compose version`).
 - Your production stack cloned/copied to the VPS (e.g., `/opt/ruxlog`).
 - Traefik stack running and sharing the `${PROJECT}_network` (per `docs/DEPLOY_STEPS.md`).
-- GHCR access:
-  - If your package is public, nothing else to do.
-  - If private, log in on the VPS once with a PAT that has `read:packages`.
-
-```bash
-# On the VPS
-docker login ghcr.io  # use a GitHub Personal Access Token with read:packages
-```
+  
 
 ## Step 1 — Confirm labels and service
 
@@ -77,15 +70,13 @@ You should see it scanning containers and reporting nothing to update initially.
    - `docker ps` (new image tag on `backend`)
    - `docker logs ruxlog_backend` or your app health endpoint (`/healthz`).
 
-## Step 5 — Release and let Watchtower roll
-
-There’s nothing else to configure: as you tag releases (`vX.Y.Z`), the CI builds and pushes your image to GHCR, and within up to 5 minutes Watchtower will pull the new tag and restart the backend.
+There’s nothing else to configure beyond tagging releases (`vX.Y.Z`). The CI builds and pushes your image to GHCR, and within up to 5 minutes Watchtower will pull the new tag and restart the backend.
 
 ## Security best practices
 
 - Prefer HTTPS via Traefik with a proper domain and certificate for your app traffic.
 - Use pinned tags (e.g., `v1.2.3`) for predictable rollouts; avoid floating tags in production unless you understand the trade-offs.
-- Limit your PAT scopes for `docker login ghcr.io` to `read:packages` on the VPS.
+  
 
 ## Troubleshooting
 
@@ -93,10 +84,7 @@ There’s nothing else to configure: as you tag releases (`vX.Y.Z`), the CI buil
   - Ensure the container is labeled `com.centurylinklabs.watchtower.enable=true`.
   - Confirm Watchtower and the target container share a Docker network.
   - Verify your tag was actually pushed to GHCR and is visible.
-- Pulls fail with 401/403:
-  - Run `docker login ghcr.io` on the VPS (private packages need a PAT with `read:packages`).
-- Webhook 404/403:
-  - Confirm `WATCHTOWER_EXPOSE=true`, correct `WATCHTOWER_DOMAIN`, DNS/Traefik routing, and a valid `WATCHTOWER_TOKEN`.
+  
 - Too frequent checks:
   - Increase the `--interval` value (seconds) in the Watchtower command.
 

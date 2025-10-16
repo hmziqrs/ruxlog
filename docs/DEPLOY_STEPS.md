@@ -59,21 +59,11 @@ This repo includes a workflow at `.github/workflows/cicd.yml` that:
 	- `docker/redis/prod.acl`
 - Traefik stack running (see steps above) and sharing the `${PROJECT}_network`.
 
-If your GHCR images are private, ensure the VPS can pull them:
+Images are published to a public GHCR package, so no registry login is required on the VPS.
 
-```bash
-docker login ghcr.io  # use a PAT with read:packages
-```
+### GitHub Repository Secrets
 
-### GitHub Repository Secrets (optional)
-
-The workflow builds and pushes to GHCR using `GITHUB_TOKEN` and requires no secrets for the build step.
-
-Optional secret for instant rollout via webhook (if you expose Watchtower’s API):
-
-- `WATCHTOWER_WEBHOOK_URL`: The HTTPS URL to Watchtower’s update endpoint, e.g. `https://watchtower.example.com/v1/update?token=...`.
-
-Note: GHCR pull credentials (if needed) should be configured on the VPS with `docker login ghcr.io`, not as GitHub secrets.
+No additional secrets are required for building and pushing images (the workflow uses `GITHUB_TOKEN`).
 
 ### How it works
 
@@ -90,10 +80,7 @@ On push of a version tag (e.g., `v1.2.3`):
 You can avoid SSH entirely and let the server auto-update containers when new images are available:
 
 - The compose file includes a `watchtower` service that checks for new images every 5 minutes and restarts only containers labeled with `com.centurylinklabs.watchtower.enable=true` (already set on `backend`).
-- Make sure your server can pull from GHCR:
-	- Either make the package public, or
-	- Run `docker login ghcr.io` once on the VPS (use a PAT with `read:packages`).
-There is no webhook in this setup; Watchtower will pick up new images on its polling interval (5 minutes by default).
+- Watchtower will pick up new images on its polling interval (5 minutes by default); no webhooks or SSH are used.
 
 For a step-by-step Watchtower setup guide, see `docs/WATCHTOWER_SETUP.md`.
 
