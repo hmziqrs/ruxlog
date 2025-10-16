@@ -3,6 +3,8 @@ name: ${PROJECT}
 
 services:
   backend:
+  # Prefer a pre-built image when BACKEND_IMAGE is provided; default to a local tag for manual builds
+  image: ${BACKEND_IMAGE:-ruxlog_backend:local}
     build:
       context: .
       dockerfile: Dockerfile
@@ -27,6 +29,9 @@ services:
       - network
     env_file:
       - .env.prod
+    # When using a remote image, pass through the commit/tag for observability
+    environment:
+      - IMAGE_TAG=${IMAGE_TAG:-}
     security_opt:
       - no-new-privileges:true
     healthcheck:

@@ -1,0 +1,147 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Override image tag (default: <sha>)"
+        required: false
+        default: ""
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }} # owner/repo
+
+jobs:
+  build-and-push:
+    name: Build and Push Image
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.vars.outputs.tag }}
+      image_ref: ${{ steps.image.outputs.ref }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine tag
+        id: vars
+        env:
+          INPUT_TAG: ${{ github.event.inputs.image_tag }}
+        run: |
+          TAG="${INPUT_TAG:-}"
+          if [ -z "$TAG" ]; then TAG=${GITHUB_SHA::7}; fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Expose image reference
+        id: image
+        run: |
+          echo "ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.tag }}" >> $GITHUB_OUTPUT
+
+  deploy:
+    name: Deploy to VPS
+    needs: [ build-and-push ]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    concurrency:
+      group: deploy-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Install ssh client
+        run: sudo apt-get update && sudo apt-get install -y openssh-client
+
+      - name: Add SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add VPS to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Ensure app dir exists on VPS
+        run: ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} 'mkdir -p ${{ secrets.VPS_APP_DIR }}/docker/redis ${{ secrets.VPS_APP_DIR }}/backups/redis'
+
+      - name: Sync required files to VPS
+        run: |
+          scp docker-compose.prod.yml ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_APP_DIR }}/
+          scp docker/redis/prod.acl ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_APP_DIR }}/docker/redis/prod.acl
+
+      - name: Push deploy.env to VPS
+        run: |
+          cat > deploy.env <<'EOF_ENV'
+          PROJECT=${{ secrets.PROJECT }}
+          BACKEND_DOMAIN=${{ secrets.BACKEND_DOMAIN }}
+          BACKEND_RATE_AVG=${{ secrets.BACKEND_RATE_AVG }}
+          BACKEND_RATE_BURST=${{ secrets.BACKEND_RATE_BURST }}
+          EOF_ENV
+          scp deploy.env ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_APP_DIR }}/deploy.env
+
+      - name: Deploy via SSH
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+          PROJECT: ${{ secrets.PROJECT }}
+          BACKEND_DOMAIN: ${{ secrets.BACKEND_DOMAIN }}
+          BACKEND_RATE_AVG: ${{ secrets.BACKEND_RATE_AVG }}
+          BACKEND_RATE_BURST: ${{ secrets.BACKEND_RATE_BURST }}
+          IMAGE_REF: ${{ needs.build-and-push.outputs.image_ref }}
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.tag }}
+          GHCR_USER: ${{ secrets.GHCR_USER }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        run: |
+          ssh $VPS_USER@$VPS_HOST <<EOSSH
+            set -euo pipefail
+            cd "$VPS_APP_DIR"
+            # Ensure compose files are present on the server
+            if [ ! -f docker-compose.prod.yml ]; then
+              echo "docker-compose.prod.yml not found in $VPS_APP_DIR" >&2
+              exit 1
+            fi
+            # Require .env.prod (should be created manually with production secrets)
+            if [ ! -f .env.prod ]; then
+              echo ".env.prod missing - create it manually with production secrets" >&2
+              exit 1
+            fi
+            # Pull the new image and restart the backend
+            export BACKEND_IMAGE="${IMAGE_REF}"
+            export IMAGE_TAG="${IMAGE_TAG}"
+            if [ -n "${GHCR_USER:-}" ] && [ -n "${GHCR_TOKEN:-}" ]; then
+              docker login ghcr.io -u "${GHCR_USER}" -p "${GHCR_TOKEN}"
+            else
+              echo "Skipping GHCR login (assuming image is public)"
+            fi
+            docker pull "${BACKEND_IMAGE}"
+            docker compose --env-file deploy.env -f docker-compose.prod.yml up -d backend
+            # Optional: remove dangling images
+            docker image prune -f
+          EOSSH
