@@ -53,28 +53,27 @@ This repo includes a workflow at `.github/workflows/cicd.yml` that:
 - Docker and Docker Compose Plugin installed (`docker compose version`).
 - A non-root user with passwordless sudo or access to the Docker daemon.
 - A directory for the app, for example `/opt/ruxlog`, containing:
-	- `docker-compose.prod.yml` (the workflow syncs this by default)
-	- `.env.prod` (your production secrets; not synced by CI)
-	- `deploy.env` (compose interpolation variables; CI can create if absent)
-	- `docker/redis/prod.acl` (synced by CI)
+	- `docker-compose.prod.yml` (place the repo files on the server, e.g. via git clone or scp)
+	- `.env.prod` (your production secrets; never stored in CI)
+	- `deploy.env` (compose interpolation variables used by labels and Traefik)
+	- `docker/redis/prod.acl`
 - Traefik stack running (see steps above) and sharing the `${PROJECT}_network`.
 
-### GitHub Repository Secrets
+If your GHCR images are private, ensure the VPS can pull them:
 
-Create these in GitHub → Settings → Secrets and variables → Actions:
+```bash
+docker login ghcr.io  # use a PAT with read:packages
+```
 
-- `SSH_PRIVATE_KEY`: Private key for SSH to the VPS (the matching public key must be in `~/.ssh/authorized_keys`).
-- `VPS_HOST`: Hostname or IP of your VPS.
-- `VPS_USER`: SSH username.
-- `VPS_APP_DIR`: Absolute path on the VPS, e.g. `/opt/ruxlog`.
-- `PROJECT`: Project slug, e.g. `ruxlog`.
-- `BACKEND_DOMAIN`: Your backend domain used by Traefik.
-- `BACKEND_RATE_AVG` and `BACKEND_RATE_BURST`: Optional rate limit overrides.
-- Optional if your GHCR images are private (recommended):
-	- `GHCR_USER`: Typically your GitHub username or a bot account.
-	- `GHCR_TOKEN`: A classic PAT with `read:packages` scope for pulling on VPS.
+### GitHub Repository Secrets (optional)
 
-Note: The workflow uses the GitHub-provided `GITHUB_TOKEN` to push to GHCR during build. For the VPS to pull, you can either make the GHCR package public or provide `GHCR_USER` and `GHCR_TOKEN` secrets for login on the VPS.
+The workflow builds and pushes to GHCR using `GITHUB_TOKEN` and requires no secrets for the build step.
+
+Optional secret for instant rollout via webhook (if you expose Watchtower’s API):
+
+- `WATCHTOWER_WEBHOOK_URL`: The HTTPS URL to Watchtower’s update endpoint, e.g. `https://watchtower.example.com/v1/update?token=...`.
+
+Note: GHCR pull credentials (if needed) should be configured on the VPS with `docker login ghcr.io`, not as GitHub secrets.
 
 ### How it works
 
@@ -100,6 +99,8 @@ You can avoid SSH entirely and let the server auto-update containers when new im
 	- Have GitHub Actions call that URL after pushing the image to trigger an immediate update instead of waiting for the poll interval.
 
 To trigger from Actions, add a repository secret `WATCHTOWER_WEBHOOK_URL` set to the HTTPS URL above; the workflow will curl it if present.
+
+For a step-by-step Watchtower setup guide, see `docs/WATCHTOWER_SETUP.md`.
 
 ### Optional: SSH-based deploy (legacy)
 
