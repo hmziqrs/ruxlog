@@ -1,11 +1,11 @@
 use std::env;
 
+use crate::error::{ErrorCode, ErrorResponse};
 use axum::{
     extract::Request,
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use crate::error::{ErrorCode, ErrorResponse};
 
 pub fn get_static_csrf_key() -> String {
     let key = env::var("CSRF_KEY").unwrap_or_else(|_| "ultra-instinct-goku".to_string());

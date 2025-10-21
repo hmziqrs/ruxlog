@@ -2,10 +2,10 @@
 //!
 //! This module defines the standard error response format for the API.
 
-use std::fmt;
-use serde::{Serialize, Deserialize};
-use axum::{response::IntoResponse, Json};
 use super::codes::ErrorCode;
+use axum::{response::IntoResponse, Json};
+use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Standard error response structure for API responses
 ///
@@ -20,7 +20,7 @@ pub struct ErrorResponse {
     /// The error type - this will serialize to strings like "AUTH_001"
     #[serde(rename = "type")]
     pub code: ErrorCode,
-    
+
     #[cfg(debug_assertions)]
     /// Human-readable error message (only in development)
     pub message: String,
@@ -29,23 +29,23 @@ pub struct ErrorResponse {
     #[serde(skip)]
     /// Human-readable error message (skipped in production)
     pub message: String,
-    
+
     /// HTTP status code
     pub status: u16,
-    
+
     /// Optional detailed description (only included in development mode)
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg(debug_assertions)]
     pub details: Option<String>,
-    
+
     /// Optional additional information specific to the error type
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context: Option<serde_json::Value>,
-    
+
     /// Optional retry-after seconds for rate-limited errors
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after: Option<u64>,
-    
+
     /// Request ID for tracing (if available)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
@@ -67,13 +67,13 @@ impl ErrorResponse {
             request_id: None,
         }
     }
-    
+
     /// Add a custom message to the error response
     pub fn with_message(mut self, message: impl Into<String>) -> Self {
         self.message = message.into();
         self
     }
-    
+
     /// Add detailed information (only included in development mode)
     pub fn with_details(mut self, details: impl Into<String>) -> Self {
         // and only include details in development mode
@@ -83,7 +83,7 @@ impl ErrorResponse {
         }
         self
     }
-    
+
     /// Add context information to the error
     pub fn with_context(mut self, context: impl Serialize) -> Self {
         match serde_json::to_value(context) {
@@ -94,13 +94,13 @@ impl ErrorResponse {
         }
         self
     }
-    
+
     /// Set Retry-After seconds for rate-limited errors
     pub fn with_retry_after(mut self, secs: u64) -> Self {
         self.retry_after = Some(secs);
         self
     }
-    
+
     /// Add a request ID for tracing
     pub fn with_request_id(mut self, request_id: impl Into<String>) -> Self {
         self.request_id = Some(request_id.into());

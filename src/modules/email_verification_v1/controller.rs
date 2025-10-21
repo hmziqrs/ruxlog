@@ -52,7 +52,7 @@ pub async fn verify(
     }
 
     let update_user = user::Entity::verify(&state.sea_db, user_id).await;
-    
+
     match update_user {
         Ok(_) => Ok((
             StatusCode::OK,

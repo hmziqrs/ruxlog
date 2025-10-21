@@ -7,7 +7,7 @@ use crate::services::auth::AuthBackend;
 impl From<axum_login::Error<AuthBackend>> for ErrorResponse {
     fn from(err: axum_login::Error<AuthBackend>) -> Self {
         eprintln!("axum_login error: {:?}", err);
-        
+
         ErrorResponse::new(ErrorCode::SessionExpired)
             .with_details(format!("axum_login error: {:?}", err))
     }

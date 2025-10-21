@@ -1,5 +1,5 @@
-use sea_orm::{entity::prelude::*, Order, QueryOrder, Set};
 use crate::error::DbResult;
+use sea_orm::{entity::prelude::*, Order, QueryOrder, Set};
 
 use super::*;
 
@@ -49,7 +49,7 @@ impl Entity {
                 } else {
                     Order::Desc
                 };
-                
+
                 post_view_query = match field.as_str() {
                     "created_at" => post_view_query.order_by(Column::CreatedAt, order),
                     _ => post_view_query,
@@ -63,9 +63,9 @@ impl Entity {
             Some(p) if p > 0 => p,
             _ => 1,
         };
-        
+
         let paginator = post_view_query.paginate(conn, Self::PER_PAGE);
-        
+
         match paginator.num_items().await {
             Ok(total) => match paginator.fetch_page(page - 1).await {
                 Ok(results) => Ok((results, total)),
@@ -100,7 +100,7 @@ impl Entity {
             .filter(Column::PostId.eq(post_id))
             .count(conn)
             .await?;
-        
+
         Ok(count as i64)
     }
 }

@@ -32,10 +32,10 @@ impl Entity {
         if user_id.is_none() && code.is_none() {
             return Err(ErrorResponse::new(ErrorCode::InvalidInput)
                 .with_message("Either user_id or code must be provided"));
-        }  
+        }
 
         let mut query = Self::find();
-        
+
         if let Some(user_id) = user_id {
             query = query.filter(Column::UserId.eq(user_id));
         }
@@ -43,17 +43,14 @@ impl Entity {
             query = query.filter(Column::Code.eq(code));
         }
 
-       match query.one(conn).await {
-            Ok(Some(result)) => {
-                return Ok(result)
-            },
+        match query.one(conn).await {
+            Ok(Some(result)) => return Ok(result),
             Ok(None) => {
                 return Err(ErrorResponse::new(ErrorCode::InvalidInput)
                     .with_message("The provided verification code is invalid"));
             }
-            Err(err) => Err(err.into())
+            Err(err) => Err(err.into()),
         }
-        
     }
 
     pub async fn update(
@@ -99,7 +96,7 @@ impl Entity {
             .on_conflict(
                 sea_orm::sea_query::OnConflict::column(Column::UserId)
                     .update_columns([Column::Code, Column::UpdatedAt])
-                    .to_owned()
+                    .to_owned(),
             )
             .exec_with_returning(conn)
             .await;

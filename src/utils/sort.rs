@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use sea_orm::Order;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SortParam {

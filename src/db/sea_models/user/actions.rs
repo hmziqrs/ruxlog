@@ -1,6 +1,9 @@
+use crate::{
+    db::sea_models::email_verification,
+    error::{DbResult, ErrorCode, ErrorResponse},
+};
 use sea_orm::{entity::prelude::*, Order, QueryOrder, Set, TransactionTrait};
 use tokio::task;
-use crate::{db::sea_models::email_verification, error::{DbResult, ErrorCode, ErrorResponse}};
 
 use super::*;
 
@@ -11,8 +14,10 @@ impl Entity {
         let now = chrono::Utc::now().fixed_offset();
         let hash = task::spawn_blocking(move || password_auth::generate_hash(new_user.password))
             .await
-            .map_err(|_| ErrorResponse::new(ErrorCode::InternalServerError)
-                .with_message("Failed to generate password hash"))?;
+            .map_err(|_| {
+                ErrorResponse::new(ErrorCode::InternalServerError)
+                    .with_message("Failed to generate password hash")
+            })?;
 
         let user = ActiveModel {
             name: Set(new_user.name),
@@ -36,14 +41,14 @@ impl Entity {
                         .with_message("Failed to commit transaction")
                 })?;
                 Ok(model)
-            },
+            }
             Err(err) => {
                 transaction.rollback().await.map_err(|_| {
                     ErrorResponse::new(ErrorCode::TransactionError)
                         .with_message("Failed to rollback transaction")
                 })?;
                 Err(err.into())
-            },
+            }
         }
     }
 
@@ -82,7 +87,7 @@ impl Entity {
     pub async fn verify(conn: &DbConn, user_id: i32) -> DbResult<Model> {
         let user = Self::find_by_id_with_404(conn, user_id).await?;
         let mut user_active: ActiveModel = user.into();
-        
+
         user_active.is_verified = Set(true);
         user_active.updated_at = Set(chrono::Utc::now().fixed_offset());
 
@@ -99,12 +104,14 @@ impl Entity {
     ) -> DbResult<()> {
         let user = Self::find_by_id_with_404(conn, user_id).await?;
         let mut user_active: ActiveModel = user.into();
-        
+
         let hash = task::spawn_blocking(move || password_auth::generate_hash(new_password))
             .await
-            .map_err(|_| ErrorResponse::new(ErrorCode::InternalServerError)
-                .with_message("Failed to generate password hash"))?;
-        
+            .map_err(|_| {
+                ErrorResponse::new(ErrorCode::InternalServerError)
+                    .with_message("Failed to generate password hash")
+            })?;
+
         user_active.password = Set(hash);
         user_active.updated_at = Set(chrono::Utc::now().fixed_offset());
 
@@ -120,12 +127,15 @@ impl Entity {
             Err(err) => Err(err.into()),
         }
     }
-    
-    pub async fn find_by_id_with_404<T: ConnectionTrait>(conn: &T, user_id: i32) -> DbResult<Model> {
+
+    pub async fn find_by_id_with_404<T: ConnectionTrait>(
+        conn: &T,
+        user_id: i32,
+    ) -> DbResult<Model> {
         match Self::find_by_id(user_id).one(conn).await {
             Ok(Some(model)) => Ok(model),
             Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                          .with_message(&format!("User with ID {} not found", user_id))),
+                .with_message(&format!("User with ID {} not found", user_id))),
             Err(err) => Err(err.into()),
         }
     }
@@ -140,15 +150,17 @@ impl Entity {
             Err(err) => Err(err.into()),
         }
     }
-    
+
     pub async fn find_by_email_and_forgot_password(
-        conn: &DbConn, 
-        user_email: String, 
-        otp_code: String
+        conn: &DbConn,
+        user_email: String,
+        otp_code: String,
     ) -> DbResult<Option<(Model, super::super::forgot_password::Model)>> {
+        use super::super::forgot_password::{
+            Column as ForgotPasswordColumn, Entity as ForgotPassword,
+        };
         use sea_orm::{entity::*, query::*};
-        use super::super::forgot_password::{Entity as ForgotPassword, Column as ForgotPasswordColumn};
-        
+
         let result = Entity::find()
             .filter(Column::Email.eq(user_email))
             .join(JoinType::InnerJoin, Relation::ForgotPassword.def())
@@ -156,29 +168,30 @@ impl Entity {
             .find_with_related(ForgotPassword)
             .all(conn)
             .await;
-            
+
         match result {
             Ok(mut results) => {
                 if results.is_empty() {
                     return Ok(None);
                 }
-                
+
                 let (user, mut forgot_passwords) = results.remove(0);
                 let forgot_password = forgot_passwords.pop().unwrap();
-                
+
                 Ok(Some((user, forgot_password)))
-            },
+            }
             Err(err) => Err(err.into()),
         }
     }
-
 
     pub async fn admin_create(conn: &DbConn, new_user: AdminCreateUser) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
         let hash = task::spawn_blocking(move || password_auth::generate_hash(new_user.password))
             .await
-            .map_err(|_| ErrorResponse::new(ErrorCode::InternalServerError)
-                .with_message("Failed to generate password hash"))?;
+            .map_err(|_| {
+                ErrorResponse::new(ErrorCode::InternalServerError)
+                    .with_message("Failed to generate password hash")
+            })?;
 
         let user = ActiveModel {
             name: Set(new_user.name),
@@ -219,8 +232,10 @@ impl Entity {
             if let Some(password) = update_user.password {
                 let hash = task::spawn_blocking(move || password_auth::generate_hash(password))
                     .await
-                    .map_err(|_| ErrorResponse::new(ErrorCode::InternalServerError)
-                        .with_message("Failed to generate password hash"))?;
+                    .map_err(|_| {
+                        ErrorResponse::new(ErrorCode::InternalServerError)
+                            .with_message("Failed to generate password hash")
+                    })?;
                 user_active.password = Set(hash);
             }
 
@@ -254,10 +269,7 @@ impl Entity {
         }
     }
 
-    pub async fn admin_list(
-        conn: &DbConn,
-        query: AdminUserQuery,
-    ) -> DbResult<(Vec<Model>, u64)> {
+    pub async fn admin_list(conn: &DbConn, query: AdminUserQuery) -> DbResult<(Vec<Model>, u64)> {
         let mut user_query = Self::find();
 
         if let Some(email_filter) = query.email {
@@ -293,7 +305,7 @@ impl Entity {
                 } else {
                     Order::Desc
                 };
-                
+
                 user_query = match field.as_str() {
                     "email" => user_query.order_by(Column::Email, order),
                     "name" => user_query.order_by(Column::Name, order),
@@ -317,9 +329,9 @@ impl Entity {
             Some(p) if p > 0 => p,
             _ => 1,
         };
-        
+
         let paginator = user_query.paginate(conn, Self::PER_PAGE);
-        
+
         match paginator.num_items().await {
             Ok(total) => match paginator.fetch_page(page - 1).await {
                 Ok(results) => Ok((results, total)),

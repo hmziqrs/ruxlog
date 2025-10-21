@@ -4,11 +4,7 @@ pub mod validator;
 use axum::{middleware, routing::post, Router};
 use axum_login::login_required;
 
-use crate::{
-    middlewares::user_status,
-    services::auth::AuthBackend,
-    AppState,
-};
+use crate::{middlewares::user_status, services::auth::AuthBackend, AppState};
 
 pub fn routes() -> Router<AppState> {
     Router::new()

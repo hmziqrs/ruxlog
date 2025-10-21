@@ -4,8 +4,8 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
-use crate::services::auth::AuthSession;
 use crate::error::{ErrorCode, ErrorResponse};
+use crate::services::auth::AuthSession;
 
 pub async fn only_verified(
     auth: AuthSession,
@@ -14,11 +14,9 @@ pub async fn only_verified(
 ) -> Result<Response, Response> {
     if let Some(user) = auth.user {
         if !user.is_verified {
-            return Err(
-                ErrorResponse::new(ErrorCode::EmailVerificationRequired)
-                    .with_message("User not verified")
-                    .into_response(),
-            );
+            return Err(ErrorResponse::new(ErrorCode::EmailVerificationRequired)
+                .with_message("User not verified")
+                .into_response());
         }
     }
     Ok(next.run(request).await)
@@ -31,11 +29,9 @@ pub async fn only_unverified(
 ) -> Result<Response, Response> {
     if let Some(user) = auth.user {
         if user.is_verified {
-            return Err(
-                ErrorResponse::new(ErrorCode::OperationNotAllowed)
-                    .with_message("Resource not available")
-                    .into_response(),
-            );
+            return Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
+                .with_message("Resource not available")
+                .into_response());
         }
     }
     Ok(next.run(request).await)
@@ -47,11 +43,9 @@ pub async fn only_unauthenticated(
     next: Next,
 ) -> Result<Response, Response> {
     if !auth.user.is_none() {
-        return Err(
-            ErrorResponse::new(ErrorCode::OperationNotAllowed)
-                .with_message("Resource not available")
-                .into_response(),
-        );
+        return Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
+            .with_message("Resource not available")
+            .into_response());
     }
     Ok(next.run(request).await)
 }
@@ -62,11 +56,9 @@ pub async fn only_authenticated(
     next: Next,
 ) -> Result<Response, Response> {
     if auth.user.is_none() {
-        return Err(
-            ErrorResponse::new(ErrorCode::Unauthorized)
-                .with_message("Resource not available")
-                .into_response(),
-        );
+        return Err(ErrorResponse::new(ErrorCode::Unauthorized)
+            .with_message("Resource not available")
+            .into_response());
     }
     Ok(next.run(request).await)
 }

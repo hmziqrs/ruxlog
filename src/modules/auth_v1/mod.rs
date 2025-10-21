@@ -3,10 +3,7 @@ pub mod validator;
 
 use axum::{middleware, routing::post, Router};
 
-use crate::{
-    middlewares::user_status,
-    AppState,
-};
+use crate::{middlewares::user_status, AppState};
 
 pub fn routes() -> Router<AppState> {
     let public = Router::new()

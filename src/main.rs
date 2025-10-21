@@ -167,7 +167,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cookie_key_byes = hex_to_512bit_key(&cookie_key_str);
     let cookie_key = Key::from(&cookie_key_byes);
 
-
     let session_layer = SessionManagerLayer::new(session_store)
         .with_expiry(Expiry::OnInactivity(time::Duration::hours(24 * 14)))
         .with_same_site(SameSite::Lax)

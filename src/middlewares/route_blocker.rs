@@ -1,3 +1,4 @@
+use crate::error::{ErrorCode, ErrorResponse};
 use axum::{
     extract::Request,
     middleware::Next,
@@ -6,7 +7,6 @@ use axum::{
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::env;
-use crate::error::{ErrorCode, ErrorResponse};
 
 lazy_static! {
     static ref BLOCKED_ROUTES: Vec<Regex> = {
@@ -38,11 +38,9 @@ pub async fn block_routes(req: Request, next: Next) -> Result<Response, Response
 
     for pattern in BLOCKED_ROUTES.iter() {
         if pattern.is_match(path) {
-            return Err(
-                ErrorResponse::new(ErrorCode::OperationNotAllowed)
-                    .with_message("This route is currently unavailable")
-                    .into_response(),
-            );
+            return Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
+                .with_message("This route is currently unavailable")
+                .into_response());
         }
     }
 

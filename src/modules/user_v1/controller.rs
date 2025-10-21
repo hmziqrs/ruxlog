@@ -9,9 +9,7 @@ use serde_json::json;
 
 use super::validator::*;
 use crate::{
-    db::sea_models::user::Entity as User, 
-    extractors::ValidatedJson,
-    services::auth::AuthSession,
+    db::sea_models::user::Entity as User, extractors::ValidatedJson, services::auth::AuthSession,
     AppState,
 };
 
@@ -50,7 +48,8 @@ pub async fn update_profile(
                         "error": "User not found",
                         "message": "User could not be found or updated",
                     })),
-                ).into_response();
+                )
+                    .into_response();
             }
             Err(err) => {
                 return (
@@ -93,10 +92,7 @@ pub async fn admin_create(
 }
 
 #[debug_handler]
-pub async fn admin_delete(
-    state: State<AppState>,
-    Path(user_id): Path<i32>,
-) -> impl IntoResponse {
+pub async fn admin_delete(state: State<AppState>, Path(user_id): Path<i32>) -> impl IntoResponse {
     let conn = &state.sea_db;
     match User::admin_delete(conn, user_id).await {
         Ok(_) => StatusCode::NO_CONTENT.into_response(),
@@ -172,10 +168,7 @@ pub async fn admin_list(
 }
 
 #[debug_handler]
-pub async fn admin_view(
-    state: State<AppState>,
-    Path(user_id): Path<i32>,
-) -> impl IntoResponse {
+pub async fn admin_view(state: State<AppState>, Path(user_id): Path<i32>) -> impl IntoResponse {
     let conn = &state.sea_db;
     match User::get_by_id(conn, user_id).await {
         Ok(Some(user)) => (StatusCode::OK, Json(json!(user))).into_response(),

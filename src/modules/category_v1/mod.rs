@@ -1,7 +1,11 @@
 pub mod controller;
 pub mod validator;
 
-use axum::{middleware, routing::{get, post}, Router};
+use axum::{
+    middleware,
+    routing::{get, post},
+    Router,
+};
 use axum_login::login_required;
 
 use crate::{

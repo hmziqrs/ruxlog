@@ -1,5 +1,5 @@
-use tower_sessions_redis_store::fred::prelude::Pool as RedisPool;
 use tower_sessions_redis_store::fred::interfaces::LuaInterface;
+use tower_sessions_redis_store::fred::prelude::Pool as RedisPool;
 use tower_sessions_redis_store::fred::types::{FromValue, Value};
 
 use crate::error::{ErrorCode, ErrorResponse};
@@ -7,19 +7,25 @@ use crate::error::{ErrorCode, ErrorResponse};
 #[derive(Clone, Copy, Debug)]
 pub struct AbuseLimiterConfig {
     pub temp_block_attempts: usize,
-    pub temp_block_range: usize,      // seconds
-    pub temp_block_duration: usize,   // seconds
-    pub block_retry_limit: usize,     // long threshold
-    pub block_range: usize,           // seconds
-    pub block_duration: usize,        // seconds
+    pub temp_block_range: usize,    // seconds
+    pub temp_block_duration: usize, // seconds
+    pub block_retry_limit: usize,   // long threshold
+    pub block_range: usize,         // seconds
+    pub block_duration: usize,      // seconds
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum BlockScope { Temp, Long }
+pub enum BlockScope {
+    Temp,
+    Long,
+}
 
 #[derive(Debug, Clone)]
 pub enum LimiterDecision {
-    Allowed { short_count: u64, long_count: u64 },
+    Allowed {
+        short_count: u64,
+        long_count: u64,
+    },
     Blocked {
         scope: BlockScope,
         retry_after_secs: u64,
@@ -143,7 +149,10 @@ pub async fn check(
     let reason = to_string(&values[4]).unwrap_or_else(|| "none".to_string());
 
     if allowed == 1 {
-        return Ok(LimiterDecision::Allowed { short_count, long_count });
+        return Ok(LimiterDecision::Allowed {
+            short_count,
+            long_count,
+        });
     }
 
     let scope = match reason.as_str() {
@@ -152,7 +161,12 @@ pub async fn check(
         _ => BlockScope::Temp,
     };
 
-    Ok(LimiterDecision::Blocked { scope, retry_after_secs: retry_after, short_count, long_count })
+    Ok(LimiterDecision::Blocked {
+        scope,
+        retry_after_secs: retry_after,
+        short_count,
+        long_count,
+    })
 }
 
 /// Backward-compatible wrapper preserving the original signature.
@@ -165,16 +179,14 @@ pub async fn limiter(
 
     match check(redis_pool, key_prefix, config).await? {
         LimiterDecision::Allowed { .. } => Ok(()),
-        LimiterDecision::Blocked { retry_after_secs, .. } => {
-            Err(
-                ErrorResponse::new(ErrorCode::TooManyAttempts)
-                    .with_message(format!(
-                        "Too many attempts. Try again in {} seconds.",
-                        retry_after_secs
-                    ))
-                    .with_retry_after(retry_after_secs)
-                    .with_context(json!({ "retryAfter": retry_after_secs })),
-            )
-        }
+        LimiterDecision::Blocked {
+            retry_after_secs, ..
+        } => Err(ErrorResponse::new(ErrorCode::TooManyAttempts)
+            .with_message(format!(
+                "Too many attempts. Try again in {} seconds.",
+                retry_after_secs
+            ))
+            .with_retry_after(retry_after_secs)
+            .with_context(json!({ "retryAfter": retry_after_secs }))),
     }
 }

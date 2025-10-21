@@ -1,6 +1,6 @@
+use super::UserRole;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
-use super::UserRole;
 
 #[derive(Deserialize, Debug)]
 pub struct NewUser {

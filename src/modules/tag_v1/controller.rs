@@ -8,9 +8,7 @@ use axum_macros::debug_handler;
 use serde_json::json;
 
 use crate::{
-    db::sea_models::tag::Entity as Tag,
-    extractors::ValidatedJson,
-    services::auth::AuthSession,
+    db::sea_models::tag::Entity as Tag, extractors::ValidatedJson, services::auth::AuthSession,
     AppState,
 };
 

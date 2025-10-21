@@ -1,9 +1,6 @@
 use std::collections::HashSet;
 
-use crate::{
-    db::sea_models::tag,
-    error::DbResult,
-};
+use crate::{db::sea_models::tag, error::DbResult};
 use sea_orm::{
     entity::prelude::*, Condition, JoinType, Order, QueryOrder, QuerySelect, Set, TransactionTrait,
 };
@@ -250,10 +247,11 @@ impl Entity {
                     .map(|id| id.to_string())
                     .collect::<Vec<String>>()
                     .join(",");
-                
-                post_query = post_query.filter(Expr::cust(
-                    format!("posts.tag_ids && ARRAY[{}]::int[]", tag_ids_str),
-                ));
+
+                post_query = post_query.filter(Expr::cust(format!(
+                    "posts.tag_ids && ARRAY[{}]::int[]",
+                    tag_ids_str
+                )));
             }
         }
 
@@ -290,17 +288,13 @@ impl Entity {
             _ => 1,
         };
 
-        
-
-
         let paginated = post_query
             .into_model::<PostWithJoinedData>()
             .paginate(conn, Self::PER_PAGE);
 
         let total = paginated.num_items().await?;
-            
-        let posts_joined = paginated.fetch_page(page - 1)
-            .await?;
+
+        let posts_joined = paginated.fetch_page(page - 1).await?;
 
         // Collect all tag IDs from each post into a set
         let all_tag_ids: HashSet<i32> = posts_joined

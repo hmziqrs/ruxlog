@@ -29,7 +29,6 @@ impl Entity {
         }
     }
 
-
     pub async fn find_query(
         conn: &DbConn,
         user_id: Option<i32>,
@@ -41,7 +40,7 @@ impl Entity {
                 .with_message("Either user_id, email or code must be provided"));
         }
         let mut query = Self::find();
-        
+
         if let Some(user_id) = user_id {
             query = query.filter(Column::UserId.eq(user_id));
         }

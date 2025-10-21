@@ -3,7 +3,6 @@ use serde_json::json;
 
 use crate::middlewares::static_csrf::get_static_csrf_key;
 
-
 pub async fn generate() -> impl IntoResponse {
     use base64::prelude::*;
     let static_csrf = get_static_csrf_key();

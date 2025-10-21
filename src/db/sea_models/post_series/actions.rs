@@ -1,5 +1,5 @@
 use sea_orm::{
-    entity::prelude::*, ColumnTrait, Condition, EntityTrait,  PaginatorTrait, QueryFilter,
+    entity::prelude::*, ColumnTrait, Condition, EntityTrait, PaginatorTrait, QueryFilter,
     QueryOrder, Set,
 };
 

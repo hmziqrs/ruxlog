@@ -1,7 +1,7 @@
+use super::Entity;
 use chrono::Utc;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
-use super::Entity;
 
 #[derive(Deserialize, Debug)]
 pub struct UpdateEmailVerification {

@@ -1,7 +1,6 @@
+use migration::{Migrator, MigratorTrait};
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use std::{env, time::Duration};
-use migration::{Migrator, MigratorTrait};
-
 
 /// Get the database URL from environment variables
 fn get_db_url() -> String {

@@ -42,8 +42,9 @@ pub async fn generate(
     match user {
         Ok(Some(_)) => (),
         Ok(None) => {
-            return Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                .with_message("Email doesn't exist"));
+            return Err(
+                ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Email doesn't exist")
+            );
         }
         Err(err) => {
             return Err(err.into());
@@ -95,7 +96,6 @@ pub async fn verify(
     state: State<AppState>,
     payload: ValidatedJson<V1VerifyPayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-
     let result = forgot_password::Entity::find_query(
         &state.sea_db,
         None,
@@ -154,7 +154,8 @@ pub async fn reset(
         }
     }
     let res = result.unwrap();
-    match forgot_password::Entity::reset(&state.sea_db, res.user_id, payload.password.clone()).await {
+    match forgot_password::Entity::reset(&state.sea_db, res.user_id, payload.password.clone()).await
+    {
         Ok(_) => {
             return Ok((
                 StatusCode::OK,

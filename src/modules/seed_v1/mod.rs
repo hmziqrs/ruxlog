@@ -1,7 +1,7 @@
 pub mod controller;
 
-use axum::{routing::post, Router};
 use crate::AppState;
+use axum::{routing::post, Router};
 
 pub fn routes() -> Router<AppState> {
     Router::new()

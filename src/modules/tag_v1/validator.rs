@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use sea_orm::prelude::DateTimeWithTimeZone;
+use serde::{Deserialize, Serialize};
 use validator::Validate;
 
 use crate::db::sea_models::tag::{NewTag, TagQuery, UpdateTag};

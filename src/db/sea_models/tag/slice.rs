@@ -1,6 +1,6 @@
+use crate::utils::SortParam;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
-use crate::utils::SortParam;
 
 #[derive(Deserialize, Debug)]
 pub struct NewTag {
