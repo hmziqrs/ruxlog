@@ -21,6 +21,7 @@ mod m20250813_000015_alter_asset_context_enum;
 mod m20250813_000016_alter_post_comment_add_moderation;
 mod m20250813_000017_create_comment_flags_table;
 mod m20250814_000018_create_media_table;
+mod m20251029_000019_drop_asset_table;
 
 pub struct Migrator;
 
@@ -49,6 +50,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250813_000016_alter_post_comment_add_moderation::Migration),
             Box::new(m20250813_000017_create_comment_flags_table::Migration),
             Box::new(m20250814_000018_create_media_table::Migration),
+            Box::new(m20251029_000019_drop_asset_table::Migration),
         ]
     }
 }

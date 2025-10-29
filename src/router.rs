@@ -4,7 +4,7 @@ use tower_http::trace::TraceLayer;
 use crate::modules::post_comment_v1;
 use crate::{
     middlewares::route_blocker::block_routes,
-    modules::{asset_v1, category_v1, feed_v1, media_v1, newsletter_v1, post_v1, seed_v1, tag_v1},
+    modules::{category_v1, feed_v1, media_v1, newsletter_v1, post_v1, seed_v1, tag_v1},
 };
 
 use super::{
@@ -24,7 +24,6 @@ pub fn router() -> Router<AppState> {
         .nest("/post/comment/v1", post_comment_v1::routes())
         .nest("/category/v1", category_v1::routes())
         .nest("/tag/v1", tag_v1::routes())
-        .nest("/asset/v1", asset_v1::routes())
         .nest("/media/v1", media_v1::routes())
         .nest("/feed/v1", feed_v1::routes())
         .nest("/newsletter/v1", newsletter_v1::routes())

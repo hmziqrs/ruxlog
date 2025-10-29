@@ -1,4 +1,3 @@
-pub mod asset_v1;
 pub mod auth_v1;
 pub mod category_v1;
 pub mod csrf_v1;
