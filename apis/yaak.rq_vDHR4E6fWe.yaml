@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_vDHR4E6fWe
 createdAt: 2025-10-29T10:02:33.851034
-updatedAt: 2025-10-29T10:14:17.963598
+updatedAt: 2025-10-29T13:30:33.505231
 workspaceId: wk_udoUbrFfLp
 folderId: fl_Pj3JaShfob
 authentication: {}
@@ -17,9 +17,9 @@ body:
   - enabled: true
     id: gmtx3jVpp0
     name: reference_type
-    value: user
+    value: a
   - enabled: true
-    id: FCJaJ0xmKK
+    id: 5pPQae9ta4
     name: ''
     value: ''
 bodyType: multipart/form-data
@@ -36,7 +36,7 @@ headers:
 - enabled: true
   name: Content-Type
   value: multipart/form-data
-  id: 8SiwBk32sA
+  id: urN2YJ0xwJ
 method: POST
 name: ''
 sortPriority: 0.0

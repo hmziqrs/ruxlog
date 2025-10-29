@@ -1,0 +1,34 @@
+type: http_request
+model: http_request
+id: rq_pWN7RqhzTg
+createdAt: 2025-10-29T10:38:15.128159
+updatedAt: 2025-10-29T10:39:37.623674
+workspaceId: wk_udoUbrFfLp
+folderId: fl_Pj3JaShfob
+authentication: {}
+authenticationType: null
+body:
+  text: |-
+    {
+      "reference_type": "category"
+    }
+bodyType: application/json
+description: ''
+headers:
+- enabled: true
+  name: csrf-token
+  value: ${[ csrf ]}
+  id: aA64M6mvXe
+- enabled: true
+  name: ''
+  value: ''
+  id: D57mjz6dN3
+- enabled: true
+  name: Content-Type
+  value: application/json
+  id: 4Ea2S89MEj
+method: POST
+name: ''
+sortPriority: 0.001
+url: ${[ host ]}/media/v1/list/query
+urlParameters: []
