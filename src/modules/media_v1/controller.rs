@@ -1,6 +1,6 @@
 use aws_sdk_s3::primitives::ByteStream;
 use axum::{
-    extract::{Multipart, Path, State},
+    extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
@@ -14,7 +14,7 @@ use uuid::Uuid;
 use crate::{
     db::sea_models::media::{Entity as Media, NewMedia},
     error::{ErrorCode, ErrorResponse},
-    extractors::ValidatedJson,
+    extractors::{ValidatedJson, ValidatedMultipart},
     services::auth::AuthSession,
     AppState,
 };
@@ -27,7 +27,7 @@ const MAX_UPLOAD_SIZE_BYTES: usize = 20 * 1024 * 1024; // 20MiB ceiling
 pub async fn create(
     State(state): State<AppState>,
     auth: AuthSession,
-    mut multipart: Multipart,
+    mut multipart: ValidatedMultipart,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let uploader = auth.user.ok_or_else(|| {
         ErrorResponse::new(ErrorCode::Unauthorized)

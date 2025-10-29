@@ -2,6 +2,7 @@
 
 use crate::error::{ErrorCode, ErrorResponse, IntoErrorResponse};
 use axum::extract::rejection::{FormRejection, JsonRejection, QueryRejection};
+use axum::extract::multipart::MultipartRejection;
 use serde_json::Value;
 use std::error::Error as StdError;
 use validator::ValidationErrors;
@@ -128,6 +129,56 @@ impl IntoErrorResponse for QueryRejection {
 /// Implement From<QueryRejection> for ErrorResponse for convenience
 impl From<QueryRejection> for ErrorResponse {
     fn from(err: QueryRejection) -> Self {
+        err.into_error_response()
+    }
+}
+
+/// Standardized handling for multipart extraction errors
+impl IntoErrorResponse for MultipartRejection {
+    fn into_error_response(self) -> ErrorResponse {
+        // axum MultipartRejection variants can differ across versions; do a best-effort
+        // categorization and always return our standardized structure with helpful messages.
+        let as_string = self.to_string();
+
+        // Common boundary errors (e.g., sending JSON to a multipart endpoint)
+        if as_string.to_ascii_lowercase().contains("boundary") {
+            return ErrorResponse::new(ErrorCode::InvalidFormat)
+                .with_message("Invalid multipart/form-data boundary")
+                .with_details(as_string)
+                .with_context(serde_json::json!({
+                    "hint": "Ensure the request sets 'Content-Type: multipart/form-data; boundary=...'. If you're sending JSON, use the JSON endpoint instead.",
+                }));
+        }
+
+        // Content-Type issues
+        if as_string
+            .to_ascii_lowercase()
+            .contains("content-type")
+        {
+            return ErrorResponse::new(ErrorCode::InvalidFormat)
+                .with_message("Missing or invalid Content-Type for multipart/form-data")
+                .with_details(as_string);
+        }
+
+        // Body/read errors or size-related
+        if as_string.to_ascii_lowercase().contains("body")
+            || as_string.to_ascii_lowercase().contains("read")
+        {
+            return ErrorResponse::new(ErrorCode::InvalidInput)
+                .with_message("Failed to read multipart body")
+                .with_details(as_string);
+        }
+
+        // Fallback generic mapping
+        ErrorResponse::new(ErrorCode::InvalidInput)
+            .with_message("Invalid multipart/form-data payload")
+            .with_details(format!("Unhandled multipart rejection: {}", self))
+    }
+}
+
+/// Implement From<MultipartRejection> for ErrorResponse for convenience
+impl From<MultipartRejection> for ErrorResponse {
+    fn from(err: MultipartRejection) -> Self {
         err.into_error_response()
     }
 }

@@ -4,5 +4,7 @@
 //! request handling in controllers.
 
 pub mod validated;
+pub mod multipart;
 
 pub use validated::*;
+pub use multipart::*;

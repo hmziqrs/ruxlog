@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_vDHR4E6fWe
 createdAt: 2025-10-29T10:02:33.851034
-updatedAt: 2025-10-29T13:30:33.505231
+updatedAt: 2025-10-29T13:49:54.177333
 workspaceId: wk_udoUbrFfLp
 folderId: fl_Pj3JaShfob
 authentication: {}
@@ -36,7 +36,7 @@ headers:
 - enabled: true
   name: Content-Type
   value: multipart/form-data
-  id: urN2YJ0xwJ
+  id: dqFpYQXcG8
 method: POST
 name: ''
 sortPriority: 0.0
