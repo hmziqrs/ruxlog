@@ -36,10 +36,12 @@ pub struct AdminUserQuery {
     pub name: Option<String>,
     pub role: Option<UserRole>,
     pub status: Option<bool>,
-    pub created_at: Option<DateTimeWithTimeZone>,
-    pub updated_at: Option<DateTimeWithTimeZone>,
-    pub sort_by: Option<Vec<String>>,
-    pub sort_order: Option<String>,
+    pub sorts: Option<Vec<crate::utils::SortParam>>,
+    // Date range filters
+    pub created_at_gt: Option<DateTimeWithTimeZone>,
+    pub created_at_lt: Option<DateTimeWithTimeZone>,
+    pub updated_at_gt: Option<DateTimeWithTimeZone>,
+    pub updated_at_lt: Option<DateTimeWithTimeZone>,
 }
 
 #[derive(Deserialize, Debug)]

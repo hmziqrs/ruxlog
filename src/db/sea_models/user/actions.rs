@@ -290,39 +290,38 @@ impl Entity {
             user_query = user_query.filter(Column::IsVerified.eq(status_filter));
         }
 
-        if let Some(created_at_filter) = query.created_at {
-            user_query = user_query.filter(Column::CreatedAt.eq(created_at_filter));
+        // Date range filters
+        if let Some(ts) = query.created_at_gt {
+            user_query = user_query.filter(Column::CreatedAt.gt(ts));
+        }
+        if let Some(ts) = query.created_at_lt {
+            user_query = user_query.filter(Column::CreatedAt.lt(ts));
+        }
+        if let Some(ts) = query.updated_at_gt {
+            user_query = user_query.filter(Column::UpdatedAt.gt(ts));
+        }
+        if let Some(ts) = query.updated_at_lt {
+            user_query = user_query.filter(Column::UpdatedAt.lt(ts));
         }
 
-        if let Some(updated_at_filter) = query.updated_at {
-            user_query = user_query.filter(Column::UpdatedAt.eq(updated_at_filter));
-        }
-
-        if let Some(sort_fields) = &query.sort_by {
-            for field in sort_fields {
-                let order = if query.sort_order.as_deref() == Some("asc") {
-                    Order::Asc
-                } else {
-                    Order::Desc
+        // Multi-field sorting with per-field order
+        if let Some(sorts) = query.sorts {
+            for sort in sorts {
+                let column = match sort.field.as_str() {
+                    "email" => Some(Column::Email),
+                    "name" => Some(Column::Name),
+                    "role" => Some(Column::Role),
+                    "status" => Some(Column::IsVerified),
+                    "created_at" => Some(Column::CreatedAt),
+                    "updated_at" => Some(Column::UpdatedAt),
+                    _ => None,
                 };
-
-                user_query = match field.as_str() {
-                    "email" => user_query.order_by(Column::Email, order),
-                    "name" => user_query.order_by(Column::Name, order),
-                    "role" => user_query.order_by(Column::Role, order),
-                    "status" => user_query.order_by(Column::IsVerified, order),
-                    "created_at" => user_query.order_by(Column::CreatedAt, order),
-                    "updated_at" => user_query.order_by(Column::UpdatedAt, order),
-                    _ => user_query,
-                };
+                if let Some(col) = column {
+                    user_query = user_query.order_by(col, sort.order);
+                }
             }
         } else {
-            let order = if query.sort_order.as_deref() == Some("asc") {
-                Order::Asc
-            } else {
-                Order::Desc
-            };
-            user_query = user_query.order_by(Column::Id, order);
+            user_query = user_query.order_by(Column::Id, Order::Desc);
         }
 
         let page = match query.page_no {

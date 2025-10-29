@@ -214,16 +214,24 @@ impl Entity {
             post_query = post_query.filter(Column::AuthorId.eq(author_id_filter));
         }
 
-        if let Some(created_at_filter) = query.created_at {
-            post_query = post_query.filter(Column::CreatedAt.eq(created_at_filter));
+        // Date range filters
+        if let Some(ts) = query.created_at_gt {
+            post_query = post_query.filter(Column::CreatedAt.gt(ts));
         }
-
-        if let Some(updated_at_filter) = query.updated_at {
-            post_query = post_query.filter(Column::UpdatedAt.eq(updated_at_filter));
+        if let Some(ts) = query.created_at_lt {
+            post_query = post_query.filter(Column::CreatedAt.lt(ts));
         }
-
-        if let Some(published_at_filter) = query.published_at {
-            post_query = post_query.filter(Column::PublishedAt.eq(published_at_filter));
+        if let Some(ts) = query.updated_at_gt {
+            post_query = post_query.filter(Column::UpdatedAt.gt(ts));
+        }
+        if let Some(ts) = query.updated_at_lt {
+            post_query = post_query.filter(Column::UpdatedAt.lt(ts));
+        }
+        if let Some(ts) = query.published_at_gt {
+            post_query = post_query.filter(Column::PublishedAt.gt(ts));
+        }
+        if let Some(ts) = query.published_at_lt {
+            post_query = post_query.filter(Column::PublishedAt.lt(ts));
         }
 
         if let Some(category_id_filter) = query.category_id {
@@ -255,32 +263,25 @@ impl Entity {
             }
         }
 
-        if let Some(sort_fields) = &query.sort_by {
-            for field in sort_fields {
-                let order = if query.sort_order.as_deref() == Some("asc") {
-                    Order::Asc
-                } else {
-                    Order::Desc
+        // Multi-field sorting with per-field order
+        if let Some(sorts) = query.sorts {
+            for sort in sorts {
+                let column = match sort.field.as_str() {
+                    "title" => Some(Column::Title),
+                    "status" => Some(Column::Status),
+                    "created_at" => Some(Column::CreatedAt),
+                    "updated_at" => Some(Column::UpdatedAt),
+                    "published_at" => Some(Column::PublishedAt),
+                    "view_count" => Some(Column::ViewCount),
+                    "likes_count" => Some(Column::LikesCount),
+                    _ => None,
                 };
-
-                post_query = match field.as_str() {
-                    "title" => post_query.order_by(Column::Title, order),
-                    "status" => post_query.order_by(Column::Status, order),
-                    "created_at" => post_query.order_by(Column::CreatedAt, order),
-                    "updated_at" => post_query.order_by(Column::UpdatedAt, order),
-                    "published_at" => post_query.order_by(Column::PublishedAt, order),
-                    "view_count" => post_query.order_by(Column::ViewCount, order),
-                    "likes_count" => post_query.order_by(Column::LikesCount, order),
-                    _ => post_query,
-                };
+                if let Some(col) = column {
+                    post_query = post_query.order_by(col, sort.order);
+                }
             }
         } else {
-            let order = if query.sort_order.as_deref() == Some("asc") {
-                Order::Asc
-            } else {
-                Order::Desc
-            };
-            post_query = post_query.order_by(Column::CreatedAt, order);
+            post_query = post_query.order_by(Column::CreatedAt, Order::Desc);
         }
 
         let page = match query.page_no {
@@ -353,14 +354,19 @@ impl Entity {
             status: Some(PostStatus::Published),
             title: None,
             author_id: query.author_id,
-            created_at: None,
-            updated_at: None,
-            published_at: None,
-            sort_by: Some(vec!["updated_at".to_string()]),
-            sort_order: Some("desc".to_string()),
+            sorts: Some(vec![crate::utils::SortParam {
+                field: "updated_at".to_string(),
+                order: sea_orm::Order::Desc,
+            }]),
             category_id: query.category_id,
             search: None,
             tag_ids: query.tag_ids,
+            created_at_gt: None,
+            created_at_lt: None,
+            updated_at_gt: None,
+            updated_at_lt: None,
+            published_at_gt: None,
+            published_at_lt: None,
         };
 
         Self::search(conn, query).await

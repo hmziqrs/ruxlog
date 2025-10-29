@@ -107,13 +107,32 @@ impl Entity {
             asset_query = asset_query.filter(Column::Context.eq(context_filter));
         }
 
-        match query.sort_order.as_deref() {
-            Some("asc") => {
-                asset_query = asset_query.order_by(Column::UploadedAt, Order::Asc);
+        // Date range filters
+        if let Some(ts) = query.uploaded_at_gt {
+            asset_query = asset_query.filter(Column::UploadedAt.gt(ts));
+        }
+        if let Some(ts) = query.uploaded_at_lt {
+            asset_query = asset_query.filter(Column::UploadedAt.lt(ts));
+        }
+
+        // Multi-field sorting with per-field order
+        if let Some(sorts) = query.sorts {
+            for sort in sorts {
+                let column = match sort.field.as_str() {
+                    "file_name" => Some(Column::FileName),
+                    "mime_type" => Some(Column::MimeType),
+                    "size" => Some(Column::Size),
+                    "uploaded_at" => Some(Column::UploadedAt),
+                    "owner_id" => Some(Column::OwnerId),
+                    "context" => Some(Column::Context),
+                    _ => None,
+                };
+                if let Some(col) = column {
+                    asset_query = asset_query.order_by(col, sort.order);
+                }
             }
-            _ => {
-                asset_query = asset_query.order_by(Column::UploadedAt, Order::Desc);
-            }
+        } else {
+            asset_query = asset_query.order_by(Column::UploadedAt, Order::Desc);
         }
 
         let page = match query.page_no {

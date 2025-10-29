@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use validator::Validate;
 
 use crate::db::sea_models::post::{NewPost, PostQuery, PostStatus, UpdatePost};
+use crate::utils::SortParam;
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1CreatePostPayload {
@@ -90,10 +91,16 @@ pub struct V1PostQueryParams {
     pub category_id: Option<i32>,
     pub status: Option<PostStatus>,
     pub search: Option<String>,
-    pub sort_by: Option<Vec<String>>,
-    pub sort_order: Option<String>,
+    pub sorts: Option<Vec<SortParam>>,
     pub tag_ids: Option<Vec<i32>>,
     pub title: Option<String>,
+    // Date range filters
+    pub created_at_gt: Option<DateTimeWithTimeZone>,
+    pub created_at_lt: Option<DateTimeWithTimeZone>,
+    pub updated_at_gt: Option<DateTimeWithTimeZone>,
+    pub updated_at_lt: Option<DateTimeWithTimeZone>,
+    pub published_at_gt: Option<DateTimeWithTimeZone>,
+    pub published_at_lt: Option<DateTimeWithTimeZone>,
 }
 
 impl V1PostQueryParams {
@@ -104,13 +111,15 @@ impl V1PostQueryParams {
             category_id: self.category_id,
             status: self.status,
             search: self.search,
-            sort_by: self.sort_by,
-            sort_order: self.sort_order,
+            sorts: self.sorts,
             tag_ids: self.tag_ids,
             title: self.title,
-            created_at: None,
-            updated_at: None,
-            published_at: None,
+            created_at_gt: self.created_at_gt,
+            created_at_lt: self.created_at_lt,
+            updated_at_gt: self.updated_at_gt,
+            updated_at_lt: self.updated_at_lt,
+            published_at_gt: self.published_at_gt,
+            published_at_lt: self.published_at_lt,
         }
     }
 }

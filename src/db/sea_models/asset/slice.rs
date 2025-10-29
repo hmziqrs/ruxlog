@@ -1,4 +1,5 @@
 use super::model::AssetContext;
+use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
@@ -27,5 +28,8 @@ pub struct AssetQuery {
     pub context: Option<AssetContext>,
     pub search: Option<String>,
     pub page_no: Option<u64>,
-    pub sort_order: Option<String>,
+    pub sorts: Option<Vec<crate::utils::SortParam>>,
+    // Date range filters
+    pub uploaded_at_gt: Option<DateTimeWithTimeZone>,
+    pub uploaded_at_lt: Option<DateTimeWithTimeZone>,
 }

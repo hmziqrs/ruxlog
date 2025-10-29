@@ -1,7 +1,9 @@
+use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
 use crate::db::sea_models::post_comment::{CommentQuery, NewComment, UpdateComment};
+use crate::utils::SortParam;
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1CreatePostCommentPayload {
@@ -44,8 +46,12 @@ pub struct V1AdminPostCommentListQuery {
     pub search: Option<String>,
     pub include_hidden: Option<bool>,
     pub min_flags: Option<i32>,
-    pub sort_by: Option<Vec<String>>,
-    pub sort_order: Option<String>,
+    pub sorts: Option<Vec<SortParam>>,
+    // Date range filters
+    pub created_at_gt: Option<DateTimeWithTimeZone>,
+    pub created_at_lt: Option<DateTimeWithTimeZone>,
+    pub updated_at_gt: Option<DateTimeWithTimeZone>,
+    pub updated_at_lt: Option<DateTimeWithTimeZone>,
 }
 
 impl V1AdminPostCommentListQuery {
@@ -57,8 +63,11 @@ impl V1AdminPostCommentListQuery {
             search_term: self.search,
             include_hidden: self.include_hidden,
             min_flags: self.min_flags,
-            sort_by: self.sort_by,
-            sort_order: self.sort_order,
+            sorts: self.sorts,
+            created_at_gt: self.created_at_gt,
+            created_at_lt: self.created_at_lt,
+            updated_at_gt: self.updated_at_gt,
+            updated_at_lt: self.updated_at_lt,
         }
     }
 }

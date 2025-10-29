@@ -5,6 +5,7 @@ use validator::{Validate, ValidationError};
 use crate::db::sea_models::user::{
     AdminCreateUser, AdminUpdateUser, AdminUserQuery, UpdateUser, UserRole,
 };
+use crate::utils::SortParam;
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1UpdateProfilePayload {
@@ -108,10 +109,12 @@ pub struct V1AdminUserQueryParams {
     #[validate(custom(function = "validate_role"))]
     pub role: Option<String>,
     pub status: Option<bool>,
-    pub created_at: Option<DateTimeWithTimeZone>,
-    pub updated_at: Option<DateTimeWithTimeZone>,
-    pub sort_by: Option<Vec<String>>,
-    pub sort_order: Option<String>,
+    pub sorts: Option<Vec<SortParam>>,
+    // Date range filters
+    pub created_at_gt: Option<DateTimeWithTimeZone>,
+    pub created_at_lt: Option<DateTimeWithTimeZone>,
+    pub updated_at_gt: Option<DateTimeWithTimeZone>,
+    pub updated_at_lt: Option<DateTimeWithTimeZone>,
 }
 
 impl V1AdminUserQueryParams {
@@ -122,10 +125,11 @@ impl V1AdminUserQueryParams {
             name: self.name,
             role: self.role.and_then(|r| UserRole::from_str(&r).ok()),
             status: self.status,
-            created_at: self.created_at,
-            updated_at: self.updated_at,
-            sort_by: self.sort_by,
-            sort_order: self.sort_order,
+            sorts: self.sorts,
+            created_at_gt: self.created_at_gt,
+            created_at_lt: self.created_at_lt,
+            updated_at_gt: self.updated_at_gt,
+            updated_at_lt: self.updated_at_lt,
         }
     }
 }

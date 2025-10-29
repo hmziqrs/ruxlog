@@ -42,14 +42,17 @@ pub struct PostQuery {
     pub title: Option<String>,
     pub status: Option<PostStatus>,
     pub author_id: Option<i32>,
-    pub created_at: Option<DateTimeWithTimeZone>,
-    pub updated_at: Option<DateTimeWithTimeZone>,
-    pub published_at: Option<DateTimeWithTimeZone>,
-    pub sort_by: Option<Vec<String>>,
-    pub sort_order: Option<String>,
+    pub sorts: Option<Vec<crate::utils::SortParam>>,
     pub category_id: Option<i32>,
     pub search: Option<String>,
     pub tag_ids: Option<Vec<i32>>,
+    // Date range filters
+    pub created_at_gt: Option<DateTimeWithTimeZone>,
+    pub created_at_lt: Option<DateTimeWithTimeZone>,
+    pub updated_at_gt: Option<DateTimeWithTimeZone>,
+    pub updated_at_lt: Option<DateTimeWithTimeZone>,
+    pub published_at_gt: Option<DateTimeWithTimeZone>,
+    pub published_at_lt: Option<DateTimeWithTimeZone>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

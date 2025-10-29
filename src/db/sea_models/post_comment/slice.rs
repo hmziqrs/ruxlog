@@ -23,8 +23,12 @@ pub struct CommentQuery {
     pub search_term: Option<String>,
     pub include_hidden: Option<bool>,
     pub min_flags: Option<i32>,
-    pub sort_by: Option<Vec<String>>,
-    pub sort_order: Option<String>,
+    pub sorts: Option<Vec<crate::utils::SortParam>>,
+    // Date range filters
+    pub created_at_gt: Option<DateTimeWithTimeZone>,
+    pub created_at_lt: Option<DateTimeWithTimeZone>,
+    pub updated_at_gt: Option<DateTimeWithTimeZone>,
+    pub updated_at_lt: Option<DateTimeWithTimeZone>,
 }
 
 impl Default for CommentQuery {
@@ -36,8 +40,11 @@ impl Default for CommentQuery {
             search_term: None,
             include_hidden: None,
             min_flags: None,
-            sort_by: None,
-            sort_order: None,
+            sorts: None,
+            created_at_gt: None,
+            created_at_lt: None,
+            updated_at_gt: None,
+            updated_at_lt: None,
         }
     }
 }

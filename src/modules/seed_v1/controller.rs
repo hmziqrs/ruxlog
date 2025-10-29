@@ -154,10 +154,11 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
                 name: None,
                 role: Some(UserRole::Author),
                 status: None,
-                created_at: None,
-                updated_at: None,
-                sort_by: None,
-                sort_order: None,
+                sorts: None,
+                created_at_gt: None,
+                created_at_lt: None,
+                updated_at_gt: None,
+                updated_at_lt: None,
             };
             match user::Entity::admin_list(&state.sea_db, author_query).await {
                 Ok((res, _)) => {
@@ -269,10 +270,11 @@ pub async fn seed_post_comments(
                 name: None,
                 role: Some(UserRole::User),
                 status: None,
-                created_at: None,
-                updated_at: None,
-                sort_by: None,
-                sort_order: None,
+                sorts: None,
+                created_at_gt: None,
+                created_at_lt: None,
+                updated_at_gt: None,
+                updated_at_lt: None,
             };
             match user::Entity::admin_list(&state.sea_db, user_query).await {
                 Ok((res, _)) => {

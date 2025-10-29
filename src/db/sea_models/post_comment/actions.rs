@@ -136,22 +136,37 @@ impl Entity {
             comment_query = comment_query.filter(Column::FlagsCount.gte(min_flags));
         }
 
-        let order = if query.sort_order.as_deref() == Some("asc") {
-            Order::Asc
-        } else {
-            Order::Desc
-        };
+        // Date range filters
+        if let Some(ts) = query.created_at_gt {
+            comment_query = comment_query.filter(Column::CreatedAt.gt(ts));
+        }
+        if let Some(ts) = query.created_at_lt {
+            comment_query = comment_query.filter(Column::CreatedAt.lt(ts));
+        }
+        if let Some(ts) = query.updated_at_gt {
+            comment_query = comment_query.filter(Column::UpdatedAt.gt(ts));
+        }
+        if let Some(ts) = query.updated_at_lt {
+            comment_query = comment_query.filter(Column::UpdatedAt.lt(ts));
+        }
 
-        comment_query = match &query.sort_by {
-            Some(fields) if !fields.is_empty() => match fields[0].as_str() {
-                "created_at" => comment_query.order_by(Column::CreatedAt, order),
-                "updated_at" => comment_query.order_by(Column::UpdatedAt, order),
-                "likes_count" => comment_query.order_by(Column::LikesCount, order),
-                "flags_count" => comment_query.order_by(Column::FlagsCount, order),
-                _ => comment_query.order_by(Column::CreatedAt, order),
-            },
-            _ => comment_query.order_by(Column::CreatedAt, order),
-        };
+        // Multi-field sorting with per-field order
+        if let Some(sorts) = query.sorts {
+            for sort in sorts {
+                let column = match sort.field.as_str() {
+                    "created_at" => Some(Column::CreatedAt),
+                    "updated_at" => Some(Column::UpdatedAt),
+                    "likes_count" => Some(Column::LikesCount),
+                    "flags_count" => Some(Column::FlagsCount),
+                    _ => None,
+                };
+                if let Some(col) = column {
+                    comment_query = comment_query.order_by(col, sort.order);
+                }
+            }
+        } else {
+            comment_query = comment_query.order_by(Column::CreatedAt, Order::Desc);
+        }
 
         let page = match query.page_no {
             Some(p) if p > 0 => p,
