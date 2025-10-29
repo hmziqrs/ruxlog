@@ -13,6 +13,7 @@ use crate::{
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/create", post(controller::create))
+        .route("/list/query", post(controller::find_with_query))
         .route("/delete/{media_id}", post(controller::delete))
         .route_layer(middleware::from_fn(user_permission::author))
         .route_layer(middleware::from_fn(user_status::only_verified))

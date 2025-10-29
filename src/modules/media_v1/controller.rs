@@ -14,11 +14,12 @@ use uuid::Uuid;
 use crate::{
     db::sea_models::media::{Entity as Media, NewMedia},
     error::{ErrorCode, ErrorResponse},
+    extractors::ValidatedJson,
     services::auth::AuthSession,
     AppState,
 };
 
-use super::validator::MediaUploadMetadata;
+use super::validator::{MediaUploadMetadata, V1MediaListQuery};
 
 const MAX_UPLOAD_SIZE_BYTES: usize = 20 * 1024 * 1024; // 20MiB ceiling
 
@@ -135,6 +136,30 @@ pub async fn create(
     let stored = Media::create(&state.sea_db, new_media).await?;
 
     Ok((StatusCode::CREATED, Json(json!(stored))))
+}
+
+/// List media with pagination and filtering
+#[debug_handler]
+pub async fn find_with_query(
+    State(state): State<AppState>,
+    payload: ValidatedJson<V1MediaListQuery>,
+) -> impl IntoResponse {
+    let query = payload.0.into_query();
+    let page = query.page.unwrap_or(1);
+
+    match Media::find_with_query(&state.sea_db, query).await {
+        Ok((items, total)) => (
+            StatusCode::OK,
+            Json(json!({
+                "data": items,
+                "total": total,
+                "per_page": Media::PER_PAGE,
+                "page": page,
+            })),
+        )
+            .into_response(),
+        Err(err) => err.into_response(),
+    }
 }
 
 #[debug_handler]
