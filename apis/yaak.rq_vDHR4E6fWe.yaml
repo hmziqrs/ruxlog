@@ -1,0 +1,44 @@
+type: http_request
+model: http_request
+id: rq_vDHR4E6fWe
+createdAt: 2025-10-29T10:02:33.851034
+updatedAt: 2025-10-29T10:14:17.963598
+workspaceId: wk_udoUbrFfLp
+folderId: fl_Pj3JaShfob
+authentication: {}
+authenticationType: null
+body:
+  form:
+  - contentType: image/png
+    enabled: true
+    file: /Users/hmziq/Downloads/AQMz413M32M4IMhzB9b_4hbR2_kCuQHInRua0Xn6D6sbIvcGGdzSOSSYs6tx0ZxxHg05zohUWUoF9MGw4dv2fAR3Q3kPhhgGIBkA5Ys6yYD8PvX-VO0FFRaWs7X1FOhS.png
+    id: SkxXEQw9Ee
+    name: file
+  - enabled: true
+    id: gmtx3jVpp0
+    name: reference_type
+    value: user
+  - enabled: true
+    id: FCJaJ0xmKK
+    name: ''
+    value: ''
+bodyType: multipart/form-data
+description: ''
+headers:
+- enabled: true
+  name: csrf-token
+  value: ${[ csrf ]}
+  id: aA64M6mvXe
+- enabled: true
+  name: ''
+  value: ''
+  id: D57mjz6dN3
+- enabled: true
+  name: Content-Type
+  value: multipart/form-data
+  id: 8SiwBk32sA
+method: POST
+name: ''
+sortPriority: 0.0
+url: ${[ host ]}/media/v1/create
+urlParameters: []

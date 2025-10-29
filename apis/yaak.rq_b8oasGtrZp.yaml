@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_b8oasGtrZp
 createdAt: 2025-05-02T14:49:12.069390
-updatedAt: 2025-05-02T14:49:12.069391
+updatedAt: 2025-10-29T10:02:27.356223
 workspaceId: wk_udoUbrFfLp
 folderId: fl_Azf93JQ58Q
 authentication: {}
@@ -30,6 +30,6 @@ headers:
   id: d2bpjFn2wa
 method: POST
 name: ''
-sortPriority: 1000.001
+sortPriority: 500.0
 url: ${[ host ]}/auth/v1/log_in
 urlParameters: []

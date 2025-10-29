@@ -198,7 +198,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .allow_origin(AllowOrigin::list(get_allowed_origins()))
         .allow_credentials(true)
         .max_age(Duration::from_secs(360));
-    let request_size = RequestBodyLimitLayer::new(1024 * 512);
+    let request_size = RequestBodyLimitLayer::new(1024 * 1024 * 5); // 5MiB
     //             (
     //                 status,
     //             )
