@@ -119,7 +119,7 @@ pub async fn find_with_query(
     payload: ValidatedJson<V1CategoryQueryParams>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let category_query = payload.0.into_category_query();
-    let page = category_query.page_no.unwrap_or(1);
+    let page = category_query.page.unwrap_or(1);
 
     match Category::find_with_query(&state.sea_db, category_query).await {
         Ok((categories, total)) => Ok((

@@ -1,6 +1,8 @@
 use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 
+use crate::utils::SortParam;
+
 #[derive(Deserialize, Debug)]
 pub struct NewCategory {
     pub name: String,
@@ -30,8 +32,13 @@ pub struct UpdateCategory {
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct CategoryQuery {
-    pub page_no: Option<u64>,
+    pub page: Option<u64>,
     pub search: Option<String>,
-    pub sort_order: Option<String>,
+    pub sorts: Option<Vec<SortParam>>,
     pub parent_id: Option<i32>,
+    pub is_active: Option<bool>,
+    pub created_at_gt: Option<DateTimeWithTimeZone>,
+    pub created_at_lt: Option<DateTimeWithTimeZone>,
+    pub updated_at_gt: Option<DateTimeWithTimeZone>,
+    pub updated_at_lt: Option<DateTimeWithTimeZone>,
 }

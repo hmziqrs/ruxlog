@@ -157,16 +157,47 @@ impl Entity {
             category_query = category_query.filter(Column::ParentId.eq(parent_id_filter));
         }
 
-        match query.sort_order.as_deref() {
-            Some("asc") => {
-                category_query = category_query.order_by(Column::Name, Order::Asc);
-            }
-            _ => {
-                category_query = category_query.order_by(Column::Name, Order::Desc);
+        if let Some(active) = query.is_active {
+            category_query = category_query.filter(Column::IsActive.eq(active));
+        }
+
+        if let Some(ts) = query.created_at_gt {
+            category_query = category_query.filter(Column::CreatedAt.gt(ts));
+        }
+        if let Some(ts) = query.created_at_lt {
+            category_query = category_query.filter(Column::CreatedAt.lt(ts));
+        }
+        if let Some(ts) = query.updated_at_gt {
+            category_query = category_query.filter(Column::UpdatedAt.gt(ts));
+        }
+        if let Some(ts) = query.updated_at_lt {
+            category_query = category_query.filter(Column::UpdatedAt.lt(ts));
+        }
+
+        if let Some(sorts) = query.sorts {
+            for sort in sorts {
+                let column = match sort.field.as_str() {
+                    "id" => Some(Column::Id),
+                    "name" => Some(Column::Name),
+                    "slug" => Some(Column::Slug),
+                    "parent_id" => Some(Column::ParentId),
+                    "description" => Some(Column::Description),
+                    "cover_image" => Some(Column::CoverImage),
+                    "logo_image" => Some(Column::LogoImage),
+                    "color" => Some(Column::Color),
+                    "text_color" => Some(Column::TextColor),
+                    "is_active" => Some(Column::IsActive),
+                    "created_at" => Some(Column::CreatedAt),
+                    "updated_at" => Some(Column::UpdatedAt),
+                    _ => None,
+                };
+                if let Some(col) = column {
+                    category_query = category_query.order_by(col, sort.order);
+                }
             }
         }
 
-        let page = match query.page_no {
+        let page = match query.page {
             Some(p) if p > 0 => p,
             _ => 1,
         };

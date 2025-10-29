@@ -149,28 +149,22 @@ impl Entity {
             tag_query = tag_query.filter(Column::UpdatedAt.lt(ts));
         }
 
-        // Sorting: prefer dynamic multi-field sorts if provided, else default to name desc
-        if let Some(sorts) = &query.sorts {
-            if !sorts.is_empty() {
-                for s in sorts {
-                    // Map string field names to columns; unknown fields are ignored
-                    let column = match s.field.as_str() {
-                        "id" => Some(Column::Id),
-                        "name" => Some(Column::Name),
-                        "slug" => Some(Column::Slug),
-                        "description" => Some(Column::Description),
-                        "color" => Some(Column::Color),
-                        "text_color" => Some(Column::TextColor),
-                        "is_active" => Some(Column::IsActive),
-                        "created_at" => Some(Column::CreatedAt),
-                        "updated_at" => Some(Column::UpdatedAt),
-                        _ => None,
-                    };
-
-                    if let Some(col) = column {
-                        let ord = s.order.clone();
-                        tag_query = tag_query.order_by(col, ord);
-                    }
+        if let Some(sorts) = query.sorts {
+            for sort in sorts {
+                let column = match sort.field.as_str() {
+                    "id" => Some(Column::Id),
+                    "name" => Some(Column::Name),
+                    "slug" => Some(Column::Slug),
+                    "description" => Some(Column::Description),
+                    "color" => Some(Column::Color),
+                    "text_color" => Some(Column::TextColor),
+                    "is_active" => Some(Column::IsActive),
+                    "created_at" => Some(Column::CreatedAt),
+                    "updated_at" => Some(Column::UpdatedAt),
+                    _ => None,
+                };
+                if let Some(col) = column {
+                    tag_query = tag_query.order_by(col, sort.order);
                 }
             }
         }
