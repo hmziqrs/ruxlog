@@ -20,6 +20,9 @@ impl Entity {
             extension: Set(payload.extension),
             uploader_id: Set(payload.uploader_id),
             reference_type: Set(payload.reference_type),
+            content_hash: Set(payload.content_hash),
+            is_optimized: Set(payload.is_optimized),
+            optimized_at: Set(payload.optimized_at),
             created_at: Set(now),
             updated_at: Set(now),
             ..Default::default()
@@ -30,6 +33,14 @@ impl Entity {
 
     pub async fn find_by_id(conn: &DbConn, id: i32) -> DbResult<Option<Model>> {
         <Self as EntityTrait>::find_by_id(id)
+            .one(conn)
+            .await
+            .map_err(ErrorResponse::from)
+    }
+
+    pub async fn find_by_hash(conn: &DbConn, hash: &str) -> DbResult<Option<Model>> {
+        <Self as EntityTrait>::find()
+            .filter(Column::ContentHash.eq(hash))
             .one(conn)
             .await
             .map_err(ErrorResponse::from)

@@ -23,6 +23,7 @@ mod m20250813_000017_create_comment_flags_table;
 mod m20250814_000018_create_media_table;
 mod m20251029_000019_drop_asset_table;
 mod m20251116_000020_create_media_variant_table;
+mod m20251116_000022_alter_media_add_hash;
 mod m20251030_000021_alter_category_change_media_fields;
 
 pub struct Migrator;
@@ -54,6 +55,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250814_000018_create_media_table::Migration),
             Box::new(m20251029_000019_drop_asset_table::Migration),
             Box::new(m20251116_000020_create_media_variant_table::Migration),
+            Box::new(m20251116_000022_alter_media_add_hash::Migration),
             Box::new(m20251030_000021_alter_category_change_media_fields::Migration),
         ]
     }

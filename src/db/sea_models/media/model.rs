@@ -58,6 +58,9 @@ pub struct Model {
     pub extension: Option<String>,
     pub uploader_id: Option<i32>,
     pub reference_type: Option<MediaReference>,
+    pub content_hash: Option<String>,
+    pub is_optimized: bool,
+    pub optimized_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }

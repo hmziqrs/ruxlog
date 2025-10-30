@@ -144,8 +144,9 @@ No route or schema changes are needed in Phase 1.
    - Upload flow persists variant rows after S3 writes so downstream queries can surface responsive assets.
    - API response changes remain optional and can be tackled alongside read-path enhancements.
 
-4. ⬜ **Phase 4** (optional)
-   - Async optimization worker (Redis queue), content hashing dedupe, EXIF normalization, LQIP.
+4. ✅ **Phase 4** (partial completion)
+   - Content hashing dedupe short-circuits identical uploads before touching storage.
+   - Infrastructure is ready for exposing a background optimization worker and deeper EXIF handling; those remain future enhancements.
 
 ## Dependencies
 - Add to `Cargo.toml`:

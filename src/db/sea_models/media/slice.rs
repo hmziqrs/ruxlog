@@ -15,6 +15,9 @@ pub struct NewMedia {
     pub extension: Option<String>,
     pub uploader_id: Option<i32>,
     pub reference_type: Option<MediaReference>,
+    pub content_hash: Option<String>,
+    pub is_optimized: bool,
+    pub optimized_at: Option<DateTimeWithTimeZone>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

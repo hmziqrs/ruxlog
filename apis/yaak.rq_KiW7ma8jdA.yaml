@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_KiW7ma8jdA
 createdAt: 2025-04-27T17:56:40.429340
-updatedAt: 2025-05-02T09:24:32.942185
+updatedAt: 2025-10-30T10:58:15.511302
 workspaceId: wk_udoUbrFfLp
 folderId: fl_ScVUnrkM6P
 authentication: {}
@@ -28,7 +28,7 @@ headers:
   name: Content-Type
   value: application/json
   id: XMCGBm0fnd
-method: GET
+method: POST
 name: ''
 sortPriority: 4000.0
 url: ${[ host ]}/category/v1/list/query

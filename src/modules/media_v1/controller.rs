@@ -9,6 +9,7 @@ use axum_macros::debug_handler;
 use bytes::Bytes;
 use chrono::{Datelike, Utc};
 use serde_json::json;
+use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::{
@@ -77,6 +78,14 @@ pub async fn create(
         ErrorResponse::new(ErrorCode::MissingRequiredField).with_message("Missing file field")
     })?;
 
+    let mut hasher = Sha256::new();
+    hasher.update(&file_bytes);
+    let content_hash = format!("{:x}", hasher.finalize());
+
+    if let Some(existing) = Media::find_by_hash(&state.sea_db, &content_hash).await? {
+        return Ok((StatusCode::OK, Json(json!(existing))));
+    }
+
     // Derive useful metadata if it was not supplied
     if metadata.width.is_none() || metadata.height.is_none() {
         if let Ok(dimensions) = imagesize::blob_size(&file_bytes) {
@@ -95,6 +104,8 @@ pub async fn create(
         .unwrap_or_else(|| "application/octet-stream".to_string());
     let mut final_bytes = file_bytes.clone();
     let mut variants_to_upload = Vec::new();
+    let mut is_optimized = false;
+    let mut optimized_at = None;
     struct PreparedVariant {
         object_key: String,
         mime_type: String,
@@ -140,6 +151,8 @@ pub async fn create(
             }
 
             variants_to_upload = result.variants;
+            is_optimized = true;
+            optimized_at = Some(Utc::now().fixed_offset());
         }
     }
 
@@ -242,6 +255,9 @@ pub async fn create(
         extension,
         uploader_id: Some(uploader.id),
         reference_type: metadata.reference_type,
+        content_hash: Some(content_hash),
+        is_optimized,
+        optimized_at,
     };
 
     let stored = Media::create(&state.sea_db, new_media).await?;
