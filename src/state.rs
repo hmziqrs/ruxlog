@@ -13,6 +13,14 @@ pub struct R2Config {
     pub public_url: String,
 }
 
+#[derive(Clone, Debug)]
+pub struct OptimizerConfig {
+    pub enabled: bool,
+    pub max_pixels: u64,
+    pub keep_original: bool,
+    pub default_webp_quality: u8,
+}
+
 #[derive(Clone)]
 pub struct AppState {
     pub sea_db: DatabaseConnection,
@@ -20,4 +28,5 @@ pub struct AppState {
     pub mailer: lettre::AsyncSmtpTransport<lettre::Tokio1Executor>,
     pub r2: R2Config,
     pub s3_client: aws_sdk_s3::Client,
+    pub optimizer: OptimizerConfig,
 }

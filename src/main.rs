@@ -25,6 +25,7 @@ use tower_http::{
 use axum_extra::extract::cookie::SameSite;
 use services::{auth::AuthBackend, redis::init_redis_store};
 pub use state::AppState;
+use state::OptimizerConfig;
 use tower_sessions::{cookie::Key, Expiry, SessionManagerLayer};
 use tower_sessions_redis_store::RedisStore;
 
@@ -81,6 +82,35 @@ fn get_allowed_origins() -> Vec<HeaderValue> {
         .iter()
         .map(|origin| origin.parse::<HeaderValue>().unwrap())
         .collect()
+}
+
+fn env_bool(key: &str, default: bool) -> bool {
+    env::var(key)
+        .ok()
+        .and_then(|value| {
+            let normalized = value.trim().to_ascii_lowercase();
+            match normalized.as_str() {
+                "1" | "true" | "yes" | "on" => Some(true),
+                "0" | "false" | "no" | "off" => Some(false),
+                _ => None,
+            }
+        })
+        .unwrap_or(default)
+}
+
+fn env_u64(key: &str, default: u64) -> u64 {
+    env::var(key)
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .unwrap_or(default)
+}
+
+fn env_u8(key: &str, default: u8) -> u8 {
+    let candidate = env::var(key)
+        .ok()
+        .and_then(|value| value.trim().parse::<u8>().ok())
+        .unwrap_or(default);
+    candidate.clamp(0, 100)
 }
 
 #[derive(serde::Deserialize)]
@@ -154,12 +184,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
+    let optimizer = OptimizerConfig {
+        enabled: env_bool("OPTIMIZE_ON_UPLOAD", true),
+        max_pixels: env_u64("OPTIMIZER_MAX_PIXELS", 40_000_000),
+        keep_original: env_bool("OPTIMIZER_KEEP_ORIGINAL", true),
+        default_webp_quality: env_u8("OPTIMIZER_WEBP_QUALITY_DEFAULT", 80),
+    };
+
     let state = AppState {
         sea_db,
         redis_pool: redis_pool.clone(),
         mailer,
         r2,
         s3_client,
+        optimizer,
     };
 
     tracing::info!("Redis successfully established.");
@@ -199,11 +237,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .allow_credentials(true)
         .max_age(Duration::from_secs(360));
     let request_size = RequestBodyLimitLayer::new(1024 * 1024 * 5); // 5MiB
-    //             (
-    //                 status,
-    //             )
-    //         })
-    // a separate background task to clean up
+                                                                    //             (
+                                                                    //                 status,
+                                                                    //             )
+                                                                    //         })
+                                                                    // a separate background task to clean up
 
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 

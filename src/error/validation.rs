@@ -1,8 +1,8 @@
 //! Error handling for validation and JSON parsing errors
 
 use crate::error::{ErrorCode, ErrorResponse, IntoErrorResponse};
-use axum::extract::rejection::{FormRejection, JsonRejection, QueryRejection};
 use axum::extract::multipart::MultipartRejection;
+use axum::extract::rejection::{FormRejection, JsonRejection, QueryRejection};
 use serde_json::Value;
 use std::error::Error as StdError;
 use validator::ValidationErrors;
@@ -151,10 +151,7 @@ impl IntoErrorResponse for MultipartRejection {
         }
 
         // Content-Type issues
-        if as_string
-            .to_ascii_lowercase()
-            .contains("content-type")
-        {
+        if as_string.to_ascii_lowercase().contains("content-type") {
             return ErrorResponse::new(ErrorCode::InvalidFormat)
                 .with_message("Missing or invalid Content-Type for multipart/form-data")
                 .with_details(as_string);

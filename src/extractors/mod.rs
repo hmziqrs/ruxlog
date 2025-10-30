@@ -3,8 +3,8 @@
 //! This module provides specialized extractors that simplify
 //! request handling in controllers.
 
-pub mod validated;
 pub mod multipart;
+pub mod validated;
 
-pub use validated::*;
 pub use multipart::*;
+pub use validated::*;

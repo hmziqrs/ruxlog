@@ -15,9 +15,10 @@ use crate::{
     db::sea_models::media::{Entity as Media, NewMedia},
     error::{ErrorCode, ErrorResponse},
     extractors::{ValidatedJson, ValidatedMultipart},
-    services::auth::AuthSession,
+    services::{auth::AuthSession, image_optimizer},
     AppState,
 };
+use tracing::warn;
 
 use super::validator::{MediaUploadMetadata, V1MediaListQuery};
 
@@ -75,11 +76,6 @@ pub async fn create(
         ErrorResponse::new(ErrorCode::MissingRequiredField).with_message("Missing file field")
     })?;
 
-    let size_bytes = i64::try_from(file_bytes.len()).map_err(|_| {
-        ErrorResponse::new(ErrorCode::InvalidValue)
-            .with_message("File size exceeds supported range")
-    })?;
-
     // Derive useful metadata if it was not supplied
     if metadata.width.is_none() || metadata.height.is_none() {
         if let Ok(dimensions) = imagesize::blob_size(&file_bytes) {
@@ -92,13 +88,61 @@ pub async fn create(
         }
     }
 
-    let extension = infer_extension(original_name.as_deref(), mime_type.as_deref());
-    let object_key = build_object_key(extension.as_deref());
-    let content_type = mime_type
+    let mut extension = infer_extension(original_name.as_deref(), mime_type.as_deref());
+    let mut content_type = mime_type
         .clone()
         .unwrap_or_else(|| "application/octet-stream".to_string());
+    let mut final_bytes = file_bytes.clone();
+    let mut variants_to_upload = Vec::new();
 
-    let byte_stream = ByteStream::from(file_bytes.clone());
+    if content_type.starts_with("image/") {
+        let optimization_request = image_optimizer::OptimizationRequest {
+            bytes: &file_bytes,
+            metadata: &metadata,
+            reference: metadata.reference_type,
+            original_mime: mime_type.as_deref(),
+            original_extension: extension.as_deref(),
+        };
+
+        let optimization_outcome =
+            match image_optimizer::optimize(&state.optimizer, optimization_request) {
+                Ok(outcome) => outcome,
+                Err(err) => {
+                    warn!("image optimizer error: {}", err);
+                    image_optimizer::OptimizationOutcome::Skipped(
+                        image_optimizer::SkipReason::DecodeFailed,
+                    )
+                }
+            };
+
+        if let image_optimizer::OptimizationOutcome::Optimized(result) = optimization_outcome {
+            final_bytes = result.original.bytes.clone();
+            content_type = result.original.mime_type.clone();
+            extension = Some(result.original.extension.clone());
+
+            if let Ok(width) = i32::try_from(result.original.width) {
+                metadata.width = Some(width);
+            }
+            if let Ok(height) = i32::try_from(result.original.height) {
+                metadata.height = Some(height);
+            }
+
+            variants_to_upload = result.variants;
+        }
+    }
+
+    let size_bytes = i64::try_from(final_bytes.len()).map_err(|_| {
+        ErrorResponse::new(ErrorCode::InvalidValue)
+            .with_message("File size exceeds supported range")
+    })?;
+
+    let object_key = build_object_key(extension.as_deref());
+    let base_object_key = object_key
+        .rsplit_once('.')
+        .map(|(prefix, _)| prefix.to_string())
+        .unwrap_or_else(|| object_key.clone());
+
+    let byte_stream = ByteStream::from(final_bytes.clone().to_vec());
 
     state
         .s3_client
@@ -114,6 +158,41 @@ pub async fn create(
                 .with_message("Failed to persist media to storage")
                 .with_details(err.to_string())
         })?;
+
+    for variant in variants_to_upload {
+        let suffix = match variant.label {
+            image_optimizer::VariantLabel::Width(width) => format!("@{}w", width),
+            image_optimizer::VariantLabel::Lqip => "@lqip".to_string(),
+            image_optimizer::VariantLabel::Original => continue,
+        };
+
+        let variant_key = format!(
+            "{}{}{}",
+            base_object_key,
+            suffix,
+            if variant.extension.is_empty() {
+                String::new()
+            } else {
+                format!(".{}", variant.extension)
+            }
+        );
+
+        if let Err(err) = state
+            .s3_client
+            .put_object()
+            .bucket(&state.r2.bucket)
+            .key(&variant_key)
+            .body(ByteStream::from(variant.bytes.to_vec()))
+            .content_type(&variant.mime_type)
+            .send()
+            .await
+        {
+            warn!(
+                "failed to upload optimized variant {}: {}",
+                variant_key, err
+            );
+        }
+    }
 
     let public_url = format!(
         "{}/{}",
