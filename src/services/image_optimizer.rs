@@ -1,7 +1,10 @@
-use std::{borrow::Cow, io::Cursor};
+use std::borrow::Cow;
 
 use bytes::Bytes;
-use image::{codecs, imageops::FilterType, ColorType, DynamicImage, ImageEncoder, ImageFormat};
+use image::{
+    codecs, imageops::FilterType, ColorType, DynamicImage, ExtendedColorType, ImageEncoder,
+    ImageFormat,
+};
 use thiserror::Error;
 
 use crate::{modules::media_v1::validator::MediaUploadMetadata, state::OptimizerConfig};
@@ -67,6 +70,27 @@ struct ProbedImage {
     bytes_per_pixel: f32,
 }
 
+#[derive(Debug)]
+struct ImageCharacteristics {
+    has_alpha: bool,
+    aspect_ratio: f32,
+    min_dimension: u32,
+}
+
+fn analyze_image(image: &DynamicImage) -> ImageCharacteristics {
+    let width = image.width().max(1);
+    let height = image.height().max(1);
+    let aspect_ratio = width as f32 / height as f32;
+    let color = image.color();
+    let has_alpha = color.has_alpha();
+
+    ImageCharacteristics {
+        has_alpha,
+        aspect_ratio,
+        min_dimension: width.min(height),
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum OptimizationError {
     #[error("unsupported format")]
@@ -114,16 +138,13 @@ pub fn optimize(
         MediaReference::Post => Strategy::Post,
     };
 
-    if strategy.should_skip(&probed) {
-        return Ok(OptimizationOutcome::Skipped(SkipReason::AlreadyOptimized));
-    }
-
     let decoded = match image::load_from_memory(request.bytes) {
         Ok(image) => image,
         Err(_) => return Ok(OptimizationOutcome::Skipped(SkipReason::DecodeFailed)),
     };
 
-    let plan = strategy.build_plan(&decoded);
+    let characteristics = analyze_image(&decoded);
+    let plan = strategy.build_plan(&decoded, &probed, &characteristics, config);
 
     let mut result = OptimizationResult {
         replaced_original: false,
@@ -138,18 +159,22 @@ pub fn optimize(
         variants: Vec::new(),
     };
 
-    if let Some(replacement) = strategy.reencode_original(
-        &decoded,
-        &probed,
-        config.default_webp_quality,
-        request.bytes.len(),
-    )? {
-        result.replaced_original = true;
-        result.original = replacement;
+    if !config.keep_original {
+        if let Some(replacement) =
+            strategy.reencode_original(&decoded, &probed, &characteristics, request.bytes.len())?
+        {
+            result.replaced_original = true;
+            result.original = replacement;
+        }
     }
 
     for spec in plan {
-        if spec.width >= probed.width {
+        let max_allowed = match spec.kind {
+            ResizeKind::ExactSquare => characteristics.min_dimension,
+            ResizeKind::FitWidth => probed.width,
+        };
+
+        if spec.width >= max_allowed {
             continue;
         }
 
@@ -262,74 +287,127 @@ enum Strategy {
     Category,
 }
 
+#[derive(Clone)]
 struct VariantSpec {
     width: u32,
     format: TargetFormat,
     quality: u8,
     kind: ResizeKind,
+    label: VariantLabel,
 }
 
 #[allow(dead_code)]
+#[derive(Clone, Copy)]
 enum TargetFormat {
-    Webp,
+    WebpLossless,
     Jpeg,
     Png,
 }
 
+#[derive(Clone, Copy)]
 enum ResizeKind {
     FitWidth,
     ExactSquare,
 }
 
 impl Strategy {
-    fn should_skip(&self, probed: &ProbedImage) -> bool {
-        match self {
-            Strategy::User => probed.width <= 96 && probed.height <= 96,
-            Strategy::Category => probed.width <= 256 && probed.height <= 256,
-            Strategy::Post => probed.width <= 480,
-        }
-    }
-
-    fn build_plan(&self, image: &DynamicImage) -> Vec<VariantSpec> {
+    fn build_plan(
+        &self,
+        _image: &DynamicImage,
+        probed: &ProbedImage,
+        characteristics: &ImageCharacteristics,
+        config: &OptimizerConfig,
+    ) -> Vec<VariantSpec> {
         match self {
             Strategy::User => {
-                let size = image.width().min(image.height());
+                let format = if characteristics.has_alpha {
+                    TargetFormat::Png
+                } else {
+                    TargetFormat::Jpeg
+                };
+
                 [48, 96, 192, 384]
                     .into_iter()
-                    .filter(|target| *target < size)
+                    .filter(|target| *target < characteristics.min_dimension)
                     .map(|width| VariantSpec {
                         width,
-                        format: TargetFormat::Webp,
+                        format,
                         quality: 82,
                         kind: ResizeKind::ExactSquare,
+                        label: VariantLabel::Width(width),
                     })
                     .collect()
             }
             Strategy::Category => {
-                vec![
-                    VariantSpec {
-                        width: 256,
-                        format: TargetFormat::Png,
-                        quality: 100,
-                        kind: ResizeKind::FitWidth,
-                    },
-                    VariantSpec {
-                        width: 640,
-                        format: TargetFormat::Webp,
-                        quality: 80,
-                        kind: ResizeKind::FitWidth,
-                    },
-                ]
+                let mut variants = Vec::new();
+                let is_icon = characteristics.aspect_ratio <= 1.5;
+
+                if is_icon {
+                    for width in [128, 256] {
+                        if width < characteristics.min_dimension {
+                            variants.push(VariantSpec {
+                                width,
+                                format: TargetFormat::Png,
+                                quality: 100,
+                                kind: ResizeKind::FitWidth,
+                                label: VariantLabel::Width(width),
+                            });
+                        }
+                    }
+                } else {
+                    let format = if characteristics.has_alpha {
+                        TargetFormat::Png
+                    } else {
+                        TargetFormat::Jpeg
+                    };
+
+                    for width in [640, 1280, 1920] {
+                        if width < probed.width {
+                            variants.push(VariantSpec {
+                                width,
+                                format,
+                                quality: 80,
+                                kind: ResizeKind::FitWidth,
+                                label: VariantLabel::Width(width),
+                            });
+                        }
+                    }
+                }
+
+                variants
             }
-            Strategy::Post => [480, 768, 1024, 1600, 2048]
-                .into_iter()
-                .map(|width| VariantSpec {
-                    width,
-                    format: TargetFormat::Webp,
-                    quality: 80,
-                    kind: ResizeKind::FitWidth,
-                })
-                .collect(),
+            Strategy::Post => {
+                let mut variants = Vec::new();
+                let format = if characteristics.has_alpha {
+                    TargetFormat::Png
+                } else {
+                    TargetFormat::Jpeg
+                };
+
+                for width in [480, 768, 1024, 1600, 2048] {
+                    if width < probed.width {
+                        variants.push(VariantSpec {
+                            width,
+                            format,
+                            quality: config.default_webp_quality,
+                            kind: ResizeKind::FitWidth,
+                            label: VariantLabel::Width(width),
+                        });
+                    }
+                }
+
+                if probed.width > 48 {
+                    variants.push(VariantSpec {
+                        width: 24,
+                        format: TargetFormat::Jpeg,
+                        quality: 40,
+                        kind: ResizeKind::FitWidth,
+                        label: VariantLabel::Lqip,
+                    });
+                }
+
+                variants
+            }
         }
     }
 
@@ -337,24 +415,41 @@ impl Strategy {
         &self,
         image: &DynamicImage,
         probed: &ProbedImage,
-        _quality: u8,
+        characteristics: &ImageCharacteristics,
         original_size: usize,
     ) -> Result<Option<OptimizedImage>, OptimizationError> {
-        let mut cursor = Cursor::new(Vec::new());
-        image
-            .write_to(&mut cursor, ImageFormat::WebP)
-            .map_err(|err| OptimizationError::EncodeFailed(err.to_string()))?;
-        let buffer = cursor.into_inner();
+        let (format, quality, threshold) = match self {
+            Strategy::User => {
+                if characteristics.has_alpha {
+                    return Ok(None);
+                }
+                (TargetFormat::Jpeg, 82, 0.05)
+            }
+            Strategy::Category => {
+                let is_icon = characteristics.aspect_ratio <= 1.5;
+                if is_icon || characteristics.has_alpha {
+                    return Ok(None);
+                }
+                (TargetFormat::Jpeg, 80, 0.05)
+            }
+            Strategy::Post => {
+                if characteristics.has_alpha {
+                    return Ok(None);
+                }
+                (TargetFormat::Jpeg, 80, 0.05)
+            }
+        };
 
-        let improvement = 1.0 - (buffer.len() as f32 / original_size as f32);
-        if improvement < 0.03 {
+        let (buffer, mime, extension) = encode_to_format(image, format, quality)?;
+
+        if !significant_reduction(original_size, buffer.len(), threshold) {
             return Ok(None);
         }
 
         Ok(Some(OptimizedImage {
             bytes: Bytes::from(buffer),
-            mime_type: "image/webp".to_string(),
-            extension: "webp".to_string(),
+            mime_type: mime.to_string(),
+            extension: extension.to_string(),
             width: probed.width,
             height: probed.height,
             label: VariantLabel::Original,
@@ -381,39 +476,24 @@ fn encode_variant(
                 FilterType::Lanczos3,
             )
         }
-        ResizeKind::FitWidth => source.resize(spec.width, u32::MAX, FilterType::Lanczos3),
+        ResizeKind::FitWidth => {
+            let source_width = source.width().max(1);
+            let source_height = source.height().max(1);
+            if spec.width >= source_width {
+                return Ok(None);
+            }
+            let ratio = source_height as f64 / source_width as f64;
+            let target_height = (spec.width as f64 * ratio).round().max(1.0) as u32;
+            source.resize(spec.width, target_height, FilterType::Lanczos3)
+        }
     };
 
-    let (buffer, mime, extension) = match spec.format {
-        TargetFormat::Webp => {
-            let mut cursor = Cursor::new(Vec::new());
-            prepared
-                .write_to(&mut cursor, ImageFormat::WebP)
-                .map_err(|err| OptimizationError::EncodeFailed(err.to_string()))?;
-            (cursor.into_inner(), "image/webp", "webp")
-        }
-        TargetFormat::Jpeg => {
-            let mut buffer = Vec::new();
-            let mut encoder =
-                codecs::jpeg::JpegEncoder::new_with_quality(&mut buffer, spec.quality);
-            encoder
-                .encode_image(&prepared)
-                .map_err(|err| OptimizationError::EncodeFailed(err.to_string()))?;
-            (buffer, "image/jpeg", "jpg")
-        }
-        TargetFormat::Png => {
-            let mut buffer = Vec::new();
-            let encoder = codecs::png::PngEncoder::new(&mut buffer);
-            encoder
-                .write_image(
-                    prepared.to_rgba8().as_raw(),
-                    prepared.width(),
-                    prepared.height(),
-                    ColorType::Rgba8.into(),
-                )
-                .map_err(|err| OptimizationError::EncodeFailed(err.to_string()))?;
-            (buffer, "image/png", "png")
-        }
+    let (buffer, mime, extension) = encode_to_format(&prepared, spec.format, spec.quality)?;
+
+    let label = match &spec.label {
+        VariantLabel::Width(_) => VariantLabel::Width(prepared.width()),
+        VariantLabel::Lqip => VariantLabel::Lqip,
+        VariantLabel::Original => VariantLabel::Width(prepared.width()),
     };
 
     Ok(Some(OptimizedImage {
@@ -422,6 +502,59 @@ fn encode_variant(
         extension: extension.to_string(),
         width: prepared.width(),
         height: prepared.height(),
-        label: VariantLabel::Width(prepared.width()),
+        label,
     }))
+}
+
+fn encode_to_format(
+    image: &DynamicImage,
+    format: TargetFormat,
+    quality: u8,
+) -> Result<(Vec<u8>, &'static str, &'static str), OptimizationError> {
+    match format {
+        TargetFormat::WebpLossless => {
+            let mut buffer = Vec::new();
+            let rgba = image.to_rgba8();
+            codecs::webp::WebPEncoder::new_lossless(&mut buffer)
+                .encode(
+                    rgba.as_raw(),
+                    rgba.width(),
+                    rgba.height(),
+                    ExtendedColorType::Rgba8,
+                )
+                .map_err(|err| OptimizationError::EncodeFailed(err.to_string()))?;
+            Ok((buffer, "image/webp", "webp"))
+        }
+        TargetFormat::Jpeg => {
+            let mut buffer = Vec::new();
+            let mut encoder = codecs::jpeg::JpegEncoder::new_with_quality(&mut buffer, quality);
+            encoder
+                .encode_image(image)
+                .map_err(|err| OptimizationError::EncodeFailed(err.to_string()))?;
+            Ok((buffer, "image/jpeg", "jpg"))
+        }
+        TargetFormat::Png => {
+            let mut buffer = Vec::new();
+            let encoder = codecs::png::PngEncoder::new(&mut buffer);
+            let rgba = image.to_rgba8();
+            encoder
+                .write_image(
+                    rgba.as_raw(),
+                    rgba.width(),
+                    rgba.height(),
+                    ColorType::Rgba8.into(),
+                )
+                .map_err(|err| OptimizationError::EncodeFailed(err.to_string()))?;
+            Ok((buffer, "image/png", "png"))
+        }
+    }
+}
+
+fn significant_reduction(original: usize, candidate: usize, threshold: f32) -> bool {
+    if candidate >= original {
+        return false;
+    }
+
+    let reduction = 1.0 - (candidate as f32 / original as f32);
+    reduction >= threshold
 }

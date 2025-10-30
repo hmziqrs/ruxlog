@@ -133,9 +133,11 @@ No route or schema changes are needed in Phase 1.
    - Skip logic, probing, and optional WebP re-encode implemented with fail-open behaviour.
    - Media upload flow now calls the optimizer behind the `OPTIMIZE_ON_UPLOAD` gate; no schema changes required yet.
 
-2. ⏳ **Phase 2** (partially in progress)
-   - Strategy selections for post, user, and category assets implemented with variant generation and uploads to storage.
-   - Remaining TODO: persist variant metadata (e.g., `media_variants` table) and expose variants via API responses.
+2. ✅ **Phase 2** (completed)
+   - Reference-aware strategies now shape variant sets: avatars (square JPEG/PNG), category icons/banners, and post content (multi-width JPEG plus LQIP).
+   - Optimized variants are generated and uploaded alongside the base asset while the canonical media record remains unchanged.
+   - Variant persistence and API surfaces stay deferred to Phase 3.
+   - Note: the `image` crate only supports lossless WebP encoding, so lossy outputs currently use JPEG for photo-oriented variants; switching to `webp` crate remains an option for later phases.
 
 3. ⬜ **Phase 3**
    - Introduce `media_variants` table and persistence.
