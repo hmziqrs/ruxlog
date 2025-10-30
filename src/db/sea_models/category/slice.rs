@@ -42,3 +42,32 @@ pub struct CategoryQuery {
     pub updated_at_gt: Option<DateTimeWithTimeZone>,
     pub updated_at_lt: Option<DateTimeWithTimeZone>,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CategoryMedia {
+    pub id: i32,
+    pub object_key: String,
+    pub file_url: String,
+    pub mime_type: String,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub size: i64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CategoryWithRelations {
+    pub id: i32,
+    pub name: String,
+    pub slug: String,
+    pub parent_id: Option<i32>,
+    pub description: Option<String>,
+    pub color: String,
+    pub text_color: String,
+    pub is_active: bool,
+    pub created_at: DateTimeWithTimeZone,
+    pub updated_at: DateTimeWithTimeZone,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cover: Option<CategoryMedia>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub logo: Option<CategoryMedia>,
+}

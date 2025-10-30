@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_K9xG9vcywE
 createdAt: 2025-04-27T17:56:39.589756
-updatedAt: 2025-05-02T09:24:28.444467
+updatedAt: 2025-10-30T15:57:58.850217
 workspaceId: wk_udoUbrFfLp
 folderId: fl_ScVUnrkM6P
 authentication: {}
@@ -31,5 +31,5 @@ headers:
 method: GET
 name: ''
 sortPriority: 3000.0
-url: ${[ host ]}/category/v1/view/9
+url: ${[ host ]}/category/v1/view/15
 urlParameters: []

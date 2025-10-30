@@ -7,6 +7,69 @@ use crate::utils::color::{derive_text_color, DEFAULT_BG_COLOR};
 impl Entity {
     pub const PER_PAGE: u64 = 20;
 
+    async fn load_media_for_categories(
+        conn: &DbConn,
+        categories: Vec<Model>,
+    ) -> DbResult<Vec<CategoryWithRelations>> {
+        let mut media_ids = std::collections::HashSet::new();
+        for cat in &categories {
+            if let Some(id) = cat.cover_id {
+                media_ids.insert(id);
+            }
+            if let Some(id) = cat.logo_id {
+                media_ids.insert(id);
+            }
+        }
+
+        let media_map = if !media_ids.is_empty() {
+            super::super::media::Entity::find()
+                .filter(
+                    super::super::media::Column::Id
+                        .is_in(media_ids.into_iter().collect::<Vec<i32>>()),
+                )
+                .all(conn)
+                .await?
+                .into_iter()
+                .map(|m| {
+                    (
+                        m.id,
+                        CategoryMedia {
+                            id: m.id,
+                            object_key: m.object_key,
+                            file_url: m.file_url,
+                            mime_type: m.mime_type,
+                            width: m.width,
+                            height: m.height,
+                            size: m.size,
+                        },
+                    )
+                })
+                .collect::<std::collections::HashMap<i32, CategoryMedia>>()
+        } else {
+            std::collections::HashMap::new()
+        };
+
+        let results = categories
+            .into_iter()
+            .map(|cat| CategoryWithRelations {
+                id: cat.id,
+                name: cat.name,
+                slug: cat.slug,
+                parent_id: cat.parent_id,
+                description: cat.description,
+                color: cat.color,
+                text_color: cat.text_color,
+                is_active: cat.is_active,
+                created_at: cat.created_at,
+                updated_at: cat.updated_at,
+                cover: cat.cover_id.and_then(|id| media_map.get(&id).cloned()),
+                logo: cat.logo_id.and_then(|id| media_map.get(&id).cloned()),
+            })
+            .collect();
+
+        Ok(results)
+    }
+
     pub async fn create(conn: &DbConn, new_category: NewCategory) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
         let color = new_category
@@ -110,20 +173,27 @@ impl Entity {
         conn: &DbConn,
         category_id: Option<i32>,
         category_slug: Option<String>,
-    ) -> DbResult<Option<Model>> {
+    ) -> DbResult<Option<CategoryWithRelations>> {
         if category_id.is_none() && category_slug.is_none() {
             return Err(ErrorResponse::new(ErrorCode::InvalidInput)
                 .with_message("Either category_id or category_slug must be provided"));
         }
-        let mut category_query = Self::find();
+
+        let mut query = Self::find();
+
         if let Some(id) = category_id {
-            category_query = category_query.filter(Column::Id.eq(id));
+            query = query.filter(Column::Id.eq(id));
         } else if let Some(slug) = category_slug {
-            category_query = category_query.filter(Column::Slug.eq(slug));
+            query = query.filter(Column::Slug.eq(slug));
         }
-        match category_query.one(conn).await {
-            Ok(category) => Ok(category),
-            Err(err) => Err(err.into()),
+
+        let category = query.one(conn).await?;
+
+        if let Some(cat) = category {
+            let results = Self::load_media_for_categories(conn, vec![cat]).await?;
+            Ok(results.into_iter().next())
+        } else {
+            Ok(None)
         }
     }
 
@@ -141,7 +211,7 @@ impl Entity {
     pub async fn find_with_query(
         conn: &DbConn,
         query: CategoryQuery,
-    ) -> DbResult<(Vec<Model>, u64)> {
+    ) -> DbResult<(Vec<CategoryWithRelations>, u64)> {
         let mut category_query = Self::find();
 
         if let Some(search_term) = query.search {
@@ -201,14 +271,14 @@ impl Entity {
             Some(p) if p > 0 => p,
             _ => 1,
         };
+
         let paginator = category_query.paginate(conn, Self::PER_PAGE);
 
-        match paginator.num_items().await {
-            Ok(total) => match paginator.fetch_page(page - 1).await {
-                Ok(results) => Ok((results, total)),
-                Err(err) => Err(err.into()),
-            },
-            Err(err) => Err(err.into()),
-        }
+        let total = paginator.num_items().await?;
+        let categories = paginator.fetch_page(page - 1).await?;
+
+        let results = Self::load_media_for_categories(conn, categories).await?;
+
+        Ok((results, total))
     }
 }
