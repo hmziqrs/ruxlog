@@ -1,5 +1,8 @@
 use crate::error::{DbResult, ErrorCode, ErrorResponse};
-use sea_orm::{entity::prelude::*, Condition, Order, QueryOrder, Set};
+use sea_orm::{
+    entity::prelude::*, prelude::Expr, sea_query::Alias, Condition, JoinType, Order, QueryOrder,
+    QuerySelect, Set,
+};
 
 use super::*;
 use crate::utils::color::{derive_text_color, DEFAULT_BG_COLOR};
@@ -179,22 +182,119 @@ impl Entity {
                 .with_message("Either category_id or category_slug must be provided"));
         }
 
-        let mut query = Self::find();
+        let mut q = Self::find()
+            .select_only()
+            .columns(vec![
+                Column::Id,
+                Column::Name,
+                Column::Slug,
+                Column::ParentId,
+                Column::Description,
+                Column::CoverId,
+                Column::LogoId,
+                Column::Color,
+                Column::TextColor,
+                Column::IsActive,
+                Column::CreatedAt,
+                Column::UpdatedAt,
+            ])
+            .join_as(
+                JoinType::LeftJoin,
+                Relation::Cover.def(),
+                Alias::new("cover_media"),
+            )
+            .join_as(
+                JoinType::LeftJoin,
+                Relation::Logo.def(),
+                Alias::new("logo_media"),
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("cover_media"),
+                    super::super::media::Column::ObjectKey,
+                )),
+                "cover_object_key",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("cover_media"),
+                    super::super::media::Column::FileUrl,
+                )),
+                "cover_file_url",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("cover_media"),
+                    super::super::media::Column::MimeType,
+                )),
+                "cover_mime_type",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("cover_media"),
+                    super::super::media::Column::Width,
+                )),
+                "cover_width",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("cover_media"),
+                    super::super::media::Column::Height,
+                )),
+                "cover_height",
+            )
+            .expr_as(
+                Expr::col((Alias::new("cover_media"), super::super::media::Column::Size)),
+                "cover_size",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("logo_media"),
+                    super::super::media::Column::ObjectKey,
+                )),
+                "logo_object_key",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("logo_media"),
+                    super::super::media::Column::FileUrl,
+                )),
+                "logo_file_url",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("logo_media"),
+                    super::super::media::Column::MimeType,
+                )),
+                "logo_mime_type",
+            )
+            .expr_as(
+                Expr::col((Alias::new("logo_media"), super::super::media::Column::Width)),
+                "logo_width",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("logo_media"),
+                    super::super::media::Column::Height,
+                )),
+                "logo_height",
+            )
+            .expr_as(
+                Expr::col((Alias::new("logo_media"), super::super::media::Column::Size)),
+                "logo_size",
+            );
 
-        if let Some(id) = category_id {
-            query = query.filter(Column::Id.eq(id));
+        q = if let Some(id) = category_id {
+            q.filter(Column::Id.eq(id))
         } else if let Some(slug) = category_slug {
-            query = query.filter(Column::Slug.eq(slug));
-        }
-
-        let category = query.one(conn).await?;
-
-        if let Some(cat) = category {
-            let results = Self::load_media_for_categories(conn, vec![cat]).await?;
-            Ok(results.into_iter().next())
+            q.filter(Column::Slug.eq(slug))
         } else {
-            Ok(None)
-        }
+            q
+        };
+
+        let row = q.into_model::<CategoryWithJoinedData>().one(conn).await?;
+
+        Ok(row.map(|r| r.into_relation()))
     }
 
     pub async fn find_all(conn: &DbConn) -> DbResult<Vec<Model>> {
@@ -212,7 +312,107 @@ impl Entity {
         conn: &DbConn,
         query: CategoryQuery,
     ) -> DbResult<(Vec<CategoryWithRelations>, u64)> {
-        let mut category_query = Self::find();
+        let mut category_query = Self::find()
+            .select_only()
+            .columns(vec![
+                Column::Id,
+                Column::Name,
+                Column::Slug,
+                Column::ParentId,
+                Column::Description,
+                Column::CoverId,
+                Column::LogoId,
+                Column::Color,
+                Column::TextColor,
+                Column::IsActive,
+                Column::CreatedAt,
+                Column::UpdatedAt,
+            ])
+            .join_as(
+                JoinType::LeftJoin,
+                Relation::Cover.def(),
+                Alias::new("cover_media"),
+            )
+            .join_as(
+                JoinType::LeftJoin,
+                Relation::Logo.def(),
+                Alias::new("logo_media"),
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("cover_media"),
+                    super::super::media::Column::ObjectKey,
+                )),
+                "cover_object_key",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("cover_media"),
+                    super::super::media::Column::FileUrl,
+                )),
+                "cover_file_url",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("cover_media"),
+                    super::super::media::Column::MimeType,
+                )),
+                "cover_mime_type",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("cover_media"),
+                    super::super::media::Column::Width,
+                )),
+                "cover_width",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("cover_media"),
+                    super::super::media::Column::Height,
+                )),
+                "cover_height",
+            )
+            .expr_as(
+                Expr::col((Alias::new("cover_media"), super::super::media::Column::Size)),
+                "cover_size",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("logo_media"),
+                    super::super::media::Column::ObjectKey,
+                )),
+                "logo_object_key",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("logo_media"),
+                    super::super::media::Column::FileUrl,
+                )),
+                "logo_file_url",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("logo_media"),
+                    super::super::media::Column::MimeType,
+                )),
+                "logo_mime_type",
+            )
+            .expr_as(
+                Expr::col((Alias::new("logo_media"), super::super::media::Column::Width)),
+                "logo_width",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("logo_media"),
+                    super::super::media::Column::Height,
+                )),
+                "logo_height",
+            )
+            .expr_as(
+                Expr::col((Alias::new("logo_media"), super::super::media::Column::Size)),
+                "logo_size",
+            );
 
         if let Some(search_term) = query.search {
             let search_pattern = format!("%{}%", search_term.to_lowercase());
@@ -272,12 +472,17 @@ impl Entity {
             _ => 1,
         };
 
-        let paginator = category_query.paginate(conn, Self::PER_PAGE);
+        let paginator = category_query
+            .into_model::<CategoryWithJoinedData>()
+            .paginate(conn, Self::PER_PAGE);
 
         let total = paginator.num_items().await?;
-        let categories = paginator.fetch_page(page - 1).await?;
+        let rows = paginator.fetch_page(page - 1).await?;
 
-        let results = Self::load_media_for_categories(conn, categories).await?;
+        let results = rows
+            .into_iter()
+            .map(|r| r.into_relation())
+            .collect::<Vec<CategoryWithRelations>>();
 
         Ok((results, total))
     }
