@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_KSRGDuFwXE
 createdAt: 2025-04-27T07:31:16.244272
-updatedAt: 2025-05-02T09:23:11.524147
+updatedAt: 2025-10-30T16:25:24.867216
 workspaceId: wk_udoUbrFfLp
 folderId: fl_ScVUnrkM6P
 authentication: {}
@@ -11,7 +11,8 @@ body:
   text: |-
     {
       "name": "dragon",
-      "slug": "dragonaax"
+      "slug": "dragonaaax",
+      "color": "#fffffff"
     }
 bodyType: application/json
 description: ''
