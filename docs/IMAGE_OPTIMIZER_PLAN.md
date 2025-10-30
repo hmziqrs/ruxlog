@@ -139,9 +139,10 @@ No route or schema changes are needed in Phase 1.
    - Variant persistence and API surfaces stay deferred to Phase 3.
    - Note: the `image` crate only supports lossless WebP encoding, so lossy outputs currently use JPEG for photo-oriented variants; switching to `webp` crate remains an option for later phases.
 
-3. ⬜ **Phase 3**
-   - Introduce `media_variants` table and persistence.
-   - Optionally extend list/response payloads with variant summaries.
+3. ✅ **Phase 3** (completed)
+   - `media_variants` table and SeaORM model capture width/height, mime, size, quality, and variant type keys tied to each media id.
+   - Upload flow persists variant rows after S3 writes so downstream queries can surface responsive assets.
+   - API response changes remain optional and can be tackled alongside read-path enhancements.
 
 4. ⬜ **Phase 4** (optional)
    - Async optimization worker (Redis queue), content hashing dedupe, EXIF normalization, LQIP.

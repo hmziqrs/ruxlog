@@ -44,6 +44,7 @@ pub struct OptimizedImage {
     pub width: u32,
     pub height: u32,
     pub label: VariantLabel,
+    pub quality: Option<u8>,
 }
 
 #[derive(Debug, Clone)]
@@ -155,6 +156,7 @@ pub fn optimize(
             width: probed.width,
             height: probed.height,
             label: VariantLabel::Original,
+            quality: None,
         },
         variants: Vec::new(),
     };
@@ -446,6 +448,11 @@ impl Strategy {
             return Ok(None);
         }
 
+        let quality_opt = match format {
+            TargetFormat::Jpeg => Some(quality),
+            _ => None,
+        };
+
         Ok(Some(OptimizedImage {
             bytes: Bytes::from(buffer),
             mime_type: mime.to_string(),
@@ -453,6 +460,7 @@ impl Strategy {
             width: probed.width,
             height: probed.height,
             label: VariantLabel::Original,
+            quality: quality_opt,
         }))
     }
 }
@@ -496,6 +504,11 @@ fn encode_variant(
         VariantLabel::Original => VariantLabel::Width(prepared.width()),
     };
 
+    let quality_opt = match spec.format {
+        TargetFormat::Jpeg => Some(spec.quality),
+        _ => None,
+    };
+
     Ok(Some(OptimizedImage {
         bytes: Bytes::from(buffer),
         mime_type: mime.to_string(),
@@ -503,6 +516,7 @@ fn encode_variant(
         width: prepared.width(),
         height: prepared.height(),
         label,
+        quality: quality_opt,
     }))
 }
 

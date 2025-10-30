@@ -13,6 +13,7 @@ use uuid::Uuid;
 
 use crate::{
     db::sea_models::media::{Entity as Media, NewMedia},
+    db::sea_models::media_variant::{Entity as MediaVariant, NewMediaVariant},
     error::{ErrorCode, ErrorResponse},
     extractors::{ValidatedJson, ValidatedMultipart},
     services::{auth::AuthSession, image_optimizer},
@@ -94,6 +95,17 @@ pub async fn create(
         .unwrap_or_else(|| "application/octet-stream".to_string());
     let mut final_bytes = file_bytes.clone();
     let mut variants_to_upload = Vec::new();
+    struct PreparedVariant {
+        object_key: String,
+        mime_type: String,
+        width: Option<i32>,
+        height: Option<i32>,
+        size: i64,
+        extension: Option<String>,
+        quality: Option<i32>,
+        variant_type: String,
+    }
+    let mut prepared_variants: Vec<PreparedVariant> = Vec::new();
 
     if content_type.starts_with("image/") {
         let optimization_request = image_optimizer::OptimizationRequest {
@@ -177,6 +189,26 @@ pub async fn create(
             }
         );
 
+        let size_bytes = i64::try_from(variant.bytes.len()).map_err(|_| {
+            ErrorResponse::new(ErrorCode::InvalidValue)
+                .with_message("Variant size exceeds supported range")
+        })?;
+
+        prepared_variants.push(PreparedVariant {
+            object_key: variant_key.clone(),
+            mime_type: variant.mime_type.clone(),
+            width: i32::try_from(variant.width).ok(),
+            height: i32::try_from(variant.height).ok(),
+            size: size_bytes,
+            extension: if variant.extension.is_empty() {
+                None
+            } else {
+                Some(variant.extension.clone())
+            },
+            quality: variant.quality.map(|q| i32::from(q)),
+            variant_type: label_to_variant_type(&variant.label),
+        });
+
         if let Err(err) = state
             .s3_client
             .put_object()
@@ -213,6 +245,25 @@ pub async fn create(
     };
 
     let stored = Media::create(&state.sea_db, new_media).await?;
+
+    if !prepared_variants.is_empty() {
+        let records = prepared_variants
+            .into_iter()
+            .map(|variant| NewMediaVariant {
+                media_id: stored.id,
+                object_key: variant.object_key,
+                mime_type: variant.mime_type,
+                width: variant.width,
+                height: variant.height,
+                size: variant.size,
+                extension: variant.extension,
+                quality: variant.quality,
+                variant_type: variant.variant_type,
+            })
+            .collect();
+
+        MediaVariant::create_many(&state.sea_db, records).await?;
+    }
 
     Ok((StatusCode::CREATED, Json(json!(stored))))
 }
@@ -313,5 +364,13 @@ fn build_object_key(extension: Option<&str>) -> String {
     match extension {
         Some(ext) => format!("{}.{}", base, ext),
         None => base,
+    }
+}
+
+fn label_to_variant_type(label: &image_optimizer::VariantLabel) -> String {
+    match label {
+        image_optimizer::VariantLabel::Width(width) => format!("{}w", width),
+        image_optimizer::VariantLabel::Lqip => "lqip".to_string(),
+        image_optimizer::VariantLabel::Original => "original".to_string(),
     }
 }
