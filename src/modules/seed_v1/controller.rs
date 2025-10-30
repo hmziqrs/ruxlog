@@ -75,7 +75,7 @@ pub async fn seed_categories(
     State(state): State<AppState>,
     _auth: AuthSession,
 ) -> impl IntoResponse {
-    let mut fakes: Vec<category::Model> = vec![];
+    let mut fakes: Vec<category::CategoryWithRelations> = vec![];
     let mut fake_set: HashSet<String> = HashSet::new();
 
     for _ in 0..10 {
@@ -385,7 +385,7 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
         }
     }
 
-    let mut categories: Vec<category::Model> = vec![];
+    let mut categories: Vec<category::CategoryWithRelations> = vec![];
     for _ in 0..10 {
         let fake_name: FakeWord = Faker.fake();
         let name = fake_name.0;

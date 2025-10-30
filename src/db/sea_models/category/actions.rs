@@ -73,7 +73,10 @@ impl Entity {
         Ok(results)
     }
 
-    pub async fn create(conn: &DbConn, new_category: NewCategory) -> DbResult<Model> {
+    pub async fn create(
+        conn: &DbConn,
+        new_category: NewCategory,
+    ) -> DbResult<CategoryWithRelations> {
         let now = chrono::Utc::now().fixed_offset();
         let color = new_category
             .color
@@ -96,7 +99,13 @@ impl Entity {
         };
 
         match category.insert(conn).await {
-            Ok(model) => Ok(model),
+            Ok(model) => {
+                let row = Self::find_by_id_or_slug(conn, Some(model.id), None).await?;
+                match row {
+                    Some(rel) => Ok(rel),
+                    None => Err(ErrorResponse::new(ErrorCode::RecordNotFound)),
+                }
+            }
             Err(err) => Err(err.into()),
         }
     }
@@ -105,7 +114,7 @@ impl Entity {
         conn: &DbConn,
         category_id: i32,
         update_category: UpdateCategory,
-    ) -> DbResult<Option<Model>> {
+    ) -> DbResult<Option<CategoryWithRelations>> {
         let category: Option<Model> = match Self::find_by_id(category_id).one(conn).await {
             Ok(category) => category,
             Err(err) => return Err(err.into()),
@@ -157,7 +166,10 @@ impl Entity {
             category_active.updated_at = Set(chrono::Utc::now().fixed_offset());
 
             match category_active.update(conn).await {
-                Ok(updated_category) => Ok(Some(updated_category)),
+                Ok(_updated_category) => {
+                    let row = Self::find_by_id_or_slug(conn, Some(category_id), None).await?;
+                    Ok(row)
+                }
                 Err(err) => Err(err.into()),
             }
         } else {
