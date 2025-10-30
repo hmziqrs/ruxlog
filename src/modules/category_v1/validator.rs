@@ -15,8 +15,8 @@ pub struct V1CreateCategoryPayload {
     pub parent_id: Option<i32>,
     #[validate(length(max = 1000))]
     pub description: Option<String>,
-    pub cover_image: Option<String>,
-    pub logo_image: Option<String>,
+    pub cover_id: Option<i32>,
+    pub logo_id: Option<i32>,
     #[validate(custom(function = "validate_hex_color"), skip)]
     pub color: String,
     #[validate(custom(function = "validate_hex_color"), skip)]
@@ -31,8 +31,8 @@ impl V1CreateCategoryPayload {
             slug: self.slug,
             parent_id: self.parent_id,
             description: self.description,
-            cover_image: self.cover_image,
-            logo_image: self.logo_image,
+            cover_id: self.cover_id,
+            logo_id: self.logo_id,
             color: Some(self.color),
             text_color: self.text_color,
             is_active: self.is_active,
@@ -49,8 +49,8 @@ pub struct V1UpdateCategoryPayload {
     pub parent_id: Option<Option<i32>>,
     #[validate(length(max = 1000))]
     pub description: Option<Option<String>>,
-    pub cover_image: Option<Option<String>>,
-    pub logo_image: Option<Option<String>>,
+    pub cover_id: Option<Option<i32>>,
+    pub logo_id: Option<Option<i32>>,
     #[validate(custom(function = "validate_hex_color"), skip)]
     pub color: Option<String>,
     #[validate(custom(function = "validate_hex_color"), skip)]
@@ -65,8 +65,8 @@ impl V1UpdateCategoryPayload {
             slug: self.slug,
             parent_id: self.parent_id,
             description: self.description,
-            cover_image: self.cover_image,
-            logo_image: self.logo_image,
+            cover_id: self.cover_id,
+            logo_id: self.logo_id,
             color: self.color,
             text_color: self.text_color,
             is_active: self.is_active,

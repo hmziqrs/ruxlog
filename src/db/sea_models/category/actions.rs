@@ -19,8 +19,8 @@ impl Entity {
             slug: Set(new_category.slug),
             parent_id: Set(new_category.parent_id),
             description: Set(new_category.description),
-            cover_image: Set(new_category.cover_image),
-            logo_image: Set(new_category.logo_image),
+            cover_id: Set(new_category.cover_id),
+            logo_id: Set(new_category.logo_id),
             color: Set(color),
             text_color: Set(text_color),
             is_active: Set(is_active),
@@ -64,12 +64,12 @@ impl Entity {
                 category_active.description = Set(description);
             }
 
-            if let Some(cover_image) = update_category.cover_image {
-                category_active.cover_image = Set(cover_image);
+            if let Some(cover_id) = update_category.cover_id {
+                category_active.cover_id = Set(cover_id);
             }
 
-            if let Some(logo_image) = update_category.logo_image {
-                category_active.logo_image = Set(logo_image);
+            if let Some(logo_id) = update_category.logo_id {
+                category_active.logo_id = Set(logo_id);
             }
 
             let mut recolor_dep: Option<String> = None;
@@ -182,8 +182,8 @@ impl Entity {
                     "slug" => Some(Column::Slug),
                     "parent_id" => Some(Column::ParentId),
                     "description" => Some(Column::Description),
-                    "cover_image" => Some(Column::CoverImage),
-                    "logo_image" => Some(Column::LogoImage),
+                    "cover_id" => Some(Column::CoverId),
+                    "logo_id" => Some(Column::LogoId),
                     "color" => Some(Column::Color),
                     "text_color" => Some(Column::TextColor),
                     "is_active" => Some(Column::IsActive),
