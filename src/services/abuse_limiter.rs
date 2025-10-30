@@ -58,6 +58,7 @@ local existing_ttl = redis.call('TTL', block_key)
 if existing_ttl and existing_ttl > 0 then
   -- Maintain attempts bookkeeping (optional): push the attempt but do not affect block state
   local seq = redis.call('INCR', seq_key)
+  redis.call('EXPIRE', seq_key, attempts_ttl)
   local member = string.format('%d:%d', now_sec, seq)
   redis.call('ZADD', attempts_key, now_sec, member)
   redis.call('EXPIRE', attempts_key, attempts_ttl)
@@ -70,6 +71,7 @@ local max_window = math.max(temp_window, long_window)
 redis.call('ZREMRANGEBYSCORE', attempts_key, '-inf', now_sec - max_window)
 
 local seq = redis.call('INCR', seq_key)
+redis.call('EXPIRE', seq_key, attempts_ttl)
 local member = string.format('%d:%d', now_sec, seq)
 redis.call('ZADD', attempts_key, now_sec, member)
 redis.call('EXPIRE', attempts_key, attempts_ttl)
