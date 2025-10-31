@@ -11,18 +11,18 @@ docker-compose -f docker-compose.observability.yml up -d
 
 **Local Setup:**
 ```sh
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:5080/api/default
-export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic cm9vdEBleGFtcGxlLmNvbTpDb21wbGV4cGFzcyMxMjM="
-export OTEL_SERVICE_NAME=ruxlog-api
-export DEPLOYMENT_ENVIRONMENT=development
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:5080/api/default
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic cm9vdEBleGFtcGxlLmNvbTpDb21wbGV4cGFzcyMxMjM=
+OTEL_SERVICE_NAME=ruxlog-api
+DEPLOYMENT_ENVIRONMENT=development
 ```
 
 **Remote Server (192.168.0.23):**
 ```sh
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://192.168.0.23:5080/api/default
-export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic cm9vdEBleGFtcGxlLmNvbTpDb21wbGV4cGFzcyMxMjM="
-export OTEL_SERVICE_NAME=ruxlog-api
-export DEPLOYMENT_ENVIRONMENT=production
+OTEL_EXPORTER_OTLP_ENDPOINT=http://192.168.0.23:5080/api/default
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic cm9vdEBleGFtcGxlLmNvbTpDb21wbGV4cGFzcyMxMjM=
+OTEL_SERVICE_NAME=ruxlog-api
+DEPLOYMENT_ENVIRONMENT=development
 ```
 
 ### 3. Run Application
@@ -51,7 +51,7 @@ cargo run
 
 - **HTTP**: `http.server.duration`, request/response counters
 - **Auth**: Login success/failure, session operations
-- **Image**: Optimization, upload, resize operations  
+- **Image**: Optimization, upload, resize operations
 - **Mail**: Send success/failure, queue depth
 - **Abuse**: Rate limit hits, violations
 - **Pool**: Active connections (DB, Redis, S3)
