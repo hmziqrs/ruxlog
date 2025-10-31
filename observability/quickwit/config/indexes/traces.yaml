@@ -4,43 +4,63 @@ index_id: ruxlog-traces
 
 index_uri: s3://quickwit/indexes/ruxlog-traces
 
-field_mappings:
-  - name: timestamp
-    type: datetime
-    stored: true
-    fast: true
-    input_formats: [unix_timestamp_nanoseconds, unix_timestamp_microseconds, unix_timestamp_milliseconds, rfc3339]
-  - name: trace_id
-    type: keyword
-    stored: true
-    fast: true
-  - name: span_id
-    type: keyword
-    stored: true
-    fast: true
-  - name: parent_span_id
-    type: keyword
-    stored: true
-  - name: service_name
-    type: keyword
-    stored: true
-    fast: true
-  - name: span_name
-    type: text
-    stored: true
-  - name: status_code
-    type: keyword
-    stored: true
-  - name: duration_ms
-    type: f64
-    stored: true
+doc_mapping:
+  mode: dynamic
+  timestamp_field: timestamp
+  field_mappings:
+    - name: timestamp
+      type: datetime
+      stored: true
+      indexed: true
+      fast: true
+      fast_precision: milliseconds
+      input_formats:
+        - unix_timestamp
+        - rfc3339
+      output_format: rfc3339
+    - name: trace_id
+      type: text
+      stored: true
+      indexed: true
+      tokenizer: raw
+      fast: true
+    - name: span_id
+      type: text
+      stored: true
+      indexed: true
+      tokenizer: raw
+      fast: true
+    - name: parent_span_id
+      type: text
+      stored: true
+      indexed: true
+      tokenizer: raw
+    - name: service_name
+      type: text
+      stored: true
+      indexed: true
+      tokenizer: raw
+      fast: true
+    - name: span_name
+      type: text
+      stored: true
+      indexed: true
+      tokenizer: default
+      record: position
+    - name: status_code
+      type: text
+      stored: true
+      indexed: true
+      tokenizer: raw
+    - name: duration_ms
+      type: f64
+      stored: true
+      indexed: true
+      fast: true
 
 search_settings:
   default_search_fields: [span_name, service_name, trace_id]
 
-doc_mapping:
-  timestamp_field: timestamp
-  dynamic: enabled
-
 retention:
-  period: 7d
+  period: 7 days
+  schedule: daily
