@@ -1,36 +1,55 @@
 version: "3.8"
 
 services:
-  # OpenObserve - Open source observability platform
-  openobserve:
-    image: public.ecr.aws/zinclabs/openobserve:latest
-    container_name: ruxlog-openobserve
+  quickwit:
+    image: quickwit/quickwit:v0.8.2
+    container_name: ruxlog-quickwit
+    command: ["run"]
     ports:
-      - "5080:5080"
+      - "7280:7280"
+      - "7281:7281"
+      - "7282:7282"
     environment:
-      # Root user credentials
-      ZO_ROOT_USER_EMAIL: root@example.com
-      ZO_ROOT_USER_PASSWORD: Complexpass#123
-      # Data storage path
-      ZO_DATA_DIR: /data
-      # Enable OTLP ingestion
-      ZO_OTLP_TRACES_ENABLED: "true"
-      ZO_OTLP_METRICS_ENABLED: "true"
-      ZO_OTLP_LOGS_ENABLED: "true"
+      QUICKWIT_CONFIG: /quickwit/config/quickwit.yaml
     volumes:
-      - openobserve_data:/data
+      - ./observability/quickwit/config:/quickwit/config
+      - quickwit_data:/quickwit/data
     restart: unless-stopped
     networks:
       - network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5080/healthz"]
+      test: ["CMD", "curl", "-f", "http://localhost:7280/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-10-15T17-29-55Z
+    container_name: ruxlog-minio
+    command: server /data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: quickwit
+      MINIO_ROOT_PASSWORD: quickwit-secret
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+    networks:
+      - network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
 
 volumes:
-  openobserve_data:
+  quickwit_data:
+    driver: local
+  minio_data:
     driver: local
 
 networks:
