@@ -4,11 +4,13 @@ use axum_login::{AuthUser, AuthnBackend, UserId};
 use password_auth::verify_password;
 use sea_orm::DatabaseConnection;
 use serde::Deserialize;
+use std::time::Instant;
 use tokio::task;
 use tracing::{error, info, instrument, warn};
 
 use crate::{
     db::sea_models::user, error::ErrorResponse, modules::auth_v1::validator::V1LoginPayload,
+    utils::telemetry,
 };
 
 pub type AuthSession = axum_login::AuthSession<AuthBackend>;
@@ -101,6 +103,9 @@ impl AuthnBackend for AuthBackend {
         &self,
         creds: Self::Credentials,
     ) -> Result<Option<Self::User>, Self::Error> {
+        let metrics = telemetry::auth_metrics();
+        metrics.login_attempts.add(1, &[]);
+
         match creds {
             Credentials::Password(password_creds) => {
                 let email = password_creds.email.clone();
@@ -116,16 +121,24 @@ impl AuthnBackend for AuthBackend {
                     Ok(None) => {
                         warn!("User not found");
                         tracing::Span::current().record("result", "user_not_found");
+                        metrics.login_failure.add(
+                            1,
+                            &[opentelemetry::KeyValue::new("reason", "user_not_found")],
+                        );
                         return Ok(None);
                     }
                     Err(err) => {
                         error!(error = ?err, "Database error during user lookup");
+                        metrics
+                            .login_failure
+                            .add(1, &[opentelemetry::KeyValue::new("reason", "db_error")]);
                         return Err(AuthError::DatabaseError(err));
                     }
                 };
 
                 // Verify password
                 let password = user.password.clone();
+                let verify_start = Instant::now();
                 let password_valid = match task::spawn_blocking(move || {
                     Self::check_password(password_creds.password, &password)
                 })
@@ -134,6 +147,9 @@ impl AuthnBackend for AuthBackend {
                     Ok(result) => result?,
                     Err(join_err) => {
                         error!(error = %join_err, "Password verification task failed");
+                        metrics
+                            .login_failure
+                            .add(1, &[opentelemetry::KeyValue::new("reason", "task_error")]);
                         return Err(AuthError::InternalError(format!(
                             "Task join error: {}",
                             join_err
@@ -141,13 +157,24 @@ impl AuthnBackend for AuthBackend {
                     }
                 };
 
+                let verify_duration = verify_start.elapsed().as_millis() as f64;
+                metrics
+                    .password_verification_duration
+                    .record(verify_duration, &[]);
+
                 if password_valid {
                     info!(user_id = user.id, "Authentication successful");
                     tracing::Span::current().record("result", "success");
+                    metrics.login_success.add(1, &[]);
+                    metrics.session_created.add(1, &[]);
                     Ok(Some(user))
                 } else {
                     warn!("Invalid password");
                     tracing::Span::current().record("result", "invalid_password");
+                    metrics.login_failure.add(
+                        1,
+                        &[opentelemetry::KeyValue::new("reason", "invalid_password")],
+                    );
                     Ok(None)
                 }
             } // Add other credential types here if needed

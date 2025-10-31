@@ -4,6 +4,7 @@ use tower_sessions_redis_store::fred::types::{FromValue, Value};
 use tracing::{debug, error, info, instrument, warn};
 
 use crate::error::{ErrorCode, ErrorResponse};
+use crate::utils::telemetry;
 
 #[derive(Clone, Copy, Debug)]
 pub struct AbuseLimiterConfig {
@@ -118,6 +119,9 @@ pub async fn check(
     key_prefix: &str,
     config: AbuseLimiterConfig,
 ) -> Result<LimiterDecision, ErrorResponse> {
+    let metrics = telemetry::limiter_metrics();
+    metrics.checks.add(1, &[]);
+
     debug!(
         temp_threshold = config.temp_block_attempts,
         temp_window = config.temp_block_range,
@@ -181,6 +185,8 @@ pub async fn check(
         tracing::Span::current().record("short_count", short_count);
         tracing::Span::current().record("long_count", long_count);
 
+        metrics.allowed.add(1, &[]);
+
         return Ok(LimiterDecision::Allowed {
             short_count,
             long_count,
@@ -206,6 +212,12 @@ pub async fn check(
     tracing::Span::current().record("short_count", short_count);
     tracing::Span::current().record("long_count", long_count);
     tracing::Span::current().record("retry_after", retry_after);
+
+    metrics.blocked.add(1, &[]);
+    match scope {
+        BlockScope::Temp => metrics.temp_blocks.add(1, &[]),
+        BlockScope::Long => metrics.long_blocks.add(1, &[]),
+    }
 
     Ok(LimiterDecision::Blocked {
         scope,

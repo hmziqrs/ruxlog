@@ -1,5 +1,8 @@
 use lettre::{AsyncSmtpTransport, AsyncTransport};
+use std::time::Instant;
 use tracing::{error, info, instrument, warn};
+
+use crate::utils::telemetry;
 
 mod html_templates;
 pub mod smtp;
@@ -14,6 +17,9 @@ async fn send_email(
     subject: &str,
     body: String,
 ) -> Result<(), String> {
+    let metrics = telemetry::mail_metrics();
+    let start = Instant::now();
+
     let recipient_domain = email_to.split('@').nth(1).unwrap_or("unknown");
     tracing::Span::current().record("recipient_domain", recipient_domain);
 
@@ -45,16 +51,24 @@ async fn send_email(
             e.to_string()
         })?;
 
-    mailer.send(email).await.map_err(|e| {
-        error!(error = %e, to = %email_to, "Failed to send email");
-        tracing::Span::current().record("result", "failure");
-        e.to_string()
-    })?;
+    match mailer.send(email).await {
+        Ok(_) => {
+            let duration = start.elapsed().as_millis() as f64;
+            metrics.send_duration.record(duration, &[]);
+            metrics.emails_sent.add(1, &[]);
 
-    info!(to = %email_to, "Email sent successfully");
-    tracing::Span::current().record("result", "success");
+            info!(to = %email_to, "Email sent successfully");
+            tracing::Span::current().record("result", "success");
 
-    Ok(())
+            Ok(())
+        }
+        Err(e) => {
+            metrics.emails_failed.add(1, &[]);
+            error!(error = %e, to = %email_to, "Failed to send email");
+            tracing::Span::current().record("result", "failure");
+            Err(e.to_string())
+        }
+    }
 }
 
 #[instrument(skip(mailer, code), fields(email_type = "verification"))]

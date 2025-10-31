@@ -1,8 +1,8 @@
 # OpenObserve + OpenTelemetry Integration Plan
 
-**Status:** ✅ Core Implementation Complete (Metrics Centralized, Gauges Active)  
+**Status:** ✅ Implementation Complete (Domain Metrics & Production Tuning Active)  
 **Last Updated:** January 2025  
-**Progress:** ~95% Complete
+**Progress:** ~98% Complete
 
 ---
 
@@ -53,8 +53,10 @@
 2. ✅ ~~Add database query instrumentation to high-traffic models~~ **DONE**
 3. ✅ ~~Wire AppState.meter into services to centralize metric creation~~ **DONE**
 4. ✅ ~~Add observable gauges (Redis pool usage, DB pool usage)~~ **DONE**
-5. Create OpenObserve dashboards and alerts
-6. Production deployment and performance tuning
+5. ✅ ~~Add domain metrics for key services (auth, image, limiter, mail)~~ **DONE**
+6. ✅ ~~Production tuning configuration via environment variables~~ **DONE**
+7. Create OpenObserve dashboards and alerts
+8. Production deployment and observability validation
 
 ---
 
@@ -248,12 +250,18 @@ Notes:
 - Environment variable configuration
 - Dependency updates (OpenTelemetry 0.27)
 
-### ✅ Completed (Services)
+### ✅ Completed (Services with Domain Metrics)
 - Redis connection pool (spans, logs)
-- Auth service (authenticate, get_user flows)
-- Mail service (SMTP connection, email sending with recipient domain tracking)
-- Image optimizer (optimization decisions, bytes saved, skip reasons)
-- Abuse limiter (rate limit decisions, retry-after tracking)
+- **Auth service** (authenticate, get_user flows) + metrics:
+  - `auth.login.attempts`, `auth.login.success`, `auth.login.failure` (with reason labels)
+  - `auth.session.created`, `auth.password.verification.duration` (histogram)
+- **Mail service** (SMTP connection, email sending) + metrics:
+  - `mail.sent`, `mail.failed`, `mail.send.duration` (histogram)
+- **Image optimizer** (optimization decisions, bytes saved, skip reasons) + metrics:
+  - `image.optimization.requests`, `image.optimization.success`, `image.optimization.skipped` (with reason labels)
+  - `image.optimization.bytes_saved`, `image.optimization.variants`, `image.optimization.duration` (histogram)
+- **Abuse limiter** (rate limit decisions, retry-after tracking) + metrics:
+  - `limiter.checks`, `limiter.allowed`, `limiter.blocked`, `limiter.blocked.temp`, `limiter.blocked.long`
 
 ### ✅ Completed (Middleware)
 - CSRF guard (token validation tracking)
@@ -283,28 +291,34 @@ Notes:
   - Media model (create, find_by_id, find_by_hash, delete, list operations)
   - Comment model (create, update, delete, find_all_by_post)
 
-### ✅ Completed (Metrics & Observability)
+### ✅ Completed (Metrics & Production Tuning)
 - HTTP metrics centralized in telemetry module (shared instances via OnceLock)
 - Observable gauges for Redis and DB pool connections
 - Removed per-request metric creation from middleware
-- AppState.meter available for future service integration
+- **Domain metrics for all key services** (auth, image, limiter, mail) - all metrics exposed via `telemetry::*_metrics()` helpers
+- **Production tuning configuration** via environment variables:
+  - Trace batching: `OTEL_BSP_MAX_QUEUE_SIZE`, `OTEL_BSP_SCHEDULE_DELAY`, `OTEL_BSP_MAX_EXPORT_BATCH_SIZE`, `OTEL_BSP_EXPORT_TIMEOUT`
+  - Sampling: `OTEL_TRACES_SAMPLER_ARG` (0.0-1.0, supports TraceIdRatioBased sampling)
+  - Metrics: `OTEL_METRIC_EXPORT_INTERVAL`, `OTEL_METRIC_EXPORT_TIMEOUT`
+  - Logs batching: `OTEL_BLRP_MAX_QUEUE_SIZE`, `OTEL_BLRP_SCHEDULE_DELAY`, `OTEL_BLRP_MAX_EXPORT_BATCH_SIZE`, `OTEL_BLRP_EXPORT_TIMEOUT`
 
 ### 📋 Files Modified
 
 **Core Infrastructure:**
-- `src/utils/telemetry.rs` (created - includes shared HTTP metrics & pool gauges)
+- `src/utils/telemetry.rs` (created - includes shared HTTP metrics, pool gauges, domain metrics, production tuning config)
 - `src/middlewares/http_metrics.rs` (simplified - uses shared metrics)
 - `src/main.rs` (pool metrics initialization)
 - `src/state.rs`
 - `src/router.rs`
+- `src/error/response.rs` (fixed conditional compilation for release builds)
 - `Cargo.toml`
 
-**Services (5):**
+**Services (5 - all with domain metrics):**
 - `src/db/redis_connect.rs`
-- `src/services/auth/mod.rs`
-- `src/services/mail/smtp.rs`, `src/services/mail/mod.rs`
-- `src/services/image_optimizer.rs`
-- `src/services/abuse_limiter.rs`
+- `src/services/auth.rs` (**domain metrics**: login attempts/success/failure, password verification duration)
+- `src/services/mail/smtp.rs`, `src/services/mail/mod.rs` (**domain metrics**: sent/failed, send duration)
+- `src/services/image_optimizer.rs` (**domain metrics**: requests, success, skipped, bytes saved, variants, duration)
+- `src/services/abuse_limiter.rs` (**domain metrics**: checks, allowed, blocked, temp/long blocks)
 
 **Middleware (4):**
 - `src/middlewares/static_csrf.rs`
@@ -334,23 +348,25 @@ Notes:
 - `src/db/sea_models/media/actions.rs`
 - `src/db/sea_models/post_comment/actions.rs`
 
-**Total: ~34 files instrumented**
+**Total: ~36 files instrumented**
 
 ### 🎯 Next Steps (Priority Order)
 
 #### High Priority
-1. **OpenObserve Dashboards**
-   - HTTP request rate/latency by endpoint
-   - Error rates by endpoint and status
-   - Auth success/failure rates
-   - Redis/DB health metrics
-   - Image optimization effectiveness
+1. **OpenObserve Dashboards & Alerts**
+   - HTTP request rate/latency by endpoint (P50, P95, P99)
+   - Error rates by endpoint and status (5xx alerts)
+   - Auth metrics: login success/failure rates, password verification latency
+   - Image optimization: bytes saved, skip reasons, optimization duration
+   - Abuse limiter: block rates by scope, request patterns
+   - Redis/DB pool health gauges
+   - Mail delivery: send success/failure rates, send duration
 
-2. **Production Tuning**
-   - Configure batch export settings
-   - Implement sampling for high-volume endpoints
-   - Manage cardinality (avoid high-cardinality labels)
-   - Set exporter timeouts and retries
+2. **Production Deployment**
+   - Apply tuning configuration from `docs/opentelemetry_tuning.md`
+   - Monitor telemetry overhead (<5% latency target)
+   - Validate cardinality management (bounded label sets)
+   - Set up sampling for high-volume endpoints (start at 0.1 for production)
 
 #### Low Priority
 3. **Background Task Tracing**
@@ -368,9 +384,77 @@ Notes:
 ## 📊 Coverage Summary
 
 - **Controllers**: 10/13 instrumented (77%) - 3 admin/utility skipped
-- **Services**: 5/5 instrumented (100%)
+- **Services**: 5/5 instrumented (100%) - **All with domain metrics**
 - **Middleware**: 4/4 instrumented (100%)
 - **Extractors**: 2/2 instrumented (100%)
 - **Database**: Connection layer + 4 high-traffic models instrumented (100%)
-- **Metrics**: HTTP metrics centralized, observable gauges initialized (100%)
-- **Overall Progress**: ~95% complete
+- **Metrics**: HTTP metrics centralized, observable gauges initialized, domain metrics complete (100%)
+- **Production Tuning**: Batch sizes, timeouts, sampling configuration via env vars (100%)
+- **Overall Progress**: ~98% complete
+
+## 📈 Available Metrics
+
+### HTTP Metrics
+- `http.server.duration` (histogram, ms) - Request latency
+- `http.server.request.count` (counter) - Total requests
+- `http.server.response.status` (counter) - Response status codes
+
+### Auth Metrics
+- `auth.login.attempts` (counter) - Login attempts
+- `auth.login.success` (counter) - Successful logins
+- `auth.login.failure` (counter) - Failed logins (with `reason` label)
+- `auth.session.created` (counter) - Sessions created
+- `auth.password.verification.duration` (histogram, ms) - Password verification time
+
+### Image Optimization Metrics
+- `image.optimization.requests` (counter) - Optimization requests
+- `image.optimization.success` (counter) - Successful optimizations
+- `image.optimization.skipped` (counter) - Skipped optimizations (with `reason` label)
+- `image.optimization.bytes_saved` (counter) - Total bytes saved
+- `image.optimization.variants` (counter) - Variants generated
+- `image.optimization.duration` (histogram, ms) - Optimization time
+
+### Abuse Limiter Metrics
+- `limiter.checks` (counter) - Total limiter checks
+- `limiter.allowed` (counter) - Requests allowed
+- `limiter.blocked` (counter) - Requests blocked
+- `limiter.blocked.temp` (counter) - Temporary blocks
+- `limiter.blocked.long` (counter) - Long-term blocks
+
+### Mail Metrics
+- `mail.sent` (counter) - Emails sent successfully
+- `mail.failed` (counter) - Email send failures
+- `mail.send.duration` (histogram, ms) - Email send time
+
+### Pool Metrics (Observable Gauges)
+- `redis.pool.connections` (gauge) - Active Redis connections
+- `db.pool.connections` (gauge) - Active DB connections
+
+## 🔧 Production Tuning Configuration
+
+**Trace Configuration:**
+- `OTEL_BSP_MAX_QUEUE_SIZE` - Max span queue size (default: 2048)
+- `OTEL_BSP_SCHEDULE_DELAY` - Batch export delay in ms (default: 5000)
+- `OTEL_BSP_MAX_EXPORT_BATCH_SIZE` - Max spans per batch (default: 512)
+- `OTEL_BSP_EXPORT_TIMEOUT` - Export timeout in ms (default: 30000)
+- `OTEL_TRACES_SAMPLER_ARG` - Sampling ratio 0.0-1.0 (default: 1.0)
+  - 1.0 = AlwaysOn, 0.0 = AlwaysOff, 0.0-1.0 = TraceIdRatioBased
+
+**Metrics Configuration:**
+- `OTEL_METRIC_EXPORT_INTERVAL` - Export interval in ms (default: 30000)
+- `OTEL_METRIC_EXPORT_TIMEOUT` - Export timeout in ms (default: 30000)
+
+**Logs Configuration:**
+- `OTEL_BLRP_MAX_QUEUE_SIZE` - Max log queue size (default: 2048)
+- `OTEL_BLRP_SCHEDULE_DELAY` - Batch export delay in ms (default: 1000)
+- `OTEL_BLRP_MAX_EXPORT_BATCH_SIZE` - Max logs per batch (default: 512)
+- `OTEL_BLRP_EXPORT_TIMEOUT` - Export timeout in ms (default: 30000)
+
+**Example Production Config (high-volume):**
+```bash
+OTEL_TRACES_SAMPLER_ARG=0.05  # 5% sampling
+OTEL_BSP_MAX_QUEUE_SIZE=8192
+OTEL_BSP_SCHEDULE_DELAY=10000  # 10s
+OTEL_BSP_MAX_EXPORT_BATCH_SIZE=2048
+OTEL_METRIC_EXPORT_INTERVAL=60000  # 60s
+```

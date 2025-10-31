@@ -1,13 +1,16 @@
 use std::borrow::Cow;
+use std::time::Instant;
 
 use bytes::Bytes;
 use image::{
     codecs, imageops::FilterType, ColorType, DynamicImage, ExtendedColorType, ImageEncoder,
     ImageFormat,
 };
+use opentelemetry::KeyValue;
 use thiserror::Error;
 use tracing::{debug, info, instrument, warn};
 
+use crate::utils::telemetry;
 use crate::{modules::media_v1::validator::MediaUploadMetadata, state::OptimizerConfig};
 
 use crate::db::sea_models::media::MediaReference;
@@ -117,9 +120,16 @@ pub fn optimize(
     config: &OptimizerConfig,
     request: OptimizationRequest<'_>,
 ) -> Result<OptimizationOutcome, OptimizationError> {
+    let metrics = telemetry::image_metrics();
+    let start = Instant::now();
+    metrics.optimization_requests.add(1, &[]);
+
     if !config.enabled {
         debug!("Optimization disabled by config");
         tracing::Span::current().record("outcome", "skipped_disabled");
+        metrics
+            .optimization_skipped
+            .add(1, &[KeyValue::new("reason", "disabled")]);
         return Ok(OptimizationOutcome::Skipped(SkipReason::Disabled));
     }
 
@@ -141,11 +151,17 @@ pub fn optimize(
         Err(SkipReason::UnsupportedFormat) => {
             warn!(mime = ?request.original_mime, ext = ?request.original_extension, "Unsupported format");
             tracing::Span::current().record("outcome", "skipped_unsupported");
+            metrics
+                .optimization_skipped
+                .add(1, &[KeyValue::new("reason", "unsupported_format")]);
             return Ok(OptimizationOutcome::Skipped(SkipReason::UnsupportedFormat));
         }
         Err(reason) => {
             warn!(reason = ?reason, "Skipping optimization");
             tracing::Span::current().record("outcome", &format!("skipped_{:?}", reason));
+            metrics
+                .optimization_skipped
+                .add(1, &[KeyValue::new("reason", format!("{:?}", reason))]);
             return Ok(OptimizationOutcome::Skipped(reason));
         }
     };
@@ -157,12 +173,18 @@ pub fn optimize(
             "Image exceeds pixel budget"
         );
         tracing::Span::current().record("outcome", "skipped_too_large");
+        metrics
+            .optimization_skipped
+            .add(1, &[KeyValue::new("reason", "exceeds_pixel_budget")]);
         return Ok(OptimizationOutcome::Skipped(SkipReason::ExceedsPixelBudget));
     }
 
     if should_skip_for_quality(&probed) {
         debug!(bpp = probed.bytes_per_pixel, "Already optimized");
         tracing::Span::current().record("outcome", "skipped_optimized");
+        metrics
+            .optimization_skipped
+            .add(1, &[KeyValue::new("reason", "already_optimized")]);
         return Ok(OptimizationOutcome::Skipped(SkipReason::AlreadyOptimized));
     }
 
@@ -177,6 +199,9 @@ pub fn optimize(
         Err(e) => {
             warn!(error = %e, "Failed to decode image");
             tracing::Span::current().record("outcome", "skipped_decode_failed");
+            metrics
+                .optimization_skipped
+                .add(1, &[KeyValue::new("reason", "decode_failed")]);
             return Ok(OptimizationOutcome::Skipped(SkipReason::DecodeFailed));
         }
     };
@@ -233,6 +258,9 @@ pub fn optimize(
     if !result.replaced_original && result.variants.is_empty() {
         debug!("No optimization applied");
         tracing::Span::current().record("outcome", "skipped_no_improvement");
+        metrics
+            .optimization_skipped
+            .add(1, &[KeyValue::new("reason", "no_improvement")]);
         return Ok(OptimizationOutcome::Skipped(SkipReason::AlreadyOptimized));
     }
 
@@ -253,6 +281,18 @@ pub fn optimize(
     tracing::Span::current().record("outcome", "optimized");
     tracing::Span::current().record("bytes_saved", bytes_saved);
     tracing::Span::current().record("variant_count", result.variants.len() as i64);
+
+    let duration = start.elapsed().as_millis() as f64;
+    metrics.optimization_duration.record(duration, &[]);
+    metrics.optimization_success.add(1, &[]);
+
+    if bytes_saved > 0 {
+        metrics.bytes_saved.add(bytes_saved as u64, &[]);
+    }
+
+    metrics
+        .variants_generated
+        .add(result.variants.len() as u64, &[]);
 
     Ok(OptimizationOutcome::Optimized(result))
 }

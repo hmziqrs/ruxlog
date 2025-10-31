@@ -61,6 +61,7 @@ impl ErrorResponse {
             message: code.default_message().to_string(),
             code,
             status: status.as_u16(),
+            #[cfg(debug_assertions)]
             details: None,
             context: None,
             retry_after: None,
@@ -115,6 +116,7 @@ impl IntoResponse for ErrorResponse {
 
         if status.is_server_error() {
             eprintln!("Server error {}: {}", self.code, self.message);
+            #[cfg(debug_assertions)]
             if let Some(details) = &self.details {
                 eprintln!("  Details: {}", details);
             }
