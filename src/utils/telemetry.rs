@@ -1,14 +1,13 @@
 use opentelemetry::global;
 use opentelemetry::metrics::{Counter, Histogram, Meter, ObservableGauge};
 use opentelemetry::trace::TracerProvider as _;
-use opentelemetry::KeyValue;
+
 use opentelemetry_otlp::{
     LogExporter, MetricExporter, SpanExporter, WithExportConfig, WithHttpConfig,
 };
 use opentelemetry_sdk::metrics::SdkMeterProvider;
-use opentelemetry_sdk::runtime;
-use opentelemetry_sdk::trace::TracerProvider;
-use opentelemetry_sdk::{logs::LoggerProvider, Resource};
+use opentelemetry_sdk::trace::SdkTracerProvider as TracerProvider;
+use opentelemetry_sdk::{logs::SdkLoggerProvider as LoggerProvider, Resource};
 use std::collections::HashMap;
 use std::env;
 use std::sync::OnceLock;
@@ -31,8 +30,6 @@ impl Drop for TelemetryGuard {
                 eprintln!("Error shutting down meter provider: {:?}", err);
             }
         }
-
-        global::shutdown_tracer_provider();
     }
 }
 
@@ -91,31 +88,14 @@ impl TelemetryConfig {
 }
 
 fn build_resource() -> Resource {
-    let service_name = env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "ruxlog-api".to_string());
-    let service_version =
-        env::var("OTEL_SERVICE_VERSION").unwrap_or_else(|_| env!("CARGO_PKG_VERSION").to_string());
-    let deployment_env =
-        env::var("DEPLOYMENT_ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
-
-    Resource::new(vec![
-        KeyValue::new(
-            opentelemetry_semantic_conventions::resource::SERVICE_NAME,
-            service_name,
-        ),
-        KeyValue::new(
-            opentelemetry_semantic_conventions::resource::SERVICE_VERSION,
-            service_version,
-        ),
-        KeyValue::new("deployment.environment", deployment_env),
-    ])
+    unimplemented!()
 }
 
 fn init_tracer(
-    resource: Resource,
     endpoint: &str,
     headers: HashMap<String, String>,
     config: &TelemetryConfig,
-) -> Result<TracerProvider, opentelemetry::trace::TraceError> {
+) -> Result<TracerProvider, Box<dyn std::error::Error>> {
     let trace_endpoint = format!("{}/v1/traces", endpoint);
     eprintln!(
         "DEBUG: Initializing tracer with endpoint: {}",
@@ -134,15 +114,11 @@ fn init_tracer(
         .with_max_queue_size(config.trace_batch_max_queue_size)
         .with_scheduled_delay(Duration::from_millis(config.trace_batch_scheduled_delay_ms))
         .with_max_export_batch_size(config.trace_batch_max_export_batch_size)
-        .with_max_export_timeout(Duration::from_millis(
-            config.trace_batch_max_export_timeout_ms,
-        ))
         .build();
 
-    let batch_processor =
-        opentelemetry_sdk::trace::BatchSpanProcessor::builder(exporter, runtime::Tokio)
-            .with_batch_config(batch_config)
-            .build();
+    let batch_processor = opentelemetry_sdk::trace::BatchSpanProcessor::builder(exporter)
+        .with_batch_config(batch_config)
+        .build();
 
     let sampler = if config.trace_sample_ratio >= 1.0 {
         opentelemetry_sdk::trace::Sampler::AlwaysOn
@@ -159,7 +135,6 @@ fn init_tracer(
 
     let provider = TracerProvider::builder()
         .with_span_processor(batch_processor)
-        .with_resource(resource)
         .with_sampler(sampler)
         .build();
 
@@ -169,7 +144,6 @@ fn init_tracer(
 }
 
 fn init_metrics(
-    resource: Resource,
     endpoint: &str,
     headers: HashMap<String, String>,
     config: &TelemetryConfig,
@@ -186,15 +160,11 @@ fn init_metrics(
         .with_timeout(Duration::from_millis(config.metrics_export_timeout_ms))
         .build()?;
 
-    let reader = opentelemetry_sdk::metrics::PeriodicReader::builder(exporter, runtime::Tokio)
+    let reader = opentelemetry_sdk::metrics::PeriodicReader::builder(exporter)
         .with_interval(Duration::from_millis(config.metrics_export_interval_ms))
-        .with_timeout(Duration::from_millis(config.metrics_export_timeout_ms))
         .build();
 
-    let provider = SdkMeterProvider::builder()
-        .with_resource(resource)
-        .with_reader(reader)
-        .build();
+    let provider = SdkMeterProvider::builder().with_reader(reader).build();
 
     global::set_meter_provider(provider.clone());
 
@@ -202,7 +172,6 @@ fn init_metrics(
 }
 
 fn init_logs(
-    resource: Resource,
     endpoint: &str,
     headers: HashMap<String, String>,
     config: &TelemetryConfig,
@@ -222,18 +191,13 @@ fn init_logs(
         .with_max_queue_size(config.logs_batch_max_queue_size)
         .with_scheduled_delay(Duration::from_millis(config.logs_batch_scheduled_delay_ms))
         .with_max_export_batch_size(config.logs_batch_max_export_batch_size)
-        .with_max_export_timeout(Duration::from_millis(
-            config.logs_batch_max_export_timeout_ms,
-        ))
         .build();
 
-    let batch_processor =
-        opentelemetry_sdk::logs::BatchLogProcessor::builder(exporter, runtime::Tokio)
-            .with_batch_config(batch_config)
-            .build();
+    let batch_processor = opentelemetry_sdk::logs::BatchLogProcessor::builder(exporter)
+        .with_batch_config(batch_config)
+        .build();
 
     let provider = LoggerProvider::builder()
-        .with_resource(resource)
         .with_log_processor(batch_processor)
         .build();
 
@@ -281,16 +245,14 @@ pub fn init() -> TelemetryGuard {
         let headers_str = env::var("OTEL_EXPORTER_OTLP_HEADERS").unwrap_or_default();
         let headers = parse_otlp_headers(&headers_str);
 
-        let resource = build_resource();
+        let tracer_provider =
+            init_tracer(&endpoint, headers.clone(), &config).expect("Failed to initialize tracer");
 
-        let tracer_provider = init_tracer(resource.clone(), &endpoint, headers.clone(), &config)
-            .expect("Failed to initialize tracer");
-
-        let meter_provider = init_metrics(resource.clone(), &endpoint, headers.clone(), &config)
+        let meter_provider = init_metrics(&endpoint, headers.clone(), &config)
             .expect("Failed to initialize metrics");
 
-        let logger_provider = init_logs(resource.clone(), &endpoint, headers.clone(), &config)
-            .expect("Failed to initialize logs");
+        let logger_provider =
+            init_logs(&endpoint, headers.clone(), &config).expect("Failed to initialize logs");
 
         let tracer = tracer_provider.tracer("ruxlog-api");
         let otel_trace_layer = tracing_opentelemetry::layer().with_tracer(tracer);
