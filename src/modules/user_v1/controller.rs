@@ -9,22 +9,19 @@ use serde_json::json;
 
 use super::validator::*;
 use crate::{
-    db::sea_models::user::Entity as User, extractors::ValidatedJson, services::auth::AuthSession,
+    db::sea_models::user::Entity as User,
+    error::{ErrorCode, ErrorResponse},
+    extractors::ValidatedJson,
+    services::auth::AuthSession,
     AppState,
 };
 
 #[debug_handler]
-pub async fn get_profile(auth: AuthSession) -> impl IntoResponse {
+pub async fn get_profile(auth: AuthSession) -> Result<impl IntoResponse, ErrorResponse> {
     match auth.user {
-        Some(user) => (StatusCode::OK, Json(user)).into_response(),
-        None => (
-            StatusCode::NOT_FOUND,
-            Json(json!({
-                "error": "User not found",
-                "message": "No user with this ID exists",
-            })),
-        )
-            .into_response(),
+        Some(user) => Ok((StatusCode::OK, Json(json!(user)))),
+        None => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
+            .with_message("No user with this ID exists")),
     }
 }
 
@@ -33,75 +30,38 @@ pub async fn update_profile(
     auth: AuthSession,
     state: State<AppState>,
     payload: ValidatedJson<V1UpdateProfilePayload>,
-) -> impl IntoResponse {
-    if let Some(user) = auth.user {
-        let payload = payload.0.into_update_user();
-        let updated_user = User::update(&state.sea_db, user.id, payload).await;
-        match updated_user {
-            Ok(Some(user)) => {
-                return (StatusCode::OK, Json(json!(user))).into_response();
-            }
-            Ok(None) => {
-                return (
-                    StatusCode::NOT_FOUND,
-                    Json(json!({
-                        "error": "User not found",
-                        "message": "User could not be found or updated",
-                    })),
-                )
-                    .into_response();
-            }
-            Err(err) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "error": err.to_string(),
-                        "message": "An error occurred while updating the user profile",
-                    })),
-                )
-                    .into_response();
-            }
-        }
+) -> Result<impl IntoResponse, ErrorResponse> {
+    let user = auth.user.ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::Unauthorized)
+            .with_message("You must be logged in to access this resource")
+    })?;
+
+    let payload = payload.0.into_update_user();
+    match User::update(&state.sea_db, user.id, payload).await {
+        Ok(Some(user)) => Ok((StatusCode::OK, Json(json!(user)))),
+        Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
+            .with_message("User could not be found or updated")),
+        Err(err) => Err(err.into()),
     }
-    (
-        StatusCode::UNAUTHORIZED,
-        Json(json!({
-            "error": "Unauthorized",
-            "message": "You must be logged in to access this resource",
-        })),
-    )
-        .into_response()
 }
 
 #[debug_handler]
 pub async fn admin_create(
     state: State<AppState>,
     payload: ValidatedJson<V1AdminCreateUserPayload>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, ErrorResponse> {
     let payload = payload.0.into_new_user();
-    let conn = &state.sea_db;
-
-    match User::admin_create(conn, payload).await {
-        Ok(user) => (StatusCode::CREATED, Json(json!(user))).into_response(),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": err.to_string() })),
-        )
-            .into_response(),
-    }
+    let user = User::admin_create(&state.sea_db, payload).await?;
+    Ok((StatusCode::CREATED, Json(json!(user))))
 }
 
 #[debug_handler]
-pub async fn admin_delete(state: State<AppState>, Path(user_id): Path<i32>) -> impl IntoResponse {
-    let conn = &state.sea_db;
-    match User::admin_delete(conn, user_id).await {
-        Ok(_) => StatusCode::NO_CONTENT.into_response(),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": err.to_string() })),
-        )
-            .into_response(),
-    }
+pub async fn admin_delete(
+    state: State<AppState>,
+    Path(user_id): Path<i32>,
+) -> Result<impl IntoResponse, ErrorResponse> {
+    User::admin_delete(&state.sea_db, user_id).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[debug_handler]
@@ -109,25 +69,13 @@ pub async fn admin_update(
     state: State<AppState>,
     Path(user_id): Path<i32>,
     payload: ValidatedJson<V1AdminUpdateUserPayload>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, ErrorResponse> {
     let payload = payload.0.into_update_user();
-    let conn = &state.sea_db;
-
-    match User::admin_update(conn, user_id, payload).await {
-        Ok(Some(user)) => (StatusCode::OK, Json(json!(user))).into_response(),
-        Ok(None) => (
-            StatusCode::NOT_FOUND,
-            Json(json!({
-                "error": "User not found",
-                "message": "No user with this ID exists",
-            })),
-        )
-            .into_response(),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": err.to_string() })),
-        )
-            .into_response(),
+    match User::admin_update(&state.sea_db, user_id, payload).await {
+        Ok(Some(user)) => Ok((StatusCode::OK, Json(json!(user)))),
+        Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
+            .with_message("No user with this ID exists")),
+        Err(err) => Err(err.into()),
     }
 }
 
@@ -136,54 +84,30 @@ pub async fn admin_change_password(
     state: State<AppState>,
     Path(user_id): Path<i32>,
     payload: ValidatedJson<AdminChangePassword>,
-) -> impl IntoResponse {
-    let conn = &state.sea_db;
-
-    match User::change_password(conn, user_id, payload.0.password).await {
-        Ok(_) => StatusCode::NO_CONTENT.into_response(),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": err.to_string() })),
-        )
-            .into_response(),
-    }
+) -> Result<impl IntoResponse, ErrorResponse> {
+    User::change_password(&state.sea_db, user_id, payload.0.password).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[debug_handler]
 pub async fn admin_list(
     state: State<AppState>,
     payload: ValidatedJson<V1AdminUserQueryParams>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, ErrorResponse> {
     let query = payload.0.into_user_query();
-    let conn = &state.sea_db;
-
-    match User::admin_list(conn, query).await {
-        Ok(users_with_count) => (StatusCode::OK, Json(json!(users_with_count))).into_response(),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": err.to_string() })),
-        )
-            .into_response(),
-    }
+    let users_with_count = User::admin_list(&state.sea_db, query).await?;
+    Ok((StatusCode::OK, Json(json!(users_with_count))))
 }
 
 #[debug_handler]
-pub async fn admin_view(state: State<AppState>, Path(user_id): Path<i32>) -> impl IntoResponse {
-    let conn = &state.sea_db;
-    match User::get_by_id(conn, user_id).await {
-        Ok(Some(user)) => (StatusCode::OK, Json(json!(user))).into_response(),
-        Ok(None) => (
-            StatusCode::NOT_FOUND,
-            Json(json!({
-                "error": "User not found",
-                "message": "No user with this ID exists",
-            })),
-        )
-            .into_response(),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": err.to_string() })),
-        )
-            .into_response(),
+pub async fn admin_view(
+    state: State<AppState>,
+    Path(user_id): Path<i32>,
+) -> Result<impl IntoResponse, ErrorResponse> {
+    match User::get_by_id(&state.sea_db, user_id).await {
+        Ok(Some(user)) => Ok((StatusCode::OK, Json(json!(user)))),
+        Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
+            .with_message("No user with this ID exists")),
+        Err(err) => Err(err.into()),
     }
 }
