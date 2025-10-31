@@ -373,7 +373,7 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
             } else {
                 UserRole::User
             },
-            avatar: None,
+            avatar_id: None,
             is_verified: Some(true),
         };
 

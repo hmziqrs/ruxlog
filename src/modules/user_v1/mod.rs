@@ -25,7 +25,7 @@ pub fn routes() -> Router<AppState> {
 
     let admin = Router::new()
         .route("/list", post(controller::admin_list))
-        .route("/view/{user_id}", get(controller::admin_view))
+        .route("/view/{user_id}", post(controller::admin_view))
         .route("/create", post(controller::admin_create))
         .route("/update/{user_id}", post(controller::admin_update))
         .route("/delete/{user_id}", post(controller::admin_delete))

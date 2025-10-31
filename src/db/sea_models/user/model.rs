@@ -79,7 +79,7 @@ pub struct Model {
     pub email: String,
     #[serde(skip_serializing)]
     pub password: String,
-    pub avatar: Option<String>,
+    pub avatar_id: Option<i32>,
     pub is_verified: bool,
     pub role: UserRole,
     pub two_fa_enabled: bool,
@@ -123,6 +123,12 @@ pub enum Relation {
     ForgotPassword,
     #[sea_orm(has_many = "super::super::post::Entity")]
     Post,
+    #[sea_orm(
+        belongs_to = "super::super::media::Entity",
+        from = "Column::AvatarId",
+        to = "super::super::media::Column::Id"
+    )]
+    Media,
 }
 
 impl Related<super::super::email_verification::Entity> for Entity {
@@ -140,6 +146,12 @@ impl Related<super::super::forgot_password::Entity> for Entity {
 impl Related<super::super::post::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Post.def()
+    }
+}
+
+impl Related<super::super::media::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Media.def()
     }
 }
 

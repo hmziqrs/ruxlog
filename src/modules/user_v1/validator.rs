@@ -38,7 +38,7 @@ pub struct V1AdminCreateUserPayload {
     #[serde(default = "default_role")]
     #[validate(custom(function = "validate_role"))]
     pub role: String,
-    pub avatar: Option<String>,
+    pub avatar_id: Option<i32>,
     #[serde(default = "bool::default")]
     pub is_verified: bool,
 }
@@ -61,7 +61,7 @@ impl V1AdminCreateUserPayload {
             email: self.email,
             password: self.password,
             role: UserRole::from_str(&self.role).unwrap_or(UserRole::User),
-            avatar: self.avatar,
+            avatar_id: self.avatar_id,
             is_verified: Some(self.is_verified),
         }
     }
@@ -73,7 +73,7 @@ pub struct V1AdminUpdateUserPayload {
     pub name: Option<String>,
     #[validate(email)]
     pub email: Option<String>,
-    pub avatar: Option<String>,
+    pub avatar_id: Option<i32>,
     #[validate(length(min = 1))]
     pub password: Option<String>,
     pub is_verified: Option<bool>,
@@ -86,7 +86,7 @@ impl V1AdminUpdateUserPayload {
         AdminUpdateUser {
             name: self.name,
             email: self.email,
-            avatar: self.avatar,
+            avatar_id: self.avatar_id,
             password: self.password,
             is_verified: self.is_verified,
             role: self.role.and_then(|r| UserRole::from_str(&r).ok()),

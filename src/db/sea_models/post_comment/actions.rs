@@ -81,7 +81,7 @@ impl Entity {
             .column(Column::CreatedAt)
             .column(Column::UpdatedAt)
             .column_as(UserColumn::Name, "user_name")
-            .column_as(UserColumn::Avatar, "user_avatar")
+            .column_as(UserColumn::AvatarId, "user_avatar")
             .join(JoinType::InnerJoin, Relation::User.def())
             .filter(Column::PostId.eq(post_id))
             .filter(Column::Hidden.eq(false))
@@ -113,7 +113,7 @@ impl Entity {
             .column(Column::CreatedAt)
             .column(Column::UpdatedAt)
             .column_as(UserColumn::Name, "user_name")
-            .column_as(UserColumn::Avatar, "user_avatar")
+            .column_as(UserColumn::AvatarId, "user_avatar")
             .join(JoinType::InnerJoin, Relation::User.def());
 
         if let Some(post_id_filter) = query.post_id {

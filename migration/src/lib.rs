@@ -26,6 +26,7 @@ mod m20251030_000021_alter_category_change_media_fields;
 mod m20251116_000020_create_media_variant_table;
 mod m20251116_000022_alter_media_add_hash;
 mod m20251117_000023_create_media_usages_table;
+mod m20251118_000024_alter_user_add_avatar_id;
 
 pub struct Migrator;
 
@@ -59,6 +60,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20251116_000022_alter_media_add_hash::Migration),
             Box::new(m20251030_000021_alter_category_change_media_fields::Migration),
             Box::new(m20251117_000023_create_media_usages_table::Migration),
+            Box::new(m20251118_000024_alter_user_add_avatar_id::Migration),
         ]
     }
 }

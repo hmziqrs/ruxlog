@@ -58,7 +58,7 @@ impl Entity {
             .column(Column::Reason)
             .column(Column::CreatedAt)
             .column_as(UserColumn::Name, "user_name")
-            .column_as(UserColumn::Avatar, "user_avatar")
+            .column_as(UserColumn::AvatarId, "user_avatar")
             .join(JoinType::InnerJoin, Relation::User.def());
 
         if let Some(comment_id) = query.comment_id {

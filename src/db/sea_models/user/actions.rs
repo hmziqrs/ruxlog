@@ -6,9 +6,60 @@ use sea_orm::{entity::prelude::*, Order, QueryOrder, Set, TransactionTrait};
 use tokio::task;
 
 use super::*;
+use crate::db::sea_models::media_usage::EntityType;
 
 impl Entity {
     pub const PER_PAGE: u64 = 20;
+
+    async fn load_media_for_users(
+        conn: &DbConn,
+        users: Vec<Model>,
+    ) -> DbResult<Vec<(Model, Option<UserMedia>)>> {
+        let mut media_ids = std::collections::HashSet::new();
+        for user in &users {
+            if let Some(id) = user.avatar_id {
+                media_ids.insert(id);
+            }
+        }
+
+        let media_map = if !media_ids.is_empty() {
+            super::super::media::Entity::find()
+                .filter(
+                    super::super::media::Column::Id
+                        .is_in(media_ids.into_iter().collect::<Vec<i32>>()),
+                )
+                .all(conn)
+                .await?
+                .into_iter()
+                .map(|m| {
+                    (
+                        m.id,
+                        UserMedia {
+                            id: m.id,
+                            object_key: m.object_key,
+                            file_url: m.file_url,
+                            mime_type: m.mime_type,
+                            width: m.width,
+                            height: m.height,
+                            size: m.size,
+                        },
+                    )
+                })
+                .collect::<std::collections::HashMap<i32, UserMedia>>()
+        } else {
+            std::collections::HashMap::new()
+        };
+
+        let results = users
+            .into_iter()
+            .map(|user| {
+                let avatar = user.avatar_id.and_then(|id| media_map.get(&id).cloned());
+                (user, avatar)
+            })
+            .collect();
+
+        Ok(results)
+    }
 
     pub async fn create(conn: &DbConn, new_user: NewUser) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
@@ -185,6 +236,8 @@ impl Entity {
     }
 
     pub async fn admin_create(conn: &DbConn, new_user: AdminCreateUser) -> DbResult<Model> {
+        let txn = conn.begin().await?;
+
         let now = chrono::Utc::now().fixed_offset();
         let hash = task::spawn_blocking(move || password_auth::generate_hash(new_user.password))
             .await
@@ -193,22 +246,36 @@ impl Entity {
                     .with_message("Failed to generate password hash")
             })?;
 
+        let avatar_id = new_user.avatar_id;
+
         let user = ActiveModel {
             name: Set(new_user.name),
             email: Set(new_user.email),
             password: Set(hash),
             role: Set(new_user.role),
-            avatar: Set(new_user.avatar),
+            avatar_id: Set(avatar_id),
             is_verified: Set(new_user.is_verified.unwrap_or(false)),
             created_at: Set(now),
             updated_at: Set(now),
             ..Default::default()
         };
 
-        match user.insert(conn).await {
-            Ok(model) => Ok(model),
-            Err(err) => Err(err.into()),
+        let model = user.insert(&txn).await?;
+
+        if let Some(mid) = avatar_id {
+            super::super::media_usage::Entity::track_usage(
+                &txn,
+                mid,
+                EntityType::User,
+                model.id,
+                "avatar_id",
+            )
+            .await?;
         }
+
+        txn.commit().await?;
+
+        Ok(model)
     }
 
     pub async fn admin_update(
@@ -219,6 +286,9 @@ impl Entity {
         let user: Option<Model> = Self::get_by_id(conn, user_id).await?;
 
         if let Some(user_model) = user {
+            let txn = conn.begin().await?;
+
+            let old_avatar_id = user_model.avatar_id;
             let mut user_active: ActiveModel = user_model.into();
 
             if let Some(name) = update_user.name {
@@ -243,8 +313,9 @@ impl Entity {
                 user_active.role = Set(role);
             }
 
-            if let Some(avatar) = update_user.avatar {
-                user_active.avatar = Set(Some(avatar));
+            let new_avatar_id = update_user.avatar_id;
+            if update_user.avatar_id.is_some() {
+                user_active.avatar_id = Set(new_avatar_id);
             }
 
             if let Some(is_verified) = update_user.is_verified {
@@ -253,20 +324,39 @@ impl Entity {
 
             user_active.updated_at = Set(update_user.updated_at);
 
-            match user_active.update(conn).await {
-                Ok(updated_user) => Ok(Some(updated_user)),
-                Err(err) => Err(err.into()),
+            let updated_user = user_active.update(&txn).await?;
+
+            if update_user.avatar_id.is_some() && old_avatar_id != new_avatar_id {
+                super::super::media_usage::Entity::update_usage(
+                    &txn,
+                    old_avatar_id,
+                    new_avatar_id,
+                    EntityType::User,
+                    user_id,
+                    "avatar_id",
+                )
+                .await?;
             }
+
+            txn.commit().await?;
+
+            Ok(Some(updated_user))
         } else {
             Ok(None)
         }
     }
 
     pub async fn admin_delete(conn: &DbConn, user_id: i32) -> DbResult<u64> {
-        match Self::delete_by_id(user_id).exec(conn).await {
-            Ok(result) => Ok(result.rows_affected),
-            Err(err) => Err(err.into()),
-        }
+        let txn = conn.begin().await?;
+
+        super::super::media_usage::Entity::delete_by_entity(&txn, EntityType::User, user_id)
+            .await?;
+
+        let result = Self::delete_by_id(user_id).exec(&txn).await?;
+
+        txn.commit().await?;
+
+        Ok(result.rows_affected)
     }
 
     pub async fn admin_list(conn: &DbConn, query: AdminUserQuery) -> DbResult<(Vec<Model>, u64)> {

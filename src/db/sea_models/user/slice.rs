@@ -2,6 +2,17 @@ use super::UserRole;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct UserMedia {
+    pub id: i32,
+    pub object_key: String,
+    pub file_url: String,
+    pub mime_type: String,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub size: i64,
+}
+
 #[derive(Deserialize, Debug)]
 pub struct NewUser {
     pub name: String,
@@ -49,7 +60,7 @@ pub struct AdminCreateUser {
     pub email: String,
     pub password: String,
     pub role: UserRole,
-    pub avatar: Option<String>,
+    pub avatar_id: Option<i32>,
     pub is_verified: Option<bool>,
 }
 
@@ -59,7 +70,7 @@ pub struct AdminUpdateUser {
     pub email: Option<String>,
     pub password: Option<String>,
     pub role: Option<UserRole>,
-    pub avatar: Option<String>,
+    pub avatar_id: Option<i32>,
     pub is_verified: Option<bool>,
     pub updated_at: DateTimeWithTimeZone,
 }
