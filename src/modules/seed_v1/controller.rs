@@ -358,7 +358,7 @@ pub async fn seed_post_comments(
 pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
     let mut rng = StdRng::seed_from_u64(42);
     let mut fake_users: Vec<user::UserWithRelations> = vec![];
-    let mut fake_posts: Vec<post::Model> = vec![];
+    let mut fake_posts: Vec<post::PostWithRelations> = vec![];
 
     for _ in 0..50 {
         let user: FakeUser = Faker.fake_with_rng(&mut rng);
