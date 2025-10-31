@@ -53,12 +53,12 @@ tower-sessions-redis-store = "0.16.0"
 tower-sessions = { version = "0.14", features = ["private"] }
 tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json"] }
 tracing = "0.1.41"
-opentelemetry = { version = "0.27", features = ["metrics", "trace", "logs"] }
-opentelemetry_sdk = { version = "0.27", features = ["rt-tokio", "metrics", "trace", "logs"] }
-opentelemetry-otlp = { version = "0.27", features = ["http-proto", "reqwest-client", "metrics", "logs", "trace"] }
-tracing-opentelemetry = "0.28"
-opentelemetry-appender-tracing = "0.27"
-opentelemetry-semantic-conventions = "0.27"
+opentelemetry = { version = "0.31.0", features = ["metrics", "trace", "logs"] }
+opentelemetry_sdk = { version = "0.31.0", features = ["rt-tokio", "metrics", "trace", "logs"] }
+opentelemetry-otlp = { version = "0.31.0", features = ["http-proto", "reqwest-blocking-client", "metrics", "logs", "trace"] }
+tracing-opentelemetry = "0.32.0"
+opentelemetry-appender-tracing = "0.31.1"
+opentelemetry-semantic-conventions = "0.31.0"
 dotenv = "0.15.0"
 chrono = { version = "0.4.40", features = ["serde"] }
 axum-macros = "0.5.0"
