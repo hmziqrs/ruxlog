@@ -11,6 +11,7 @@ use crate::utils::color::{derive_text_color, DEFAULT_BG_COLOR};
 impl Entity {
     pub const PER_PAGE: u64 = 20;
 
+    #[allow(dead_code)]
     async fn load_media_for_categories(
         conn: &DbConn,
         categories: Vec<Model>,

@@ -1,6 +1,6 @@
 use lettre::{AsyncSmtpTransport, AsyncTransport};
 use std::time::Instant;
-use tracing::{error, info, instrument, warn};
+use tracing::{error, info, instrument};
 
 use crate::utils::telemetry;
 

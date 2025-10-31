@@ -6,8 +6,7 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[target.aarch64-apple-darwin]
-rustflags = '-L /opt/homebrew/opt/libpq/lib -L /opt/homebrew/lib'
+
 
 [dependencies]
 migration = { path = "./migration" }

@@ -245,12 +245,12 @@ pub fn init() -> TelemetryGuard {
         let headers_str = env::var("OTEL_EXPORTER_OTLP_HEADERS").unwrap_or_default();
         let headers = parse_otlp_headers(&headers_str);
 
-        let resource = build_resource();
+        let _resource = build_resource();
 
-        let tracer_provider = init_tracer(resource.clone(), &endpoint, headers.clone(), &config)
-            .expect("Failed to initialize tracer");
+        let tracer_provider =
+            init_tracer(&endpoint, headers.clone(), &config).expect("Failed to initialize tracer");
 
-        let meter_provider = init_metrics(resource.clone(), &endpoint, headers.clone(), &config)
+        let meter_provider = init_metrics(&endpoint, headers.clone(), &config)
             .expect("Failed to initialize metrics");
 
         let logger_provider =

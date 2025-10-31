@@ -15,6 +15,7 @@ use crate::db::sea_models::media_usage::EntityType;
 impl Entity {
     pub const PER_PAGE: u64 = 20;
 
+    #[allow(dead_code)]
     async fn load_media_for_users(
         conn: &DbConn,
         users: Vec<Model>,

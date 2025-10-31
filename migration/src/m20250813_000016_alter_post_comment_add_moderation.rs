@@ -46,6 +46,7 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(Iden)]
+#[allow(dead_code)]
 enum PostComments {
     Table,
     Id,

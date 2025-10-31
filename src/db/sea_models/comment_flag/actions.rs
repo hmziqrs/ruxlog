@@ -169,9 +169,7 @@ impl Entity {
     /// Recalculate and persist the flags_count on the related post_comment.
     /// Returns the updated count.
     pub async fn sync_flags_count(conn: &DbConn, comment_id: i32) -> DbResult<i64> {
-        use super::super::post_comment::{
-            Column as PostCommentColumn, Entity as PostCommentEntity,
-        };
+        use super::super::post_comment::Entity as PostCommentEntity;
 
         let count = Entity::find()
             .filter(Column::CommentId.eq(comment_id))
