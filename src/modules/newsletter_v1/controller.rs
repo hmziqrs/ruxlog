@@ -3,6 +3,7 @@ use axum_macros::debug_handler;
 use lettre::{message::header::ContentType, AsyncTransport, Message};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde_json::json;
+use tracing::{error, info, instrument, warn};
 use uuid::Uuid;
 
 use crate::{
@@ -66,6 +67,7 @@ async fn send_mail(
 }
 
 #[debug_handler]
+#[instrument(skip(state, payload), fields(email = %payload.email))]
 pub async fn subscribe(
     State(state): State<AppState>,
     payload: ValidatedJson<V1SubscribePayload>,
@@ -93,6 +95,7 @@ pub async fn subscribe(
 
     match SubscriberEntity::create(&state.sea_db, new_sub).await {
         Ok(_model) => {
+            info!(email = %email, "Newsletter subscription created");
             let site_url =
                 std::env::var("SITE_URL").unwrap_or_else(|_| "http://localhost:8888".to_string());
             let confirm_url = format!(
@@ -124,11 +127,15 @@ pub async fn subscribe(
             }
             Ok((StatusCode::CREATED, Json(body)))
         }
-        Err(err) => Err(err.into()),
+        Err(err) => {
+            error!(email = %email, "Failed to create newsletter subscription: {}", err);
+            Err(err.into())
+        }
     }
 }
 
 #[debug_handler]
+#[instrument(skip(state, payload), fields(email = %payload.email))]
 pub async fn unsubscribe(
     State(state): State<AppState>,
     payload: ValidatedJson<V1UnsubscribePayload>,
@@ -137,14 +144,24 @@ pub async fn unsubscribe(
     let token = payload.token.trim().to_string();
 
     match SubscriberEntity::unsubscribe(&state.sea_db, &email, Some(&token)).await {
-        Ok(Some(_)) => Ok(Json(json!({ "message": "Unsubscribed successfully" }))),
-        Ok(None) => Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
-            .with_message("Invalid token or subscriber not found")),
-        Err(err) => Err(err.into()),
+        Ok(Some(_)) => {
+            info!(email = %email, "Newsletter unsubscribed");
+            Ok(Json(json!({ "message": "Unsubscribed successfully" })))
+        }
+        Ok(None) => {
+            warn!(email = %email, "Invalid unsubscribe token");
+            Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
+                .with_message("Invalid token or subscriber not found"))
+        }
+        Err(err) => {
+            error!(email = %email, "Failed to unsubscribe: {}", err);
+            Err(err.into())
+        }
     }
 }
 
 #[debug_handler]
+#[instrument(skip(state, _auth, payload), fields(subject = %payload.subject))]
 pub async fn send(
     State(state): State<AppState>,
     _auth: AuthSession,
@@ -163,9 +180,14 @@ pub async fn send(
             .all(&state_cloned.sea_db)
             .await
         else {
+            error!("Failed to load confirmed subscribers for newsletter send");
             return;
         };
 
+        info!(
+            count = subscribers.len(),
+            "Sending newsletter to subscribers"
+        );
         for sub in subscribers {
             let _ = send_mail(
                 &state_cloned.mailer,
@@ -176,7 +198,10 @@ pub async fn send(
             )
             .await;
         }
+        info!("Newsletter send task completed");
     });
+
+    info!("Newsletter send task spawned");
 
     Ok((
         StatusCode::ACCEPTED,
@@ -185,6 +210,7 @@ pub async fn send(
 }
 
 #[debug_handler]
+#[instrument(skip(state, _auth, payload))]
 pub async fn list_subscribers(
     State(state): State<AppState>,
     _auth: AuthSession,
@@ -199,16 +225,27 @@ pub async fn list_subscribers(
     };
 
     match SubscriberEntity::find_with_query(&state.sea_db, query).await {
-        Ok((items, total)) => Ok(Json(json!({
-            "data": items,
-            "total": total,
-            "page": payload.page_or_default()
-        }))),
-        Err(err) => Err(err.into()),
+        Ok((items, total)) => {
+            info!(
+                total,
+                page = payload.page_or_default(),
+                "Admin listed newsletter subscribers"
+            );
+            Ok(Json(json!({
+                "data": items,
+                "total": total,
+                "page": payload.page_or_default()
+            })))
+        }
+        Err(err) => {
+            error!("Failed to list newsletter subscribers: {}", err);
+            Err(err.into())
+        }
     }
 }
 
 #[debug_handler]
+#[instrument(skip(state, payload), fields(email = %payload.email))]
 pub async fn confirm(
     State(state): State<AppState>,
     payload: ValidatedJson<V1UnsubscribePayload>,
@@ -217,9 +254,18 @@ pub async fn confirm(
     let token = payload.token.trim().to_string();
 
     match SubscriberEntity::confirm(&state.sea_db, &email, &token).await {
-        Ok(Some(_)) => Ok(Json(json!({ "message": "Subscription confirmed" }))),
-        Ok(None) => Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
-            .with_message("Invalid token or subscriber not found")),
-        Err(err) => Err(err.into()),
+        Ok(Some(_)) => {
+            info!(email = %email, "Newsletter subscription confirmed");
+            Ok(Json(json!({ "message": "Subscription confirmed" })))
+        }
+        Ok(None) => {
+            warn!(email = %email, "Invalid confirmation token");
+            Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
+                .with_message("Invalid token or subscriber not found"))
+        }
+        Err(err) => {
+            error!(email = %email, "Failed to confirm subscription: {}", err);
+            Err(err.into())
+        }
     }
 }

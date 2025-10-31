@@ -7,6 +7,7 @@ use axum::Json;
 
 use serde::de::DeserializeOwned;
 use std::ops::Deref;
+use tracing::warn;
 use validator::Validate;
 
 use crate::error::ErrorResponse;
@@ -30,6 +31,7 @@ where
                     Ok(_) => Ok(ValidatedJson(data)),
                     Err(errors) => {
                         use crate::error::{ErrorCode, ErrorResponse};
+                        warn!("JSON validation failed: {:?}", errors);
                         let errors_json = serde_json::to_value(&errors).unwrap_or_default();
                         Err(ErrorResponse::new(ErrorCode::InvalidInput)
                             .with_message("Validation failed")
@@ -69,6 +71,7 @@ where
                     Ok(_) => Ok(ValidatedQuery(data)),
                     Err(errors) => {
                         use crate::error::{ErrorCode, ErrorResponse};
+                        warn!("Query validation failed: {:?}", errors);
                         let errors_json = serde_json::to_value(&errors).unwrap_or_default();
                         Err(ErrorResponse::new(ErrorCode::InvalidInput)
                             .with_message("Query validation failed")
@@ -97,6 +100,7 @@ where
                     Ok(_) => Ok(ValidatedQuery(data)),
                     Err(errors) => {
                         use crate::error::{ErrorCode, ErrorResponse};
+                        warn!("Query validation failed (FromRequest): {:?}", errors);
                         let errors_json = serde_json::to_value(&errors).unwrap_or_default();
                         Err(ErrorResponse::new(ErrorCode::InvalidInput)
                             .with_message("Query validation failed")

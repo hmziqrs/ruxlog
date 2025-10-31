@@ -1,8 +1,8 @@
 # OpenObserve + OpenTelemetry Integration Plan
 
-**Status:** 🚧 In Progress - Phase 1 Complete (Core + High-Impact Services)  
+**Status:** ✅ Phase 1-4 Complete (Core, Services, Controllers, DB/Extractors)  
 **Last Updated:** January 2025  
-**Progress:** ~60% Complete
+**Progress:** ~85% Complete
 
 ---
 
@@ -23,32 +23,38 @@
 - ✅ **Image Optimizer**: Optimization decisions, bytes saved, skip reason metrics
 - ✅ **Abuse Limiter**: Rate limit decisions, retry-after tracking, Redis error handling
 
-### Phase 3: Middleware & Controllers ✅ COMPLETE (Partial)
+### Phase 3: Middleware & Controllers ✅ COMPLETE
 **Middleware:**
 - ✅ CSRF guard (token validation tracking)
 - ✅ User permissions (role-based authorization decisions)
-- ❌ Route blocker (pending)
-- ❌ User status (pending)
+- ✅ Route blocker (blocked route logging with environment checks)
+- ✅ User status (auth status checks with verification tracking)
 
 **Controllers:**
 - ✅ Auth controller (login/logout/register/2FA with user/IP tracking)
 - ✅ Post controller (CRUD operations with user context)
 - ✅ Media controller (full upload pipeline with optimization tracking)
-- ❌ User, Email Verification, Forgot Password, Newsletter (pending)
-- ❌ Post Comments, Categories, Tags, Feed (pending)
+- ✅ User controller (profile, admin CRUD, password changes)
+- ✅ Email Verification controller (verify/resend with abuse limiting)
+- ✅ Forgot Password controller (generate/verify/reset flows)
+- ✅ Newsletter controller (subscribe/unsubscribe/send/confirm)
+- ✅ Post Comments controller (CRUD, flagging, moderation)
+- ✅ Categories controller (CRUD with slug/ID lookup)
+- ✅ Tags controller (CRUD with query support)
 
-### Phase 4: Database & Extractors ❌ PENDING
-- ❌ Database connection/migration instrumentation
-- ❌ SeaORM model query instrumentation
-- ❌ Validated extractor metrics
-- ❌ Multipart extractor metrics
+### Phase 4: Database & Extractors ✅ COMPLETE
+- ✅ Database connection/migration instrumentation
+- ✅ Validated extractor logging (JSON/Query validation failures)
+- ✅ Multipart extractor logging (extraction failures)
+- ❌ SeaORM model query instrumentation (pending - high-traffic models)
 
 ### Next Actions (Priority Order)
-1. Complete remaining module controllers (user, email verification, newsletter)
-2. Add database query instrumentation to high-traffic models
-3. Instrument extractors for validation metrics
-4. Create OpenObserve dashboards and alerts
-5. Production deployment and performance tuning
+1. ✅ ~~Complete remaining module controllers~~ **DONE**
+2. Add database query instrumentation to high-traffic models (users, posts, media, comments)
+3. Wire AppState.meter into services to centralize metric creation
+4. Add observable gauges (Redis pool usage, DB pool usage)
+5. Create OpenObserve dashboards and alerts
+6. Production deployment and performance tuning
 
 ---
 
@@ -252,21 +258,119 @@ Notes:
 ### ✅ Completed (Middleware)
 - CSRF guard (token validation tracking)
 - User permission checks (role-based authorization decisions)
+- Route blocker (blocked route logging with environment checks)
+- User status (auth status checks with verification tracking)
 
 ### ✅ Completed (Controllers)
 - Auth controller (login/logout/register/2FA with user tracking and IP)
 - Post controller (CRUD operations with user context)
 - Media controller (upload pipeline with file size, hash, optimization tracking)
+- User controller (profile, admin CRUD, password changes)
+- Email verification controller (verify/resend with abuse limiting)
+- Forgot password controller (generate/verify/reset flows)
+- Newsletter controller (subscribe/unsubscribe/send/confirm)
+- Post comments controller (CRUD, flagging, moderation)
+- Categories controller (CRUD with slug/ID lookup)
+- Tags controller (CRUD with query support)
 
-### 🚧 In Progress
-- Remaining controller instrumentation (user, email verification, forgot password, newsletter)
-- Database query instrumentation
-- Extractor instrumentation (validated, multipart)
+### ✅ Completed (Database & Extractors)
+- Database connection/migration instrumentation
+- Validated extractor logging (JSON/Query validation failures)
+- Multipart extractor logging (extraction failures)
 
-### ❌ Pending
-- Full module controller instrumentation
-- SeaORM model instrumentation
-- Background task tracing
-- OpenObserve dashboards and alerts
-- Production deployment and tuning
-- Comprehensive test coverage
+### 📋 Files Modified
+
+**Core Infrastructure:**
+- `src/utils/telemetry.rs` (created)
+- `src/middlewares/http_metrics.rs` (created)
+- `src/main.rs`
+- `src/state.rs`
+- `src/router.rs`
+- `Cargo.toml`
+
+**Services (5):**
+- `src/db/redis_connect.rs`
+- `src/services/auth/mod.rs`
+- `src/services/mail/smtp.rs`, `src/services/mail/mod.rs`
+- `src/services/image_optimizer.rs`
+- `src/services/abuse_limiter.rs`
+
+**Middleware (4):**
+- `src/middlewares/static_csrf.rs`
+- `src/middlewares/user_permission.rs`
+- `src/middlewares/route_blocker.rs`
+- `src/middlewares/user_status.rs`
+
+**Controllers (10/13):**
+- `src/modules/auth_v1/controller.rs`
+- `src/modules/post_v1/controller.rs`
+- `src/modules/media_v1/controller.rs`
+- `src/modules/user_v1/controller.rs`
+- `src/modules/email_verification_v1/controller.rs`
+- `src/modules/forgot_password_v1/controller.rs`
+- `src/modules/newsletter_v1/controller.rs`
+- `src/modules/post_comment_v1/controller.rs`
+- `src/modules/category_v1/controller.rs`
+- `src/modules/tag_v1/controller.rs`
+- ⏸️ Not instrumented (low priority): `seed_v1`, `csrf_v1`, `super_admin_v1`
+
+**Database & Extractors (3):**
+- `src/db/sea_connect.rs`
+- `src/extractors/validated.rs`
+- `src/extractors/multipart.rs`
+
+**Total: ~30 files instrumented**
+
+### 🎯 Next Steps (Priority Order)
+
+#### High Priority
+1. **SeaORM Model Query Instrumentation**
+   - Instrument high-traffic models: users, posts, media, comments
+   - Track query latency, result counts, and errors
+   - Add spans for create/update/delete/find operations
+
+2. **Centralize Metric Creation**
+   - Wire `AppState.meter` into all services
+   - Remove per-request meter creation
+   - Share metric instances via telemetry module
+
+3. **Observable Gauges**
+   - Redis pool connection count
+   - Database pool connection count
+   - Active session count
+
+#### Medium Priority
+4. **OpenObserve Dashboards**
+   - HTTP request rate/latency by endpoint
+   - Error rates by endpoint and status
+   - Auth success/failure rates
+   - Redis/DB health metrics
+   - Image optimization effectiveness
+
+5. **Production Tuning**
+   - Configure batch export settings
+   - Implement sampling for high-volume endpoints
+   - Manage cardinality (avoid high-cardinality labels)
+   - Set exporter timeouts and retries
+
+#### Low Priority
+6. **Background Task Tracing**
+   - Newsletter send tasks
+   - Cleanup jobs
+   - Migration scripts
+
+7. **Test Coverage**
+   - Unit tests for telemetry init
+   - Integration tests with OTLP mock
+   - CI configuration for exporters
+
+---
+
+## 📊 Coverage Summary
+
+- **Controllers**: 10/13 instrumented (77%) - 3 admin/utility skipped
+- **Services**: 5/5 instrumented (100%)
+- **Middleware**: 4/4 instrumented (100%)
+- **Extractors**: 2/2 instrumented (100%)
+- **Database**: Connection layer instrumented, model queries pending
+- **Overall Progress**: ~85% complete

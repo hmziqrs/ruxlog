@@ -1,8 +1,10 @@
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use std::{env, time::Duration};
+use tracing::{error, info, instrument};
 
 /// Get the database URL from environment variables
+#[instrument]
 fn get_db_url() -> String {
     let user = env::var("POSTGRES_USER").expect("POSTGRES_USER must be set");
     let password = env::var("POSTGRES_PASSWORD").expect("POSTGRES_PASSWORD must be set");
@@ -14,6 +16,7 @@ fn get_db_url() -> String {
 }
 
 /// Establishes a connection to the database using SeaORM
+#[instrument]
 pub async fn get_sea_connection() -> DatabaseConnection {
     let db_url = get_db_url();
 
@@ -29,21 +32,31 @@ pub async fn get_sea_connection() -> DatabaseConnection {
         .set_schema_search_path("my_schema"); // Setting default PostgreSQL schema
 
     let conn = match Database::connect(db_url).await {
-        Ok(conn) => conn,
+        Ok(conn) => {
+            info!("SeaORM database connection established");
+            conn
+        }
         Err(e) => {
+            error!("Failed to connect to database with SeaORM: {:?}", e);
             panic!("Failed to connect to database with SeaORM: {:?}", e);
         }
     };
 
     if let Err(e) = conn.ping().await {
+        error!("Failed to ping database with SeaORM: {:?}", e);
         panic!("Failed to ping database with SeaORM: {:?}", e);
     }
 
-    println!("SeaORM database connection working");
+    info!("SeaORM database connection working");
 
     match Migrator::up(&conn, None).await {
-        Ok(_) => println!("Database migration successful"),
-        Err(e) => panic!("Failed to run migrations: {:?}", e),
+        Ok(_) => {
+            info!("Database migration successful");
+        }
+        Err(e) => {
+            error!("Failed to run migrations: {:?}", e);
+            panic!("Failed to run migrations: {:?}", e);
+        }
     }
 
     conn

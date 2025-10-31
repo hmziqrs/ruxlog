@@ -1,6 +1,7 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_macros::debug_handler;
 use serde_json::json;
+use tracing::{error, info, instrument, warn};
 
 use crate::{
     db::sea_models::{email_verification, user},
@@ -22,6 +23,7 @@ const ABUSE_LIMITER_CONFIG: abuse_limiter::AbuseLimiterConfig = abuse_limiter::A
 };
 
 #[debug_handler]
+#[instrument(skip(state, auth, payload), fields(user_id = auth.user.as_ref().map(|u| u.id), code = %payload.code))]
 pub async fn verify(
     state: State<AppState>,
     auth: AuthSession,
@@ -40,11 +42,13 @@ pub async fn verify(
     match verification_result {
         Ok(verification) => {
             if verification.is_expired() {
+                warn!(user_id, "Email verification code expired");
                 return Err(ErrorResponse::new(ErrorCode::InvalidInput)
                     .with_message("The verification code has expired"));
             }
         }
         Err(err) => {
+            warn!(user_id, "Invalid email verification code");
             return Err(ErrorResponse::new(ErrorCode::InvalidInput)
                 .with_message("The provided verification code is invalid")
                 .with_details(err.to_string()));
@@ -54,19 +58,29 @@ pub async fn verify(
     let update_user = user::Entity::verify(&state.sea_db, user_id).await;
 
     match update_user {
-        Ok(_) => Ok((
-            StatusCode::OK,
-            Json(json!({
-                "message": "Email verified successfully",
-            })),
-        )),
-        Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
-            .with_message("Failed to update user verification status")
-            .with_details(err.to_string())),
+        Ok(_) => {
+            info!(user_id, "Email verified successfully");
+            Ok((
+                StatusCode::OK,
+                Json(json!({
+                    "message": "Email verified successfully",
+                })),
+            ))
+        }
+        Err(err) => {
+            error!(
+                user_id,
+                "Failed to update user verification status: {}", err
+            );
+            Err(ErrorResponse::new(ErrorCode::InternalServerError)
+                .with_message("Failed to update user verification status")
+                .with_details(err.to_string()))
+        }
     }
 }
 
 #[debug_handler]
+#[instrument(skip(state, auth), fields(user_id = auth.user.as_ref().map(|u| u.id)))]
 pub async fn resend(
     state: State<AppState>,
     auth: AuthSession,
@@ -77,12 +91,14 @@ pub async fn resend(
     match email_verification::Entity::find_by_user_id_or_code(pool, Some(user_id), None).await {
         Ok(verification) => {
             if verification.is_in_delay() {
+                warn!(user_id, "Email verification resend in delay period");
                 return Err(ErrorResponse::new(ErrorCode::TooManyAttempts).with_message(
                     "Please wait 1 minute before requesting a new verification code",
                 ));
             }
         }
         Err(err) => {
+            error!(user_id, "Error checking verification delay: {}", err);
             return Err(err.into());
         }
     }
@@ -90,17 +106,26 @@ pub async fn resend(
     let key_prefix = format!("email_verification:{}", user_id);
     match abuse_limiter::limiter(&state.redis_pool, &key_prefix, ABUSE_LIMITER_CONFIG).await {
         Ok(_) => (),
-        Err(err) => return Err(err.into()),
+        Err(err) => {
+            warn!(user_id, "Abuse limiter blocked verification resend");
+            return Err(err.into());
+        }
     }
     match email_verification::Entity::regenerate(pool, user_id).await {
-        Ok(_) => Ok((
-            StatusCode::OK,
-            Json(json!({
-                "message": "Verification code resent successfully",
-            })),
-        )),
-        Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
-            .with_message("Failed to resend verification code")
-            .with_details(err.to_string())),
+        Ok(_) => {
+            info!(user_id, "Verification code resent successfully");
+            Ok((
+                StatusCode::OK,
+                Json(json!({
+                    "message": "Verification code resent successfully",
+                })),
+            ))
+        }
+        Err(err) => {
+            error!(user_id, "Failed to regenerate verification code: {}", err);
+            Err(ErrorResponse::new(ErrorCode::InternalServerError)
+                .with_message("Failed to resend verification code")
+                .with_details(err.to_string()))
+        }
     }
 }

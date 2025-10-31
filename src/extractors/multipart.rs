@@ -2,6 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use axum::extract::multipart::MultipartRejection;
 use axum::extract::{FromRequest, Multipart, Request};
+use tracing::warn;
 
 use crate::error::ErrorResponse;
 
@@ -19,7 +20,10 @@ where
     async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
         match Multipart::from_request(req, state).await {
             Ok(m) => Ok(Self(m)),
-            Err(err) => Err(err.into()),
+            Err(err) => {
+                warn!("Multipart extraction failed: {:?}", err);
+                Err(err.into())
+            }
         }
     }
 }

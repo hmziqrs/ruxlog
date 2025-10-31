@@ -7,6 +7,7 @@ use axum::{
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::env;
+use tracing::{debug, warn};
 
 lazy_static! {
     static ref BLOCKED_ROUTES: Vec<Regex> = {
@@ -33,11 +34,17 @@ pub async fn block_routes(req: Request, next: Next) -> Result<Response, Response
         env::var("APP_ENV").unwrap_or_else(|_| "development".to_string()) == "development";
 
     if is_development {
+        debug!(path, "Route blocker disabled in development mode");
         return Ok(next.run(req).await);
     }
 
     for pattern in BLOCKED_ROUTES.iter() {
         if pattern.is_match(path) {
+            warn!(
+                path,
+                pattern = pattern.as_str(),
+                "Route blocked by route_blocker middleware"
+            );
             return Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
                 .with_message("This route is currently unavailable")
                 .into_response());
