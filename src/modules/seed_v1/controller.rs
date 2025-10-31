@@ -142,7 +142,7 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
         }
     };
 
-    let mut authors: Vec<user::Model> = vec![];
+    let mut authors: Vec<user::UserWithRelations> = vec![];
     let mut author_page: u64 = 1;
     let mut fetch_authors = true;
 
@@ -258,7 +258,7 @@ pub async fn seed_post_comments(
     State(state): State<AppState>,
     _auth: AuthSession,
 ) -> impl IntoResponse {
-    let mut users: Vec<user::Model> = vec![];
+    let mut users: Vec<user::UserWithRelations> = vec![];
     let mut user_page: u64 = 1;
     let mut fetch_users = true;
 
@@ -357,7 +357,7 @@ pub async fn seed_post_comments(
 #[debug_handler]
 pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
     let mut rng = StdRng::seed_from_u64(42);
-    let mut fake_users: Vec<user::Model> = vec![];
+    let mut fake_users: Vec<user::UserWithRelations> = vec![];
     let mut fake_posts: Vec<post::Model> = vec![];
 
     for _ in 0..50 {

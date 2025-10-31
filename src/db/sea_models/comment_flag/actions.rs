@@ -49,6 +49,8 @@ impl Entity {
         query: CommentFlagQuery,
     ) -> DbResult<(Vec<FlagWithUser>, u64)> {
         use super::super::user::Column as UserColumn;
+        use sea_orm::prelude::Expr;
+        use sea_orm::sea_query::Alias;
 
         let mut q = Entity::find()
             .select_only()
@@ -58,8 +60,55 @@ impl Entity {
             .column(Column::Reason)
             .column(Column::CreatedAt)
             .column_as(UserColumn::Name, "user_name")
-            .column_as(UserColumn::AvatarId, "user_avatar")
-            .join(JoinType::InnerJoin, Relation::User.def());
+            .column_as(UserColumn::AvatarId, "user_avatar_id")
+            .join(JoinType::InnerJoin, Relation::User.def())
+            .join_as(
+                JoinType::LeftJoin,
+                super::super::user::Relation::Media.def(),
+                Alias::new("user_avatar_media"),
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("user_avatar_media"),
+                    super::super::media::Column::ObjectKey,
+                )),
+                "user_avatar_object_key",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("user_avatar_media"),
+                    super::super::media::Column::FileUrl,
+                )),
+                "user_avatar_file_url",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("user_avatar_media"),
+                    super::super::media::Column::MimeType,
+                )),
+                "user_avatar_mime_type",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("user_avatar_media"),
+                    super::super::media::Column::Width,
+                )),
+                "user_avatar_width",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("user_avatar_media"),
+                    super::super::media::Column::Height,
+                )),
+                "user_avatar_height",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("user_avatar_media"),
+                    super::super::media::Column::Size,
+                )),
+                "user_avatar_size",
+            );
 
         if let Some(comment_id) = query.comment_id {
             q = q.filter(Column::CommentId.eq(comment_id));
@@ -91,10 +140,15 @@ impl Entity {
         };
 
         let paginator = q
-            .into_model::<FlagWithUser>()
+            .into_model::<FlagWithUserJoined>()
             .paginate(conn, Self::PER_PAGE);
         let total = paginator.num_items().await?;
-        let items = paginator.fetch_page(page - 1).await?;
+        let items_joined = paginator.fetch_page(page - 1).await?;
+
+        let items = items_joined
+            .into_iter()
+            .map(|f| f.into_flag_with_user())
+            .collect();
 
         Ok((items, total))
     }

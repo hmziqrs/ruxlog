@@ -4,6 +4,17 @@ use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::FromQueryResult;
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AuthorMedia {
+    pub id: i32,
+    pub object_key: String,
+    pub file_url: String,
+    pub mime_type: String,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub size: i64,
+}
+
 #[derive(Deserialize, Debug)]
 pub struct NewPost {
     pub title: String,
@@ -72,7 +83,8 @@ pub struct PostAuthor {
     pub id: i32,
     pub name: String,
     pub email: String,
-    pub avatar: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar: Option<AuthorMedia>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -138,7 +150,15 @@ pub struct PostWithJoinedData {
     // Author fields from join
     pub author_name: String,
     pub author_email: String,
-    pub author_avatar: Option<String>,
+    pub author_avatar_id: Option<i32>,
+
+    // Author avatar media fields from join
+    pub author_avatar_object_key: Option<String>,
+    pub author_avatar_file_url: Option<String>,
+    pub author_avatar_mime_type: Option<String>,
+    pub author_avatar_width: Option<i32>,
+    pub author_avatar_height: Option<i32>,
+    pub author_avatar_size: Option<i64>,
 
     // Category fields from join
     pub category_name: String,
@@ -148,6 +168,26 @@ pub struct PostWithJoinedData {
 
 impl PostWithJoinedData {
     pub fn into_relation(&self, tags: Vec<PostTag>) -> PostWithRelations {
+        let avatar = if let (Some(id), Some(key), Some(url), Some(mime), Some(size)) = (
+            self.author_avatar_id,
+            self.author_avatar_object_key.clone(),
+            self.author_avatar_file_url.clone(),
+            self.author_avatar_mime_type.clone(),
+            self.author_avatar_size,
+        ) {
+            Some(AuthorMedia {
+                id,
+                object_key: key,
+                file_url: url,
+                mime_type: mime,
+                width: self.author_avatar_width,
+                height: self.author_avatar_height,
+                size,
+            })
+        } else {
+            None
+        };
+
         PostWithRelations {
             id: self.id,
             title: self.title.clone(),
@@ -170,7 +210,7 @@ impl PostWithJoinedData {
                 id: self.author_id,
                 name: self.author_name.clone(),
                 email: self.author_email.clone(),
-                avatar: self.author_avatar.clone(),
+                avatar,
             },
             comment_count: self.comment_count,
         }

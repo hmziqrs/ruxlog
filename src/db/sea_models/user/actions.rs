@@ -2,7 +2,10 @@ use crate::{
     db::sea_models::email_verification,
     error::{DbResult, ErrorCode, ErrorResponse},
 };
-use sea_orm::{entity::prelude::*, Order, QueryOrder, Set, TransactionTrait};
+use sea_orm::{
+    entity::prelude::*, prelude::Expr, sea_query::Alias, JoinType, Order, QueryOrder, QuerySelect,
+    Set, TransactionTrait,
+};
 use tokio::task;
 
 use super::*;
@@ -235,7 +238,10 @@ impl Entity {
         }
     }
 
-    pub async fn admin_create(conn: &DbConn, new_user: AdminCreateUser) -> DbResult<Model> {
+    pub async fn admin_create(
+        conn: &DbConn,
+        new_user: AdminCreateUser,
+    ) -> DbResult<UserWithRelations> {
         let txn = conn.begin().await?;
 
         let now = chrono::Utc::now().fixed_offset();
@@ -275,14 +281,14 @@ impl Entity {
 
         txn.commit().await?;
 
-        Ok(model)
+        Self::find_by_id_with_relations(conn, model.id).await
     }
 
     pub async fn admin_update(
         conn: &DbConn,
         user_id: i32,
         update_user: AdminUpdateUser,
-    ) -> DbResult<Option<Model>> {
+    ) -> DbResult<Option<UserWithRelations>> {
         let user: Option<Model> = Self::get_by_id(conn, user_id).await?;
 
         if let Some(user_model) = user {
@@ -324,7 +330,7 @@ impl Entity {
 
             user_active.updated_at = Set(update_user.updated_at);
 
-            let updated_user = user_active.update(&txn).await?;
+            let _updated_user = user_active.update(&txn).await?;
 
             if update_user.avatar_id.is_some() && old_avatar_id != new_avatar_id {
                 super::super::media_usage::Entity::update_usage(
@@ -340,7 +346,9 @@ impl Entity {
 
             txn.commit().await?;
 
-            Ok(Some(updated_user))
+            Self::find_by_id_with_relations(conn, user_id)
+                .await
+                .map(Some)
         } else {
             Ok(None)
         }
@@ -359,8 +367,148 @@ impl Entity {
         Ok(result.rows_affected)
     }
 
-    pub async fn admin_list(conn: &DbConn, query: AdminUserQuery) -> DbResult<(Vec<Model>, u64)> {
-        let mut user_query = Self::find();
+    pub async fn find_by_id_with_relations(
+        conn: &DbConn,
+        user_id: i32,
+    ) -> DbResult<UserWithRelations> {
+        let user_query = Self::find()
+            .select_only()
+            .columns(vec![
+                Column::Id,
+                Column::Name,
+                Column::Email,
+                Column::AvatarId,
+                Column::IsVerified,
+                Column::Role,
+                Column::TwoFaEnabled,
+                Column::CreatedAt,
+                Column::UpdatedAt,
+            ])
+            .join_as(
+                JoinType::LeftJoin,
+                Relation::Media.def(),
+                Alias::new("avatar_media"),
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("avatar_media"),
+                    super::super::media::Column::ObjectKey,
+                )),
+                "avatar_object_key",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("avatar_media"),
+                    super::super::media::Column::FileUrl,
+                )),
+                "avatar_file_url",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("avatar_media"),
+                    super::super::media::Column::MimeType,
+                )),
+                "avatar_mime_type",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("avatar_media"),
+                    super::super::media::Column::Width,
+                )),
+                "avatar_width",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("avatar_media"),
+                    super::super::media::Column::Height,
+                )),
+                "avatar_height",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("avatar_media"),
+                    super::super::media::Column::Size,
+                )),
+                "avatar_size",
+            )
+            .filter(Column::Id.eq(user_id));
+
+        let row = user_query
+            .into_model::<UserWithJoinedData>()
+            .one(conn)
+            .await?;
+
+        match row {
+            Some(r) => Ok(r.into_relation()),
+            None => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
+                .with_message(&format!("User with ID {} not found", user_id))),
+        }
+    }
+
+    pub async fn admin_list(
+        conn: &DbConn,
+        query: AdminUserQuery,
+    ) -> DbResult<(Vec<UserWithRelations>, u64)> {
+        let mut user_query = Self::find()
+            .select_only()
+            .columns(vec![
+                Column::Id,
+                Column::Name,
+                Column::Email,
+                Column::AvatarId,
+                Column::IsVerified,
+                Column::Role,
+                Column::TwoFaEnabled,
+                Column::CreatedAt,
+                Column::UpdatedAt,
+            ])
+            .join_as(
+                JoinType::LeftJoin,
+                Relation::Media.def(),
+                Alias::new("avatar_media"),
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("avatar_media"),
+                    super::super::media::Column::ObjectKey,
+                )),
+                "avatar_object_key",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("avatar_media"),
+                    super::super::media::Column::FileUrl,
+                )),
+                "avatar_file_url",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("avatar_media"),
+                    super::super::media::Column::MimeType,
+                )),
+                "avatar_mime_type",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("avatar_media"),
+                    super::super::media::Column::Width,
+                )),
+                "avatar_width",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("avatar_media"),
+                    super::super::media::Column::Height,
+                )),
+                "avatar_height",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("avatar_media"),
+                    super::super::media::Column::Size,
+                )),
+                "avatar_size",
+            );
 
         if let Some(email_filter) = query.email {
             let email_pattern = format!("%{}%", email_filter);
@@ -419,11 +567,17 @@ impl Entity {
             _ => 1,
         };
 
-        let paginator = user_query.paginate(conn, Self::PER_PAGE);
+        let paginator = user_query
+            .into_model::<UserWithJoinedData>()
+            .paginate(conn, Self::PER_PAGE);
 
         match paginator.num_items().await {
             Ok(total) => match paginator.fetch_page(page - 1).await {
-                Ok(results) => Ok((results, total)),
+                Ok(results) => {
+                    let users_with_relations =
+                        results.into_iter().map(|r| r.into_relation()).collect();
+                    Ok((users_with_relations, total))
+                }
                 Err(err) => Err(err.into()),
             },
             Err(err) => Err(err.into()),

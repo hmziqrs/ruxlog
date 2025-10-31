@@ -1,8 +1,8 @@
 type: http_request
 model: http_request
-id: rq_ZPiBLRzank
-createdAt: 2025-10-31T08:11:57.413195
-updatedAt: 2025-10-31T08:11:57.413196
+id: rq_QcaNdbek2H
+createdAt: 2025-10-31T08:34:59.220407
+updatedAt: 2025-10-31T08:41:00.817047
 workspaceId: wk_udoUbrFfLp
 folderId: fl_fz7xEFBqZo
 authentication: {}
@@ -10,7 +10,8 @@ authenticationType: null
 body:
   text: |-
     {
-
+      "name": "nezz",
+      "avatar_id": 12
     }
 bodyType: application/json
 description: ''
@@ -29,6 +30,6 @@ headers:
   id: d2bpjFn2wa
 method: POST
 name: ''
-sortPriority: 0.0021999999999999997
-url: ${[ host ]}/user/v1/admin/list
+sortPriority: 0.0023
+url: ${[ host ]}/user/v1/admin/update/37
 urlParameters: []

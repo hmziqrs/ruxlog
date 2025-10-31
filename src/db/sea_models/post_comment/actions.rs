@@ -67,9 +67,11 @@ impl Entity {
     /// Find all comments by post ID (public use)
     pub async fn find_all_by_post(conn: &DbConn, post_id: i32) -> DbResult<Vec<CommentWithUser>> {
         use super::super::user::Column as UserColumn;
+        use sea_orm::prelude::Expr;
+        use sea_orm::sea_query::Alias;
         use sea_orm::{JoinType, QuerySelect};
 
-        let comments = Self::find()
+        let comments_joined = Self::find()
             .select_only()
             .column(Column::Id)
             .column(Column::PostId)
@@ -81,14 +83,66 @@ impl Entity {
             .column(Column::CreatedAt)
             .column(Column::UpdatedAt)
             .column_as(UserColumn::Name, "user_name")
-            .column_as(UserColumn::AvatarId, "user_avatar")
+            .column_as(UserColumn::AvatarId, "user_avatar_id")
             .join(JoinType::InnerJoin, Relation::User.def())
+            .join_as(
+                JoinType::LeftJoin,
+                super::super::user::Relation::Media.def(),
+                Alias::new("user_avatar_media"),
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("user_avatar_media"),
+                    super::super::media::Column::ObjectKey,
+                )),
+                "user_avatar_object_key",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("user_avatar_media"),
+                    super::super::media::Column::FileUrl,
+                )),
+                "user_avatar_file_url",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("user_avatar_media"),
+                    super::super::media::Column::MimeType,
+                )),
+                "user_avatar_mime_type",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("user_avatar_media"),
+                    super::super::media::Column::Width,
+                )),
+                "user_avatar_width",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("user_avatar_media"),
+                    super::super::media::Column::Height,
+                )),
+                "user_avatar_height",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("user_avatar_media"),
+                    super::super::media::Column::Size,
+                )),
+                "user_avatar_size",
+            )
             .filter(Column::PostId.eq(post_id))
             .filter(Column::Hidden.eq(false))
             .order_by(Column::CreatedAt, Order::Asc)
-            .into_model::<CommentWithUser>()
+            .into_model::<CommentWithUserJoined>()
             .all(conn)
             .await?;
+
+        let comments = comments_joined
+            .into_iter()
+            .map(|c| c.into_comment_with_user())
+            .collect();
 
         Ok(comments)
     }
@@ -99,6 +153,8 @@ impl Entity {
         query: CommentQuery,
     ) -> DbResult<(Vec<CommentWithUser>, u64)> {
         use super::super::user::Column as UserColumn;
+        use sea_orm::prelude::Expr;
+        use sea_orm::sea_query::Alias;
         use sea_orm::{JoinType, QuerySelect};
 
         let mut comment_query = Self::find()
@@ -113,8 +169,55 @@ impl Entity {
             .column(Column::CreatedAt)
             .column(Column::UpdatedAt)
             .column_as(UserColumn::Name, "user_name")
-            .column_as(UserColumn::AvatarId, "user_avatar")
-            .join(JoinType::InnerJoin, Relation::User.def());
+            .column_as(UserColumn::AvatarId, "user_avatar_id")
+            .join(JoinType::InnerJoin, Relation::User.def())
+            .join_as(
+                JoinType::LeftJoin,
+                super::super::user::Relation::Media.def(),
+                Alias::new("user_avatar_media"),
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("user_avatar_media"),
+                    super::super::media::Column::ObjectKey,
+                )),
+                "user_avatar_object_key",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("user_avatar_media"),
+                    super::super::media::Column::FileUrl,
+                )),
+                "user_avatar_file_url",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("user_avatar_media"),
+                    super::super::media::Column::MimeType,
+                )),
+                "user_avatar_mime_type",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("user_avatar_media"),
+                    super::super::media::Column::Width,
+                )),
+                "user_avatar_width",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("user_avatar_media"),
+                    super::super::media::Column::Height,
+                )),
+                "user_avatar_height",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("user_avatar_media"),
+                    super::super::media::Column::Size,
+                )),
+                "user_avatar_size",
+            );
 
         if let Some(post_id_filter) = query.post_id {
             comment_query = comment_query.filter(Column::PostId.eq(post_id_filter));
@@ -174,11 +277,16 @@ impl Entity {
         };
 
         let paginator = comment_query
-            .into_model::<CommentWithUser>()
+            .into_model::<CommentWithUserJoined>()
             .paginate(conn, Self::PER_PAGE);
 
         let total = paginator.num_items().await?;
-        let models = paginator.fetch_page(page - 1).await?;
+        let models_joined = paginator.fetch_page(page - 1).await?;
+
+        let models = models_joined
+            .into_iter()
+            .map(|c| c.into_comment_with_user())
+            .collect();
 
         Ok((models, total))
     }

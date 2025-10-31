@@ -129,10 +129,8 @@ pub async fn admin_view(
     state: State<AppState>,
     Path(user_id): Path<i32>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    match User::get_by_id(&state.sea_db, user_id).await {
-        Ok(Some(user)) => Ok((StatusCode::OK, Json(json!(user)))),
-        Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-            .with_message("No user with this ID exists")),
-        Err(err) => Err(err.into()),
+    match User::find_by_id_with_relations(&state.sea_db, user_id).await {
+        Ok(user) => Ok((StatusCode::OK, Json(json!(user)))),
+        Err(err) => Err(err),
     }
 }

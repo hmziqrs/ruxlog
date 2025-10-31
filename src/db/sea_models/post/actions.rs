@@ -2,7 +2,8 @@ use std::collections::HashSet;
 
 use crate::{db::sea_models::tag, error::DbResult};
 use sea_orm::{
-    entity::prelude::*, Condition, JoinType, Order, QueryOrder, QuerySelect, Set, TransactionTrait,
+    entity::prelude::*, prelude::Expr, sea_query::Alias, Condition, JoinType, Order, QueryOrder,
+    QuerySelect, Set, TransactionTrait,
 };
 
 use super::*;
@@ -136,7 +137,7 @@ impl Entity {
             .column_as(UserColumn::Id, "author_id")
             .column_as(UserColumn::Name, "author_name")
             .column_as(UserColumn::Email, "author_email")
-            .column_as(UserColumn::AvatarId, "author_avatar")
+            .column_as(UserColumn::AvatarId, "author_avatar_id")
             .column_as(CategoryColumn::Id, "category_id")
             .column_as(CategoryColumn::Name, "category_name")
             .expr_as(
@@ -144,6 +145,53 @@ impl Entity {
                 "comment_count",
             )
             .join(JoinType::InnerJoin, Relation::User.def())
+            .join_as(
+                JoinType::LeftJoin,
+                super::super::user::Relation::Media.def(),
+                Alias::new("author_avatar_media"),
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("author_avatar_media"),
+                    super::super::media::Column::ObjectKey,
+                )),
+                "author_avatar_object_key",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("author_avatar_media"),
+                    super::super::media::Column::FileUrl,
+                )),
+                "author_avatar_file_url",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("author_avatar_media"),
+                    super::super::media::Column::MimeType,
+                )),
+                "author_avatar_mime_type",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("author_avatar_media"),
+                    super::super::media::Column::Width,
+                )),
+                "author_avatar_width",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("author_avatar_media"),
+                    super::super::media::Column::Height,
+                )),
+                "author_avatar_height",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("author_avatar_media"),
+                    super::super::media::Column::Size,
+                )),
+                "author_avatar_size",
+            )
             .join(JoinType::LeftJoin, Relation::Category.def());
 
         query = match (post_id, post_slug.clone()) {
@@ -191,7 +239,7 @@ impl Entity {
             .column_as(UserColumn::Id, "author_id")
             .column_as(UserColumn::Name, "author_name")
             .column_as(UserColumn::Email, "author_email")
-            .column_as(UserColumn::AvatarId, "author_avatar")
+            .column_as(UserColumn::AvatarId, "author_avatar_id")
             .column_as(CategoryColumn::Id, "category_id")
             .column_as(CategoryColumn::Name, "category_name")
             .expr_as(
@@ -199,6 +247,53 @@ impl Entity {
                 "comment_count",
             )
             .join(JoinType::InnerJoin, Relation::User.def())
+            .join_as(
+                JoinType::LeftJoin,
+                super::super::user::Relation::Media.def(),
+                Alias::new("author_avatar_media"),
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("author_avatar_media"),
+                    super::super::media::Column::ObjectKey,
+                )),
+                "author_avatar_object_key",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("author_avatar_media"),
+                    super::super::media::Column::FileUrl,
+                )),
+                "author_avatar_file_url",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("author_avatar_media"),
+                    super::super::media::Column::MimeType,
+                )),
+                "author_avatar_mime_type",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("author_avatar_media"),
+                    super::super::media::Column::Width,
+                )),
+                "author_avatar_width",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("author_avatar_media"),
+                    super::super::media::Column::Height,
+                )),
+                "author_avatar_height",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("author_avatar_media"),
+                    super::super::media::Column::Size,
+                )),
+                "author_avatar_size",
+            )
             .join(JoinType::LeftJoin, Relation::Category.def());
 
         if let Some(title_filter) = &query.title {
