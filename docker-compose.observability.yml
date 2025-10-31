@@ -21,7 +21,7 @@ services:
       - openobserve_data:/data
     restart: unless-stopped
     networks:
-      - ruxlog-network
+      - network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5080/healthz"]
       interval: 30s
@@ -34,5 +34,5 @@ volumes:
     driver: local
 
 networks:
-  ruxlog-network:
+  network:
     driver: bridge

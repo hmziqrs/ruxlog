@@ -3,8 +3,8 @@ name: ${PROJECT}
 
 services:
   backend:
-  # Prefer a pre-built image when BACKEND_IMAGE is provided; default to a local tag for manual builds
-  image: ${BACKEND_IMAGE:-ruxlog_backend:local}
+    # Prefer a pre-built image when BACKEND_IMAGE is provided; default to a local tag for manual builds
+    image: ${BACKEND_IMAGE:-ruxlog_backend:local}
     build:
       context: .
       dockerfile: Dockerfile
