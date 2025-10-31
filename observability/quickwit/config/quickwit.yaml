@@ -1,32 +1,24 @@
-version: 0.8
-cluster_id: ruxlog-quickwit-cluster
-node_id: quickwit-node-1
-listen_address: 0.0.0.0
-
-rest:
-  listen_port: 7280
-
-grpc_listen_port: 7281
+version: 0.7
 
 data_dir: /quickwit/data
 
-metastore_uri: file:///quickwit/data/indexes
+metastore_uri: http://quickwit:7280
+otlp_http_listen_address: 0.0.0.0:7281
+otlp_grpc_listen_address: 0.0.0.0:7282
+rest_listen_address: 0.0.0.0:7280
 
-default_index_root_uri: file:///quickwit/data/indexes
+storage:
+  s3:
+    endpoint: http://minio:9000
+    bucket: quickwit
+    region: auto
+    access_key_id: quickwit
+    secret_access_key: quickwit-secret
+    force_path_style: true
+    create_bucket_if_not_exists: true
 
-indexer:
-  split_store_max_num_bytes: 10G
-  split_store_max_num_splits: 100
-  max_concurrent_split_uploads: 2
-  enable_otlp_endpoint: true
+indexing:
+  create_index_if_not_exists: true
 
-searcher:
-  fast_field_cache_capacity: 256M
-  split_footer_cache_capacity: 128M
-  partial_request_cache_capacity: 32M
-  max_num_concurrent_split_searches: 20
-  max_num_concurrent_split_streams: 20
-
-ingest_api:
-  max_queue_memory_usage: 512M
-  max_queue_disk_usage: 1G
+telemetry:
+  enabled: false

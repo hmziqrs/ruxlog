@@ -36,3 +36,8 @@
 - Updated telemetry code paths and env vars.
 - Quickwit-aware Docker compose and bootstrap assets.
 - Full removal of OpenObserve references in source, tests, and docs.
+
+## Local Bootstrap
+- Start the stack (on the observability host): `docker compose -f docker-compose.observability.yml up -d quickwit minio`.
+- Apply configs from this repo: `./scripts/quickwit_bootstrap.sh` (reads `observability/quickwit/config/*.yaml`).
+- On any app node, export `ENABLE_QUICKWIT_OTEL=true`, `QUICKWIT_API_URL=http://192.168.0.23:7280`, and `QUICKWIT_INGEST_URL=http://192.168.0.23:7281` before running the API.

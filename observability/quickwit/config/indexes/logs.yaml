@@ -1,0 +1,45 @@
+version: 0.7
+
+index_id: ruxlog-logs
+
+index_uri: s3://quickwit/indexes/ruxlog-logs
+
+search_settings:
+  default_search_fields: [message, level, service_name, span_name, event_type]
+
+field_mappings:
+  - name: timestamp
+    type: datetime
+    stored: true
+    fast: true
+    input_formats: [unix_timestamp_nanoseconds, unix_timestamp_microseconds, unix_timestamp_milliseconds, rfc3339]
+  - name: message
+    type: text
+    stored: true
+  - name: level
+    type: keyword
+    stored: true
+    fast: true
+  - name: service_name
+    type: keyword
+    stored: true
+    fast: true
+  - name: span_id
+    type: keyword
+    stored: true
+  - name: trace_id
+    type: keyword
+    stored: true
+  - name: http_route
+    type: text
+    stored: true
+  - name: scope
+    type: text
+    stored: true
+
+doc_mapping:
+  timestamp_field: timestamp
+  dynamic: enabled
+
+retention:
+  period: 14d

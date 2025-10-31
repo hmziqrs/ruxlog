@@ -1,0 +1,32 @@
+version: 0.7
+
+index_id: ruxlog-metrics
+
+index_uri: s3://quickwit/indexes/ruxlog-metrics
+
+field_mappings:
+  - name: timestamp
+    type: datetime
+    stored: true
+    fast: true
+    input_formats: [unix_timestamp_nanoseconds, unix_timestamp_microseconds, unix_timestamp_milliseconds, rfc3339]
+  - name: metric_name
+    type: keyword
+    stored: true
+    fast: true
+  - name: value
+    type: f64
+    stored: true
+  - name: attributes
+    type: json
+    stored: true
+
+search_settings:
+  default_search_fields: [metric_name]
+
+doc_mapping:
+  timestamp_field: timestamp
+  dynamic: enabled
+
+retention:
+  period: 30d

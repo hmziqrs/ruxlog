@@ -51,12 +51,15 @@ pub async fn search_logs(
 
     let (start_time, end_time) = payload.get_time_range();
     let query = payload.get_query();
-    let index = payload.get_index();
+    let index_override = payload.get_index();
+    let target_index = index_override
+        .as_deref()
+        .unwrap_or_else(|| client.logs_index());
     let from = payload.get_from();
     let size = payload.get_size();
 
     info!(
-        index = %index,
+        index = %target_index,
         query = %query,
         from = from,
         size = size,
@@ -64,7 +67,14 @@ pub async fn search_logs(
     );
 
     let response = client
-        .search(Some(&index), &query, start_time, end_time, from, size)
+        .search(
+            index_override.as_deref(),
+            &query,
+            start_time,
+            end_time,
+            from,
+            size,
+        )
         .await
         .map_err(|e| {
             error!(error = %e, "Failed to search logs in Quickwit");

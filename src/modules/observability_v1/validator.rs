@@ -5,7 +5,7 @@ use validator::Validate;
 #[derive(Debug, Deserialize, Validate)]
 pub struct V1LogsSearchPayload {
     #[validate(length(min = 1, max = 1000))]
-    pub sql: Option<String>,
+    pub query: Option<String>,
 
     pub start_time: Option<i64>,
     pub end_time: Option<i64>,
@@ -17,20 +17,24 @@ pub struct V1LogsSearchPayload {
     pub size: Option<i64>,
 
     #[validate(length(min = 1, max = 100))]
-    pub stream: Option<String>,
+    pub index: Option<String>,
 }
 
 impl V1LogsSearchPayload {
     pub fn get_query(&self) -> String {
-        self.sql
+        self.query
             .clone()
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
             .unwrap_or_else(|| "*".to_string())
     }
 
-    pub fn get_index(&self) -> String {
-        self.stream.clone().unwrap_or_else(|| "default".to_string())
+    pub fn get_index(&self) -> Option<String> {
+        self.index
+            .as_ref()
+            .map(|value| value.trim())
+            .filter(|value| !value.is_empty())
+            .map(|value| value.to_string())
     }
 
     pub fn get_time_range(&self) -> (i64, i64) {
