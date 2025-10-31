@@ -1,56 +1,53 @@
+use chrono::{TimeZone, Utc};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::env;
 use tracing::error;
 
+const DEFAULT_API_URL: &str = "http://localhost:7280";
+const DEFAULT_LOGS_INDEX: &str = "ruxlog-logs";
+
 #[derive(Clone, Debug)]
-pub struct OpenObserveConfig {
-    pub endpoint: String,
-    pub organization: String,
-    pub auth_header: String,
+pub struct QuickwitConfig {
+    pub api_url: String,
+    pub logs_index: String,
+    pub access_token: Option<String>,
     pub enabled: bool,
 }
 
-impl OpenObserveConfig {
+impl QuickwitConfig {
     pub fn from_env() -> Self {
-        let endpoint = env::var("OTEL_EXPORTER_OTLP_ENDPOINT").ok();
-        let auth_headers = env::var("OTEL_EXPORTER_OTLP_HEADERS").ok();
+        let api_url = env::var("QUICKWIT_API_URL")
+            .unwrap_or_else(|_| DEFAULT_API_URL.to_string())
+            .trim_end_matches('/')
+            .to_string();
 
-        let enabled = endpoint.is_some();
+        let logs_index = env::var("QUICKWIT_LOGS_INDEX_ID")
+            .unwrap_or_else(|_| DEFAULT_LOGS_INDEX.to_string());
 
-        let endpoint = endpoint.unwrap_or_else(|| "http://localhost:5080/api/default".to_string());
-        let organization = Self::extract_org(&endpoint);
-        let auth_header = auth_headers
-            .unwrap_or_else(|| "Basic cm9vdEBleGFtcGxlLmNvbTpDb21wbGV4cGFzcyMxMjM=".to_string());
+        let access_token = env::var("QUICKWIT_ACCESS_TOKEN").ok();
+
+        let enabled = env::var("ENABLE_QUICKWIT_OTEL")
+            .map(|value| matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "yes"))
+            .unwrap_or(false);
 
         Self {
-            endpoint: endpoint.trim_end_matches('/').to_string(),
-            organization,
-            auth_header,
+            api_url,
+            logs_index,
+            access_token,
             enabled,
         }
-    }
-
-    fn extract_org(endpoint: &str) -> String {
-        endpoint
-            .split("/api/")
-            .nth(1)
-            .unwrap_or("default")
-            .split('/')
-            .next()
-            .unwrap_or("default")
-            .to_string()
     }
 }
 
 #[derive(Clone)]
-pub struct OpenObserveClient {
+pub struct QuickwitClient {
     client: Client,
-    config: OpenObserveConfig,
+    config: QuickwitConfig,
 }
 
-impl OpenObserveClient {
-    pub fn new(config: OpenObserveConfig) -> Self {
+impl QuickwitClient {
+    pub fn new(config: QuickwitConfig) -> Self {
         Self {
             client: Client::new(),
             config,
@@ -61,97 +58,87 @@ impl OpenObserveClient {
         self.config.enabled
     }
 
+    pub fn logs_index(&self) -> &str {
+        &self.config.logs_index
+    }
+
     pub async fn search(
         &self,
-        stream: &str,
-        sql: &str,
-        start_time: i64,
-        end_time: i64,
-        from: i64,
-        size: i64,
-    ) -> Result<SearchResponse, OpenObserveError> {
+        index: Option<&str>,
+        query: &str,
+        start_time_micros: i64,
+        end_time_micros: i64,
+        offset: i64,
+        limit: i64,
+    ) -> Result<SearchResponse, QuickwitError> {
         if !self.config.enabled {
-            return Err(OpenObserveError::Disabled);
+            return Err(QuickwitError::Disabled);
         }
 
-        let url = format!(
-            "{}/{}/_search",
-            self.config.endpoint, self.config.organization
-        );
-
-        let sql_with_stream = sql.replace("{stream}", stream);
+        let index = index.filter(|value| !value.is_empty()).unwrap_or_else(|| self.logs_index());
+        let url = format!("{}/api/v1/indexes/{}/search", self.config.api_url, index);
 
         let request = SearchRequest {
-            query: QueryParams {
-                sql: sql_with_stream,
-                start_time,
-                end_time,
-                from,
-                size,
-            },
-            search_type: Some("ui".to_string()),
-            timeout: Some(60),
+            query: query.to_string(),
+            start_timestamp: micros_to_rfc3339(start_time_micros),
+            end_timestamp: micros_to_rfc3339(end_time_micros),
+            max_hits: Some(limit.max(0)),
+            start_offset: Some(offset.max(0)),
         };
 
-        let response = self
-            .client
-            .post(&url)
-            .header("Authorization", &self.config.auth_header)
-            .json(&request)
-            .send()
-            .await
-            .map_err(|e| {
-                error!(error = %e, "Failed to send request to OpenObserve");
-                OpenObserveError::RequestFailed(e.to_string())
-            })?;
+        let mut builder = self.client.post(&url).json(&request);
+
+        if let Some(token) = &self.config.access_token {
+            builder = builder.bearer_auth(token);
+        }
+
+        let response = builder.send().await.map_err(|e| {
+            error!(error = %e, "Failed to send request to Quickwit");
+            QuickwitError::RequestFailed(e.to_string())
+        })?;
 
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            error!(status = %status, body = %body, "OpenObserve API error");
-            return Err(OpenObserveError::ApiError(status.as_u16(), body));
+            error!(status = %status, body = %body, "Quickwit API error");
+            return Err(QuickwitError::ApiError(status.as_u16(), body));
         }
 
         let search_response = response.json::<SearchResponse>().await.map_err(|e| {
-            error!(error = %e, "Failed to parse OpenObserve response");
-            OpenObserveError::ParseError(e.to_string())
+            error!(error = %e, "Failed to parse Quickwit response");
+            QuickwitError::ParseError(e.to_string())
         })?;
 
         Ok(search_response)
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SearchRequest {
-    pub query: QueryParams,
+#[derive(Debug, Serialize)]
+struct SearchRequest {
+    pub query: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub search_type: Option<String>,
+    pub start_timestamp: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeout: Option<i32>,
+    pub end_timestamp: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_hits: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_offset: Option<i64>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct QueryParams {
-    pub sql: String,
-    pub start_time: i64,
-    pub end_time: i64,
-    pub from: i64,
-    pub size: i64,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct SearchResponse {
-    pub took: i64,
+    #[serde(default)]
     pub hits: Vec<serde_json::Value>,
-    pub total: i64,
-    pub from: i64,
-    pub size: i64,
-    pub scan_size: i64,
+    #[serde(default)]
+    pub num_hits: u64,
+    #[serde(default, rename = "elapsed_time_micros")]
+    pub elapsed_time_micros: u64,
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum OpenObserveError {
-    #[error("OpenObserve is disabled")]
+pub enum QuickwitError {
+    #[error("Quickwit is disabled")]
     Disabled,
     #[error("Request failed: {0}")]
     RequestFailed(String),
@@ -159,4 +146,12 @@ pub enum OpenObserveError {
     ApiError(u16, String),
     #[error("Parse error: {0}")]
     ParseError(String),
+}
+
+fn micros_to_rfc3339(micros: i64) -> Option<String> {
+    let secs = micros.div_euclid(1_000_000);
+    let micros_part = micros.rem_euclid(1_000_000) as u32;
+    Utc.timestamp_opt(secs, micros_part * 1_000)
+        .single()
+        .map(|dt| dt.to_rfc3339())
 }

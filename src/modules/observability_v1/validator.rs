@@ -21,13 +21,15 @@ pub struct V1LogsSearchPayload {
 }
 
 impl V1LogsSearchPayload {
-    pub fn get_sql(&self) -> String {
+    pub fn get_query(&self) -> String {
         self.sql
             .clone()
-            .unwrap_or_else(|| "SELECT * FROM {stream} ORDER BY _timestamp DESC".to_string())
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| "*".to_string())
     }
 
-    pub fn get_stream(&self) -> String {
+    pub fn get_index(&self) -> String {
         self.stream.clone().unwrap_or_else(|| "default".to_string())
     }
 
@@ -64,27 +66,22 @@ pub struct V1LogsRecentPayload {
 }
 
 impl V1LogsRecentPayload {
-    pub fn build_sql(&self) -> String {
+    pub fn build_query(&self) -> String {
         let mut conditions = vec![];
 
         if let Some(ref level) = self.level {
-            conditions.push(format!("level = '{}'", level));
+            conditions.push(format!("level:\"{}\"", escape_term(level)));
         }
 
         if let Some(ref service) = self.service {
-            conditions.push(format!("service_name = '{}'", service));
+            conditions.push(format!("service_name:\"{}\"", escape_term(service)));
         }
 
-        let where_clause = if conditions.is_empty() {
-            String::new()
+        if conditions.is_empty() {
+            "*".to_string()
         } else {
-            format!(" WHERE {}", conditions.join(" AND "))
-        };
-
-        format!(
-            "SELECT * FROM {{stream}}{} ORDER BY _timestamp DESC",
-            where_clause
-        )
+            conditions.join(" AND ")
+        }
     }
 
     pub fn get_time_range(&self) -> (i64, i64) {
@@ -117,24 +114,11 @@ impl V1MetricsSummaryPayload {
         (start, end)
     }
 
-    pub fn build_sql(&self) -> String {
+    pub fn build_query(&self) -> String {
         if let Some(ref metric) = self.metric_name {
-            format!(
-                "SELECT histogram(_timestamp, '5 minute') AS time_bucket, \
-                 COUNT(*) AS count, \
-                 AVG(value) AS avg_value \
-                 FROM {{stream}} \
-                 WHERE metric_name = '{}' \
-                 GROUP BY time_bucket \
-                 ORDER BY time_bucket DESC",
-                metric
-            )
+            format!("metric_name:\"{}\"", escape_term(metric))
         } else {
-            "SELECT metric_name, COUNT(*) AS count \
-             FROM {stream} \
-             GROUP BY metric_name \
-             ORDER BY count DESC"
-                .to_string()
+            "*".to_string()
         }
     }
 }
@@ -156,17 +140,9 @@ impl V1ErrorStatsPayload {
         (start, end)
     }
 
-    pub fn build_sql(&self) -> String {
-        let limit = self.top_n.unwrap_or(20);
-        format!(
-            "SELECT http_route, http_method, COUNT(*) AS error_count \
-             FROM {{stream}} \
-             WHERE level = 'ERROR' OR http_status_code >= 400 \
-             GROUP BY http_route, http_method \
-             ORDER BY error_count DESC \
-             LIMIT {}",
-            limit
-        )
+    pub fn build_query(&self) -> String {
+        let base_filter = "(level:ERROR OR http_status_code:[400 TO *])";
+        base_filter.to_string()
     }
 }
 
@@ -187,24 +163,15 @@ impl V1LatencyStatsPayload {
         (start, end)
     }
 
-    pub fn build_sql(&self) -> String {
-        let route_filter = if let Some(ref route) = self.route {
-            format!(" WHERE http_route = '{}'", route)
+    pub fn build_query(&self) -> String {
+        if let Some(ref route) = self.route {
+            format!("http_route:\"{}\"", escape_term(route))
         } else {
-            String::new()
-        };
-
-        format!(
-            "SELECT http_route, \
-             COUNT(*) AS request_count, \
-             AVG(duration_ms) AS avg_latency_ms, \
-             MIN(duration_ms) AS min_latency_ms, \
-             MAX(duration_ms) AS max_latency_ms \
-             FROM {{stream}}{} \
-             GROUP BY http_route \
-             ORDER BY request_count DESC \
-             LIMIT 50",
-            route_filter
-        )
+            "*".to_string()
+        }
     }
+}
+
+fn escape_term(value: &str) -> String {
+    value.replace('"', "\\\"")
 }
