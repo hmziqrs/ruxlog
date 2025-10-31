@@ -173,33 +173,48 @@ pub async fn send(
     let html = payload.html.clone();
     let state_cloned = state.clone();
 
-    tokio::spawn(async move {
-        // Load confirmed subscribers and send best-effort
-        let Ok(subscribers) = SubscriberEntity::find()
-            .filter(SubscriberColumn::Status.eq(SubscriberStatus::Confirmed))
-            .all(&state_cloned.sea_db)
-            .await
-        else {
-            error!("Failed to load confirmed subscribers for newsletter send");
-            return;
-        };
+    tokio::spawn(
+        tracing::info_span!("newsletter_send_background", subject = %subject).in_scope(
+            || async move {
+                // Load confirmed subscribers and send best-effort
+                let Ok(subscribers) = SubscriberEntity::find()
+                    .filter(SubscriberColumn::Status.eq(SubscriberStatus::Confirmed))
+                    .all(&state_cloned.sea_db)
+                    .await
+                else {
+                    error!("Failed to load confirmed subscribers for newsletter send");
+                    tracing::Span::current().record("result", "db_error");
+                    return;
+                };
 
-        info!(
-            count = subscribers.len(),
-            "Sending newsletter to subscribers"
-        );
-        for sub in subscribers {
-            let _ = send_mail(
-                &state_cloned.mailer,
-                &sub.email,
-                &subject,
-                html.as_deref(),
-                Some(&text),
-            )
-            .await;
-        }
-        info!("Newsletter send task completed");
-    });
+                let total = subscribers.len();
+                info!(count = total, "Sending newsletter to subscribers");
+
+                let mut sent = 0u64;
+                let mut failed = 0u64;
+
+                for sub in subscribers {
+                    match send_mail(
+                        &state_cloned.mailer,
+                        &sub.email,
+                        &subject,
+                        html.as_deref(),
+                        Some(&text),
+                    )
+                    .await
+                    {
+                        Ok(_) => sent += 1,
+                        Err(_) => failed += 1,
+                    }
+                }
+
+                info!(sent, failed, total, "Newsletter send task completed");
+                tracing::Span::current().record("sent", sent);
+                tracing::Span::current().record("failed", failed);
+                tracing::Span::current().record("result", "completed");
+            },
+        ),
+    );
 
     info!("Newsletter send task spawned");
 

@@ -49,12 +49,18 @@ pub async fn get_sea_connection() -> DatabaseConnection {
 
     info!("SeaORM database connection working");
 
+    let migration_span = tracing::info_span!("database_migration");
+    let _guard = migration_span.enter();
+
+    info!("Starting database migrations");
     match Migrator::up(&conn, None).await {
         Ok(_) => {
-            info!("Database migration successful");
+            info!("Database migrations completed successfully");
+            tracing::Span::current().record("result", "success");
         }
         Err(e) => {
-            error!("Failed to run migrations: {:?}", e);
+            error!(error = ?e, "Failed to run database migrations");
+            tracing::Span::current().record("result", "failed");
             panic!("Failed to run migrations: {:?}", e);
         }
     }
