@@ -1,6 +1,11 @@
 use axum::{http::StatusCode, middleware, routing::get, Router};
-use tower_http::trace::TraceLayer;
+use tower_http::{
+    trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer},
+    LatencyUnit,
+};
+use tracing::Level;
 
+use crate::middlewares::http_metrics;
 use crate::modules::post_comment_v1;
 use crate::{
     middlewares::route_blocker::block_routes,
@@ -28,7 +33,21 @@ pub fn router() -> Router<AppState> {
         .nest("/feed/v1", feed_v1::routes())
         .nest("/newsletter/v1", newsletter_v1::routes())
         .nest("/admin/seed/v1", seed_v1::routes())
-        .layer(TraceLayer::new_for_http())
+        .layer(middleware::from_fn(http_metrics::track_metrics))
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(
+                    DefaultMakeSpan::new()
+                        .level(Level::INFO)
+                        .include_headers(true),
+                )
+                .on_response(
+                    DefaultOnResponse::new()
+                        .level(Level::INFO)
+                        .latency_unit(LatencyUnit::Millis)
+                        .include_headers(true),
+                ),
+        )
 }
 
 async fn health_check() -> StatusCode {

@@ -8,6 +8,8 @@ pub mod services;
 pub mod state;
 pub mod utils;
 
+use utils::telemetry;
+
 use axum::{
     http::{HeaderName, HeaderValue},
     middleware, routing,
@@ -121,11 +123,8 @@ struct IpConfig {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv::dotenv().ok();
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
-        .with_thread_ids(true)
-        .with_thread_names(true)
-        .init();
+
+    let _telemetry_guard = telemetry::init();
 
     let cookie_key_str = env::var("COOKIE_KEY").expect("COOKIE_KEY must be set");
 
@@ -198,6 +197,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         r2,
         s3_client,
         optimizer,
+        meter: telemetry::global_meter(),
     };
 
     tracing::info!("Redis successfully established.");

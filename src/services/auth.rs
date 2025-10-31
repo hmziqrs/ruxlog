@@ -5,6 +5,7 @@ use password_auth::verify_password;
 use sea_orm::DatabaseConnection;
 use serde::Deserialize;
 use tokio::task;
+use tracing::{error, info, instrument, warn};
 
 use crate::{
     db::sea_models::user, error::ErrorResponse, modules::auth_v1::validator::V1LoginPayload,
@@ -95,21 +96,30 @@ impl AuthnBackend for AuthBackend {
     type Credentials = Credentials;
     type Error = AuthError;
 
+    #[instrument(skip(self, creds), fields(email = %"<redacted>", result))]
     async fn authenticate(
         &self,
         creds: Self::Credentials,
     ) -> Result<Option<Self::User>, Self::Error> {
         match creds {
             Credentials::Password(password_creds) => {
+                let email = password_creds.email.clone();
+                tracing::Span::current().record("email", &email);
+
+                info!("Attempting authentication");
+
                 let user_result =
                     user::Entity::find_by_email(&self.pool, password_creds.email).await;
 
                 let user = match user_result {
                     Ok(Some(user)) => user,
                     Ok(None) => {
+                        warn!("User not found");
+                        tracing::Span::current().record("result", "user_not_found");
                         return Ok(None);
                     }
                     Err(err) => {
+                        error!(error = ?err, "Database error during user lookup");
                         return Err(AuthError::DatabaseError(err));
                     }
                 };
@@ -123,6 +133,7 @@ impl AuthnBackend for AuthBackend {
                 {
                     Ok(result) => result?,
                     Err(join_err) => {
+                        error!(error = %join_err, "Password verification task failed");
                         return Err(AuthError::InternalError(format!(
                             "Task join error: {}",
                             join_err
@@ -131,8 +142,12 @@ impl AuthnBackend for AuthBackend {
                 };
 
                 if password_valid {
+                    info!(user_id = user.id, "Authentication successful");
+                    tracing::Span::current().record("result", "success");
                     Ok(Some(user))
                 } else {
+                    warn!("Invalid password");
+                    tracing::Span::current().record("result", "invalid_password");
                     Ok(None)
                 }
             } // Add other credential types here if needed
@@ -140,11 +155,12 @@ impl AuthnBackend for AuthBackend {
     }
 
     /// Retrieves a user by ID from the database.
+    #[instrument(skip(self), fields(user_id = %user_id))]
     async fn get_user(&self, user_id: &UserId<Self>) -> Result<Option<Self::User>, Self::Error> {
         user::Entity::get_by_id(&self.pool, *user_id)
             .await
             .map_err(|err| {
-                eprintln!("Error retrieving user {}: {:?}", user_id, err);
+                error!(error = ?err, "Error retrieving user");
                 AuthError::DatabaseError(err)
             })
     }

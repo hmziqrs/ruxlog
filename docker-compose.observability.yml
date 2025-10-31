@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  # OpenObserve - Open source observability platform
+  openobserve:
+    image: public.ecr.aws/zinclabs/openobserve:latest
+    container_name: ruxlog-openobserve
+    ports:
+      - "5080:5080"
+    environment:
+      # Root user credentials
+      ZO_ROOT_USER_EMAIL: root@example.com
+      ZO_ROOT_USER_PASSWORD: Complexpass#123
+      # Data storage path
+      ZO_DATA_DIR: /data
+      # Enable OTLP ingestion
+      ZO_OTLP_TRACES_ENABLED: "true"
+      ZO_OTLP_METRICS_ENABLED: "true"
+      ZO_OTLP_LOGS_ENABLED: "true"
+    volumes:
+      - openobserve_data:/data
+    networks:
+      - ruxlog-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # PostgreSQL database for Ruxlog backend
+  postgres:
+    image: postgres:16-alpine
+    container_name: ruxlog-postgres
+    environment:
+      POSTGRES_DB: ruxlog
+      POSTGRES_USER: ruxlog
+      POSTGRES_PASSWORD: ruxlog_password
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ruxlog-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ruxlog"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for sessions and caching
+  redis:
+    image: redis:7-alpine
+    container_name: ruxlog-redis
+    command: >
+      redis-server
+      --requirepass redis_password
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ruxlog-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Ruxlog backend (uncomment after building)
+  # ruxlog-backend:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: ruxlog-backend
+  #   ports:
+  #     - "8888:8888"
+  #   environment:
+  #     # Database
+  #     DATABASE_URL: postgres://ruxlog:ruxlog_password@postgres:5432/ruxlog
+  #
+  #     # Redis
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #     REDIS_USER: default
+  #     REDIS_PASSWORD: redis_password
+  #
+  #     # Server
+  #     HOST: 0.0.0.0
+  #     PORT: 8888
+  #
+  #     # OpenTelemetry configuration
+  #     OTEL_EXPORTER_OTLP_ENDPOINT: http://openobserve:5080/api/default
+  #     OTEL_EXPORTER_OTLP_HEADERS: Authorization=Basic ZGVmYXVsdDpDb21wbGV4cGFzcyMxMjM=
+  #     OTEL_SERVICE_NAME: ruxlog-api
+  #     OTEL_SERVICE_VERSION: 0.1.0
+  #     DEPLOYMENT_ENVIRONMENT: development
+  #
+  #     # Logging
+  #     RUST_LOG: info,ruxlog=debug,opentelemetry=debug
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #     openobserve:
+  #       condition: service_healthy
+  #   networks:
+  #     - ruxlog-network
+
+volumes:
+  openobserve_data:
+    driver: local
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  ruxlog-network:
+    driver: bridge

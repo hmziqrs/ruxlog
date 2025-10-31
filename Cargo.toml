@@ -51,8 +51,14 @@ tower_governor = "0.4.2"
 tower-sessions-core = "0.9.0"
 tower-sessions-redis-store = "0.16.0"
 tower-sessions = { version = "0.14", features = ["private"] }
-tracing-subscriber = "0.3.19"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json"] }
 tracing = "0.1.41"
+opentelemetry = { version = "0.27", features = ["metrics", "trace", "logs"] }
+opentelemetry_sdk = { version = "0.27", features = ["rt-tokio", "metrics", "trace", "logs"] }
+opentelemetry-otlp = { version = "0.27", features = ["http-proto", "metrics", "logs", "trace"] }
+tracing-opentelemetry = "0.28"
+opentelemetry-appender-tracing = "0.27"
+opentelemetry-semantic-conventions = "0.27"
 dotenv = "0.15.0"
 chrono = { version = "0.4.40", features = ["serde"] }
 axum-macros = "0.5.0"

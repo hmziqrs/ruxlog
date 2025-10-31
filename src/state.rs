@@ -1,4 +1,5 @@
 use lettre;
+use opentelemetry::metrics::Meter;
 use sea_orm::DatabaseConnection;
 use tower_sessions_redis_store::fred::prelude::Pool as RedisPool;
 
@@ -29,4 +30,5 @@ pub struct AppState {
     pub r2: R2Config,
     pub s3_client: aws_sdk_s3::Client,
     pub optimizer: OptimizerConfig,
+    pub meter: Meter,
 }
