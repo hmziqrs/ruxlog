@@ -5,7 +5,7 @@ node_id: ruxlog-quickwit-node
 listen_address: 0.0.0.0
 data_dir: /quickwit/data
 
-metastore_uri: s3://quickwit/indexes
+metastore_uri: file:///quickwit/data/indexes
 default_index_root_uri: s3://quickwit/indexes
 
 rest:
@@ -35,6 +35,7 @@ storage:
     access_key_id: quickwit
     secret_access_key: quickwit-secret
     force_path_style_access: true
+    flavor: s3
 
 telemetry:
   enabled: false
