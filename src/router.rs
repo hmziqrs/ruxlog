@@ -5,7 +5,7 @@ use tower_http::{
 };
 use tracing::Level;
 
-use crate::middlewares::http_metrics;
+use crate::middlewares::{http_metrics, request_id_middleware};
 use crate::modules::post_comment_v1;
 use crate::{
     middlewares::route_blocker::block_routes,
@@ -33,6 +33,7 @@ pub fn router() -> Router<AppState> {
         .nest("/feed/v1", feed_v1::routes())
         .nest("/newsletter/v1", newsletter_v1::routes())
         .nest("/admin/seed/v1", seed_v1::routes())
+        .layer(middleware::from_fn(request_id_middleware))
         .layer(middleware::from_fn(http_metrics::track_metrics))
         .layer(
             TraceLayer::new_for_http()
