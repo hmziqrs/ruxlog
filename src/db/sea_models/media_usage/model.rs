@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use super::super::media;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "String(StringLen::N(50))")]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "entity_type")]
 #[serde(rename_all = "lowercase")]
 pub enum EntityType {
     #[sea_orm(string_value = "category")]
@@ -26,7 +26,7 @@ impl EntityType {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "media_usages")]
+#[sea_orm(table_name = "media_usage")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
