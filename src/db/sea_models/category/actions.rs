@@ -1,10 +1,11 @@
 use crate::error::{DbResult, ErrorCode, ErrorResponse};
 use sea_orm::{
     entity::prelude::*, prelude::Expr, sea_query::Alias, Condition, JoinType, Order, QueryOrder,
-    QuerySelect, Set,
+    QuerySelect, Set, TransactionTrait,
 };
 
 use super::*;
+use crate::db::sea_models::media_usage::EntityType;
 use crate::utils::color::{derive_text_color, DEFAULT_BG_COLOR};
 
 impl Entity {
@@ -77,19 +78,25 @@ impl Entity {
         conn: &DbConn,
         new_category: NewCategory,
     ) -> DbResult<CategoryWithRelations> {
+        let txn = conn.begin().await?;
+
         let now = chrono::Utc::now().fixed_offset();
         let color = new_category
             .color
             .unwrap_or_else(|| DEFAULT_BG_COLOR.to_string());
         let text_color = derive_text_color(&color, new_category.text_color.as_deref());
         let is_active = new_category.is_active.unwrap_or(true);
+
+        let cover_id = new_category.cover_id;
+        let logo_id = new_category.logo_id;
+
         let category = ActiveModel {
             name: Set(new_category.name),
             slug: Set(new_category.slug),
             parent_id: Set(new_category.parent_id),
             description: Set(new_category.description),
-            cover_id: Set(new_category.cover_id),
-            logo_id: Set(new_category.logo_id),
+            cover_id: Set(cover_id),
+            logo_id: Set(logo_id),
             color: Set(color),
             text_color: Set(text_color),
             is_active: Set(is_active),
@@ -98,15 +105,36 @@ impl Entity {
             ..Default::default()
         };
 
-        match category.insert(conn).await {
-            Ok(model) => {
-                let row = Self::find_by_id_or_slug(conn, Some(model.id), None).await?;
-                match row {
-                    Some(rel) => Ok(rel),
-                    None => Err(ErrorResponse::new(ErrorCode::RecordNotFound)),
-                }
-            }
-            Err(err) => Err(err.into()),
+        let model = category.insert(&txn).await?;
+
+        if let Some(mid) = cover_id {
+            super::super::media_usage::Entity::track_usage(
+                &txn,
+                mid,
+                EntityType::Category,
+                model.id,
+                "cover_id",
+            )
+            .await?;
+        }
+
+        if let Some(mid) = logo_id {
+            super::super::media_usage::Entity::track_usage(
+                &txn,
+                mid,
+                EntityType::Category,
+                model.id,
+                "logo_id",
+            )
+            .await?;
+        }
+
+        txn.commit().await?;
+
+        let row = Self::find_by_id_or_slug(conn, Some(model.id), None).await?;
+        match row {
+            Some(rel) => Ok(rel),
+            None => Err(ErrorResponse::new(ErrorCode::RecordNotFound)),
         }
     }
 
@@ -121,6 +149,11 @@ impl Entity {
         };
 
         if let Some(category_model) = category {
+            let txn = conn.begin().await?;
+
+            let old_cover_id = category_model.cover_id;
+            let old_logo_id = category_model.logo_id;
+
             let mut category_active: ActiveModel = category_model.into();
 
             if let Some(name) = update_category.name {
@@ -139,12 +172,16 @@ impl Entity {
                 category_active.description = Set(description);
             }
 
+            let mut new_cover_id = old_cover_id;
             if let Some(cover_id) = update_category.cover_id {
                 category_active.cover_id = Set(cover_id);
+                new_cover_id = cover_id;
             }
 
+            let mut new_logo_id = old_logo_id;
             if let Some(logo_id) = update_category.logo_id {
                 category_active.logo_id = Set(logo_id);
+                new_logo_id = logo_id;
             }
 
             let mut recolor_dep: Option<String> = None;
@@ -165,23 +202,56 @@ impl Entity {
 
             category_active.updated_at = Set(chrono::Utc::now().fixed_offset());
 
-            match category_active.update(conn).await {
-                Ok(_updated_category) => {
-                    let row = Self::find_by_id_or_slug(conn, Some(category_id), None).await?;
-                    Ok(row)
-                }
-                Err(err) => Err(err.into()),
+            category_active.update(&txn).await?;
+
+            if update_category.cover_id.is_some() && old_cover_id != new_cover_id {
+                super::super::media_usage::Entity::update_usage(
+                    &txn,
+                    old_cover_id,
+                    new_cover_id,
+                    EntityType::Category,
+                    category_id,
+                    "cover_id",
+                )
+                .await?;
             }
+
+            if update_category.logo_id.is_some() && old_logo_id != new_logo_id {
+                super::super::media_usage::Entity::update_usage(
+                    &txn,
+                    old_logo_id,
+                    new_logo_id,
+                    EntityType::Category,
+                    category_id,
+                    "logo_id",
+                )
+                .await?;
+            }
+
+            txn.commit().await?;
+
+            let row = Self::find_by_id_or_slug(conn, Some(category_id), None).await?;
+            Ok(row)
         } else {
             Ok(None)
         }
     }
 
     pub async fn delete(conn: &DbConn, category_id: i32) -> DbResult<u64> {
-        match Self::delete_by_id(category_id).exec(conn).await {
-            Ok(result) => Ok(result.rows_affected),
-            Err(err) => Err(err.into()),
-        }
+        let txn = conn.begin().await?;
+
+        super::super::media_usage::Entity::delete_by_entity(
+            &txn,
+            EntityType::Category,
+            category_id,
+        )
+        .await?;
+
+        let result = Self::delete_by_id(category_id).exec(&txn).await?;
+
+        txn.commit().await?;
+
+        Ok(result.rows_affected)
     }
 
     pub async fn find_by_id_or_slug(

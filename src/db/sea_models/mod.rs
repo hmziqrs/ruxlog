@@ -5,6 +5,7 @@ pub mod forgot_password;
 pub mod newsletter_subscriber;
 
 pub mod media;
+pub mod media_usage;
 pub mod media_variant;
 pub mod pagination;
 pub mod post;
