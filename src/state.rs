@@ -3,6 +3,8 @@ use opentelemetry::metrics::Meter;
 use sea_orm::DatabaseConnection;
 use tower_sessions_redis_store::fred::prelude::Pool as RedisPool;
 
+use crate::modules::observability_v1::service::OpenObserveClient;
+
 #[derive(Clone, Debug)]
 pub struct R2Config {
     // R2 configuration
@@ -31,4 +33,5 @@ pub struct AppState {
     pub s3_client: aws_sdk_s3::Client,
     pub optimizer: OptimizerConfig,
     pub meter: Meter,
+    pub openobserve_client: OpenObserveClient,
 }
