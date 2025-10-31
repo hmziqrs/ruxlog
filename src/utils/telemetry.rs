@@ -116,9 +116,14 @@ fn init_tracer(
     headers: HashMap<String, String>,
     config: &TelemetryConfig,
 ) -> Result<TracerProvider, opentelemetry::trace::TraceError> {
+    let trace_endpoint = format!("{}/v1/traces", endpoint);
+    eprintln!(
+        "DEBUG: Initializing tracer with endpoint: {}",
+        trace_endpoint
+    );
     let exporter = SpanExporter::builder()
         .with_http()
-        .with_endpoint(format!("{}/v1/traces", endpoint))
+        .with_endpoint(trace_endpoint)
         .with_headers(headers)
         .with_timeout(Duration::from_millis(
             config.trace_batch_max_export_timeout_ms,
@@ -169,9 +174,14 @@ fn init_metrics(
     headers: HashMap<String, String>,
     config: &TelemetryConfig,
 ) -> Result<SdkMeterProvider, Box<dyn std::error::Error>> {
+    let metrics_endpoint = format!("{}/v1/metrics", endpoint);
+    eprintln!(
+        "DEBUG: Initializing metrics with endpoint: {}",
+        metrics_endpoint
+    );
     let exporter = MetricExporter::builder()
         .with_http()
-        .with_endpoint(format!("{}/v1/metrics", endpoint))
+        .with_endpoint(metrics_endpoint)
         .with_headers(headers)
         .with_timeout(Duration::from_millis(config.metrics_export_timeout_ms))
         .build()?;
@@ -197,9 +207,11 @@ fn init_logs(
     headers: HashMap<String, String>,
     config: &TelemetryConfig,
 ) -> Result<LoggerProvider, Box<dyn std::error::Error>> {
+    let logs_endpoint = format!("{}/v1/logs", endpoint);
+    eprintln!("DEBUG: Initializing logs with endpoint: {}", logs_endpoint);
     let exporter = LogExporter::builder()
         .with_http()
-        .with_endpoint(format!("{}/v1/logs", endpoint))
+        .with_endpoint(logs_endpoint)
         .with_headers(headers)
         .with_timeout(Duration::from_millis(
             config.logs_batch_max_export_timeout_ms,
