@@ -149,7 +149,7 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
     loop {
         if fetch_authors {
             let author_query = AdminUserQuery {
-                page_no: Some(author_page),
+                page: Some(author_page),
                 email: None,
                 name: None,
                 role: Some(UserRole::Author),
@@ -265,7 +265,7 @@ pub async fn seed_post_comments(
     loop {
         if fetch_users {
             let user_query = AdminUserQuery {
-                page_no: Some(user_page),
+                page: Some(user_page),
                 email: None,
                 name: None,
                 role: Some(UserRole::User),
