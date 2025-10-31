@@ -31,13 +31,12 @@ pub struct VerifiedUser {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct AdminUserQuery {
-    pub page_no: Option<u64>,
+    pub page: Option<u64>,
     pub email: Option<String>,
     pub name: Option<String>,
     pub role: Option<UserRole>,
     pub status: Option<bool>,
     pub sorts: Option<Vec<crate::utils::SortParam>>,
-    // Date range filters
     pub created_at_gt: Option<DateTimeWithTimeZone>,
     pub created_at_lt: Option<DateTimeWithTimeZone>,
     pub updated_at_gt: Option<DateTimeWithTimeZone>,

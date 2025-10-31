@@ -60,8 +60,20 @@ pub async fn admin_delete(
     state: State<AppState>,
     Path(user_id): Path<i32>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    User::admin_delete(&state.sea_db, user_id).await?;
-    Ok(StatusCode::NO_CONTENT)
+    match User::admin_delete(&state.sea_db, user_id).await {
+        Ok(1) => Ok((
+            StatusCode::OK,
+            Json(json!({ "message": "User deleted successfully" })),
+        )),
+        Ok(0) => {
+            Err(ErrorResponse::new(ErrorCode::RecordNotFound).with_message("User does not exist"))
+        }
+        Ok(_) => Ok((
+            StatusCode::OK,
+            Json(json!({ "message": "User deleted successfully" })),
+        )),
+        Err(err) => Err(err),
+    }
 }
 
 #[debug_handler]
@@ -86,7 +98,10 @@ pub async fn admin_change_password(
     payload: ValidatedJson<AdminChangePassword>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     User::change_password(&state.sea_db, user_id, payload.0.password).await?;
-    Ok(StatusCode::NO_CONTENT)
+    Ok((
+        StatusCode::OK,
+        Json(json!({ "message": "Password changed successfully" })),
+    ))
 }
 
 #[debug_handler]
@@ -95,8 +110,18 @@ pub async fn admin_list(
     payload: ValidatedJson<V1AdminUserQueryParams>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let query = payload.0.into_user_query();
-    let users_with_count = User::admin_list(&state.sea_db, query).await?;
-    Ok((StatusCode::OK, Json(json!(users_with_count))))
+    let page = query.page.unwrap_or(1);
+
+    let (users, total) = User::admin_list(&state.sea_db, query).await?;
+    Ok((
+        StatusCode::OK,
+        Json(json!({
+            "data": users,
+            "total": total,
+            "per_page": User::PER_PAGE,
+            "page": page,
+        })),
+    ))
 }
 
 #[debug_handler]

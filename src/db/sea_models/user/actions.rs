@@ -290,7 +290,6 @@ impl Entity {
             user_query = user_query.filter(Column::IsVerified.eq(status_filter));
         }
 
-        // Date range filters
         if let Some(ts) = query.created_at_gt {
             user_query = user_query.filter(Column::CreatedAt.gt(ts));
         }
@@ -304,14 +303,15 @@ impl Entity {
             user_query = user_query.filter(Column::UpdatedAt.lt(ts));
         }
 
-        // Multi-field sorting with per-field order
         if let Some(sorts) = query.sorts {
             for sort in sorts {
                 let column = match sort.field.as_str() {
+                    "id" => Some(Column::Id),
                     "email" => Some(Column::Email),
                     "name" => Some(Column::Name),
                     "role" => Some(Column::Role),
                     "status" => Some(Column::IsVerified),
+                    "is_verified" => Some(Column::IsVerified),
                     "created_at" => Some(Column::CreatedAt),
                     "updated_at" => Some(Column::UpdatedAt),
                     _ => None,
@@ -324,7 +324,7 @@ impl Entity {
             user_query = user_query.order_by(Column::Id, Order::Desc);
         }
 
-        let page = match query.page_no {
+        let page = match query.page {
             Some(p) if p > 0 => p,
             _ => 1,
         };

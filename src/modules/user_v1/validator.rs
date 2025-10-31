@@ -103,14 +103,13 @@ pub struct AdminChangePassword {
 
 #[derive(Debug, Deserialize, Serialize, Validate, Clone)]
 pub struct V1AdminUserQueryParams {
-    pub page_no: Option<u64>,
+    pub page: Option<u64>,
     pub email: Option<String>,
     pub name: Option<String>,
     #[validate(custom(function = "validate_role"))]
     pub role: Option<String>,
     pub status: Option<bool>,
     pub sorts: Option<Vec<SortParam>>,
-    // Date range filters
     pub created_at_gt: Option<DateTimeWithTimeZone>,
     pub created_at_lt: Option<DateTimeWithTimeZone>,
     pub updated_at_gt: Option<DateTimeWithTimeZone>,
@@ -120,7 +119,7 @@ pub struct V1AdminUserQueryParams {
 impl V1AdminUserQueryParams {
     pub fn into_user_query(self) -> AdminUserQuery {
         AdminUserQuery {
-            page_no: self.page_no,
+            page: self.page,
             email: self.email,
             name: self.name,
             role: self.role.and_then(|r| UserRole::from_str(&r).ok()),
