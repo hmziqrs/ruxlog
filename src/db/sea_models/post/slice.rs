@@ -93,6 +93,8 @@ pub struct PostCategory {
 pub struct PostTag {
     pub id: i32,
     pub name: String,
+    pub slug: String,
+    pub color: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

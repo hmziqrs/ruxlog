@@ -12,6 +12,170 @@ use super::*;
 impl Entity {
     pub const PER_PAGE: u64 = 10;
 
+    fn build_post_query_with_relations() -> Select<Entity> {
+        use super::super::category::Column as CategoryColumn;
+        use super::super::user::Column as UserColumn;
+
+        Self::find()
+            .column_as(UserColumn::Id, "author_id")
+            .column_as(UserColumn::Name, "author_name")
+            .column_as(UserColumn::Email, "author_email")
+            .column_as(UserColumn::AvatarId, "author_avatar_id")
+            .column_as(CategoryColumn::Id, "category_id")
+            .column_as(CategoryColumn::Name, "category_name")
+            .column_as(CategoryColumn::Slug, "category_slug")
+            .column_as(CategoryColumn::Color, "category_color")
+            .column_as(CategoryColumn::CoverId, "category_cover_id")
+            .column_as(CategoryColumn::LogoId, "category_logo_id")
+            .expr_as(
+                Expr::cust("COALESCE((SELECT COUNT(*) FROM post_comments WHERE post_comments.post_id = posts.id), 0)"),
+                "comment_count",
+            )
+            .join(JoinType::InnerJoin, Relation::User.def())
+            .join_as(
+                JoinType::LeftJoin,
+                super::super::user::Relation::Media.def(),
+                Alias::new("author_avatar_media"),
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("author_avatar_media"),
+                    super::super::media::Column::ObjectKey,
+                )),
+                "author_avatar_object_key",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("author_avatar_media"),
+                    super::super::media::Column::FileUrl,
+                )),
+                "author_avatar_file_url",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("author_avatar_media"),
+                    super::super::media::Column::MimeType,
+                )),
+                "author_avatar_mime_type",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("author_avatar_media"),
+                    super::super::media::Column::Width,
+                )),
+                "author_avatar_width",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("author_avatar_media"),
+                    super::super::media::Column::Height,
+                )),
+                "author_avatar_height",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("author_avatar_media"),
+                    super::super::media::Column::Size,
+                )),
+                "author_avatar_size",
+            )
+            .join(JoinType::LeftJoin, Relation::Category.def())
+            .join_as(
+                JoinType::LeftJoin,
+                super::super::category::Relation::Cover.def(),
+                Alias::new("category_cover_media"),
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("category_cover_media"),
+                    super::super::media::Column::ObjectKey,
+                )),
+                "category_cover_object_key",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("category_cover_media"),
+                    super::super::media::Column::FileUrl,
+                )),
+                "category_cover_file_url",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("category_cover_media"),
+                    super::super::media::Column::MimeType,
+                )),
+                "category_cover_mime_type",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("category_cover_media"),
+                    super::super::media::Column::Width,
+                )),
+                "category_cover_width",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("category_cover_media"),
+                    super::super::media::Column::Height,
+                )),
+                "category_cover_height",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("category_cover_media"),
+                    super::super::media::Column::Size,
+                )),
+                "category_cover_size",
+            )
+            .join_as(
+                JoinType::LeftJoin,
+                super::super::category::Relation::Logo.def(),
+                Alias::new("category_logo_media"),
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("category_logo_media"),
+                    super::super::media::Column::ObjectKey,
+                )),
+                "category_logo_object_key",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("category_logo_media"),
+                    super::super::media::Column::FileUrl,
+                )),
+                "category_logo_file_url",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("category_logo_media"),
+                    super::super::media::Column::MimeType,
+                )),
+                "category_logo_mime_type",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("category_logo_media"),
+                    super::super::media::Column::Width,
+                )),
+                "category_logo_width",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("category_logo_media"),
+                    super::super::media::Column::Height,
+                )),
+                "category_logo_height",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("category_logo_media"),
+                    super::super::media::Column::Size,
+                )),
+                "category_logo_size",
+            )
+    }
+
     async fn sanitized_tag_ids(conn: &DbConn, tag_ids: Vec<i32>) -> DbResult<Vec<i32>> {
         let mut sanitized_ids = Vec::new();
         tag::Entity::find()
@@ -171,167 +335,7 @@ impl Entity {
         post_id: Option<i32>,
         post_slug: Option<String>,
     ) -> DbResult<Option<PostWithRelations>> {
-        use super::super::category::Column as CategoryColumn;
-        use super::super::user::Column as UserColumn;
-        use sea_orm::QuerySelect;
-        let mut query = Entity::find()
-            .column_as(UserColumn::Id, "author_id")
-            .column_as(UserColumn::Name, "author_name")
-            .column_as(UserColumn::Email, "author_email")
-            .column_as(UserColumn::AvatarId, "author_avatar_id")
-            .column_as(CategoryColumn::Id, "category_id")
-            .column_as(CategoryColumn::Name, "category_name")
-            .column_as(CategoryColumn::Slug, "category_slug")
-            .column_as(CategoryColumn::Color, "category_color")
-            .column_as(CategoryColumn::CoverId, "category_cover_id")
-            .column_as(CategoryColumn::LogoId, "category_logo_id")
-            .expr_as(
-                Expr::cust("COALESCE((SELECT COUNT(*) FROM post_comments WHERE post_comments.post_id = posts.id), 0)"),
-                "comment_count",
-            )
-            .join(JoinType::InnerJoin, Relation::User.def())
-            .join_as(
-                JoinType::LeftJoin,
-                super::super::user::Relation::Media.def(),
-                Alias::new("author_avatar_media"),
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("author_avatar_media"),
-                    super::super::media::Column::ObjectKey,
-                )),
-                "author_avatar_object_key",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("author_avatar_media"),
-                    super::super::media::Column::FileUrl,
-                )),
-                "author_avatar_file_url",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("author_avatar_media"),
-                    super::super::media::Column::MimeType,
-                )),
-                "author_avatar_mime_type",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("author_avatar_media"),
-                    super::super::media::Column::Width,
-                )),
-                "author_avatar_width",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("author_avatar_media"),
-                    super::super::media::Column::Height,
-                )),
-                "author_avatar_height",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("author_avatar_media"),
-                    super::super::media::Column::Size,
-                )),
-                "author_avatar_size",
-            )
-            .join(JoinType::LeftJoin, Relation::Category.def())
-            .join_as(
-                JoinType::LeftJoin,
-                super::super::category::Relation::Cover.def(),
-                Alias::new("category_cover_media"),
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_cover_media"),
-                    super::super::media::Column::ObjectKey,
-                )),
-                "category_cover_object_key",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_cover_media"),
-                    super::super::media::Column::FileUrl,
-                )),
-                "category_cover_file_url",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_cover_media"),
-                    super::super::media::Column::MimeType,
-                )),
-                "category_cover_mime_type",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_cover_media"),
-                    super::super::media::Column::Width,
-                )),
-                "category_cover_width",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_cover_media"),
-                    super::super::media::Column::Height,
-                )),
-                "category_cover_height",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_cover_media"),
-                    super::super::media::Column::Size,
-                )),
-                "category_cover_size",
-            )
-            .join_as(
-                JoinType::LeftJoin,
-                super::super::category::Relation::Logo.def(),
-                Alias::new("category_logo_media"),
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_logo_media"),
-                    super::super::media::Column::ObjectKey,
-                )),
-                "category_logo_object_key",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_logo_media"),
-                    super::super::media::Column::FileUrl,
-                )),
-                "category_logo_file_url",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_logo_media"),
-                    super::super::media::Column::MimeType,
-                )),
-                "category_logo_mime_type",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_logo_media"),
-                    super::super::media::Column::Width,
-                )),
-                "category_logo_width",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_logo_media"),
-                    super::super::media::Column::Height,
-                )),
-                "category_logo_height",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_logo_media"),
-                    super::super::media::Column::Size,
-                )),
-                "category_logo_size",
-            );
+        let mut query = Self::build_post_query_with_relations();
 
         query = match (post_id, post_slug.clone()) {
             (Some(id), _) => query.filter(Column::Id.eq(id)),
@@ -353,6 +357,8 @@ impl Entity {
                     tags.push(PostTag {
                         id: tag.id,
                         name: tag.name,
+                        slug: tag.slug,
+                        color: tag.color,
                     });
                 }
             }
@@ -368,170 +374,7 @@ impl Entity {
         conn: &DbConn,
         query: PostQuery,
     ) -> DbResult<(Vec<PostWithRelations>, u64)> {
-        let mut post_query = Self::find();
-
-        // If relations are needed, join the related tables
-        use super::super::category::Column as CategoryColumn;
-        use super::super::user::Column as UserColumn;
-
-        post_query = post_query
-            .column_as(UserColumn::Id, "author_id")
-            .column_as(UserColumn::Name, "author_name")
-            .column_as(UserColumn::Email, "author_email")
-            .column_as(UserColumn::AvatarId, "author_avatar_id")
-            .column_as(CategoryColumn::Id, "category_id")
-            .column_as(CategoryColumn::Name, "category_name")
-            .column_as(CategoryColumn::Slug, "category_slug")
-            .column_as(CategoryColumn::Color, "category_color")
-            .column_as(CategoryColumn::CoverId, "category_cover_id")
-            .column_as(CategoryColumn::LogoId, "category_logo_id")
-            .expr_as(
-                Expr::cust("COALESCE((SELECT COUNT(*) FROM post_comments WHERE post_comments.post_id = posts.id), 0)"),
-                "comment_count",
-            )
-            .join(JoinType::InnerJoin, Relation::User.def())
-            .join_as(
-                JoinType::LeftJoin,
-                super::super::user::Relation::Media.def(),
-                Alias::new("author_avatar_media"),
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("author_avatar_media"),
-                    super::super::media::Column::ObjectKey,
-                )),
-                "author_avatar_object_key",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("author_avatar_media"),
-                    super::super::media::Column::FileUrl,
-                )),
-                "author_avatar_file_url",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("author_avatar_media"),
-                    super::super::media::Column::MimeType,
-                )),
-                "author_avatar_mime_type",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("author_avatar_media"),
-                    super::super::media::Column::Width,
-                )),
-                "author_avatar_width",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("author_avatar_media"),
-                    super::super::media::Column::Height,
-                )),
-                "author_avatar_height",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("author_avatar_media"),
-                    super::super::media::Column::Size,
-                )),
-                "author_avatar_size",
-            )
-            .join(JoinType::LeftJoin, Relation::Category.def())
-            .join_as(
-                JoinType::LeftJoin,
-                super::super::category::Relation::Cover.def(),
-                Alias::new("category_cover_media"),
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_cover_media"),
-                    super::super::media::Column::ObjectKey,
-                )),
-                "category_cover_object_key",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_cover_media"),
-                    super::super::media::Column::FileUrl,
-                )),
-                "category_cover_file_url",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_cover_media"),
-                    super::super::media::Column::MimeType,
-                )),
-                "category_cover_mime_type",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_cover_media"),
-                    super::super::media::Column::Width,
-                )),
-                "category_cover_width",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_cover_media"),
-                    super::super::media::Column::Height,
-                )),
-                "category_cover_height",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_cover_media"),
-                    super::super::media::Column::Size,
-                )),
-                "category_cover_size",
-            )
-            .join_as(
-                JoinType::LeftJoin,
-                super::super::category::Relation::Logo.def(),
-                Alias::new("category_logo_media"),
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_logo_media"),
-                    super::super::media::Column::ObjectKey,
-                )),
-                "category_logo_object_key",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_logo_media"),
-                    super::super::media::Column::FileUrl,
-                )),
-                "category_logo_file_url",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_logo_media"),
-                    super::super::media::Column::MimeType,
-                )),
-                "category_logo_mime_type",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_logo_media"),
-                    super::super::media::Column::Width,
-                )),
-                "category_logo_width",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_logo_media"),
-                    super::super::media::Column::Height,
-                )),
-                "category_logo_height",
-            )
-            .expr_as(
-                Expr::col((
-                    Alias::new("category_logo_media"),
-                    super::super::media::Column::Size,
-                )),
-                "category_logo_size",
-            );
+        let mut post_query = Self::build_post_query_with_relations();
 
         if let Some(title_filter) = &query.title {
             let pattern = format!("%{}%", title_filter);
@@ -651,6 +494,8 @@ impl Entity {
                         PostTag {
                             id: t.id,
                             name: t.name,
+                            slug: t.slug,
+                            color: t.color,
                         },
                     )
                 })
