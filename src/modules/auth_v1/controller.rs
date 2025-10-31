@@ -10,6 +10,7 @@ use axum_client_ip::ClientIp;
 
 use sea_orm::ActiveModelTrait;
 use serde_json::json;
+use tracing::{error, info, instrument, warn};
 
 use crate::{
     db::sea_models::{user, user_session},
@@ -24,15 +25,28 @@ use crate::{
 };
 
 #[debug_handler]
+#[instrument(skip(auth), fields(user_id))]
 pub async fn log_out(mut auth: AuthSession) -> Result<impl IntoResponse, ErrorResponse> {
+    if let Some(user) = &auth.user {
+        tracing::Span::current().record("user_id", user.id);
+        info!(user_id = user.id, "User logging out");
+    }
+
     match auth.logout().await {
-        Ok(_) => Ok((StatusCode::OK, Json(json!({"message": "Logged out"})))),
-        Err(_) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
-            .with_message("An error occurred while logging out")),
+        Ok(_) => {
+            info!("Logout successful");
+            Ok((StatusCode::OK, Json(json!({"message": "Logged out"}))))
+        }
+        Err(e) => {
+            error!(error = %e, "Logout failed");
+            Err(ErrorResponse::new(ErrorCode::InternalServerError)
+                .with_message("An error occurred while logging out"))
+        }
     }
 }
 
 #[debug_handler]
+#[instrument(skip(state, auth, payload), fields(client_ip = %secure_ip, user_id, user_role, result))]
 pub async fn log_in(
     State(state): State<AppState>,
     mut auth: AuthSession,
@@ -40,51 +54,96 @@ pub async fn log_in(
     headers: HeaderMap,
     payload: ValidatedJson<V1LoginPayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
+    info!(client_ip = %secure_ip, "Login attempt");
+
     let user = auth.authenticate(Credentials::Password(payload.0)).await;
 
     match user {
-        Ok(Some(user)) => match auth.login(&user).await {
-            Ok(_) => {
-                let ip = Some(secure_ip.to_string());
-                let device = headers
-                    .get("user-agent")
-                    .and_then(|v| v.to_str().ok())
-                    .map(|s| s.to_string());
-                let _ = user_session::Entity::create(
-                    &state.sea_db,
-                    user_session::NewUserSession::new(user.id, device, ip),
-                )
-                .await;
-                Ok((StatusCode::OK, Json(json!(user))))
+        Ok(Some(user)) => {
+            tracing::Span::current().record("user_id", user.id);
+            tracing::Span::current().record("user_role", user.role.to_string());
+
+            match auth.login(&user).await {
+                Ok(_) => {
+                    let ip = Some(secure_ip.to_string());
+                    let device = headers
+                        .get("user-agent")
+                        .and_then(|v| v.to_str().ok())
+                        .map(|s| s.to_string());
+
+                    info!(
+                        user_id = user.id,
+                        user_role = user.role.to_string(),
+                        device = ?device,
+                        "Login successful"
+                    );
+
+                    let _ = user_session::Entity::create(
+                        &state.sea_db,
+                        user_session::NewUserSession::new(user.id, device, ip),
+                    )
+                    .await;
+
+                    tracing::Span::current().record("result", "success");
+                    Ok((StatusCode::OK, Json(json!(user))))
+                }
+                Err(err) => {
+                    error!(error = %err, user_id = user.id, "Session creation failed");
+                    tracing::Span::current().record("result", "session_error");
+                    Err(ErrorResponse::new(ErrorCode::InternalServerError)
+                        .with_message("An error occurred while logging in")
+                        .with_details(err.to_string()))
+                }
             }
-            Err(err) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
-                .with_message("An error occurred while logging in")
-                .with_details(err.to_string())),
-        },
-        Ok(None) => Err(ErrorResponse::new(ErrorCode::InvalidCredentials)),
-        Err(err) => Err(err.into()),
+        }
+        Ok(None) => {
+            warn!(client_ip = %secure_ip, "Invalid credentials");
+            tracing::Span::current().record("result", "invalid_credentials");
+            Err(ErrorResponse::new(ErrorCode::InvalidCredentials))
+        }
+        Err(err) => {
+            error!(error = ?err, client_ip = %secure_ip, "Authentication error");
+            tracing::Span::current().record("result", "auth_error");
+            Err(err.into())
+        }
     }
 }
 
 #[debug_handler]
+#[instrument(skip(state, payload), fields(user_id, result))]
 pub async fn register(
     state: State<AppState>,
     payload: ValidatedJson<V1RegisterPayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let payload = payload.0;
 
+    info!("User registration attempt");
+
     match user::Entity::create(&state.sea_db, payload.into_new_user()).await {
-        Ok(user) => Ok((StatusCode::CREATED, Json(json!(user)))),
-        Err(err) => Err(err.into()),
+        Ok(user) => {
+            info!(user_id = user.id, email = %user.email, "User registered successfully");
+            tracing::Span::current().record("user_id", user.id);
+            tracing::Span::current().record("result", "success");
+            Ok((StatusCode::CREATED, Json(json!(user))))
+        }
+        Err(err) => {
+            warn!(error = ?err, "Registration failed");
+            tracing::Span::current().record("result", "failure");
+            Err(err.into())
+        }
     }
 }
 
 #[debug_handler]
+#[instrument(skip(state, auth), fields(user_id))]
 pub async fn twofa_setup(
     State(state): State<AppState>,
     auth: AuthSession,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let user = auth.user.unwrap();
+    tracing::Span::current().record("user_id", user.id);
+
+    info!(user_id = user.id, "2FA setup initiated");
 
     // Generate base32 secret and backup codes, persist to user
     let secret_b32 = twofa::generate_secret_base32(20);

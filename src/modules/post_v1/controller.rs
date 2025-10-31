@@ -10,6 +10,7 @@ use crate::db::sea_models::{post_revision, post_series, post_series_post, schedu
 use axum_macros::debug_handler;
 use sea_orm::EntityTrait;
 use serde_json::json;
+use tracing::{error, info, instrument, warn};
 
 use crate::db::sea_models::user::UserRole;
 use crate::{
@@ -27,53 +28,101 @@ use super::validator::{
 };
 
 #[debug_handler]
+#[instrument(skip(state, auth, payload), fields(user_id, post_id, slug, result))]
 pub async fn create(
     State(state): State<AppState>,
     auth: AuthSession,
     payload: ValidatedJson<V1CreatePostPayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let user = auth.user.unwrap();
+    tracing::Span::current().record("user_id", user.id);
+
+    info!(user_id = user.id, "Creating post");
+
     let new_post = payload.0.into_new_post(user.id);
 
     match post::Entity::create(&state.sea_db, new_post).await {
-        Ok(post) => Ok((StatusCode::CREATED, Json(json!(post)))),
-        Err(err) => Err(err.into()),
+        Ok(post) => {
+            info!(post_id = post.id, slug = %post.slug, "Post created successfully");
+            tracing::Span::current().record("post_id", post.id);
+            tracing::Span::current().record("slug", &post.slug);
+            tracing::Span::current().record("result", "success");
+            Ok((StatusCode::CREATED, Json(json!(post))))
+        }
+        Err(err) => {
+            error!(error = ?err, user_id = user.id, "Failed to create post");
+            tracing::Span::current().record("result", "failure");
+            Err(err.into())
+        }
     }
 }
 
 #[debug_handler]
+#[instrument(skip(state), fields(identifier = %slug_or_id, post_id, result))]
 pub async fn find_by_id_or_slug(
     State(state): State<AppState>,
     Path(slug_or_id): Path<String>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
+    info!(identifier = %slug_or_id, "Finding post by ID or slug");
+
     let query = match slug_or_id.parse::<i32>() {
-        Ok(id) => post::Entity::find_by_id_or_slug(&state.sea_db, Some(id), None).await,
-        Err(_) => post::Entity::find_by_id_or_slug(&state.sea_db, None, Some(slug_or_id)).await,
+        Ok(id) => {
+            info!(post_id = id, "Searching by ID");
+            post::Entity::find_by_id_or_slug(&state.sea_db, Some(id), None).await
+        }
+        Err(_) => {
+            info!(slug = %slug_or_id, "Searching by slug");
+            post::Entity::find_by_id_or_slug(&state.sea_db, None, Some(slug_or_id)).await
+        }
     };
 
     match query {
-        Ok(Some(post)) => Ok((StatusCode::OK, Json(json!(post)))),
+        Ok(Some(post)) => {
+            info!(post_id = post.id, "Post found");
+            tracing::Span::current().record("post_id", post.id);
+            tracing::Span::current().record("result", "found");
+            Ok((StatusCode::OK, Json(json!(post))))
+        }
         Ok(None) => {
+            warn!("Post not found");
+            tracing::Span::current().record("result", "not_found");
             Err(ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Post not found"))
         }
-        Err(err) => Err(err.into()),
+        Err(err) => {
+            error!(error = ?err, "Database error while finding post");
+            tracing::Span::current().record("result", "error");
+            Err(err.into())
+        }
     }
 }
 
 #[debug_handler]
+#[instrument(skip(state, payload), fields(post_id = %post_id, result))]
 pub async fn update(
     State(state): State<AppState>,
     Path(post_id): Path<i32>,
     payload: ValidatedJson<V1UpdatePostPayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
+    info!(post_id, "Updating post");
+
     let update_post = payload.0.into_update_post();
 
     match post::Entity::update(&state.sea_db, post_id, update_post).await {
-        Ok(Some(post)) => Ok((StatusCode::OK, Json(json!(post)))),
+        Ok(Some(post)) => {
+            info!(post_id, slug = %post.slug, "Post updated successfully");
+            tracing::Span::current().record("result", "success");
+            Ok((StatusCode::OK, Json(json!(post))))
+        }
         Ok(None) => {
+            warn!(post_id, "Post not found for update");
+            tracing::Span::current().record("result", "not_found");
             Err(ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Post does not exist"))
         }
-        Err(err) => Err(err.into()),
+        Err(err) => {
+            error!(error = ?err, post_id, "Failed to update post");
+            tracing::Span::current().record("result", "failure");
+            Err(err.into())
+        }
     }
 }
 

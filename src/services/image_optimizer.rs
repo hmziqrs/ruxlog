@@ -6,6 +6,7 @@ use image::{
     ImageFormat,
 };
 use thiserror::Error;
+use tracing::{debug, info, instrument, warn};
 
 use crate::{modules::media_v1::validator::MediaUploadMetadata, state::OptimizerConfig};
 
@@ -105,11 +106,20 @@ pub enum OptimizationError {
 const LOSSY_BPP_THRESHOLD: f32 = 1.5;
 const LOSSLESS_BPP_THRESHOLD: f32 = 3.0;
 
+#[instrument(skip(config, request), fields(
+    input_size = request.bytes.len(),
+    reference = ?request.reference,
+    outcome,
+    bytes_saved,
+    variant_count
+))]
 pub fn optimize(
     config: &OptimizerConfig,
     request: OptimizationRequest<'_>,
 ) -> Result<OptimizationOutcome, OptimizationError> {
     if !config.enabled {
+        debug!("Optimization disabled by config");
+        tracing::Span::current().record("outcome", "skipped_disabled");
         return Ok(OptimizationOutcome::Skipped(SkipReason::Disabled));
     }
 
@@ -118,18 +128,41 @@ pub fn optimize(
         request.original_mime,
         request.original_extension,
     ) {
-        Ok(info) => info,
+        Ok(info) => {
+            debug!(
+                width = info.width,
+                height = info.height,
+                format = ?info.format,
+                pixels = info.pixel_count,
+                "Image probed successfully"
+            );
+            info
+        }
         Err(SkipReason::UnsupportedFormat) => {
+            warn!(mime = ?request.original_mime, ext = ?request.original_extension, "Unsupported format");
+            tracing::Span::current().record("outcome", "skipped_unsupported");
             return Ok(OptimizationOutcome::Skipped(SkipReason::UnsupportedFormat));
         }
-        Err(reason) => return Ok(OptimizationOutcome::Skipped(reason)),
+        Err(reason) => {
+            warn!(reason = ?reason, "Skipping optimization");
+            tracing::Span::current().record("outcome", &format!("skipped_{:?}", reason));
+            return Ok(OptimizationOutcome::Skipped(reason));
+        }
     };
 
     if probed.pixel_count > config.max_pixels {
+        warn!(
+            pixels = probed.pixel_count,
+            max_pixels = config.max_pixels,
+            "Image exceeds pixel budget"
+        );
+        tracing::Span::current().record("outcome", "skipped_too_large");
         return Ok(OptimizationOutcome::Skipped(SkipReason::ExceedsPixelBudget));
     }
 
     if should_skip_for_quality(&probed) {
+        debug!(bpp = probed.bytes_per_pixel, "Already optimized");
+        tracing::Span::current().record("outcome", "skipped_optimized");
         return Ok(OptimizationOutcome::Skipped(SkipReason::AlreadyOptimized));
     }
 
@@ -141,11 +174,23 @@ pub fn optimize(
 
     let decoded = match image::load_from_memory(request.bytes) {
         Ok(image) => image,
-        Err(_) => return Ok(OptimizationOutcome::Skipped(SkipReason::DecodeFailed)),
+        Err(e) => {
+            warn!(error = %e, "Failed to decode image");
+            tracing::Span::current().record("outcome", "skipped_decode_failed");
+            return Ok(OptimizationOutcome::Skipped(SkipReason::DecodeFailed));
+        }
     };
 
     let characteristics = analyze_image(&decoded);
+    debug!(
+        has_alpha = characteristics.has_alpha,
+        aspect_ratio = characteristics.aspect_ratio,
+        min_dimension = characteristics.min_dimension,
+        "Image characteristics analyzed"
+    );
+
     let plan = strategy.build_plan(&decoded, &probed, &characteristics, config);
+    debug!(variant_specs = plan.len(), "Optimization plan created");
 
     let mut result = OptimizationResult {
         replaced_original: false,
@@ -186,8 +231,28 @@ pub fn optimize(
     }
 
     if !result.replaced_original && result.variants.is_empty() {
+        debug!("No optimization applied");
+        tracing::Span::current().record("outcome", "skipped_no_improvement");
         return Ok(OptimizationOutcome::Skipped(SkipReason::AlreadyOptimized));
     }
+
+    let bytes_saved = if result.replaced_original {
+        request.bytes.len() as i64 - result.original.bytes.len() as i64
+    } else {
+        0
+    };
+
+    info!(
+        replaced_original = result.replaced_original,
+        variant_count = result.variants.len(),
+        bytes_saved,
+        original_size = request.bytes.len(),
+        "Optimization completed"
+    );
+
+    tracing::Span::current().record("outcome", "optimized");
+    tracing::Span::current().record("bytes_saved", bytes_saved);
+    tracing::Span::current().record("variant_count", result.variants.len() as i64);
 
     Ok(OptimizationOutcome::Optimized(result))
 }

@@ -1,6 +1,7 @@
 use tower_sessions_redis_store::fred::interfaces::LuaInterface;
 use tower_sessions_redis_store::fred::prelude::Pool as RedisPool;
 use tower_sessions_redis_store::fred::types::{FromValue, Value};
+use tracing::{debug, error, info, instrument, warn};
 
 use crate::error::{ErrorCode, ErrorResponse};
 
@@ -105,11 +106,25 @@ fn to_string(v: &Value) -> Option<String> {
 }
 
 /// Execute the limiter in Redis via a single atomic Lua script.
+#[instrument(skip(redis_pool), fields(
+    scope = %key_prefix,
+    decision,
+    short_count,
+    long_count,
+    retry_after
+))]
 pub async fn check(
     redis_pool: &RedisPool,
     key_prefix: &str,
     config: AbuseLimiterConfig,
 ) -> Result<LimiterDecision, ErrorResponse> {
+    debug!(
+        temp_threshold = config.temp_block_attempts,
+        temp_window = config.temp_block_range,
+        long_threshold = config.block_retry_limit,
+        long_window = config.block_range,
+        "Checking abuse limiter"
+    );
     let attempts_key = format!("abuse_limiter:attempts:{}", key_prefix);
     let block_key = format!("abuse_limiter:block:{}", key_prefix);
     let seq_key = format!("abuse_limiter:seq:{}", key_prefix);
@@ -133,13 +148,23 @@ pub async fn check(
     let values = match res {
         Ok(v) => v,
         Err(err) => {
+            error!(
+                error = %err,
+                key_prefix = %key_prefix,
+                "Redis error during limiter check"
+            );
             return Err(ErrorResponse::new(ErrorCode::ServiceUnavailable)
                 .with_message("Limiter unavailable (Redis error)")
-                .with_details(err.to_string()))
+                .with_details(err.to_string()));
         }
     };
 
     if values.len() != 5 {
+        error!(
+            value_count = values.len(),
+            key_prefix = %key_prefix,
+            "Unexpected Lua script result length"
+        );
         return Err(ErrorResponse::new(ErrorCode::InternalServerError)
             .with_message("Limiter returned unexpected result"));
     }
@@ -151,6 +176,11 @@ pub async fn check(
     let reason = to_string(&values[4]).unwrap_or_else(|| "none".to_string());
 
     if allowed == 1 {
+        debug!(short_count, long_count, "Request allowed");
+        tracing::Span::current().record("decision", "allowed");
+        tracing::Span::current().record("short_count", short_count);
+        tracing::Span::current().record("long_count", long_count);
+
         return Ok(LimiterDecision::Allowed {
             short_count,
             long_count,
@@ -163,6 +193,20 @@ pub async fn check(
         _ => BlockScope::Temp,
     };
 
+    warn!(
+        scope = ?scope,
+        retry_after = retry_after,
+        short_count,
+        long_count,
+        reason = %reason,
+        "Request blocked by abuse limiter"
+    );
+
+    tracing::Span::current().record("decision", "blocked");
+    tracing::Span::current().record("short_count", short_count);
+    tracing::Span::current().record("long_count", long_count);
+    tracing::Span::current().record("retry_after", retry_after);
+
     Ok(LimiterDecision::Blocked {
         scope,
         retry_after_secs: retry_after,
@@ -172,6 +216,7 @@ pub async fn check(
 }
 
 /// Backward-compatible wrapper preserving the original signature.
+#[instrument(skip(redis_pool), fields(scope = %key_prefix))]
 pub async fn limiter(
     redis_pool: &RedisPool,
     key_prefix: &str,
@@ -180,15 +225,24 @@ pub async fn limiter(
     use serde_json::json;
 
     match check(redis_pool, key_prefix, config).await? {
-        LimiterDecision::Allowed { .. } => Ok(()),
+        LimiterDecision::Allowed { .. } => {
+            info!("Access allowed");
+            Ok(())
+        }
         LimiterDecision::Blocked {
             retry_after_secs, ..
-        } => Err(ErrorResponse::new(ErrorCode::TooManyAttempts)
-            .with_message(format!(
-                "Too many attempts. Try again in {} seconds.",
-                retry_after_secs
-            ))
-            .with_retry_after(retry_after_secs)
-            .with_context(json!({ "retryAfter": retry_after_secs }))),
+        } => {
+            info!(
+                retry_after = retry_after_secs,
+                "Access denied - rate limited"
+            );
+            Err(ErrorResponse::new(ErrorCode::TooManyAttempts)
+                .with_message(format!(
+                    "Too many attempts. Try again in {} seconds.",
+                    retry_after_secs
+                ))
+                .with_retry_after(retry_after_secs)
+                .with_context(json!({ "retryAfter": retry_after_secs })))
+        }
     }
 }

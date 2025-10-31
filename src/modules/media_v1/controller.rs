@@ -20,22 +20,38 @@ use crate::{
     services::{auth::AuthSession, image_optimizer},
     AppState,
 };
-use tracing::warn;
+use tracing::{debug, error, info, instrument, warn};
 
 use super::validator::{MediaUploadMetadata, V1MediaListQuery};
 
 const MAX_UPLOAD_SIZE_BYTES: usize = 20 * 1024 * 1024; // 20MiB ceiling
 
 #[debug_handler]
+#[instrument(
+    skip(state, auth, multipart),
+    fields(
+        user_id,
+        file_size,
+        content_hash,
+        is_duplicate,
+        is_optimized,
+        variant_count,
+        result
+    )
+)]
 pub async fn create(
     State(state): State<AppState>,
     auth: AuthSession,
     mut multipart: ValidatedMultipart,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let uploader = auth.user.ok_or_else(|| {
+        error!("Unauthorized upload attempt");
         ErrorResponse::new(ErrorCode::Unauthorized)
             .with_message("Authentication required to upload media")
     })?;
+
+    tracing::Span::current().record("user_id", uploader.id);
+    info!(user_id = uploader.id, "Processing media upload");
 
     let mut metadata = MediaUploadMetadata::default();
     let mut file_bytes: Option<Bytes> = None;
@@ -43,6 +59,7 @@ pub async fn create(
     let mut mime_type: Option<String> = None;
 
     while let Some(field) = multipart.next_field().await.map_err(|err| {
+        error!(error = %err, "Failed to read multipart field");
         ErrorResponse::new(ErrorCode::ValidationError).with_details(err.to_string())
     })? {
         let field_name = field.name().unwrap_or_default().to_string();
@@ -50,12 +67,20 @@ pub async fn create(
             original_name = field.file_name().map(|name| name.to_string());
             mime_type = field.content_type().map(|ty| ty.to_string());
             let bytes = field.bytes().await.map_err(|err| {
+                error!(error = %err, "Failed to read uploaded file bytes");
                 ErrorResponse::new(ErrorCode::FileUploadError)
                     .with_message("Failed to read uploaded file")
                     .with_details(err.to_string())
             })?;
 
+            debug!(file_size = bytes.len(), "File bytes received");
+
             if bytes.len() > MAX_UPLOAD_SIZE_BYTES {
+                warn!(
+                    file_size = bytes.len(),
+                    max_size = MAX_UPLOAD_SIZE_BYTES,
+                    "Upload exceeds size limit"
+                );
                 return Err(ErrorResponse::new(ErrorCode::FileTooLarge)
                     .with_message("File size exceeds the 20MiB upload limit"));
             }
@@ -63,32 +88,54 @@ pub async fn create(
             file_bytes = Some(bytes);
         } else {
             let value = field.text().await.map_err(|err| {
+                error!(error = %err, field = %field_name, "Failed to read form field");
                 ErrorResponse::new(ErrorCode::InvalidFormat)
                     .with_message("Failed to read accompanying form field")
                     .with_details(err.to_string())
             })?;
 
-            metadata
-                .apply_field(&field_name, &value)
-                .map_err(|msg| ErrorResponse::new(ErrorCode::InvalidValue).with_message(&msg))?;
+            metadata.apply_field(&field_name, &value).map_err(|msg| {
+                warn!(field = %field_name, error = %msg, "Invalid metadata field");
+                ErrorResponse::new(ErrorCode::InvalidValue).with_message(&msg)
+            })?;
         }
     }
 
     let file_bytes = file_bytes.ok_or_else(|| {
+        error!("No file field in multipart upload");
         ErrorResponse::new(ErrorCode::MissingRequiredField).with_message("Missing file field")
     })?;
+
+    tracing::Span::current().record("file_size", file_bytes.len() as i64);
 
     let mut hasher = Sha256::new();
     hasher.update(&file_bytes);
     let content_hash = format!("{:x}", hasher.finalize());
 
+    debug!(content_hash = %content_hash, "File hash calculated");
+    tracing::Span::current().record("content_hash", &content_hash);
+
     if let Some(existing) = Media::find_by_hash(&state.sea_db, &content_hash).await? {
+        info!(
+            media_id = existing.id,
+            content_hash = %content_hash,
+            "Duplicate file detected, returning existing media"
+        );
+        tracing::Span::current().record("is_duplicate", true);
+        tracing::Span::current().record("result", "duplicate");
         return Ok((StatusCode::OK, Json(json!(existing))));
     }
+
+    tracing::Span::current().record("is_duplicate", false);
 
     // Derive useful metadata if it was not supplied
     if metadata.width.is_none() || metadata.height.is_none() {
         if let Ok(dimensions) = imagesize::blob_size(&file_bytes) {
+            debug!(
+                width = dimensions.width,
+                height = dimensions.height,
+                "Image dimensions detected"
+            );
             metadata.width = metadata
                 .width
                 .or_else(|| i32::try_from(dimensions.width).ok());
