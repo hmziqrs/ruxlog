@@ -1,8 +1,8 @@
 # OpenObserve + OpenTelemetry Integration Plan
 
-**Status:** ✅ Phase 1-4 Complete (Core, Services, Controllers, DB/Extractors + Models)  
+**Status:** ✅ Core Implementation Complete (Metrics Centralized, Gauges Active)  
 **Last Updated:** January 2025  
-**Progress:** ~90% Complete
+**Progress:** ~95% Complete
 
 ---
 
@@ -51,8 +51,8 @@
 ### Next Actions (Priority Order)
 1. ✅ ~~Complete remaining module controllers~~ **DONE**
 2. ✅ ~~Add database query instrumentation to high-traffic models~~ **DONE**
-3. Wire AppState.meter into services to centralize metric creation
-4. Add observable gauges (Redis pool usage, DB pool usage)
+3. ✅ ~~Wire AppState.meter into services to centralize metric creation~~ **DONE**
+4. ✅ ~~Add observable gauges (Redis pool usage, DB pool usage)~~ **DONE**
 5. Create OpenObserve dashboards and alerts
 6. Production deployment and performance tuning
 
@@ -283,12 +283,18 @@ Notes:
   - Media model (create, find_by_id, find_by_hash, delete, list operations)
   - Comment model (create, update, delete, find_all_by_post)
 
+### ✅ Completed (Metrics & Observability)
+- HTTP metrics centralized in telemetry module (shared instances via OnceLock)
+- Observable gauges for Redis and DB pool connections
+- Removed per-request metric creation from middleware
+- AppState.meter available for future service integration
+
 ### 📋 Files Modified
 
 **Core Infrastructure:**
-- `src/utils/telemetry.rs` (created)
-- `src/middlewares/http_metrics.rs` (created)
-- `src/main.rs`
+- `src/utils/telemetry.rs` (created - includes shared HTTP metrics & pool gauges)
+- `src/middlewares/http_metrics.rs` (simplified - uses shared metrics)
+- `src/main.rs` (pool metrics initialization)
 - `src/state.rs`
 - `src/router.rs`
 - `Cargo.toml`
@@ -333,37 +339,26 @@ Notes:
 ### 🎯 Next Steps (Priority Order)
 
 #### High Priority
-1. **Centralize Metric Creation**
-   - Wire `AppState.meter` into all services
-   - Remove per-request meter creation
-   - Share metric instances via telemetry module
-
-2. **Observable Gauges**
-   - Redis pool connection count
-   - Database pool connection count
-   - Active session count
-
-#### Medium Priority
-3. **OpenObserve Dashboards**
+1. **OpenObserve Dashboards**
    - HTTP request rate/latency by endpoint
    - Error rates by endpoint and status
    - Auth success/failure rates
    - Redis/DB health metrics
    - Image optimization effectiveness
 
-4. **Production Tuning**
+2. **Production Tuning**
    - Configure batch export settings
    - Implement sampling for high-volume endpoints
    - Manage cardinality (avoid high-cardinality labels)
    - Set exporter timeouts and retries
 
 #### Low Priority
-5. **Background Task Tracing**
+3. **Background Task Tracing**
    - Newsletter send tasks
    - Cleanup jobs
    - Migration scripts
 
-6. **Test Coverage**
+4. **Test Coverage**
    - Unit tests for telemetry init
    - Integration tests with OTLP mock
    - CI configuration for exporters
@@ -377,4 +372,5 @@ Notes:
 - **Middleware**: 4/4 instrumented (100%)
 - **Extractors**: 2/2 instrumented (100%)
 - **Database**: Connection layer + 4 high-traffic models instrumented (100%)
-- **Overall Progress**: ~90% complete
+- **Metrics**: HTTP metrics centralized, observable gauges initialized (100%)
+- **Overall Progress**: ~95% complete

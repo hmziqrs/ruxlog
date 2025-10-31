@@ -1,4 +1,5 @@
 use opentelemetry::global;
+use opentelemetry::metrics::{Counter, Histogram, Meter};
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::{
@@ -10,6 +11,7 @@ use opentelemetry_sdk::trace::TracerProvider;
 use opentelemetry_sdk::{logs::LoggerProvider, Resource};
 use std::collections::HashMap;
 use std::env;
+use std::sync::OnceLock;
 use std::time::Duration;
 use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
@@ -190,6 +192,75 @@ pub fn init() -> TelemetryGuard {
     }
 }
 
-pub fn global_meter() -> opentelemetry::metrics::Meter {
+pub fn global_meter() -> Meter {
     global::meter("ruxlog-api")
+}
+
+/// Shared HTTP metrics to avoid recreating on every request
+pub struct HttpMetrics {
+    pub request_duration: Histogram<f64>,
+    pub request_count: Counter<u64>,
+    pub response_status: Counter<u64>,
+}
+
+/// Shared observable gauges for pool metrics
+pub struct PoolMetrics {
+    _redis_gauge: opentelemetry::metrics::ObservableGauge<u64>,
+    _db_gauge: opentelemetry::metrics::ObservableGauge<u64>,
+}
+
+impl PoolMetrics {
+    pub fn new(meter: &Meter) -> Self {
+        let redis_gauge = meter
+            .u64_observable_gauge("redis.pool.connections")
+            .with_description("Number of active Redis pool connections")
+            .build();
+
+        let db_gauge = meter
+            .u64_observable_gauge("db.pool.connections")
+            .with_description("Number of active database pool connections")
+            .build();
+
+        Self {
+            _redis_gauge: redis_gauge,
+            _db_gauge: db_gauge,
+        }
+    }
+}
+
+impl HttpMetrics {
+    pub fn new(meter: &Meter) -> Self {
+        let request_duration = meter
+            .f64_histogram("http.server.duration")
+            .with_description("HTTP request duration in milliseconds")
+            .with_unit("ms")
+            .build();
+
+        let request_count = meter
+            .u64_counter("http.server.request.count")
+            .with_description("Total number of HTTP requests")
+            .build();
+
+        let response_status = meter
+            .u64_counter("http.server.response.status")
+            .with_description("HTTP response status codes")
+            .build();
+
+        Self {
+            request_duration,
+            request_count,
+            response_status,
+        }
+    }
+}
+
+static HTTP_METRICS: OnceLock<HttpMetrics> = OnceLock::new();
+static POOL_METRICS: OnceLock<PoolMetrics> = OnceLock::new();
+
+pub fn http_metrics() -> &'static HttpMetrics {
+    HTTP_METRICS.get_or_init(|| HttpMetrics::new(&global_meter()))
+}
+
+pub fn init_pool_metrics() {
+    POOL_METRICS.get_or_init(|| PoolMetrics::new(&global_meter()));
 }

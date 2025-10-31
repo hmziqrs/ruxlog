@@ -126,6 +126,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let _telemetry_guard = telemetry::init();
 
+    // Initialize pool metrics gauges
+    telemetry::init_pool_metrics();
+
     let cookie_key_str = env::var("COOKIE_KEY").expect("COOKIE_KEY must be set");
 
     let sea_db = db::sea_connect::get_sea_connection().await;
