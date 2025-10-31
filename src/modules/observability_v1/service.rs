@@ -22,8 +22,8 @@ impl QuickwitConfig {
             .trim_end_matches('/')
             .to_string();
 
-        let logs_index = env::var("QUICKWIT_LOGS_INDEX_ID")
-            .unwrap_or_else(|_| DEFAULT_LOGS_INDEX.to_string());
+        let logs_index =
+            env::var("QUICKWIT_LOGS_INDEX_ID").unwrap_or_else(|_| DEFAULT_LOGS_INDEX.to_string());
 
         let access_token = env::var("QUICKWIT_ACCESS_TOKEN").ok();
 
@@ -75,7 +75,9 @@ impl QuickwitClient {
             return Err(QuickwitError::Disabled);
         }
 
-        let index = index.filter(|value| !value.is_empty()).unwrap_or_else(|| self.logs_index());
+        let index = index
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| self.logs_index());
         let url = format!("{}/api/v1/indexes/{}/search", self.config.api_url, index);
 
         let request = SearchRequest {

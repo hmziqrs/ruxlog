@@ -226,10 +226,25 @@ pub fn init() -> TelemetryGuard {
         .with_line_number(true)
         .with_filter(env_filter);
 
-    let otlp_endpoint = env::var("OTEL_EXPORTER_OTLP_ENDPOINT").ok();
+    let quickwit_enabled = env::var("ENABLE_QUICKWIT_OTEL")
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes"
+            )
+        })
+        .unwrap_or(false);
 
-    if let Some(endpoint) = otlp_endpoint {
-        info!("Initializing OpenTelemetry with endpoint: {}", endpoint);
+    if quickwit_enabled {
+        let endpoint = env::var("QUICKWIT_INGEST_URL")
+            .unwrap_or_else(|_| "http://localhost:7281".to_string())
+            .trim_end_matches('/')
+            .to_string();
+
+        info!(
+            "Initializing OpenTelemetry with Quickwit ingest endpoint: {}",
+            endpoint
+        );
 
         let config = TelemetryConfig::from_env();
 
@@ -242,8 +257,18 @@ pub fn init() -> TelemetryGuard {
             "OpenTelemetry configuration loaded"
         );
 
-        let headers_str = env::var("OTEL_EXPORTER_OTLP_HEADERS").unwrap_or_default();
-        let headers = parse_otlp_headers(&headers_str);
+        let mut headers = HashMap::new();
+
+        if let Ok(token) = env::var("QUICKWIT_ACCESS_TOKEN") {
+            let trimmed = token.trim();
+            if !trimmed.is_empty() {
+                headers.insert("Authorization".to_string(), format!("Bearer {}", trimmed));
+            }
+        }
+
+        if let Ok(headers_str) = env::var("OTEL_EXPORTER_OTLP_HEADERS") {
+            headers.extend(parse_otlp_headers(&headers_str));
+        }
 
         let _resource = build_resource();
 
@@ -275,7 +300,7 @@ pub fn init() -> TelemetryGuard {
             meter_provider: Some(meter_provider),
         }
     } else {
-        info!("OTEL_EXPORTER_OTLP_ENDPOINT not set, skipping OpenTelemetry initialization");
+        info!("ENABLE_QUICKWIT_OTEL is disabled, skipping OpenTelemetry initialization");
 
         tracing_subscriber::registry().with(fmt_layer).init();
 
