@@ -1,11 +1,13 @@
 use crate::error::DbResult;
 use sea_orm::{entity::prelude::*, Order, QueryOrder, Set};
+use tracing::{error, info, instrument, warn};
 
 use super::*;
 
 impl Entity {
     pub const PER_PAGE: u64 = 20;
 
+    #[instrument(skip(conn, new_comment), fields(comment_id, post_id = new_comment.post_id, user_id = new_comment.user_id))]
     pub async fn create(conn: &DbConn, new_comment: NewComment) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
         let comment = ActiveModel {
@@ -19,11 +21,29 @@ impl Entity {
         };
 
         match comment.insert(conn).await {
-            Ok(model) => Ok(model),
-            Err(err) => Err(err.into()),
+            Ok(model) => {
+                tracing::Span::current().record("comment_id", model.id);
+                info!(
+                    comment_id = model.id,
+                    post_id = model.post_id,
+                    user_id = model.user_id,
+                    "Comment created"
+                );
+                Ok(model)
+            }
+            Err(err) => {
+                error!(
+                    post_id = new_comment.post_id,
+                    user_id = new_comment.user_id,
+                    "Failed to create comment: {}",
+                    err
+                );
+                Err(err.into())
+            }
         }
     }
 
+    #[instrument(skip(conn, update_comment), fields(comment_id, user_id))]
     pub async fn update(
         conn: &DbConn,
         comment_id: i32,
@@ -45,26 +65,46 @@ impl Entity {
             comment_active.updated_at = Set(update_comment.updated_at);
 
             match comment_active.update(conn).await {
-                Ok(updated_comment) => Ok(Some(updated_comment)),
-                Err(err) => Err(err.into()),
+                Ok(updated_comment) => {
+                    info!(comment_id, user_id, "Comment updated");
+                    Ok(Some(updated_comment))
+                }
+                Err(err) => {
+                    error!(comment_id, user_id, "Failed to update comment: {}", err);
+                    Err(err.into())
+                }
             }
         } else {
+            warn!(comment_id, user_id, "Comment not found for update");
             Ok(None)
         }
     }
 
+    #[instrument(skip(conn), fields(comment_id, user_id))]
     pub async fn delete(conn: &DbConn, comment_id: i32, user_id: i32) -> DbResult<u64> {
         match Self::delete_by_id(comment_id)
             .filter(Column::UserId.eq(user_id))
             .exec(conn)
             .await
         {
-            Ok(result) => Ok(result.rows_affected),
-            Err(err) => Err(err.into()),
+            Ok(result) => {
+                info!(
+                    comment_id,
+                    user_id,
+                    rows_affected = result.rows_affected,
+                    "Comment deleted"
+                );
+                Ok(result.rows_affected)
+            }
+            Err(err) => {
+                error!(comment_id, user_id, "Failed to delete comment: {}", err);
+                Err(err.into())
+            }
         }
     }
 
     /// Find all comments by post ID (public use)
+    #[instrument(skip(conn), fields(post_id))]
     pub async fn find_all_by_post(conn: &DbConn, post_id: i32) -> DbResult<Vec<CommentWithUser>> {
         use super::super::user::Column as UserColumn;
         use sea_orm::prelude::Expr;

@@ -1,8 +1,8 @@
 # OpenObserve + OpenTelemetry Integration Plan
 
-**Status:** ✅ Phase 1-4 Complete (Core, Services, Controllers, DB/Extractors)  
+**Status:** ✅ Phase 1-4 Complete (Core, Services, Controllers, DB/Extractors + Models)  
 **Last Updated:** January 2025  
-**Progress:** ~85% Complete
+**Progress:** ~90% Complete
 
 ---
 
@@ -46,11 +46,11 @@
 - ✅ Database connection/migration instrumentation
 - ✅ Validated extractor logging (JSON/Query validation failures)
 - ✅ Multipart extractor logging (extraction failures)
-- ❌ SeaORM model query instrumentation (pending - high-traffic models)
+- ✅ SeaORM model query instrumentation (users, posts, media, comments)
 
 ### Next Actions (Priority Order)
 1. ✅ ~~Complete remaining module controllers~~ **DONE**
-2. Add database query instrumentation to high-traffic models (users, posts, media, comments)
+2. ✅ ~~Add database query instrumentation to high-traffic models~~ **DONE**
 3. Wire AppState.meter into services to centralize metric creation
 4. Add observable gauges (Redis pool usage, DB pool usage)
 5. Create OpenObserve dashboards and alerts
@@ -277,6 +277,11 @@ Notes:
 - Database connection/migration instrumentation
 - Validated extractor logging (JSON/Query validation failures)
 - Multipart extractor logging (extraction failures)
+- SeaORM model query instrumentation:
+  - User model (create, update, delete, verify, change_password, find operations)
+  - Post model (create, update, delete, find_by_id_or_slug)
+  - Media model (create, find_by_id, find_by_hash, delete, list operations)
+  - Comment model (create, update, delete, find_all_by_post)
 
 ### 📋 Files Modified
 
@@ -314,52 +319,51 @@ Notes:
 - `src/modules/tag_v1/controller.rs`
 - ⏸️ Not instrumented (low priority): `seed_v1`, `csrf_v1`, `super_admin_v1`
 
-**Database & Extractors (3):**
+**Database & Extractors (7):**
 - `src/db/sea_connect.rs`
 - `src/extractors/validated.rs`
 - `src/extractors/multipart.rs`
+- `src/db/sea_models/user/actions.rs`
+- `src/db/sea_models/post/actions.rs`
+- `src/db/sea_models/media/actions.rs`
+- `src/db/sea_models/post_comment/actions.rs`
 
-**Total: ~30 files instrumented**
+**Total: ~34 files instrumented**
 
 ### 🎯 Next Steps (Priority Order)
 
 #### High Priority
-1. **SeaORM Model Query Instrumentation**
-   - Instrument high-traffic models: users, posts, media, comments
-   - Track query latency, result counts, and errors
-   - Add spans for create/update/delete/find operations
-
-2. **Centralize Metric Creation**
+1. **Centralize Metric Creation**
    - Wire `AppState.meter` into all services
    - Remove per-request meter creation
    - Share metric instances via telemetry module
 
-3. **Observable Gauges**
+2. **Observable Gauges**
    - Redis pool connection count
    - Database pool connection count
    - Active session count
 
 #### Medium Priority
-4. **OpenObserve Dashboards**
+3. **OpenObserve Dashboards**
    - HTTP request rate/latency by endpoint
    - Error rates by endpoint and status
    - Auth success/failure rates
    - Redis/DB health metrics
    - Image optimization effectiveness
 
-5. **Production Tuning**
+4. **Production Tuning**
    - Configure batch export settings
    - Implement sampling for high-volume endpoints
    - Manage cardinality (avoid high-cardinality labels)
    - Set exporter timeouts and retries
 
 #### Low Priority
-6. **Background Task Tracing**
+5. **Background Task Tracing**
    - Newsletter send tasks
    - Cleanup jobs
    - Migration scripts
 
-7. **Test Coverage**
+6. **Test Coverage**
    - Unit tests for telemetry init
    - Integration tests with OTLP mock
    - CI configuration for exporters
@@ -372,5 +376,5 @@ Notes:
 - **Services**: 5/5 instrumented (100%)
 - **Middleware**: 4/4 instrumented (100%)
 - **Extractors**: 2/2 instrumented (100%)
-- **Database**: Connection layer instrumented, model queries pending
-- **Overall Progress**: ~85% complete
+- **Database**: Connection layer + 4 high-traffic models instrumented (100%)
+- **Overall Progress**: ~90% complete

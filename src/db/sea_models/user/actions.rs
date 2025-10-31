@@ -7,6 +7,7 @@ use sea_orm::{
     Set, TransactionTrait,
 };
 use tokio::task;
+use tracing::{error, info, instrument, warn};
 
 use super::*;
 use crate::db::sea_models::media_usage::EntityType;
@@ -64,6 +65,7 @@ impl Entity {
         Ok(results)
     }
 
+    #[instrument(skip(conn, new_user), fields(user_id, email = %new_user.email))]
     pub async fn create(conn: &DbConn, new_user: NewUser) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
         let hash = task::spawn_blocking(move || password_auth::generate_hash(new_user.password))
@@ -89,14 +91,17 @@ impl Entity {
         })?;
         match user.insert(&transaction).await {
             Ok(model) => {
+                tracing::Span::current().record("user_id", model.id);
                 email_verification::Entity::create(&transaction, model.id).await?;
                 transaction.commit().await.map_err(|_| {
                     ErrorResponse::new(ErrorCode::TransactionError)
                         .with_message("Failed to commit transaction")
                 })?;
+                info!(user_id = model.id, email = %model.email, "User created");
                 Ok(model)
             }
             Err(err) => {
+                error!("Failed to create user: {}", err);
                 transaction.rollback().await.map_err(|_| {
                     ErrorResponse::new(ErrorCode::TransactionError)
                         .with_message("Failed to rollback transaction")
@@ -106,6 +111,7 @@ impl Entity {
         }
     }
 
+    #[instrument(skip(conn, update_user), fields(user_id))]
     pub async fn update(
         conn: &DbConn,
         user_id: i32,
@@ -130,14 +136,22 @@ impl Entity {
             user_active.updated_at = Set(update_user.updated_at);
 
             match user_active.update(conn).await {
-                Ok(updated_user) => Ok(Some(updated_user)),
-                Err(err) => Err(err.into()),
+                Ok(updated_user) => {
+                    info!(user_id, "User updated");
+                    Ok(Some(updated_user))
+                }
+                Err(err) => {
+                    error!(user_id, "Failed to update user: {}", err);
+                    Err(err.into())
+                }
             }
         } else {
+            warn!(user_id, "User not found for update");
             Ok(None)
         }
     }
 
+    #[instrument(skip(conn), fields(user_id))]
     pub async fn verify(conn: &DbConn, user_id: i32) -> DbResult<Model> {
         let user = Self::find_by_id_with_404(conn, user_id).await?;
         let mut user_active: ActiveModel = user.into();
@@ -146,11 +160,18 @@ impl Entity {
         user_active.updated_at = Set(chrono::Utc::now().fixed_offset());
 
         match user_active.update(conn).await {
-            Ok(model) => Ok(model),
-            Err(err) => Err(err.into()),
+            Ok(model) => {
+                info!(user_id, "User verified");
+                Ok(model)
+            }
+            Err(err) => {
+                error!(user_id, "Failed to verify user: {}", err);
+                Err(err.into())
+            }
         }
     }
 
+    #[instrument(skip(conn, new_password), fields(user_id))]
     pub async fn change_password<T: ConnectionTrait>(
         conn: &T,
         user_id: i32,
@@ -170,11 +191,18 @@ impl Entity {
         user_active.updated_at = Set(chrono::Utc::now().fixed_offset());
 
         match user_active.update(conn).await {
-            Ok(_) => Ok(()),
-            Err(err) => Err(err.into()),
+            Ok(_) => {
+                info!(user_id, "User password changed");
+                Ok(())
+            }
+            Err(err) => {
+                error!(user_id, "Failed to change password: {}", err);
+                Err(err.into())
+            }
         }
     }
 
+    #[instrument(skip(conn), fields(user_id))]
     pub async fn get_by_id(conn: &DbConn, user_id: i32) -> DbResult<Option<Model>> {
         match Self::find_by_id(user_id).one(conn).await {
             Ok(model) => Ok(model),
@@ -182,6 +210,7 @@ impl Entity {
         }
     }
 
+    #[instrument(skip(conn), fields(user_id))]
     pub async fn find_by_id_with_404<T: ConnectionTrait>(
         conn: &T,
         user_id: i32,
@@ -194,6 +223,7 @@ impl Entity {
         }
     }
 
+    #[instrument(skip(conn), fields(email = %user_email))]
     pub async fn find_by_email(conn: &DbConn, user_email: String) -> DbResult<Option<Model>> {
         match Self::find()
             .filter(Column::Email.eq(user_email))
@@ -205,6 +235,7 @@ impl Entity {
         }
     }
 
+    #[instrument(skip(conn, otp_code), fields(email = %user_email))]
     pub async fn find_by_email_and_forgot_password(
         conn: &DbConn,
         user_email: String,
@@ -238,6 +269,7 @@ impl Entity {
         }
     }
 
+    #[instrument(skip(conn, new_user), fields(user_id, email = %new_user.email))]
     pub async fn admin_create(
         conn: &DbConn,
         new_user: AdminCreateUser,

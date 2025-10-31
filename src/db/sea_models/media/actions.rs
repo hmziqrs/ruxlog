@@ -1,5 +1,6 @@
 use crate::error::{DbResult, ErrorResponse};
 use sea_orm::{entity::prelude::*, Condition, Order, QueryOrder, Set};
+use tracing::{error, info, instrument, warn};
 
 use super::{
     model::{ActiveModel, Column, Entity},
@@ -8,6 +9,8 @@ use super::{
 
 impl Entity {
     pub const PER_PAGE: u64 = 20;
+
+    #[instrument(skip(conn, payload), fields(media_id, uploader_id = payload.uploader_id))]
     pub async fn create(conn: &DbConn, payload: NewMedia) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
         let media = ActiveModel {
@@ -28,9 +31,28 @@ impl Entity {
             ..Default::default()
         };
 
-        media.insert(conn).await.map_err(Into::into)
+        match media.insert(conn).await {
+            Ok(model) => {
+                tracing::Span::current().record("media_id", model.id);
+                info!(
+                    media_id = model.id,
+                    uploader_id = model.uploader_id,
+                    size = model.size,
+                    "Media created"
+                );
+                Ok(model)
+            }
+            Err(err) => {
+                error!(
+                    uploader_id = payload.uploader_id,
+                    "Failed to create media: {}", err
+                );
+                Err(err.into())
+            }
+        }
     }
 
+    #[instrument(skip(conn), fields(media_id = id))]
     pub async fn find_by_id(conn: &DbConn, id: i32) -> DbResult<Option<Model>> {
         <Self as EntityTrait>::find_by_id(id)
             .one(conn)
@@ -38,14 +60,22 @@ impl Entity {
             .map_err(ErrorResponse::from)
     }
 
+    #[instrument(skip(conn), fields(hash, media_id))]
     pub async fn find_by_hash(conn: &DbConn, hash: &str) -> DbResult<Option<Model>> {
         <Self as EntityTrait>::find()
             .filter(Column::ContentHash.eq(hash))
             .one(conn)
             .await
+            .map(|result| {
+                if let Some(ref media) = result {
+                    tracing::Span::current().record("media_id", media.id);
+                }
+                result
+            })
             .map_err(ErrorResponse::from)
     }
 
+    #[instrument(skip(conn), fields(media_id = id))]
     pub async fn delete_by_id(conn: &DbConn, id: i32) -> DbResult<Option<Model>> {
         match <Self as EntityTrait>::find_by_id(id)
             .one(conn)
@@ -58,21 +88,35 @@ impl Entity {
                     .delete(conn)
                     .await
                     .map_err(ErrorResponse::from)?;
+                info!(media_id = id, "Media deleted");
                 Ok(Some(model))
             }
-            None => Ok(None),
+            None => {
+                warn!(media_id = id, "Media not found for delete");
+                Ok(None)
+            }
         }
     }
 
+    #[instrument(skip(conn), fields(uploader_id))]
     pub async fn list_by_uploader(conn: &DbConn, uploader_id: i32) -> DbResult<Vec<Model>> {
         Self::find()
             .filter(Column::UploaderId.eq(uploader_id))
             .order_by_desc(Column::CreatedAt)
             .all(conn)
             .await
+            .map(|results| {
+                info!(
+                    uploader_id,
+                    count = results.len(),
+                    "Media listed by uploader"
+                );
+                results
+            })
             .map_err(ErrorResponse::from)
     }
 
+    #[instrument(skip(conn), fields(reference_type = ?reference))]
     pub async fn list_by_reference(
         conn: &DbConn,
         reference: MediaReference,
@@ -82,9 +126,14 @@ impl Entity {
             .order_by_desc(Column::CreatedAt)
             .all(conn)
             .await
+            .map(|results| {
+                info!(reference_type = ?reference, count = results.len(), "Media listed by reference");
+                results
+            })
             .map_err(ErrorResponse::from)
     }
 
+    #[instrument(skip(conn, query), fields(page = query.page))]
     pub async fn find_with_query(conn: &DbConn, query: MediaQuery) -> DbResult<(Vec<Model>, u64)> {
         let mut media_query = Self::find();
 

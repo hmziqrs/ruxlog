@@ -5,6 +5,7 @@ use sea_orm::{
     entity::prelude::*, prelude::Expr, sea_query::Alias, Condition, JoinType, Order, QueryOrder,
     QuerySelect, Set, TransactionTrait,
 };
+use tracing::{error, info, instrument, warn};
 
 use super::*;
 
@@ -24,6 +25,7 @@ impl Entity {
         Ok(sanitized_ids)
     }
 
+    #[instrument(skip(conn, new_post), fields(post_id, author_id = new_post.author_id, slug = %new_post.slug))]
     pub async fn create(conn: &DbConn, new_post: NewPost) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
 
@@ -48,11 +50,26 @@ impl Entity {
         };
 
         match post.insert(conn).await {
-            Ok(model) => Ok(model),
-            Err(err) => Err(err.into()),
+            Ok(model) => {
+                tracing::Span::current().record("post_id", model.id);
+                info!(
+                    post_id = model.id,
+                    author_id = model.author_id,
+                    "Post created"
+                );
+                Ok(model)
+            }
+            Err(err) => {
+                error!(
+                    author_id = new_post.author_id,
+                    "Failed to create post: {}", err
+                );
+                Err(err.into())
+            }
         }
     }
 
+    #[instrument(skip(conn, update_post), fields(post_id))]
     pub async fn update(
         conn: &DbConn,
         post_id: i32,
@@ -110,21 +127,40 @@ impl Entity {
             post_active.updated_at = Set(update_post.updated_at);
 
             match post_active.update(conn).await {
-                Ok(updated_post) => Ok(Some(updated_post)),
-                Err(err) => Err(err.into()),
+                Ok(updated_post) => {
+                    info!(post_id, "Post updated");
+                    Ok(Some(updated_post))
+                }
+                Err(err) => {
+                    error!(post_id, "Failed to update post: {}", err);
+                    Err(err.into())
+                }
             }
         } else {
+            warn!(post_id, "Post not found for update");
             Ok(None)
         }
     }
 
+    #[instrument(skip(conn), fields(post_id))]
     pub async fn delete(conn: &DbConn, post_id: i32) -> DbResult<u64> {
         match Self::delete_by_id(post_id).exec(conn).await {
-            Ok(result) => Ok(result.rows_affected),
-            Err(err) => Err(err.into()),
+            Ok(result) => {
+                info!(
+                    post_id,
+                    rows_affected = result.rows_affected,
+                    "Post deleted"
+                );
+                Ok(result.rows_affected)
+            }
+            Err(err) => {
+                error!(post_id, "Failed to delete post: {}", err);
+                Err(err.into())
+            }
         }
     }
 
+    #[instrument(skip(conn), fields(post_id, slug = post_slug.as_deref()))]
     pub async fn find_by_id_or_slug(
         conn: &DbConn,
         post_id: Option<i32>,
