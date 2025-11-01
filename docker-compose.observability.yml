@@ -8,7 +8,6 @@ services:
     ports:
       - "7280:7280"
       - "7281:7281"
-      - "7282:7282"
     environment:
       QUICKWIT_CONFIG: /quickwit/config/quickwit.yaml
       QW_ENABLE_OPENTELEMETRY_OTLP_EXPORTER: "true"
