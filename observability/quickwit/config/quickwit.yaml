@@ -35,7 +35,7 @@ storage:
     access_key_id: quickwit
     secret_access_key: quickwit-secret
     force_path_style_access: true
-    flavor: s3
+    flavor: minio
 
 telemetry:
   enabled: false
