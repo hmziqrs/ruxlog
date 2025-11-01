@@ -1,8 +1,8 @@
 version: 0.8
 
-index_id: ruxlog-logs
+index_id: ruxlog-traces
 
-index_uri: s3://quickwit/indexes/ruxlog-logs
+index_uri: s3://quickwit/indexes/ruxlog-traces
 
 doc_mapping:
   mode: dynamic
@@ -18,19 +18,7 @@ doc_mapping:
         - unix_timestamp
         - rfc3339
       output_format: rfc3339
-    - name: message
-      type: text
-      stored: true
-      indexed: true
-      tokenizer: default
-      record: position
-    - name: level
-      type: text
-      stored: true
-      indexed: true
-      tokenizer: raw
-      fast: true
-    - name: service_name
+    - name: trace_id
       type: text
       stored: true
       indexed: true
@@ -41,34 +29,38 @@ doc_mapping:
       stored: true
       indexed: true
       tokenizer: raw
-    - name: trace_id
+      fast: true
+    - name: parent_span_id
       type: text
       stored: true
       indexed: true
       tokenizer: raw
-    - name: http_route
+    - name: service_name
+      type: text
+      stored: true
+      indexed: true
+      tokenizer: raw
+      fast: true
+    - name: span_name
       type: text
       stored: true
       indexed: true
       tokenizer: default
-    - name: scope
+      record: position
+    - name: status_code
       type: text
       stored: true
       indexed: true
-      tokenizer: default
+      tokenizer: raw
+    - name: duration_ms
+      type: f64
+      stored: true
+      indexed: true
+      fast: true
 
 search_settings:
-  default_search_fields: [message, level, service_name, span_name, event_type]
-
-indexing_settings:
-  commit_timeout_secs: 30
-  merge_policy:
-    type: stable_log
-    min_level_num_docs: 100000
-    merge_factor: 10
-    max_merge_factor: 12
-    maturation_period: 48h
+  default_search_fields: [span_name, service_name, trace_id]
 
 retention:
-  period: 14 days
+  period: 7 days
   schedule: daily

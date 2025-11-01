@@ -38,15 +38,6 @@ doc_mapping:
 search_settings:
   default_search_fields: [metric_name]
 
-indexing_settings:
-  commit_timeout_secs: 30
-  merge_policy:
-    type: stable_log
-    min_level_num_docs: 100000
-    merge_factor: 10
-    max_merge_factor: 12
-    maturation_period: 48h
-
 retention:
   period: 30 days
   schedule: daily

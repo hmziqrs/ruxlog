@@ -20,7 +20,7 @@ grpc:
   max_message_size: 20MiB
 
 indexer:
-  enable_cooperative_indexing: true
+  enable_otlp_endpoint: true
   split_store_max_num_bytes: 100G
   split_store_max_num_splits: 1000
 
@@ -31,18 +31,9 @@ ingest_api:
   max_queue_disk_usage: 4GiB
 
 searcher:
-  aggregation_memory_limit: 500M
-  aggregation_bucket_limit: 65000
   fast_field_cache_capacity: 1G
   split_footer_cache_capacity: 500M
   partial_request_cache_capacity: 64M
-  max_num_concurrent_split_searches: 100
-  max_num_concurrent_split_streams: 100
-  request_timeout_secs: 30
-  split_cache:
-    max_num_bytes: 1G
-    max_num_splits: 10000
-    num_concurrent_downloads: 1
 
 storage:
   s3:
