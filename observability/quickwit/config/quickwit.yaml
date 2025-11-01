@@ -1,9 +1,14 @@
-version: 0.7
+version: 0.8
 
 cluster_id: ruxlog-cluster
 node_id: ruxlog-quickwit-node
 listen_address: 0.0.0.0
 data_dir: /quickwit/data
+
+enabled_services:
+  - indexer
+  - searcher
+  - ingest-api
 
 metastore_uri: file:///quickwit/data/indexes
 default_index_root_uri: s3://quickwit/indexes
@@ -12,7 +17,7 @@ rest:
   listen_port: 7280
 
 grpc:
-  max_message_size: 20 MiB
+  max_message_size: 20MiB
 
 indexer:
   enable_otlp_endpoint: true
@@ -20,6 +25,8 @@ indexer:
   split_store_max_num_splits: 1000
 
 ingest_api:
+  otlp_http_listen_port: 7281
+  otlp_grpc_listen_port: 7282
   max_queue_memory_usage: 2GiB
   max_queue_disk_usage: 4GiB
 
@@ -36,6 +43,3 @@ storage:
     secret_access_key: quickwit-secret
     force_path_style_access: true
     flavor: minio
-
-telemetry:
-  enabled: false
