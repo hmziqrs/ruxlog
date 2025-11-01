@@ -3,12 +3,7 @@ version: 0.8
 cluster_id: ruxlog-cluster
 node_id: ruxlog-quickwit-node
 listen_address: 0.0.0.0
-data_dir: /quickwit/data
-
-enabled_services:
-  - indexer
-  - searcher
-  - ingest-api
+data_dir: /quickwit/qwdata
 
 metastore_uri: file:///quickwit/data/indexes
 default_index_root_uri: s3://quickwit/indexes
@@ -19,8 +14,9 @@ rest:
 grpc:
   max_message_size: 20MiB
 
+peer_seeds: []
+
 indexer:
-  enable_cooperative_indexing: true
   enable_otlp_endpoint: true
   split_store_max_num_bytes: 100G
   split_store_max_num_splits: 1000
@@ -37,11 +33,13 @@ searcher:
   partial_request_cache_capacity: 64M
   max_num_concurrent_split_searches: 100
   max_num_concurrent_split_streams: 100
-  request_timeout_secs: 30
   split_cache:
     max_num_bytes: 1G
     max_num_splits: 10000
     num_concurrent_downloads: 1
+
+jaeger:
+  enable_endpoint: true
 
 storage:
   s3:
