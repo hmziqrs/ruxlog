@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * Archive Changed Files Script
- * 
+ *
  * This script:
  * 1. Detects git-modified files (staged and unstaged)
  * 2. Creates a zip archive with a hash-based filename
@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, statSync } from "fs";
 import { join } from "path";
 import { file } from "bun";
 
-const BACKUPS_DIR = join(import.meta.dir, "..", "backups", "changes");
+const BACKUPS_DIR = join(import.meta.dir, "..");
 const ROOT_DIR = join(import.meta.dir, "..");
 
 interface GitStatus {
@@ -30,21 +30,24 @@ interface GitStatus {
 async function getGitStatus(): Promise<GitStatus> {
   try {
     // Get staged files
-    const stagedOutput = await $`git diff --cached --name-only --diff-filter=ACMR`.text();
+    const stagedOutput =
+      await $`git diff --cached --name-only --diff-filter=ACMR`.text();
     const staged = stagedOutput
       .trim()
       .split("\n")
       .filter((f) => f.length > 0);
 
     // Get unstaged modified files
-    const unstagedOutput = await $`git diff --name-only --diff-filter=ACMR`.text();
+    const unstagedOutput =
+      await $`git diff --name-only --diff-filter=ACMR`.text();
     const unstaged = unstagedOutput
       .trim()
       .split("\n")
       .filter((f) => f.length > 0);
 
     // Get untracked files
-    const untrackedOutput = await $`git ls-files --others --exclude-standard`.text();
+    const untrackedOutput =
+      await $`git ls-files --others --exclude-standard`.text();
     const untracked = untrackedOutput
       .trim()
       .split("\n")
@@ -63,7 +66,7 @@ async function getGitStatus(): Promise<GitStatus> {
 function generateHash(files: string[]): string {
   const timestamp = Date.now();
   const content = files.join("\n") + timestamp;
-  return createHash("sha256").update(content).digest("hex").substring(0, 12);
+  return createHash("sha256").update(content).digest("hex").substring(0, 8);
 }
 
 /**
@@ -79,9 +82,7 @@ async function createArchive(files: string[], hash: string): Promise<string> {
     mkdirSync(BACKUPS_DIR, { recursive: true });
   }
 
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-").split("T")[0];
-  const timeHM = new Date().toTimeString().split(" ")[0].replace(/:/g, "-");
-  const zipFilename = `changes-${timestamp}-${timeHM}-${hash}.zip`;
+  const zipFilename = `${hash}.zip`;
   const zipPath = join(BACKUPS_DIR, zipFilename);
 
   console.log(`\n📦 Creating archive: ${zipFilename}`);
@@ -102,9 +103,9 @@ async function createArchive(files: string[], hash: string): Promise<string> {
     // Clean up temp file
     await $`rm ${fileListPath}`.quiet();
 
-  // Get archive size
-  const stats = statSync(zipPath);
-  const sizeKB = (stats.size / 1024).toFixed(2);
+    // Get archive size
+    const stats = statSync(zipPath);
+    const sizeKB = (stats.size / 1024).toFixed(2);
 
     console.log(`✅ Archive created successfully!`);
     console.log(`📊 Size: ${sizeKB} KB`);
@@ -122,7 +123,9 @@ async function createArchive(files: string[], hash: string): Promise<string> {
  * Display file categorization
  */
 function displayFiles(status: GitStatus) {
-  const allFiles = [...new Set([...status.staged, ...status.unstaged, ...status.untracked])];
+  const allFiles = [
+    ...new Set([...status.staged, ...status.unstaged, ...status.untracked]),
+  ];
 
   if (allFiles.length === 0) {
     console.log("✨ No changed files detected");
@@ -158,7 +161,9 @@ async function main() {
   try {
     // Get git status
     const status = await getGitStatus();
-    const allFiles = [...new Set([...status.staged, ...status.unstaged, ...status.untracked])];
+    const allFiles = [
+      ...new Set([...status.staged, ...status.unstaged, ...status.untracked]),
+    ];
 
     // Display files
     displayFiles(status);
@@ -178,7 +183,9 @@ async function main() {
         if (stats.size < 50 * 1024 * 1024) {
           validFiles.push(filePath);
         } else {
-          console.log(`⚠️  Skipping large file: ${filePath} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+          console.log(
+            `⚠️  Skipping large file: ${filePath} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`,
+          );
         }
       }
     }

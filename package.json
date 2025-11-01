@@ -7,6 +7,8 @@
     "@types/bun": "latest"
   },
   "scripts": {
+    "archive": "bun ./scripts/archive_changes.ts",
+    "restore": "bun ./scripts/restore_changes.ts",
     "dev": "cargo run",
     "lsof": "lsof -i :8888",
     "dev:w": "cargo watch -x run",
