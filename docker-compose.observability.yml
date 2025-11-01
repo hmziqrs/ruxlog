@@ -57,7 +57,7 @@ services:
     restart: "no"
 
   minio:
-    image: minio/minio:RELEASE.2024-08-26T09-47-32Z
+    image: quay.io/minio/minio:RELEASE.2024-08-26T09-47-32Z
     container_name: ruxlog-minio
     command: server /data --console-address ":9001"
     ports:
