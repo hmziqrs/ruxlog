@@ -1,16 +1,20 @@
-use chrono::{TimeZone, Utc};
+
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::env;
 use tracing::error;
 
 const DEFAULT_API_URL: &str = "http://localhost:7280";
-const DEFAULT_LOGS_INDEX: &str = "ruxlog-logs";
+const DEFAULT_LOGS_INDEX: &str = "otel-logs-v0_7";
+const DEFAULT_TRACES_INDEX: &str = "otel-traces-v0_7";
+const DEFAULT_METRICS_INDEX: &str = "otel-metrics-v0_7";
 
 #[derive(Clone, Debug)]
 pub struct QuickwitConfig {
     pub api_url: String,
     pub logs_index: String,
+    pub traces_index: String,
+    pub metrics_index: String,
     pub access_token: Option<String>,
     pub enabled: bool,
 }
@@ -25,6 +29,12 @@ impl QuickwitConfig {
         let logs_index =
             env::var("QUICKWIT_LOGS_INDEX_ID").unwrap_or_else(|_| DEFAULT_LOGS_INDEX.to_string());
 
+        let traces_index = env::var("QUICKWIT_TRACES_INDEX_ID")
+            .unwrap_or_else(|_| DEFAULT_TRACES_INDEX.to_string());
+
+        let metrics_index = env::var("QUICKWIT_METRICS_INDEX_ID")
+            .unwrap_or_else(|_| DEFAULT_METRICS_INDEX.to_string());
+
         let access_token = env::var("QUICKWIT_ACCESS_TOKEN").ok();
 
         let enabled = env::var("ENABLE_QUICKWIT_OTEL")
@@ -34,6 +44,8 @@ impl QuickwitConfig {
         Self {
             api_url,
             logs_index,
+            traces_index,
+            metrics_index,
             access_token,
             enabled,
         }
@@ -62,12 +74,20 @@ impl QuickwitClient {
         &self.config.logs_index
     }
 
+    pub fn traces_index(&self) -> &str {
+        &self.config.traces_index
+    }
+
+    pub fn metrics_index(&self) -> &str {
+        &self.config.metrics_index
+    }
+
     pub async fn search(
         &self,
         index: Option<&str>,
         query: &str,
-        start_time_micros: i64,
-        end_time_micros: i64,
+        _start_time_micros: i64,
+        _end_time_micros: i64,
         offset: i64,
         limit: i64,
     ) -> Result<SearchResponse, QuickwitError> {
@@ -78,12 +98,12 @@ impl QuickwitClient {
         let index = index
             .filter(|value| !value.is_empty())
             .unwrap_or_else(|| self.logs_index());
-        let url = format!("{}/api/v1/indexes/{}/search", self.config.api_url, index);
+        let url = format!("{}/api/v1/{}/search", self.config.api_url, index);
 
         let request = SearchRequest {
             query: query.to_string(),
-            start_timestamp: micros_to_rfc3339(start_time_micros),
-            end_timestamp: micros_to_rfc3339(end_time_micros),
+            start_timestamp: None,
+            end_timestamp: None,
             max_hits: Some(limit.max(0)),
             start_offset: Some(offset.max(0)),
         };
@@ -150,10 +170,4 @@ pub enum QuickwitError {
     ParseError(String),
 }
 
-fn micros_to_rfc3339(micros: i64) -> Option<String> {
-    let secs = micros.div_euclid(1_000_000);
-    let micros_part = micros.rem_euclid(1_000_000) as u32;
-    Utc.timestamp_opt(secs, micros_part * 1_000)
-        .single()
-        .map(|dt| dt.to_rfc3339())
-}
+

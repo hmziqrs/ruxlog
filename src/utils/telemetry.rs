@@ -89,9 +89,17 @@ impl TelemetryConfig {
 
 fn build_resource() -> Resource {
     Resource::builder()
-        .with_service_name(env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "ruxlog-api".to_string()))
-        .with_attribute(opentelemetry::KeyValue::new("service.version", env::var("OTEL_SERVICE_VERSION").unwrap_or_else(|_| "unknown".to_string())))
-        .with_attribute(opentelemetry::KeyValue::new("deployment.environment", env::var("DEPLOYMENT_ENVIRONMENT").unwrap_or_else(|_| "development".to_string())))
+        .with_service_name(
+            env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "ruxlog-api".to_string()),
+        )
+        .with_attribute(opentelemetry::KeyValue::new(
+            "service.version",
+            env::var("OTEL_SERVICE_VERSION").unwrap_or_else(|_| "unknown".to_string()),
+        ))
+        .with_attribute(opentelemetry::KeyValue::new(
+            "deployment.environment",
+            env::var("DEPLOYMENT_ENVIRONMENT").unwrap_or_else(|_| "development".to_string()),
+        ))
         .build()
 }
 
@@ -138,7 +146,7 @@ fn init_tracer(
         opentelemetry_sdk::trace::Sampler::TraceIdRatioBased(config.trace_sample_ratio)
     };
 
-        let provider = TracerProvider::builder()
+    let provider = TracerProvider::builder()
         .with_span_processor(batch_processor)
         .with_sampler(sampler)
         .with_resource(resource.clone())
@@ -171,10 +179,10 @@ fn init_metrics(
         .with_interval(Duration::from_millis(config.metrics_export_interval_ms))
         .build();
 
-        let provider = SdkMeterProvider::builder()
-            .with_reader(reader)
-            .with_resource(resource.clone())
-            .build();
+    let provider = SdkMeterProvider::builder()
+        .with_reader(reader)
+        .with_resource(resource.clone())
+        .build();
 
     global::set_meter_provider(provider.clone());
 
@@ -208,10 +216,10 @@ fn init_logs(
         .with_batch_config(batch_config)
         .build();
 
-        let provider = LoggerProvider::builder()
-            .with_log_processor(batch_processor)
-            .with_resource(resource.clone())
-            .build();
+    let provider = LoggerProvider::builder()
+        .with_log_processor(batch_processor)
+        .with_resource(resource.clone())
+        .build();
 
     Ok(provider)
 }
@@ -284,14 +292,14 @@ pub fn init() -> TelemetryGuard {
 
         let resource = build_resource();
 
-        let tracer_provider =
-            init_tracer(&endpoint, headers.clone(), &config, &resource).expect("Failed to initialize tracer");
+        let tracer_provider = init_tracer(&endpoint, headers.clone(), &config, &resource)
+            .expect("Failed to initialize tracer");
 
         let meter_provider = init_metrics(&endpoint, headers.clone(), &config, &resource)
             .expect("Failed to initialize metrics");
 
-        let logger_provider =
-            init_logs(&endpoint, headers.clone(), &config, &resource).expect("Failed to initialize logs");
+        let logger_provider = init_logs(&endpoint, headers.clone(), &config, &resource)
+            .expect("Failed to initialize logs");
 
         let tracer = tracer_provider.tracer("ruxlog-api");
         let otel_trace_layer = tracing_opentelemetry::layer().with_tracer(tracer);

@@ -149,7 +149,14 @@ pub async fn metrics_summary(
     info!(query = %query, "Fetching metrics summary");
 
     let response = client
-        .search(None, &query, start_time, end_time, 0, 500)
+        .search(
+            Some(client.metrics_index()),
+            &query,
+            start_time,
+            end_time,
+            0,
+            500,
+        )
         .await
         .map_err(|e| {
             error!(error = %e, "Failed to fetch metrics from Quickwit");
@@ -253,12 +260,19 @@ pub async fn auth_stats(State(state): State<AppState>) -> Result<impl IntoRespon
     let start_time = (now - chrono::Duration::hours(24)).timestamp_micros();
     let end_time = now.timestamp_micros();
 
-    let query = "event_type:auth.*";
+    let query = "span_name:auth.* OR span_attributes.event_type:auth.*";
 
     info!("Fetching authentication statistics");
 
     let response = client
-        .search(None, query, start_time, end_time, 0, 100)
+        .search(
+            Some(client.traces_index()),
+            query,
+            start_time,
+            end_time,
+            0,
+            100,
+        )
         .await
         .map_err(|e| {
             error!(error = %e, "Failed to fetch auth stats from Quickwit");

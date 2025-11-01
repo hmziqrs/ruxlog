@@ -74,7 +74,7 @@ impl V1LogsRecentPayload {
         let mut conditions = vec![];
 
         if let Some(ref level) = self.level {
-            conditions.push(format!("level:\"{}\"", escape_term(level)));
+            conditions.push(format!("severity_text:\"{}\"", escape_term(level)));
         }
 
         if let Some(ref service) = self.service {
@@ -145,7 +145,7 @@ impl V1ErrorStatsPayload {
     }
 
     pub fn build_query(&self) -> String {
-        let base_filter = "(level:ERROR OR http_status_code:[400 TO *])";
+        let base_filter = "(severity_text:ERROR OR span_attributes.http_status_code:[400 TO *])";
         base_filter.to_string()
     }
 }
@@ -169,7 +169,7 @@ impl V1LatencyStatsPayload {
 
     pub fn build_query(&self) -> String {
         if let Some(ref route) = self.route {
-            format!("http_route:\"{}\"", escape_term(route))
+            format!("span_attributes.http_route:\"{}\"", escape_term(route))
         } else {
             "*".to_string()
         }

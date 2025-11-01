@@ -1,8 +1,8 @@
 type: http_request
 model: http_request
-id: rq_VpJcF4txYe
-createdAt: 2025-10-31T17:46:13.637768
-updatedAt: 2025-11-01T11:05:24.992524
+id: rq_KLbqo8MDYW
+createdAt: 2025-11-01T11:43:01.588902
+updatedAt: 2025-11-01T11:43:04.122303
 workspaceId: wk_udoUbrFfLp
 folderId: fl_Zm7AwmzoXA
 authentication: {}
@@ -25,7 +25,7 @@ headers:
   value: application/json
   id: jw8mdQhSE7
 method: POST
-name: host/observability/v1/health
-sortPriority: 0.0001
-url: ${[ host ]}/observability/v1/health
+name: ''
+sortPriority: 0.004399999999999999
+url: ${[ host ]}/observability/v1/stats/errors
 urlParameters: []
