@@ -17,3 +17,6 @@ logs/
 # PID files
 .cargo-watch.pid
 .cargo.pid
+
+# Node.js
+node_modules/
