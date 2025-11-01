@@ -25,7 +25,7 @@ use tower_http::{
 };
 
 use axum_extra::extract::cookie::SameSite;
-use modules::observability_v1::service::{QuickwitClient, QuickwitConfig};
+
 use services::{auth::AuthBackend, redis::init_redis_store};
 pub use state::AppState;
 use state::OptimizerConfig;
@@ -194,17 +194,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         default_webp_quality: env_u8("OPTIMIZER_WEBP_QUALITY_DEFAULT", 80),
     };
 
-    let quickwit_config = QuickwitConfig::from_env();
-    let quickwit_client = QuickwitClient::new(quickwit_config);
 
-    if quickwit_client.is_enabled() {
-        tracing::info!(
-            index = quickwit_client.logs_index(),
-            "Quickwit client initialized and enabled"
-        );
-    } else {
-        tracing::info!("Quickwit client disabled (set ENABLE_QUICKWIT_OTEL=true to enable)");
-    }
 
     let state = AppState {
         sea_db,
@@ -214,7 +204,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         s3_client,
         optimizer,
         meter: telemetry::global_meter(),
-        quickwit_client,
     };
 
     tracing::info!("Redis successfully established.");

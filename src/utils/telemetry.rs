@@ -246,16 +246,7 @@ pub fn init() -> TelemetryGuard {
         .with_line_number(true)
         .with_filter(env_filter);
 
-    let quickwit_enabled = env::var("ENABLE_QUICKWIT_OTEL")
-        .map(|value| {
-            matches!(
-                value.trim().to_ascii_lowercase().as_str(),
-                "1" | "true" | "yes"
-            )
-        })
-        .unwrap_or(false);
-
-    if quickwit_enabled {
+    if false {
         let endpoint = env::var("QUICKWIT_INGEST_URL")
             .unwrap_or_else(|_| "http://localhost:7280".to_string())
             .trim_end_matches('/')
