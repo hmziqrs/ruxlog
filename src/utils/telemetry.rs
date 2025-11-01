@@ -88,15 +88,20 @@ impl TelemetryConfig {
 }
 
 fn build_resource() -> Resource {
-    unimplemented!()
+    Resource::builder()
+        .with_service_name(env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "ruxlog-api".to_string()))
+        .with_attribute(opentelemetry::KeyValue::new("service.version", env::var("OTEL_SERVICE_VERSION").unwrap_or_else(|_| "unknown".to_string())))
+        .with_attribute(opentelemetry::KeyValue::new("deployment.environment", env::var("DEPLOYMENT_ENVIRONMENT").unwrap_or_else(|_| "development".to_string())))
+        .build()
 }
 
 fn init_tracer(
     endpoint: &str,
     headers: HashMap<String, String>,
     config: &TelemetryConfig,
+    resource: &Resource,
 ) -> Result<TracerProvider, Box<dyn std::error::Error>> {
-    let trace_endpoint = format!("{}/v1/traces", endpoint);
+    let trace_endpoint = format!("{}/api/v1/otlp/v1/traces", endpoint);
     eprintln!(
         "DEBUG: Initializing tracer with endpoint: {}",
         trace_endpoint
@@ -133,9 +138,10 @@ fn init_tracer(
         opentelemetry_sdk::trace::Sampler::TraceIdRatioBased(config.trace_sample_ratio)
     };
 
-    let provider = TracerProvider::builder()
+        let provider = TracerProvider::builder()
         .with_span_processor(batch_processor)
         .with_sampler(sampler)
+        .with_resource(resource.clone())
         .build();
 
     global::set_tracer_provider(provider.clone());
@@ -147,8 +153,9 @@ fn init_metrics(
     endpoint: &str,
     headers: HashMap<String, String>,
     config: &TelemetryConfig,
+    resource: &Resource,
 ) -> Result<SdkMeterProvider, Box<dyn std::error::Error>> {
-    let metrics_endpoint = format!("{}/v1/metrics", endpoint);
+    let metrics_endpoint = format!("{}/api/v1/otlp/v1/metrics", endpoint);
     eprintln!(
         "DEBUG: Initializing metrics with endpoint: {}",
         metrics_endpoint
@@ -164,7 +171,10 @@ fn init_metrics(
         .with_interval(Duration::from_millis(config.metrics_export_interval_ms))
         .build();
 
-    let provider = SdkMeterProvider::builder().with_reader(reader).build();
+        let provider = SdkMeterProvider::builder()
+            .with_reader(reader)
+            .with_resource(resource.clone())
+            .build();
 
     global::set_meter_provider(provider.clone());
 
@@ -175,8 +185,9 @@ fn init_logs(
     endpoint: &str,
     headers: HashMap<String, String>,
     config: &TelemetryConfig,
+    resource: &Resource,
 ) -> Result<LoggerProvider, Box<dyn std::error::Error>> {
-    let logs_endpoint = format!("{}/v1/logs", endpoint);
+    let logs_endpoint = format!("{}/api/v1/otlp/v1/logs", endpoint);
     eprintln!("DEBUG: Initializing logs with endpoint: {}", logs_endpoint);
     let exporter = LogExporter::builder()
         .with_http()
@@ -197,9 +208,10 @@ fn init_logs(
         .with_batch_config(batch_config)
         .build();
 
-    let provider = LoggerProvider::builder()
-        .with_log_processor(batch_processor)
-        .build();
+        let provider = LoggerProvider::builder()
+            .with_log_processor(batch_processor)
+            .with_resource(resource.clone())
+            .build();
 
     Ok(provider)
 }
@@ -237,7 +249,7 @@ pub fn init() -> TelemetryGuard {
 
     if quickwit_enabled {
         let endpoint = env::var("QUICKWIT_INGEST_URL")
-            .unwrap_or_else(|_| "http://localhost:7281".to_string())
+            .unwrap_or_else(|_| "http://localhost:7280".to_string())
             .trim_end_matches('/')
             .to_string();
 
@@ -270,16 +282,16 @@ pub fn init() -> TelemetryGuard {
             headers.extend(parse_otlp_headers(&headers_str));
         }
 
-        let _resource = build_resource();
+        let resource = build_resource();
 
         let tracer_provider =
-            init_tracer(&endpoint, headers.clone(), &config).expect("Failed to initialize tracer");
+            init_tracer(&endpoint, headers.clone(), &config, &resource).expect("Failed to initialize tracer");
 
-        let meter_provider = init_metrics(&endpoint, headers.clone(), &config)
+        let meter_provider = init_metrics(&endpoint, headers.clone(), &config, &resource)
             .expect("Failed to initialize metrics");
 
         let logger_provider =
-            init_logs(&endpoint, headers.clone(), &config).expect("Failed to initialize logs");
+            init_logs(&endpoint, headers.clone(), &config, &resource).expect("Failed to initialize logs");
 
         let tracer = tracer_provider.tracer("ruxlog-api");
         let otel_trace_layer = tracing_opentelemetry::layer().with_tracer(tracer);
