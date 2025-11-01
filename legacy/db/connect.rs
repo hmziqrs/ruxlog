@@ -14,7 +14,6 @@ fn get_db_url() -> String {
     let db = env::var("POSTGRES_DB").expect("POSTGRES_DB must be set");
     let host = env::var("POSTGRES_HOST").expect("POSTGRES_HOST must be set");
     let port = env::var("POSTGRES_PORT").expect("POSTGRES_PORT must be set");
-    // # POSTGRE_DB_URL=postgres://rroot:root@127.0.0.1:5432/ruxlog
     let db_url = format!("postgres://{}:{}@{}:{}/{}", user, password, host, port, db);
 
     db_url
