@@ -18,12 +18,18 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(RouteStatus::RoutePattern).string().not_null().unique_key())
+                    .col(ColumnDef::new(RouteStatus::RoutePattern).string().not_null())
                     .col(ColumnDef::new(RouteStatus::IsBlocked).boolean().not_null().default(false))
                     .col(ColumnDef::new(RouteStatus::Reason).string().null())
                     .col(ColumnDef::new(RouteStatus::CreatedAt).timestamp_with_time_zone().not_null())
                     .col(ColumnDef::new(RouteStatus::UpdatedAt).timestamp_with_time_zone().not_null())
-                    .index(Index::create().name("idx_route_status_pattern").col(RouteStatus::RoutePattern))
+                    .index(
+                        Index::create()
+                            .name("idx_route_status_pattern_unique")
+                            .table(RouteStatus::Table)
+                            .col(RouteStatus::RoutePattern)
+                            .unique(),
+                    )
                     .to_owned(),
             )
             .await
