@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_Me6oxAyjue
 createdAt: 2025-11-04T22:34:08.539296
-updatedAt: 2025-11-04T22:34:13.876861
+updatedAt: 2025-11-04T23:13:16.072310
 workspaceId: wk_udoUbrFfLp
 folderId: fl_Pj3JaShfob
 authentication: {}
@@ -28,7 +28,7 @@ headers:
   value: application/json
   id: 4Ea2S89MEj
 method: POST
-name: host/media/v1/view
+name: host/media/v1/view/17
 sortPriority: 2000.0011
-url: ${[ host ]}/media/v1/list/query
+url: ${[ host ]}/media/v1/view/17
 urlParameters: []
