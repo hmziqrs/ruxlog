@@ -1,22 +1,26 @@
 pub mod controller;
 pub mod validator;
 
-use axum::{middleware, routing::post, Router};
+use axum::{extract::DefaultBodyLimit, middleware, routing::post, Router};
 use axum_login::login_required;
 
 use crate::{
+    config,
     middlewares::{user_permission, user_status},
     services::auth::AuthBackend,
     AppState,
 };
 
 pub fn routes() -> Router<AppState> {
-    let protected = Router::new()
-        .route("/query", post(controller::query))
+    let post_limited = Router::new()
         .route("/create", post(controller::create))
         .route("/update/{post_id}", post(controller::update))
-        .route("/delete/{post_id}", post(controller::delete))
         .route("/autosave", post(controller::autosave))
+        .layer(DefaultBodyLimit::max(config::body_limits::POST));
+
+    let protected = Router::new()
+        .route("/query", post(controller::query))
+        .route("/delete/{post_id}", post(controller::delete))
         .route(
             "/revisions/{post_id}/list",
             post(controller::revisions_list),
@@ -44,6 +48,7 @@ pub fn routes() -> Router<AppState> {
             "/series/remove/{post_id}/{series_id}",
             post(controller::series_remove),
         )
+        .merge(post_limited)
         .route_layer(middleware::from_fn(user_permission::author))
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend));

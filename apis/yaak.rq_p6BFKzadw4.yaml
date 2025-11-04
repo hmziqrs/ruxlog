@@ -1,8 +1,8 @@
 type: http_request
 model: http_request
-id: rq_vDHR4E6fWe
-createdAt: 2025-10-29T10:02:33.851034
-updatedAt: 2025-11-04T09:51:45.406049
+id: rq_p6BFKzadw4
+createdAt: 2025-11-04T09:51:43.568160
+updatedAt: 2025-11-04T09:52:38.019242
 workspaceId: wk_udoUbrFfLp
 folderId: fl_Pj3JaShfob
 authentication: {}
@@ -11,15 +11,15 @@ body:
   form:
   - contentType: image/png
     enabled: true
-    file: /Users/hmziq/Downloads/AQMz413M32M4IMhzB9b_4hbR2_kCuQHInRua0Xn6D6sbIvcGGdzSOSSYs6tx0ZxxHg05zohUWUoF9MGw4dv2fAR3Q3kPhhgGIBkA5Ys6yYD8PvX-VO0FFRaWs7X1FOhS.png
+    file: /Users/hmziq/Documents/opensource/ruxlog-backend/tmp/2mbunder.jpg
     id: SkxXEQw9Ee
     name: file
-  - enabled: true
+  - enabled: false
     id: gmtx3jVpp0
     name: reference_type
     value: a
   - enabled: true
-    id: 5pPQae9ta4
+    id: hUhigwhdJv
     name: ''
     value: ''
 bodyType: multipart/form-data
@@ -39,6 +39,6 @@ headers:
   id: dqFpYQXcG8
 method: POST
 name: ''
-sortPriority: 0.0
+sortPriority: 1000.0
 url: ${[ host ]}/media/v1/create
 urlParameters: []

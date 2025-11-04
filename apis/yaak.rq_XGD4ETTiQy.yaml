@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_XGD4ETTiQy
 createdAt: 2025-10-29T10:16:28.422658
-updatedAt: 2025-10-29T10:18:28.696186
+updatedAt: 2025-11-04T09:51:45.412965
 workspaceId: wk_udoUbrFfLp
 folderId: fl_Pj3JaShfob
 authentication: {}
@@ -39,6 +39,6 @@ headers:
   id: iebJ0Vvd4n
 method: POST
 name: ''
-sortPriority: 0.001
+sortPriority: 3000.0
 url: ${[ host ]}/media/v1/delete/2
 urlParameters: []

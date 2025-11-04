@@ -1,3 +1,4 @@
+pub mod config;
 pub mod db;
 pub mod error;
 pub mod extractors;
@@ -194,8 +195,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         default_webp_quality: env_u8("OPTIMIZER_WEBP_QUALITY_DEFAULT", 80),
     };
 
-
-
     let state = AppState {
         sea_db,
         redis_pool: redis_pool.clone(),
@@ -242,12 +241,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .allow_origin(AllowOrigin::list(get_allowed_origins()))
         .allow_credentials(true)
         .max_age(Duration::from_secs(360));
-    let request_size = RequestBodyLimitLayer::new(1024 * 1024 * 5); // 5MiB
-                                                                    //             (
-                                                                    //                 status,
-                                                                    //             )
-                                                                    //         })
-                                                                    // a separate background task to clean up
+    let request_size = RequestBodyLimitLayer::new(config::body_limits::DEFAULT);
+
 
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
