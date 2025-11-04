@@ -2,9 +2,12 @@ type: folder
 model: folder
 id: fl_JjuFY7sdid
 createdAt: 2025-05-05T12:03:43.641684
-updatedAt: 2025-05-05T12:03:49.219371
+updatedAt: 2025-11-04T11:52:34.710589
 workspaceId: wk_udoUbrFfLp
 folderId: null
-name: asset
+authentication: {}
+authenticationType: null
 description: ''
-sortPriority: 10000.0
+headers: []
+name: asset
+sortPriority: 13000.0

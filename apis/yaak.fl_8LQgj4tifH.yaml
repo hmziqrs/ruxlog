@@ -2,7 +2,7 @@ type: folder
 model: folder
 id: fl_8LQgj4tifH
 createdAt: 2025-08-14T08:41:52.067598
-updatedAt: 2025-08-14T08:41:54.884301
+updatedAt: 2025-11-04T11:52:34.699031
 workspaceId: wk_udoUbrFfLp
 folderId: null
 authentication: {}
@@ -10,4 +10,4 @@ authenticationType: null
 description: ''
 headers: []
 name: docs
-sortPriority: 500.0
+sortPriority: 3000.0

@@ -2,9 +2,12 @@ type: folder
 model: folder
 id: fl_3hHifdvZ7m
 createdAt: 2025-04-30T05:42:55.548228
-updatedAt: 2025-05-05T12:03:49.203107
+updatedAt: 2025-11-04T11:52:34.704131
 workspaceId: wk_udoUbrFfLp
 folderId: null
-name: user
+authentication: {}
+authenticationType: null
 description: ''
-sortPriority: 4000.0
+headers: []
+name: user
+sortPriority: 7000.0

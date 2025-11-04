@@ -2,9 +2,12 @@ type: folder
 model: folder
 id: fl_Kjd4WNdCBM
 createdAt: 2025-04-30T06:34:01.555286
-updatedAt: 2025-05-05T12:03:49.214
+updatedAt: 2025-11-04T11:52:34.707467
 workspaceId: wk_udoUbrFfLp
 folderId: null
-name: forgot_password
+authentication: {}
+authenticationType: null
 description: ''
-sortPriority: 7000.0
+headers: []
+name: forgot_password
+sortPriority: 10000.0

@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_f4qX3cuayX
 createdAt: 2025-11-04T09:59:17.771036
-updatedAt: 2025-11-04T09:59:59.939376
+updatedAt: 2025-11-04T10:25:27.065607
 workspaceId: wk_udoUbrFfLp
 folderId: fl_qgXRbryiBV
 authentication: {}
@@ -12,7 +12,7 @@ body:
     {
       "title": "aaaa",
       "content": "124sadnbaskdkahsjd",
-      "slug": "1223sadas",
+      "slug": "1223sadaas",
       "category_id": 12
     }
 bodyType: application/json

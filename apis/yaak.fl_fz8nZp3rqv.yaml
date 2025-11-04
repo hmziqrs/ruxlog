@@ -2,9 +2,12 @@ type: folder
 model: folder
 id: fl_fz8nZp3rqv
 createdAt: 2025-05-02T05:54:44.977113
-updatedAt: 2025-05-05T12:03:49.218060
+updatedAt: 2025-11-04T11:52:34.709530
 workspaceId: wk_udoUbrFfLp
 folderId: null
-name: post_comment
+authentication: {}
+authenticationType: null
 description: ''
-sortPriority: 9000.0
+headers: []
+name: post_comment
+sortPriority: 12000.0
