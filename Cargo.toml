@@ -93,6 +93,9 @@ bytes = "1.7.2"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "tiff"] }
 reqwest = { version = "0.12", features = ["json"] }
 
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+
 [[bin]]
 name = "generate_hash"
 path = "scripts/generate_hash.rs"

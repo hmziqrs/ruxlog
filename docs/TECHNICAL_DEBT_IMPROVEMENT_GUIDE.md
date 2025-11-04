@@ -64,7 +64,7 @@ This guide sets baseline expectations for security, performance, and maintainabi
   - Use `axum-valid` with `validator` for payloads. Email fields are validated with `#[validate(email)]` and a custom check; keep one source of truth to avoid drift (see `src/modules/auth_v1/validator.rs`).
 
 - Request limits
-  - Align `RequestBodyLimitLayer` with media upload constraints. The router currently limits to 5MiB (`src/main.rs:245`), while media enforces 20MiB (`src/modules/media_v1/controller.rs`). Choose one ceiling and document it.
+  - Enforce body size caps per module: the global default is 64 KiB (`src/router.rs:21`, `src/router.rs:43`), post payloads allow up to 256 KiB (`src/router.rs:32-35`), and `/media/v1` supports 2 MiB multipart uploads (`src/router.rs:39`). Keep media validation consistent with these ceilings (`src/modules/media_v1/controller.rs`).
 
 ## Media Handling
 
@@ -144,4 +144,3 @@ This guide sets baseline expectations for security, performance, and maintainabi
 - [ ] Smoke tests cover core flows; unit tests exist for utilities
 
 This guide is a living document. Keep it aligned with the codebase as modules evolve and new endpoints are added.
-
