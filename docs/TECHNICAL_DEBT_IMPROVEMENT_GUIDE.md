@@ -64,7 +64,7 @@ This guide sets baseline expectations for security, performance, and maintainabi
   - Use `axum-valid` with `validator` for payloads. Email fields are validated with `#[validate(email)]` and a custom check; keep one source of truth to avoid drift (see `src/modules/auth_v1/validator.rs`).
 
 - Request limits
-  - Enforce body size caps per module: the global default is 64 KiB (`src/router.rs:21`, `src/router.rs:43`), post payloads allow up to 256 KiB (`src/router.rs:32-35`), and `/media/v1` supports 2 MiB multipart uploads (`src/router.rs:39`). Keep media validation consistent with these ceilings (`src/modules/media_v1/controller.rs`).
+  - Enforce body size caps per module: global default is 64 KiB (`src/config.rs:2`, `src/main.rs:244`), post payloads allow up to 256 KiB (`src/modules/post_v1/mod.rs:15-19`), and `/media/v1` supports 2 MiB multipart uploads (`src/modules/media_v1/mod.rs:15-17`). Keep media validation consistent with these ceilings (`src/modules/media_v1/controller.rs`).
 
 ## Media Handling
 
