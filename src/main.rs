@@ -13,7 +13,8 @@ use utils::telemetry;
 
 use axum::{
     http::{HeaderName, HeaderValue},
-    middleware, routing,
+    middleware,
+    routing,
 };
 use axum_client_ip::ClientIpSource;
 use axum_login::AuthManagerLayerBuilder;
@@ -128,7 +129,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let _telemetry_guard = telemetry::init();
 
-    // Initialize pool metrics gauges
     telemetry::init_pool_metrics();
 
     let cookie_key_str = env::var("COOKIE_KEY").expect("COOKIE_KEY must be set");

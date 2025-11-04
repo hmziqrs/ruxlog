@@ -12,5 +12,6 @@ pub mod post_comment_v1;
 pub mod post_v1;
 pub mod seed_v1;
 pub mod super_admin_v1;
+pub mod admin_route_v1;
 pub mod tag_v1;
 pub mod user_v1;

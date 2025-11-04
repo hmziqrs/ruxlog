@@ -16,6 +16,7 @@ pub mod post_series_post;
 pub mod post_view;
 pub mod scheduled_post;
 pub mod tag;
+pub mod route_status;
 pub mod user;
 pub mod user_session;
 
