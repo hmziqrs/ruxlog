@@ -17,6 +17,7 @@ pub fn routes() -> Router<AppState> {
         .layer(DefaultBodyLimit::max(config::body_limits::MEDIA));
 
     Router::new()
+        .route("/view/{media_id}", post(controller::view))
         .route("/list/query", post(controller::find_with_query))
         .route("/delete/{media_id}", post(controller::delete))
         .merge(media_limited)

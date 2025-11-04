@@ -14,6 +14,7 @@ use uuid::Uuid;
 
 use crate::{
     db::sea_models::media::{Entity as Media, NewMedia},
+    db::sea_models::media_usage,
     db::sea_models::media_variant::{Entity as MediaVariant, NewMediaVariant},
     error::{ErrorCode, ErrorResponse},
     extractors::{ValidatedJson, ValidatedMultipart},
@@ -331,7 +332,17 @@ pub async fn create(
     Ok((StatusCode::CREATED, Json(json!(stored))))
 }
 
-/// List media with pagination and filtering
+#[debug_handler]
+pub async fn view(
+    State(state): State<AppState>,
+    Path(media_id): Path<i32>,
+) -> Result<impl IntoResponse, ErrorResponse> {
+    match Media::find_by_id_with_usage(&state.sea_db, media_id).await? {
+        Some(media) => Ok((StatusCode::OK, Json(json!(media)))),
+        None => Err(ErrorResponse::new(ErrorCode::FileNotFound).with_message("Media not found")),
+    }
+}
+
 #[debug_handler]
 pub async fn find_with_query(
     State(state): State<AppState>,

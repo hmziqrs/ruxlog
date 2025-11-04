@@ -257,4 +257,20 @@ impl Entity {
             Err(err) => Err(err.into()),
         }
     }
+
+    #[instrument(skip(conn), fields(media_id = id))]
+    pub async fn find_by_id_with_usage(conn: &DbConn, id: i32) -> DbResult<Option<MediaWithUsage>> {
+        match Self::find_by_id(conn, id).await? {
+            Some(media) => {
+                let usage_count = media_usage::Entity::find()
+                    .filter(media_usage::Column::MediaId.eq(media.id))
+                    .count(conn)
+                    .await
+                    .map_err(ErrorResponse::from)? as i64;
+
+                Ok(Some(media.with_usage(usage_count)))
+            }
+            None => Ok(None),
+        }
+    }
 }
