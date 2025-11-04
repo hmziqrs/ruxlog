@@ -1,9 +1,11 @@
 use crate::error::{DbResult, ErrorResponse};
-use sea_orm::{entity::prelude::*, Condition, Order, QueryOrder, Set};
+use sea_orm::{entity::prelude::*, Condition, Order, QueryOrder, QuerySelect, Set};
 use tracing::{error, info, instrument, warn};
 
+use super::super::media_usage;
 use super::{
     model::{ActiveModel, Column, Entity},
+    slice::MediaWithUsage,
     MediaQuery, MediaReference, Model, NewMedia,
 };
 
@@ -134,7 +136,10 @@ impl Entity {
     }
 
     #[instrument(skip(conn, query), fields(page = query.page))]
-    pub async fn find_with_query(conn: &DbConn, query: MediaQuery) -> DbResult<(Vec<Model>, u64)> {
+    pub async fn find_with_query(
+        conn: &DbConn,
+        query: MediaQuery,
+    ) -> DbResult<(Vec<MediaWithUsage>, u64)> {
         let mut media_query = Self::find();
 
         if let Some(search_term) = query.search {
@@ -219,7 +224,34 @@ impl Entity {
 
         match paginator.num_items().await {
             Ok(total) => match paginator.fetch_page(page - 1).await {
-                Ok(results) => Ok((results, total)),
+                Ok(results) => {
+                    // fetch usage counts for all media items with one query
+                    let ids = results.iter().map(|m| m.id).collect::<Vec<i32>>();
+                    let usage_counts = media_usage::Entity::find()
+                        .filter(media_usage::Column::MediaId.is_in(ids))
+                        .select_only()
+                        .column(media_usage::Column::MediaId)
+                        .column_as(media_usage::Column::MediaId.count(), "usage_count")
+                        .group_by(media_usage::Column::MediaId)
+                        .into_tuple::<(i32, i64)>()
+                        .all(conn)
+                        .await
+                        .map_err(ErrorResponse::from)?;
+
+                    let results_with_usage = results
+                        .into_iter()
+                        .map(|media| {
+                            let usage_count = usage_counts
+                                .iter()
+                                .find(|(media_id, _)| *media_id == media.id)
+                                .map(|(_, count)| *count)
+                                .unwrap_or(0);
+                            media.with_usage(usage_count)
+                        })
+                        .collect();
+
+                    Ok((results_with_usage, total))
+                }
                 Err(err) => Err(err.into()),
             },
             Err(err) => Err(err.into()),

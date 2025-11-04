@@ -90,4 +90,11 @@ impl Model {
             _ => None,
         }
     }
+
+    pub fn with_usage(&self, usage_count: i64) -> super::slice::MediaWithUsage {
+        super::slice::MediaWithUsage {
+            media: self.clone(),
+            usage_count,
+        }
+    }
 }

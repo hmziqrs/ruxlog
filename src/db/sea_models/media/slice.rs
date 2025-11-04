@@ -39,3 +39,10 @@ pub struct MediaQuery {
     pub updated_at_gt: Option<DateTimeWithTimeZone>,
     pub updated_at_lt: Option<DateTimeWithTimeZone>,
 }
+
+#[derive(Debug, Serialize)]
+pub struct MediaWithUsage {
+    #[serde(flatten)]
+    pub media: super::model::Model,
+    pub usage_count: i64,
+}

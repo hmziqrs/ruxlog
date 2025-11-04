@@ -23,6 +23,15 @@ impl EntityType {
             EntityType::Post => "post",
         }
     }
+
+    pub fn from_str(value: &str) -> Result<Self, String> {
+        match value.to_lowercase().as_str() {
+            "category" => Ok(EntityType::Category),
+            "user" => Ok(EntityType::User),
+            "post" => Ok(EntityType::Post),
+            other => Err(format!("Invalid entity type: {}", other)),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
