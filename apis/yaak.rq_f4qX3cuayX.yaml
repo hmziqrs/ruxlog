@@ -1,8 +1,8 @@
 type: http_request
 model: http_request
-id: rq_EEurqPJGSA
-createdAt: 2025-05-02T05:54:41.847834
-updatedAt: 2025-11-04T09:59:19.690621
+id: rq_f4qX3cuayX
+createdAt: 2025-11-04T09:59:17.771036
+updatedAt: 2025-11-04T09:59:59.939376
 workspaceId: wk_udoUbrFfLp
 folderId: fl_qgXRbryiBV
 authentication: {}
@@ -10,7 +10,10 @@ authenticationType: null
 body:
   text: |-
     {
-      "tag_ids": [11,28]
+      "title": "aaaa",
+      "content": "124sadnbaskdkahsjd",
+      "slug": "1223sadas",
+      "category_id": 12
     }
 bodyType: application/json
 description: ''
@@ -29,6 +32,6 @@ headers:
   id: d2bpjFn2wa
 method: POST
 name: ''
-sortPriority: 4000.0
-url: ${[ host ]}/post/v1/query
+sortPriority: 1000.0
+url: ${[ host ]}/post/v1/create
 urlParameters: []
