@@ -14,7 +14,6 @@ use uuid::Uuid;
 
 use crate::{
     db::sea_models::media::{Entity as Media, NewMedia},
-    db::sea_models::media_usage,
     db::sea_models::media_variant::{Entity as MediaVariant, NewMediaVariant},
     error::{ErrorCode, ErrorResponse},
     extractors::{ValidatedJson, ValidatedMultipart},
