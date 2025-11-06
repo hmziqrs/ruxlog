@@ -1,5 +1,6 @@
 use sea_orm::prelude::{DateTimeWithTimeZone, Json};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use validator::{Validate, ValidationError, ValidationErrors};
 
 use crate::db::sea_models::post::{NewPost, PostQuery, PostStatus, UpdatePost};
@@ -20,6 +21,20 @@ pub struct EditorJsBlock {
     pub data: serde_json::Value,
 }
 
+fn get_str<'a>(data: &'a Value, field: &str) -> Option<&'a str> {
+    data.get(field).and_then(|v| v.as_str())
+}
+
+fn get_nested_str<'a>(data: &'a Value, parent: &str, field: &str) -> Option<&'a str> {
+    data.get(parent)
+        .and_then(|v| v.get(field))
+        .and_then(|v| v.as_str())
+}
+
+fn non_empty_str(value: Option<&str>) -> bool {
+    value.map(|s| !s.trim().is_empty()).unwrap_or(false)
+}
+
 impl Validate for EditorJsDocument {
     fn validate(&self) -> Result<(), ValidationErrors> {
         let mut errors = ValidationErrors::new();
@@ -31,20 +46,14 @@ impl Validate for EditorJsDocument {
         for b in self.blocks.iter() {
             let res: Result<(), ValidationError> = match b.kind.as_str() {
                 "paragraph" => {
-                    let text = b.data.get("text").and_then(|v| v.as_str()).unwrap_or("");
-                    if text.trim().is_empty() {
+                    if !non_empty_str(get_str(&b.data, "text")) {
                         Err(ValidationError::new("paragraph_text_required"))
                     } else {
                         Ok(())
                     }
                 }
                 "header" => {
-                    let text_ok = b
-                        .data
-                        .get("text")
-                        .and_then(|v| v.as_str())
-                        .map(|s| !s.trim().is_empty())
-                        .unwrap_or(false);
+                    let text_ok = non_empty_str(get_str(&b.data, "text"));
                     let level_ok = b
                         .data
                         .get("level")
@@ -58,16 +67,8 @@ impl Validate for EditorJsDocument {
                     }
                 }
                 "alert" => {
-                    let msg_ok = b
-                        .data
-                        .get("message")
-                        .and_then(|v| v.as_str())
-                        .map(|s| !s.trim().is_empty())
-                        .unwrap_or(false);
-                    let type_ok = b
-                        .data
-                        .get("type")
-                        .and_then(|v| v.as_str())
+                    let msg_ok = non_empty_str(get_str(&b.data, "message"));
+                    let type_ok = get_str(&b.data, "type")
                         .map(|t| matches!(t, "info" | "warning" | "success" | "error"))
                         .unwrap_or(false);
                     if !(msg_ok && type_ok) {
@@ -77,12 +78,7 @@ impl Validate for EditorJsDocument {
                     }
                 }
                 "quote" => {
-                    let text_ok = b
-                        .data
-                        .get("text")
-                        .and_then(|v| v.as_str())
-                        .map(|s| !s.trim().is_empty())
-                        .unwrap_or(false);
+                    let text_ok = non_empty_str(get_str(&b.data, "text"));
                     if !text_ok {
                         Err(ValidationError::new("quote_text_required"))
                     } else {
@@ -119,16 +115,114 @@ impl Validate for EditorJsDocument {
                     }
                 }
                 "code" => {
-                    let code_ok = b
-                        .data
-                        .get("code")
-                        .and_then(|v| v.as_str())
-                        .map(|s| !s.is_empty())
-                        .unwrap_or(false);
+                    let code_ok = get_str(&b.data, "code").map(|s| !s.is_empty()).unwrap_or(false);
                     if !code_ok {
                         Err(ValidationError::new("code_block_code_required"))
                     } else {
                         Ok(())
+                    }
+                }
+                "list" => {
+                    let items = b
+                        .data
+                        .get("items")
+                        .and_then(|v| v.as_array())
+                        .cloned()
+                        .unwrap_or_default();
+                    let has_items = !items.is_empty()
+                        && items.iter().all(|it| match it {
+                            Value::String(s) => !s.trim().is_empty(),
+                            _ => false,
+                        });
+                    if has_items {
+                        Ok(())
+                    } else {
+                        Err(ValidationError::new("list_items_required"))
+                    }
+                }
+                "delimiter" => Ok(()),
+                "image" => {
+                    let file_url = get_nested_str(&b.data, "file", "url");
+                    let url = get_str(&b.data, "url");
+                    if non_empty_str(file_url.or(url)) {
+                        Ok(())
+                    } else {
+                        Err(ValidationError::new("image_url_required"))
+                    }
+                }
+                "embed" => {
+                    let service_ok = non_empty_str(get_str(&b.data, "service"));
+                    let source_ok = non_empty_str(get_str(&b.data, "source"));
+                    if service_ok && source_ok {
+                        Ok(())
+                    } else {
+                        Err(ValidationError::new("embed_service_and_source_required"))
+                    }
+                }
+                "linktool" => {
+                    if non_empty_str(get_str(&b.data, "link")) {
+                        Ok(())
+                    } else {
+                        Err(ValidationError::new("linktool_link_required"))
+                    }
+                }
+                "attaches" => {
+                    if non_empty_str(get_nested_str(&b.data, "file", "url")) {
+                        Ok(())
+                    } else {
+                        Err(ValidationError::new("attaches_url_required"))
+                    }
+                }
+                "raw" => {
+                    if non_empty_str(get_str(&b.data, "html")) {
+                        Ok(())
+                    } else {
+                        Err(ValidationError::new("raw_html_required"))
+                    }
+                }
+                "table" => {
+                    let content = b
+                        .data
+                        .get("content")
+                        .and_then(|v| v.as_array())
+                        .cloned()
+                        .unwrap_or_default();
+                    let has_cells = !content.is_empty()
+                        && content.iter().all(|row| {
+                            row.as_array()
+                                .filter(|cells| !cells.is_empty())
+                                .map(|cells| {
+                                    cells.iter().all(|cell| match cell {
+                                        Value::String(_) => true,
+                                        Value::Number(_) => true,
+                                        Value::Bool(_) => true,
+                                        _ => false,
+                                    })
+                                })
+                                .unwrap_or(false)
+                        });
+                    if has_cells {
+                        Ok(())
+                    } else {
+                        Err(ValidationError::new("table_content_required"))
+                    }
+                }
+                "warning" => {
+                    let title_ok = non_empty_str(get_str(&b.data, "title"));
+                    let message_ok = non_empty_str(get_str(&b.data, "message"));
+                    if title_ok && message_ok {
+                        Ok(())
+                    } else {
+                        Err(ValidationError::new("warning_title_and_message_required"))
+                    }
+                }
+                "button" => {
+                    let text = get_str(&b.data, "text").or_else(|| get_str(&b.data, "buttonText"));
+                    let link = get_str(&b.data, "link").or_else(|| get_str(&b.data, "buttonLink"));
+                    if non_empty_str(text) && non_empty_str(link) {
+                        Ok(())
+                    } else {
+                        Err(ValidationError::new("button_text_and_link_required"))
                     }
                 }
                 _ => Err(ValidationError::new("unsupported_block_type")),

@@ -1,0 +1,31 @@
+type: http_request
+model: http_request
+id: rq_yzK6aV4znS
+createdAt: 2025-11-06T13:47:50.687767
+updatedAt: 2025-11-06T13:47:52.249369
+workspaceId: wk_udoUbrFfLp
+folderId: fl_qgXRbryiBV
+authentication: {}
+authenticationType: null
+body:
+  text: '{"title":"asdasd","content":"{\"time\":1762436745242,\"blocks\":[{\"id\":\"j_sGIYv4Xq\",\"type\":\"header\",\"data\":{\"text\":\"Welcome to Editor.js!\",\"level\":1}},{\"id\":\"Vg_gR5oD7R\",\"type\":\"alert\",\"data\":{\"type\":\"info\",\"align\":\"left\",\"message\":\"Hellow how are you doing. \"}},{\"id\":\"jogilEqi0B\",\"type\":\"quote\",\"data\":{\"text\":\"asdasd\",\"caption\":\"\",\"alignment\":\"left\"}},{\"id\":\"rflaFyVQrm\",\"type\":\"checklist\",\"data\":{\"items\":[{\"text\":\"sadsad\",\"checked\":false}]}},{\"id\":\"m-STVf0H63\",\"type\":\"paragraph\",\"data\":{\"text\":\"hhhhhhhh\"}},{\"id\":\"s5B90_9Us8\",\"type\":\"code\",\"data\":{\"code\":\"pub fn main() {\\n\"}},{\"id\":\"MMyIdUvJYh\",\"type\":\"alert\",\"data\":{\"type\":\"info\",\"align\":\"left\",\"message\":\"asdasd\"}},{\"id\":\"_0oMYg8quQ\",\"type\":\"paragraph\",\"data\":{\"text\":\"asasdasdasd jaajsghda here&nbsp;dscdsfdsf sdadf\"}},{\"id\":\"cdjl0g75B1\",\"type\":\"paragraph\",\"data\":{\"text\":\"sdadasd\"}},{\"id\":\"6e50Lj_e00\",\"type\":\"delimiter\",\"data\":{}},{\"id\":\"zCLdupnM2D\",\"type\":\"image\",\"data\":{\"caption\":\"Yooooooooo\",\"withBorder\":false,\"withBackground\":false,\"stretched\":false,\"file\":{\"url\":\"https://pub-63743cad4ace41b5903015b89d79fb27.r2.dev/media/2025/10/8f4c7509-9c86-4d8c-8b90-9d84bb6d1ae7.jpg\"}}},{\"id\":\"ETH73xPZ02\",\"type\":\"image\",\"data\":{\"caption\":\"\",\"withBorder\":false,\"withBackground\":false,\"stretched\":false,\"file\":{\"url\":\"https://pub-63743cad4ace41b5903015b89d79fb27.r2.dev/media/2025/11/1342bf01-8b2e-4cb8-b0fc-d0ac006e2329.jpg\",\"media_id\":19}}}],\"version\":\"2.30.7\"}","published_at":null,"is_published":false,"slug":"asdasd","excerpt":null,"featured_image":null,"category_id":2,"tag_ids":[]}'
+bodyType: application/json
+description: ''
+headers:
+- enabled: true
+  name: csrf-token
+  value: ${[ csrf ]}
+  id: aA64M6mvXe
+- enabled: true
+  name: ''
+  value: ''
+  id: D57mjz6dN3
+- enabled: true
+  name: Content-Type
+  value: application/json
+  id: d2bpjFn2wa
+method: POST
+name: ''
+sortPriority: 0.0011
+url: ${[ host ]}/post/v1/create
+urlParameters: []
