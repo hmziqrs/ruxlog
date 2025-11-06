@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_ZfzsHxBcH2
 createdAt: 2025-05-01T09:59:59.909037
-updatedAt: 2025-11-04T09:59:19.688513
+updatedAt: 2025-11-06T08:34:13.769332
 workspaceId: wk_udoUbrFfLp
 folderId: fl_qgXRbryiBV
 authentication: {}
@@ -31,7 +31,7 @@ headers:
   value: application/json
   id: d2bpjFn2wa
 method: POST
-name: ''
+name: host/post/v1/view/118
 sortPriority: 2000.0
 url: ${[ host ]}/post/v1/view/118
 urlParameters: []

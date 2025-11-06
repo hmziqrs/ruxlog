@@ -25,6 +25,17 @@ pub fn routes() -> Router<AppState> {
             "/content/publishing-trends",
             post(controller::publishing_trends),
         )
+        .route("/engagement/page-views", post(controller::page_views))
+        .route("/engagement/comment-rate", post(controller::comment_rate))
+        .route(
+            "/engagement/newsletter-growth",
+            post(controller::newsletter_growth),
+        )
+        .route(
+            "/media/upload-trends",
+            post(controller::media_upload_trends),
+        )
+        .route("/dashboard/summary", post(controller::dashboard_summary))
         .route_layer(middleware::from_fn(user_permission::admin))
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend))

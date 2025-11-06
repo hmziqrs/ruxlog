@@ -68,11 +68,11 @@
 | `POST /analytics/v1/user/registration-trends` | Chart net new users across time | `user` | Implemented in `analytics_v1::registration_trends` |
 | `POST /analytics/v1/user/verification-rates` | Measure verification success vs. requests | `email_verification`, `user` | Implemented in `analytics_v1::verification_rates` |
 | `POST /analytics/v1/content/publishing-trends` | Track publish cadence by status | `post` | Implemented in `analytics_v1::publishing_trends` |
-| `POST /analytics/v1/engagement/page-views` | Group view counts (with unique visitors) | `post_view` | Pending |
-| `POST /analytics/v1/engagement/comment-rate` | Rank posts by comments vs. views | `post_comment`, `post_view` | Pending |
-| `POST /analytics/v1/engagement/newsletter-growth` | Monitor newsletter churn and confirmations | `newsletter_subscriber` | Pending |
-| `POST /analytics/v1/media/upload-trends` | Understand upload volume + storage footprint | `media` | Pending |
-| `POST /analytics/v1/dashboard/summary` | Combine headline counts for the admin dashboard | `user`, `post`, `post_comment`, `post_view`, `newsletter_subscriber`, `media` | Pending |
+| `POST /analytics/v1/engagement/page-views` | Group view counts (with unique visitors) | `post_view` | Implemented in `analytics_v1::page_views` |
+| `POST /analytics/v1/engagement/comment-rate` | Rank posts by comments vs. views | `post_comment`, `post_view` | Implemented in `analytics_v1::comment_rate` |
+| `POST /analytics/v1/engagement/newsletter-growth` | Monitor newsletter churn and confirmations | `newsletter_subscriber` | Implemented in `analytics_v1::newsletter_growth` |
+| `POST /analytics/v1/media/upload-trends` | Understand upload volume + storage footprint | `media` | Implemented in `analytics_v1::media_upload_trends` |
+| `POST /analytics/v1/dashboard/summary` | Combine headline counts for the admin dashboard | `user`, `post`, `post_comment`, `post_view`, `newsletter_subscriber`, `media` | Implemented in `analytics_v1::dashboard_summary` |
 
 Below, each MVP endpoint details payloads, behaviours, and response shapes.
 
@@ -193,6 +193,7 @@ Below, each MVP endpoint details payloads, behaviours, and response shapes.
 - **Endpoint:** `POST /analytics/v1/engagement/page-views`
 - **Purpose:** aggregate raw and unique views.
 - **Models:** `post_view`.
+- **Status:** Implemented in backend via `src/modules/analytics_v1/controller.rs`.
 - **Request payload:**
   ```json
   {
@@ -232,11 +233,13 @@ Below, each MVP endpoint details payloads, behaviours, and response shapes.
   }
   ```
 - **Notes:** create a materialised view keyed by `created_at::date` to avoid re-aggregating large periods.
+- **Implementation note:** when `only_unique` is true the `views` field reflects unique visitor counts; the response still surfaces both totals for downstream consumers.
 
 ### 5. Comment Rate
 - **Endpoint:** `POST /analytics/v1/engagement/comment-rate`
 - **Purpose:** show posts with the highest comment-to-view ratio.
 - **Models:** `post_comment`, `post_view`.
+- **Status:** Implemented in backend via `src/modules/analytics_v1/controller.rs`.
 - **Request payload:**
   ```json
   {
@@ -273,11 +276,13 @@ Below, each MVP endpoint details payloads, behaviours, and response shapes.
   }
   ```
 - **Notes:** build an indexed CTE or view that pre-counts comments per post to simplify pagination.
+- **Implementation note:** current implementation filters out posts below the configurable `min_views` threshold before ranking.
 
 ### 6. Newsletter Growth
 - **Endpoint:** `POST /analytics/v1/engagement/newsletter-growth`
 - **Purpose:** track newsletter acquisition, confirmations, and churn.
 - **Models:** `newsletter_subscriber`.
+- **Status:** Implemented in backend via `src/modules/analytics_v1/controller.rs`.
 - **Request payload:**
   ```json
   {
@@ -309,11 +314,13 @@ Below, each MVP endpoint details payloads, behaviours, and response shapes.
   }
   ```
 - **Notes:** ensure `newsletter_subscribers.status` is updated via the existing confirmation/unsubscribe flows; counts derive from status transitions.
+- **Implementation note:** confirmations and churn are derived from `updated_at` timestamps; add explicit transition auditing for more granular reporting later.
 
 ### 7. Media Upload Trends
 - **Endpoint:** `POST /analytics/v1/media/upload-trends`
 - **Purpose:** quantify uploads and storage usage.
 - **Models:** `media`.
+- **Status:** Implemented in backend via `src/modules/analytics_v1/controller.rs`.
 - **Request payload:**
   ```json
   {
@@ -344,11 +351,13 @@ Below, each MVP endpoint details payloads, behaviours, and response shapes.
   }
   ```
 - **Notes:** use `size` to calculate MB/GB values (divide bytes by 1024²). Future variants (thumbnails, etc.) belong in Phase 2 once `media_variants` ingestion is complete.
+- **Implementation note:** average size is computed against per-bucket totals; revisit once variant ingestion lands.
 
 ### 8. Dashboard Summary
 - **Endpoint:** `POST /analytics/v1/dashboard/summary`
 - **Purpose:** aggregate canonical headline metrics for the admin home.
 - **Models:** `user`, `post`, `post_view`, `post_comment`, `newsletter_subscriber`, `media`.
+- **Status:** Implemented in backend via `src/modules/analytics_v1/controller.rs`.
 - **Request payload:**
   ```json
   {
@@ -389,6 +398,7 @@ Below, each MVP endpoint details payloads, behaviours, and response shapes.
   }
   ```
 - **Notes:** avoid metrics that rely on session duration until we log entry/exit timestamps. Views and comments in period reuse the shared filter extractor to respect `date_from` / `date_to` overrides.
+- **Implementation note:** newsletter confirmations rely on `updated_at`; migrating to a dedicated `confirmed_at` column will reduce edge cases.
 
 ---
 
