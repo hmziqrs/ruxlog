@@ -1,114 +1,146 @@
 use sea_orm::prelude::{DateTimeWithTimeZone, Json};
 use serde::{Deserialize, Serialize};
-use validator::{Validate, ValidationError};
+use validator::{Validate, ValidationError, ValidationErrors};
 
 use crate::db::sea_models::post::{NewPost, PostQuery, PostStatus, UpdatePost};
 use crate::utils::SortParam;
 
 // Validated Editor.js document types
-#[derive(Debug, Clone, Deserialize, Serialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct EditorJsDocument {
     pub time: Option<i64>,
-    #[validate(custom(validate_editorjs_blocks))]
     pub blocks: Vec<EditorJsBlock>,
     pub version: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct EditorJsBlock {
     #[serde(rename = "type")]
     pub kind: String,
     pub data: serde_json::Value,
 }
 
-fn validate_editorjs_blocks(blocks: &Vec<EditorJsBlock>) -> Result<(), ValidationError> {
-    if blocks.is_empty() {
-        return Err(ValidationError::new("blocks_empty"));
-    }
-    for b in blocks.iter() {
-        match b.kind.as_str() {
-            "paragraph" => {
-                let text = b.data.get("text").and_then(|v| v.as_str()).unwrap_or("");
-                if text.trim().is_empty() {
-                    return Err(ValidationError::new("paragraph_text_required"));
+impl Validate for EditorJsDocument {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        let mut errors = ValidationErrors::new();
+        if self.blocks.is_empty() {
+            errors.add("blocks", ValidationError::new("blocks_empty"));
+            return Err(errors);
+        }
+
+        for b in self.blocks.iter() {
+            let res: Result<(), ValidationError> = match b.kind.as_str() {
+                "paragraph" => {
+                    let text = b.data.get("text").and_then(|v| v.as_str()).unwrap_or("");
+                    if text.trim().is_empty() {
+                        Err(ValidationError::new("paragraph_text_required"))
+                    } else {
+                        Ok(())
+                    }
                 }
-            }
-            "header" => {
-                let text_ok = b
-                    .data
-                    .get("text")
-                    .and_then(|v| v.as_str())
-                    .map(|s| !s.trim().is_empty())
-                    .unwrap_or(false);
-                let level_ok = b
-                    .data
-                    .get("level")
-                    .and_then(|v| v.as_i64())
-                    .map(|l| (1..=6).contains(&l))
-                    .unwrap_or(false);
-                if !(text_ok && level_ok) {
-                    return Err(ValidationError::new("header_requires_text_and_level_1_6"));
+                "header" => {
+                    let text_ok = b
+                        .data
+                        .get("text")
+                        .and_then(|v| v.as_str())
+                        .map(|s| !s.trim().is_empty())
+                        .unwrap_or(false);
+                    let level_ok = b
+                        .data
+                        .get("level")
+                        .and_then(|v| v.as_i64())
+                        .map(|l| (1..=6).contains(&l))
+                        .unwrap_or(false);
+                    if !(text_ok && level_ok) {
+                        Err(ValidationError::new("header_requires_text_and_level_1_6"))
+                    } else {
+                        Ok(())
+                    }
                 }
-            }
-            "alert" => {
-                let msg_ok = b
-                    .data
-                    .get("message")
-                    .and_then(|v| v.as_str())
-                    .map(|s| !s.trim().is_empty())
-                    .unwrap_or(false);
-                let type_ok = b
-                    .data
-                    .get("type")
-                    .and_then(|v| v.as_str())
-                    .map(|t| matches!(t, "info" | "warning" | "success" | "error"))
-                    .unwrap_or(false);
-                if !(msg_ok && type_ok) {
-                    return Err(ValidationError::new("alert_requires_message_and_valid_type"));
+                "alert" => {
+                    let msg_ok = b
+                        .data
+                        .get("message")
+                        .and_then(|v| v.as_str())
+                        .map(|s| !s.trim().is_empty())
+                        .unwrap_or(false);
+                    let type_ok = b
+                        .data
+                        .get("type")
+                        .and_then(|v| v.as_str())
+                        .map(|t| matches!(t, "info" | "warning" | "success" | "error"))
+                        .unwrap_or(false);
+                    if !(msg_ok && type_ok) {
+                        Err(ValidationError::new("alert_requires_message_and_valid_type"))
+                    } else {
+                        Ok(())
+                    }
                 }
-            }
-            "quote" => {
-                let text_ok = b
-                    .data
-                    .get("text")
-                    .and_then(|v| v.as_str())
-                    .map(|s| !s.trim().is_empty())
-                    .unwrap_or(false);
-                if !text_ok {
-                    return Err(ValidationError::new("quote_text_required"));
-                }
-            }
-            "checklist" => {
-                let items = b.data.get("items").and_then(|v| v.as_array()).cloned().unwrap_or_default();
-                if items.is_empty() {
-                    return Err(ValidationError::new("checklist_items_required"));
-                }
-                for it in items.iter() {
-                    let text_ok = it
+                "quote" => {
+                    let text_ok = b
+                        .data
                         .get("text")
                         .and_then(|v| v.as_str())
                         .map(|s| !s.trim().is_empty())
                         .unwrap_or(false);
                     if !text_ok {
-                        return Err(ValidationError::new("checklist_item_text_required"));
+                        Err(ValidationError::new("quote_text_required"))
+                    } else {
+                        Ok(())
                     }
                 }
-            }
-            "code" => {
-                let code_ok = b
-                    .data
-                    .get("code")
-                    .and_then(|v| v.as_str())
-                    .map(|s| !s.is_empty())
-                    .unwrap_or(false);
-                if !code_ok {
-                    return Err(ValidationError::new("code_block_code_required"));
+                "checklist" => {
+                    let items = b
+                        .data
+                        .get("items")
+                        .and_then(|v| v.as_array())
+                        .cloned()
+                        .unwrap_or_default();
+                    if items.is_empty() {
+                        Err(ValidationError::new("checklist_items_required"))
+                    } else {
+                        let mut bad = None;
+                        for it in items.iter() {
+                            let text_ok = it
+                                .get("text")
+                                .and_then(|v| v.as_str())
+                                .map(|s| !s.trim().is_empty())
+                                .unwrap_or(false);
+                            if !text_ok {
+                                bad = Some("checklist_item_text_required");
+                                break;
+                            }
+                        }
+                        if let Some(kind) = bad {
+                            Err(ValidationError::new(kind))
+                        } else {
+                            Ok(())
+                        }
+                    }
                 }
+                "code" => {
+                    let code_ok = b
+                        .data
+                        .get("code")
+                        .and_then(|v| v.as_str())
+                        .map(|s| !s.is_empty())
+                        .unwrap_or(false);
+                    if !code_ok {
+                        Err(ValidationError::new("code_block_code_required"))
+                    } else {
+                        Ok(())
+                    }
+                }
+                _ => Err(ValidationError::new("unsupported_block_type")),
+            };
+
+            if let Err(e) = res {
+                errors.add("blocks", e);
+                return Err(errors);
             }
-            _ => return Err(ValidationError::new("unsupported_block_type")),
         }
+        Ok(())
     }
-    Ok(())
 }
 
 impl EditorJsDocument {
