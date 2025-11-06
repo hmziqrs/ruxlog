@@ -398,9 +398,6 @@ Each backlog item should include a migration plus background job or data pipelin
 ---
 
 ## Implementation Notes
-- **Caching:** 
-  - Time-series routes (`registration-trends`, `page-views`, `newsletter-growth`, `upload-trends`) should cache aggregated results for 5 minutes.
-  - The dashboard summary can cache the entire payload for 60 seconds.
 - **Indexes:**
   - `users(created_at)`, `posts(published_at, status)`, `post_views(created_at, post_id)`, `post_comments(created_at, post_id)`, `newsletter_subscribers(created_at, status)`, `media(created_at)`.
   - Add partial indexes if filters focus on a subset (e.g. `post_views(post_id) WHERE created_at >= current_date - interval '90 days'`).
