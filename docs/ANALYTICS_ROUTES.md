@@ -66,7 +66,7 @@
 | Endpoint | Purpose | Primary Models | Status |
 | --- | --- | --- | --- |
 | `POST /analytics/v1/user/registration-trends` | Chart net new users across time | `user` | Implemented in `analytics_v1::registration_trends` |
-| `POST /analytics/v1/user/verification-rates` | Measure verification success vs. requests | `email_verification`, `user` | Pending |
+| `POST /analytics/v1/user/verification-rates` | Measure verification success vs. requests | `email_verification`, `user` | Implemented in `analytics_v1::verification_rates` |
 | `POST /analytics/v1/content/publishing-trends` | Track publish cadence by status | `post` | Pending |
 | `POST /analytics/v1/engagement/page-views` | Group view counts (with unique visitors) | `post_view` | Pending |
 | `POST /analytics/v1/engagement/comment-rate` | Rank posts by comments vs. views | `post_comment`, `post_view` | Pending |
@@ -115,6 +115,7 @@ Below, each MVP endpoint details payloads, behaviours, and response shapes.
 - **Endpoint:** `POST /analytics/v1/user/verification-rates`
 - **Purpose:** compare email verification requests vs. successes.
 - **Models:** `email_verification`, `user`.
+- **Status:** Implemented in backend via `src/modules/analytics_v1/controller.rs`.
 - **Request payload:**
   ```json
   {
@@ -146,6 +147,7 @@ Below, each MVP endpoint details payloads, behaviours, and response shapes.
   }
   ```
 - **Notes:** compute `success_rate` as `verified / requested * 100` with two decimal precision.
+- **Implementation note:** the current backend derives verification successes from `users.updated_at` timestamps when `is_verified = true`; consider adding a dedicated `verified_at` column for higher fidelity in future iterations.
 
 ### 3. Publishing Trends
 - **Endpoint:** `POST /analytics/v1/content/publishing-trends`

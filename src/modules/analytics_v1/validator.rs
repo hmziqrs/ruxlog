@@ -86,8 +86,9 @@ impl Validate for AnalyticsEnvelope {
             if !(1..=MAX_PER_PAGE).contains(&per_page) {
                 errors.add(
                     "per_page",
-                    ValidationError::new("range")
-                        .with_message(format!("per_page must be between 1 and {}", MAX_PER_PAGE).into()),
+                    ValidationError::new("range").with_message(
+                        format!("per_page must be between 1 and {}", MAX_PER_PAGE).into(),
+                    ),
                 );
             }
         }
@@ -237,6 +238,43 @@ impl Validate for RegistrationTrendsRequest {
 pub struct RegistrationTrendPoint {
     pub bucket: String,
     pub new_users: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+pub struct VerificationRatesFilters {
+    #[serde(default)]
+    pub group_by: AnalyticsInterval,
+}
+
+impl Default for VerificationRatesFilters {
+    fn default() -> Self {
+        Self {
+            group_by: AnalyticsInterval::Day,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerificationRatesRequest {
+    #[serde(flatten)]
+    pub envelope: AnalyticsEnvelope,
+    #[serde(default)]
+    pub filters: VerificationRatesFilters,
+}
+
+impl Validate for VerificationRatesRequest {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        self.envelope.validate()?;
+        self.filters.validate()
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct VerificationRatePoint {
+    pub bucket: String,
+    pub requested: i64,
+    pub verified: i64,
+    pub success_rate: f64,
 }
 
 #[derive(Debug, Clone, Serialize)]
