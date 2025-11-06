@@ -22,7 +22,6 @@ use std::{env, net::SocketAddr, time::Duration};
 use tower_http::{
     compression::CompressionLayer,
     cors::{AllowOrigin, CorsLayer},
-    limit::RequestBodyLimitLayer,
 };
 
 use axum_extra::extract::cookie::SameSite;
@@ -240,7 +239,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .allow_origin(AllowOrigin::list(get_allowed_origins()))
         .allow_credentials(true)
         .max_age(Duration::from_secs(360));
-    let request_size = RequestBodyLimitLayer::new(config::body_limits::DEFAULT);
 
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
@@ -252,7 +250,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         //     config: governor_conf,
         // })
         .layer(compression)
-        .layer(request_size)
         .layer(middleware::from_fn(
             middlewares::http_metrics::track_metrics,
         ))

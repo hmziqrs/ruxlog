@@ -17,6 +17,7 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::{
+    config,
     db::sea_models::{
         category::{self, Model as CategoryModel},
         media::{self, Entity as Media, NewMedia},
@@ -33,8 +34,6 @@ use crate::{
 use tracing::{debug, error, info, instrument, warn};
 
 use super::validator::{MediaUploadMetadata, V1MediaListQuery, V1MediaUsageQuery};
-
-const MAX_UPLOAD_SIZE_BYTES: usize = 20 * 1024 * 1024; // 20MiB ceiling
 
 #[derive(Debug, Serialize)]
 struct PostUsage {
@@ -188,14 +187,18 @@ pub async fn create(
 
             debug!(file_size = bytes.len(), "File bytes received");
 
-            if bytes.len() > MAX_UPLOAD_SIZE_BYTES {
+            if bytes.len() > config::body_limits::MEDIA {
                 warn!(
                     file_size = bytes.len(),
-                    max_size = MAX_UPLOAD_SIZE_BYTES,
+                    max_size = config::body_limits::MEDIA,
                     "Upload exceeds size limit"
                 );
-                return Err(ErrorResponse::new(ErrorCode::FileTooLarge)
-                    .with_message("File size exceeds the 20MiB upload limit"));
+                return Err(
+                    ErrorResponse::new(ErrorCode::FileTooLarge).with_message(format!(
+                        "File size exceeds the {}MiB upload limit",
+                        config::body_limits::MEDIA / 1024 / 1024
+                    )),
+                );
             }
 
             file_bytes = Some(bytes);
