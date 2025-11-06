@@ -1,850 +1,416 @@
-# Analytics Routes Documentation
+# Analytics Routes Plan
 
 ## Overview
-
-Comprehensive analytics endpoints for dashboard metrics based on the database schema. All routes follow the `/analytics/v1/{category}/{metric}` pattern.
-
----
-
-## 1. User Analytics
-
-### 1.1 Registration Trends
-**Endpoint:** `POST /analytics/v1/user/registration-trends`
-**Description:** Track user registration over time
-**Models:** `user`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-- `group_by`: day|week|month (default: day)
-
-**Response:**
-```json
-{
-  "data": [
-    { "date": "2024-01-01", "count": 25 },
-    { "date": "2024-01-02", "count": 31 }
-  ],
-  "total": 2
-}
-```
-
-### 1.2 User Role Distribution
-**Endpoint:** `POST /analytics/v1/user/role-distribution`
-**Description:** Distribution of users by role
-**Models:** `user`
-**Query Parameters:**
-- `date_from`: ISO8601 date (optional)
-- `date_to`: ISO8601 date (optional)
-
-**Response:**
-```json
-{
-  "data": [
-    { "role": "User", "count": 1245 },
-    { "role": "Author", "count": 89 },
-    { "role": "Moderator", "count": 12 },
-    { "role": "Admin", "count": 5 },
-    { "role": "SuperAdmin", "count": 1 }
-  ],
-  "total": 5
-}
-```
-
-### 1.3 Verification Rates
-**Endpoint:** `POST /analytics/v1/user/verification-rates`
-**Description:** Email verification success rates
-**Models:** `email_verification`, `user`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-- `group_by`: day|week|month
-
-**Response:**
-```json
-{
-  "data": [
-    {
-      "date": "2024-01-01",
-      "requested": 45,
-      "verified": 42,
-      "rate": 93.33
-    }
-  ],
-  "total": 1
-}
-```
-
-### 1.4 Active Users
-**Endpoint:** `POST /analytics/v1/user/active-users`
-**Description:** Users with recent activity from sessions
-**Models:** `user_sessions`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-- `days_threshold`: number of days (default: 7)
-
-**Response:**
-```json
-{
-  "data": [
-    { "date": "2024-01-01", "active_users": 456 }
-  ],
-  "total": 1
-}
-```
-
-### 1.5 Session Analytics
-**Endpoint:** `POST /analytics/v1/user/session-analytics`
-**Description:** User session statistics by device and geography
-**Models:** `user_sessions`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-- `group_by`: device|ip_prefix
-
-**Response:**
-```json
-{
-  "data": [
-    { "device": "Desktop", "count": 1234, "percentage": 68.5 },
-    { "device": "Mobile", "count": 456, "percentage": 25.3 },
-    { "device": "Tablet", "count": 110, "percentage": 6.2 }
-  ],
-  "total": 3
-}
-```
-
-### 1.6 Password Reset Attempts
-**Endpoint:** `POST /analytics/v1/user/password-resets`
-**Description:** Password reset request patterns
-**Models:** `forgot_password`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-- `group_by`: day|week|month
-
-**Response:**
-```json
-{
-  "data": [
-    { "date": "2024-01-01", "count": 23 }
-  ],
-  "total": 1
-}
-```
+- Provides a pragmatic roadmap for analytics endpoints that can be delivered with the current SeaORM models and migrations.
+- All endpoints continue to use `POST` so clients can send structured JSON payloads (filters, pagination, feature flags) without overloading query strings.
+- The plan is phased: ship a lean MVP first, then unlock richer metrics after the missing instrumentation lands.
 
 ---
 
-## 2. Content Analytics
+## Implementation Strategy
 
-### 2.1 Post Performance
-**Endpoint:** `POST /analytics/v1/content/post-performance`
-**Description:** Top performing posts by views, likes, comments
-**Models:** `post`, `post_view`, `post_comment`
-**Query Parameters:**
-- `period`: 7d|30d|90d|all (default: 30d)
-- `sort_by`: views|likes|comments (default: views)
-- `limit`: number (default: 10)
-- `author_id`: filter by author (optional)
+### Guiding Principles
+- Reuse a single extractor for incoming filter payloads (`date_from`, `date_to`, pagination, ordering, feature flags).
+- Return a consistent envelope: `{ "data": ..., "meta": {...} }`. The `meta` object always exposes `total`, `page`, and `per_page` (even if they fall back to `1`), plus endpoint-specific metadata such as `interval` or `sorted_by`.
+- Prefer read replicas or cached materialisations for expensive aggregates; fall back to live queries only when the latency budget is acceptable.
+- Counted metrics should rely on indexed fields already present in the schema to avoid opportunistic table scans.
 
-**Response:**
+### Shared Request Envelope
 ```json
 {
-  "data": [
-    {
-      "post_id": 123,
-      "title": "Post Title",
-      "slug": "post-title",
-      "author": "John Doe",
-      "views": 5423,
-      "likes": 234,
-      "comments": 45,
-      "published_at": "2024-01-01T00:00:00Z"
-    }
-  ],
-  "total": 1
-}
-```
-
-### 2.2 Publishing Trends
-**Endpoint:** `POST /analytics/v1/content/publishing-trends`
-**Description:** Content publishing patterns over time
-**Models:** `post`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-- `group_by`: day|week|month
-- `status`: Draft|Published|Archived (optional)
-
-**Response:**
-```json
-{
-  "data": [
-    { "date": "2024-01-01", "count": 12 }
-  ],
-  "total": 1
-}
-```
-
-### 2.3 Author Productivity
-**Endpoint:** `POST /analytics/v1/content/author-productivity`
-**Description:** Content creation stats per author
-**Models:** `post`, `user`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-- `sort_by`: posts|views|likes (default: posts)
-
-**Response:**
-```json
-{
-  "data": [
-    {
-      "author_id": 45,
-      "author_name": "Jane Smith",
-      "posts_count": 23,
-      "total_views": 12456,
-      "total_likes": 567,
-      "avg_views_per_post": 541
-    }
-  ],
-  "total": 1
-}
-```
-
-### 2.4 Content Status Distribution
-**Endpoint:** `POST /analytics/v1/content/status-distribution`
-**Description:** Posts by status (Draft/Published/Archived)
-**Models:** `post`
-**Query Parameters:**
-- `date_from`: ISO8601 date (optional)
-- `date_to`: ISO8601 date (optional)
-
-**Response:**
-```json
-{
-  "data": [
-    { "status": "Draft", "count": 45 },
-    { "status": "Published", "count": 234 },
-    { "status": "Archived", "count": 12 }
-  ],
-  "total": 3
-}
-```
-
-### 2.5 Category Popularity
-**Endpoint:** `POST /analytics/v1/content/category-popularity`
-**Description:** Posts distribution by category
-**Models:** `post`, `category`
-**Query Parameters:**
-- `period`: 30d|90d|all (default: 30d)
-- `sort_by`: posts|views|likes (default: posts)
-
-**Response:**
-```json
-{
-  "data": [
-    {
-      "category_id": 5,
-      "category_name": "Technology",
-      "posts_count": 89,
-      "total_views": 12456,
-      "total_likes": 567
-    }
-  ],
-  "total": 1
-}
-```
-
-### 2.6 Tag Usage Frequency
-**Endpoint:** `POST /analytics/v1/content/tag-usage`
-**Description:** Most frequently used tags
-**Models:** `post`, `tag`
-**Query Parameters:**
-- `period`: 30d|90d|all (default: 30d)
-- `limit`: number (default: 20)
-
-**Response:**
-```json
-{
-  "data": [
-    { "tag": "rust", "count": 45 },
-    { "tag": "web-dev", "count": 38 },
-    { "tag": "tutorial", "count": 29 }
-  ],
-  "total": 3
-}
-```
-
-### 2.7 Content Lifecycle
-**Endpoint:** `POST /analytics/v1/content/lifecycle`
-**Description:** Track posts through lifecycle stages
-**Models:** `post`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-
-**Response:**
-```json
-{
-  "data": [
-    {
-      "created_as_draft": 45,
-      "published": 42,
-      "archived": 3,
-      "conversion_rate": 93.33
-    }
-  ],
-  "total": 1
-}
-```
-
----
-
-## 3. Engagement Analytics
-
-### 3.1 Page Views
-**Endpoint:** `POST /analytics/v1/engagement/page-views`
-**Description:** Page view analytics with traffic sources
-**Models:** `post_view`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-- `group_by`: hour|day|week|month
-- `post_id`: specific post (optional)
-- `author_id`: filter by author (optional)
-
-**Response:**
-```json
-{
-  "data": [
-    { "date": "2024-01-01", "views": 1234, "unique_visitors": 456 }
-  ],
-  "total": 1
-}
-```
-
-### 3.2 Traffic Sources
-**Endpoint:** `POST /analytics/v1/engagement/traffic-sources`
-**Description:** Traffic sources from IP and user agent analysis
-**Models:** `post_view`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-- `group_by`: user_agent|ip_range|country
-
-**Response:**
-```json
-{
-  "data": [
-    { "source": "Chrome", "count": 2341, "percentage": 65.2 },
-    { "source": "Firefox", "count": 678, "percentage": 18.9 },
-    { "source": "Safari", "count": 456, "percentage": 12.7 }
-  ],
-  "total": 3
-}
-```
-
-### 3.3 Unique Visitors
-**Endpoint:** `POST /analytics/v1/engagement/unique-visitors`
-**Description:** Unique visitor tracking per post
-**Models:** `post_view`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-- `post_id`: specific post (optional)
-
-**Response:**
-```json
-{
-  "data": [
-    { "post_id": 123, "unique_visitors": 567 }
-  ],
-  "total": 1
-}
-```
-
-### 3.4 Comment Engagement
-**Endpoint:** `POST /analytics/v1/engagement/comments`
-**Description:** Comment statistics and moderation needs
-**Models:** `post_comment`, `comment_flag`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-- `group_by`: day|week|month
-
-**Response:**
-```json
-{
-  "data": [
-    {
-      "date": "2024-01-01",
-      "total_comments": 45,
-      "flagged_comments": 3,
-      "avg_likes_per_comment": 2.3
-    }
-  ],
-  "total": 1
-}
-```
-
-### 3.5 Comment Rate by Post
-**Endpoint:** `POST /analytics/v1/engagement/comment-rate`
-**Description:** Comment-to-view ratio for posts
-**Models:** `post_view`, `post_comment`
-**Query Parameters:**
-- `period`: 30d|90d (default: 30d)
-- `min_views`: threshold for inclusion (default: 100)
-
-**Response:**
-```json
-{
-  "data": [
-    {
-      "post_id": 123,
-      "title": "Post Title",
-      "views": 1200,
-      "comments": 34,
-      "comment_rate": 2.83
-    }
-  ],
-  "total": 1
-}
-```
-
-### 3.6 Newsletter Growth
-**Endpoint:** `POST /analytics/v1/engagement/newsletter-growth`
-**Description:** Email subscriber trends and churn
-**Models:** `newsletter_subscriber`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-- `group_by`: day|week|month
-
-**Response:**
-```json
-{
-  "data": [
-    {
-      "date": "2024-01-01",
-      "new_subscribers": 23,
-      "confirmed": 21,
-      "unsubscribed": 2,
-      "net_growth": 19
-    }
-  ],
-  "total": 1
-}
-```
-
-### 3.7 Newsletter Status Distribution
-**Endpoint:** `POST /analytics/v1/engagement/newsletter-status`
-**Description:** Subscriber breakdown by status
-**Models:** `newsletter_subscriber`
-**Query Parameters:** None
-
-**Response:**
-```json
-{
-  "data": [
-    { "status": "Pending", "count": 45 },
-    { "status": "Confirmed", "count": 1245 },
-    { "status": "Unsubscribed", "count": 78 }
-  ],
-  "total": 3
-}
-```
-
----
-
-## 4. Media Analytics
-
-### 4.1 Upload Trends
-**Endpoint:** `POST /analytics/v1/media/upload-trends`
-**Description:** Media upload patterns over time
-**Models:** `media`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-- `group_by`: day|week|month
-
-**Response:**
-```json
-{
-  "data": [
-    { "date": "2024-01-01", "count": 45, "total_size_mb": 234.5 }
-  ],
-  "total": 1
-}
-```
-
-### 4.2 File Type Distribution
-**Endpoint:** `POST /analytics/v1/media/file-types`
-**Description:** Distribution of uploaded file types
-**Models:** `media`
-**Query Parameters:**
-- `date_from`: ISO8601 date (optional)
-- `date_to`: ISO8601 date (optional)
-
-**Response:**
-```json
-{
-  "data": [
-    { "type": "image/jpeg", "count": 1234, "percentage": 45.2 },
-    { "type": "image/png", "count": 890, "percentage": 32.6 },
-    { "type": "video/mp4", "count": 234, "percentage": 8.6 }
-  ],
-  "total": 3
-}
-```
-
-### 4.3 Storage Usage
-**Endpoint:** `POST /analytics/v1/media/storage-usage`
-**Description:** Total storage consumed by media files
-**Models:** `media`, `media_variant`
-**Query Parameters:**
-- `date_from`: ISO8601 date (optional)
-- `date_to`: ISO8601 date (optional)
-
-**Response:**
-```json
-{
-  "data": {
-    "total_size_gb": 12.45,
-    "original_size_gb": 8.32,
-    "variant_size_gb": 4.13,
-    "file_count": 2341,
-    "avg_file_size_mb": 5.45
+  "date_from": "2024-01-01",
+  "date_to": "2024-01-31",
+  "page": 1,
+  "per_page": 30,
+  "sort_by": "default",
+  "sort_order": "desc",
+  "filters": {
+    "...": "endpoint-specific keys"
   }
 }
 ```
 
-### 4.4 Media Optimization
-**Endpoint:** `POST /analytics/v1/media/optimization`
-**Description:** Media optimization metrics
-**Models:** `media`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
+- `date_from` / `date_to`: ISO8601 dates; defaults fall back to a trailing 30 day window when omitted.
+- `page`: minimum `1`.
+- `per_page`: default `30`, maximum `200`.
+- `sort_by` / `sort_order`: optional; each endpoint documents valid values.
+- `filters`: JSON object, only populated when the endpoint needs additional parameters.
 
-**Response:**
+### Shared Response Envelope
 ```json
 {
-  "data": {
-    "total_optimized": 1234,
-    "optimization_rate": 78.5,
-    "avg_size_reduction_percent": 42.3
+  "data": [],
+  "meta": {
+    "total": 0,
+    "page": 1,
+    "per_page": 30,
+    "notes": null
   }
 }
 ```
 
-### 4.5 Media Utilization
-**Endpoint:** `POST /analytics/v1/media/utilization`
-**Description:** Media usage tracking across entities
-**Models:** `media_usage`, `media`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
+- `total`: the unpaginated total number of rows in the result set.
+- `page` / `per_page`: echo the pagination context even for single-object responses.
+- Additional keys under `meta` (for example `interval`, `sorted_by`, `filters_applied`) surface endpoint-specific context.
 
-**Response:**
-```json
-{
-  "data": {
-    "total_media": 2341,
-    "used_media": 1876,
-    "orphaned_media": 465,
-    "utilization_rate": 80.1
-  }
-}
-```
-
-### 4.6 Uploader Statistics
-**Endpoint:** `POST /analytics/v1/media/uploader-stats`
-**Description:** Media upload stats per user
-**Models:** `media`, `user`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-- `sort_by`: count|size (default: count)
-- `limit`: number (default: 10)
-
-**Response:**
-```json
-{
-  "data": [
-    {
-      "uploader_id": 12,
-      "uploader_name": "Admin User",
-      "upload_count": 345,
-      "total_size_mb": 1234.5,
-      "avg_size_mb": 3.58
-    }
-  ],
-  "total": 1
-}
-```
+### Data Prerequisites
+- Ensure migrations for `post_views`, `post_comments`, `newsletter_subscribers`, `media`, and `user_sessions` are migrated before enabling the routes.
+- Materialise helper views (or cached tables) for high-volume joins: e.g. `post_view_counts` and `post_comment_counts`.
+- Populate background jobs that normalise/cleanse `user_sessions.ip_address` and `user_sessions.device` strings to keep aggregation results predictable.
 
 ---
 
-## 5. System Health Analytics
+## Phase 1 – MVP Endpoints (deliverable now)
 
-### 5.1 Route Blocking
-**Endpoint:** `POST /analytics/v1/system/route-blocking`
-**Description:** API route blocking patterns and security monitoring
-**Models:** `route_status`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
+| Endpoint | Purpose | Primary Models |
+| --- | --- | --- |
+| `POST /analytics/v1/user/registration-trends` | Chart net new users across time | `user` |
+| `POST /analytics/v1/user/verification-rates` | Measure verification success vs. requests | `email_verification`, `user` |
+| `POST /analytics/v1/content/publishing-trends` | Track publish cadence by status | `post` |
+| `POST /analytics/v1/engagement/page-views` | Group view counts (with unique visitors) | `post_view` |
+| `POST /analytics/v1/engagement/comment-rate` | Rank posts by comments vs. views | `post_comment`, `post_view` |
+| `POST /analytics/v1/engagement/newsletter-growth` | Monitor newsletter churn and confirmations | `newsletter_subscriber` |
+| `POST /analytics/v1/media/upload-trends` | Understand upload volume + storage footprint | `media` |
+| `POST /analytics/v1/dashboard/summary` | Combine headline counts for the admin dashboard | `user`, `post`, `post_comment`, `post_view`, `newsletter_subscriber`, `media` |
 
-**Response:**
-```json
-{
-  "data": [
-    {
-      "route_pattern": "/api/v1/admin/*",
-      "is_blocked": true,
-      "reason": "Security threat detected",
-      "blocked_at": "2024-01-01T00:00:00Z"
-    }
-  ],
-  "total": 1
-}
-```
+Below, each MVP endpoint details payloads, behaviours, and response shapes.
 
-### 5.2 Scheduled Post Success Rate
-**Endpoint:** `POST /analytics/v1/system/scheduled-posts`
-**Description:** Success rate of scheduled post publishing
-**Models:** `scheduled_post`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-
-**Response:**
-```json
-{
-  "data": {
-    "total_scheduled": 234,
-    "successfully_published": 230,
-    "failed": 3,
-    "canceled": 1,
-    "success_rate": 98.3
-  }
-}
-```
-
-### 5.3 Content Revision Patterns
-**Endpoint:** `POST /analytics/v1/system/revision-patterns`
-**Description:** Content editing and revision frequency
-**Models:** `post_revision`
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-- `group_by`: day|week|month
-
-**Response:**
-```json
-{
-  "data": [
-    { "date": "2024-01-01", "revisions_count": 67 }
-  ],
-  "total": 1
-}
-```
-
-### 5.4 Database Growth
-**Endpoint:** `POST /analytics/v1/system/database-growth`
-**Description:** Track database record growth over time
-**Models:** All models
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-- `group_by`: day|week|month
-
-**Response:**
-```json
-{
-  "data": [
-    {
-      "date": "2024-01-01",
-      "users": 1456,
-      "posts": 234,
-      "media": 1234,
-      "comments": 567
-    }
-  ],
-  "total": 1
-}
-```
-
-### 5.5 Error Rates
-**Endpoint:** `POST /analytics/v1/system/error-rates`
-**Description:** System error monitoring (implement logging first)
-**Models:** Application logs
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-- `severity`: error|warn|info (optional)
-
-**Response:**
-```json
-{
-  "data": [
-    {
-      "date": "2024-01-01",
-      "total_requests": 12345,
-      "errors": 23,
-      "error_rate": 0.19
-    }
-  ],
-  "total": 1
-}
-```
-
----
-
-## 6. Dashboard Overview Metrics
-
-### 6.1 Summary Statistics
-**Endpoint:** `POST /analytics/v1/dashboard/summary`
-**Description:** Key metrics for dashboard overview
-**Models:** Multiple models
-**Query Parameters:**
-- `period`: 7d|30d|90d (default: 30d)
-
-**Response:**
-```json
-{
-  "data": {
-    "users": {
-      "total": 1456,
-      "new": 123,
-      "active": 567
-    },
-    "content": {
-      "total_posts": 234,
-      "published": 198,
-      "drafts": 36,
-      "views": 45678
-    },
-    "engagement": {
-      "comments": 567,
-      "newsletter_subscribers": 1245,
-      "avg_session_duration": "00:05:23"
-    },
-    "media": {
-      "total_files": 1234,
-      "storage_used_gb": 12.45,
-      "uploads_today": 23
+### 1. Registration Trends
+- **Endpoint:** `POST /analytics/v1/user/registration-trends`
+- **Purpose:** time series of user sign-ups.
+- **Models:** `user` (SeaORM model).
+- **Request payload:**
+  ```json
+  {
+    "date_from": "2024-01-01",
+    "date_to": "2024-03-31",
+    "per_page": 90,
+    "filters": {
+      "group_by": "day"
     }
   }
-}
-```
-
-### 6.2 Time Series Overview
-**Endpoint:** `POST /analytics/v1/dashboard/time-series`
-**Description:** Multi-metric time series for dashboard charts
-**Models:** Multiple models
-**Query Parameters:**
-- `date_from`: ISO8601 date
-- `date_to`: ISO8601 date
-- `metrics`: comma-separated list (users,posts,views,comments,media)
-
-**Response:**
-```json
-{
-  "data": {
-    "timestamps": ["2024-01-01", "2024-01-02"],
-    "users": [10, 12],
-    "posts": [2, 3],
-    "views": [456, 523],
-    "comments": [12, 8],
-    "media": [5, 7]
-  },
-  "total": 2
-}
-```
-
-### 6.3 Top Lists
-**Endpoint:** `POST /analytics/v1/dashboard/top-lists`
-**Description:** Various top lists for dashboard widgets
-**Models:** Multiple models
-**Query Parameters:**
-- `period`: 7d|30d|90d (default: 30d)
-- `type`: top_posts|top_authors|top_categories|top_tags
-
-**Response:**
-```json
-{
-  "data": {
-    "top_posts": [
-      { "post_id": 123, "title": "Post Title", "views": 5423 }
+  ```
+  - `group_by`: `day` (default), `week`, or `month`.
+- **Response example:**
+  ```json
+  {
+    "data": [
+      { "bucket": "2024-03-01", "new_users": 18 },
+      { "bucket": "2024-03-02", "new_users": 26 }
     ],
-    "top_authors": [
-      { "author_id": 45, "name": "Jane Smith", "posts_count": 23 }
-    ],
-    "top_categories": [
-      { "category_id": 5, "name": "Technology", "posts_count": 89 }
-    ],
-    "top_tags": [
-      { "tag": "rust", "count": 45 }
-    ]
+    "meta": {
+      "total": 31,
+      "page": 1,
+      "per_page": 90,
+      "interval": "day",
+      "filters_applied": { "group_by": "day" }
+    }
   }
-}
-```
+  ```
+- **Notes:** rely on `users.created_at`; include a covering index `(created_at)` if not already present.
+
+### 2. Verification Rates
+- **Endpoint:** `POST /analytics/v1/user/verification-rates`
+- **Purpose:** compare email verification requests vs. successes.
+- **Models:** `email_verification`, `user`.
+- **Request payload:**
+  ```json
+  {
+    "date_from": "2024-02-01",
+    "date_to": "2024-02-29",
+    "filters": {
+      "group_by": "week"
+    }
+  }
+  ```
+  - `group_by`: `day`, `week`, `month`.
+- **Response example:**
+  ```json
+  {
+    "data": [
+      {
+        "bucket": "2024-W07",
+        "requested": 112,
+        "verified": 104,
+        "success_rate": 92.9
+      }
+    ],
+    "meta": {
+      "total": 4,
+      "page": 1,
+      "per_page": 30,
+      "interval": "week"
+    }
+  }
+  ```
+- **Notes:** compute `success_rate` as `verified / requested * 100` with two decimal precision.
+
+### 3. Publishing Trends
+- **Endpoint:** `POST /analytics/v1/content/publishing-trends`
+- **Purpose:** show draft vs. published throughput.
+- **Models:** `post`.
+- **Request payload:**
+  ```json
+  {
+    "date_from": "2024-01-01",
+    "date_to": "2024-03-31",
+    "filters": {
+      "group_by": "week",
+      "status": ["Published", "Draft"]
+    }
+  }
+  ```
+- **Response example:**
+  ```json
+  {
+    "data": [
+      {
+        "bucket": "2024-W09",
+        "counts": {
+          "Published": 37,
+          "Draft": 14
+        }
+      }
+    ],
+    "meta": {
+      "total": 13,
+      "page": 1,
+      "per_page": 30,
+      "interval": "week",
+      "filters_applied": { "status": ["Published", "Draft"] }
+    }
+  }
+  ```
+- **Notes:** status filters map to the `post_status` enum; default to aggregating all statuses when omitted.
+
+### 4. Page Views
+- **Endpoint:** `POST /analytics/v1/engagement/page-views`
+- **Purpose:** aggregate raw and unique views.
+- **Models:** `post_view`.
+- **Request payload:**
+  ```json
+  {
+    "date_from": "2024-03-01",
+    "date_to": "2024-03-07",
+    "filters": {
+      "group_by": "day",
+      "post_id": 42,
+      "only_unique": true
+    }
+  }
+  ```
+  - `group_by`: `hour`, `day`, `week`, or `month`.
+  - `post_id`: optional specific post.
+  - `author_id`: optional filter, resolved via join on `posts.author_id`.
+  - `only_unique`: boolean; when true, counts distinct `(user_id, ip_address)` pairs.
+- **Response example:**
+  ```json
+  {
+    "data": [
+      {
+        "bucket": "2024-03-01",
+        "views": 865,
+        "unique_visitors": 534
+      }
+    ],
+    "meta": {
+      "total": 7,
+      "page": 1,
+      "per_page": 30,
+      "interval": "day",
+      "filters_applied": {
+        "post_id": 42,
+        "only_unique": true
+      }
+    }
+  }
+  ```
+- **Notes:** create a materialised view keyed by `created_at::date` to avoid re-aggregating large periods.
+
+### 5. Comment Rate
+- **Endpoint:** `POST /analytics/v1/engagement/comment-rate`
+- **Purpose:** show posts with the highest comment-to-view ratio.
+- **Models:** `post_comment`, `post_view`.
+- **Request payload:**
+  ```json
+  {
+    "date_from": "2024-02-01",
+    "date_to": "2024-02-29",
+    "per_page": 20,
+    "filters": {
+      "min_views": 100,
+      "sort_by": "comment_rate"
+    }
+  }
+  ```
+  - `min_views`: integer threshold (default `100`).
+  - `sort_by`: `comment_rate` (default) or `comments`.
+- **Response example:**
+  ```json
+  {
+    "data": [
+      {
+        "post_id": 123,
+        "title": "Rust Async Patterns",
+        "views": 1200,
+        "comments": 34,
+        "comment_rate": 2.83
+      }
+    ],
+    "meta": {
+      "total": 48,
+      "page": 1,
+      "per_page": 20,
+      "sorted_by": "comment_rate",
+      "min_views": 100
+    }
+  }
+  ```
+- **Notes:** build an indexed CTE or view that pre-counts comments per post to simplify pagination.
+
+### 6. Newsletter Growth
+- **Endpoint:** `POST /analytics/v1/engagement/newsletter-growth`
+- **Purpose:** track newsletter acquisition, confirmations, and churn.
+- **Models:** `newsletter_subscriber`.
+- **Request payload:**
+  ```json
+  {
+    "date_from": "2024-01-01",
+    "date_to": "2024-03-31",
+    "filters": {
+      "group_by": "week"
+    }
+  }
+  ```
+- **Response example:**
+  ```json
+  {
+    "data": [
+      {
+        "bucket": "2024-W10",
+        "new_subscribers": 56,
+        "confirmed": 49,
+        "unsubscribed": 4,
+        "net_growth": 45
+      }
+    ],
+    "meta": {
+      "total": 13,
+      "page": 1,
+      "per_page": 30,
+      "interval": "week"
+    }
+  }
+  ```
+- **Notes:** ensure `newsletter_subscribers.status` is updated via the existing confirmation/unsubscribe flows; counts derive from status transitions.
+
+### 7. Media Upload Trends
+- **Endpoint:** `POST /analytics/v1/media/upload-trends`
+- **Purpose:** quantify uploads and storage usage.
+- **Models:** `media`.
+- **Request payload:**
+  ```json
+  {
+    "date_from": "2024-02-01",
+    "date_to": "2024-02-29",
+    "filters": {
+      "group_by": "day"
+    }
+  }
+  ```
+- **Response example:**
+  ```json
+  {
+    "data": [
+      {
+        "bucket": "2024-02-18",
+        "upload_count": 42,
+        "total_size_mb": 318.4,
+        "avg_size_mb": 7.58
+      }
+    ],
+    "meta": {
+      "total": 29,
+      "page": 1,
+      "per_page": 30,
+      "interval": "day"
+    }
+  }
+  ```
+- **Notes:** use `size` to calculate MB/GB values (divide bytes by 1024²). Future variants (thumbnails, etc.) belong in Phase 2 once `media_variants` ingestion is complete.
+
+### 8. Dashboard Summary
+- **Endpoint:** `POST /analytics/v1/dashboard/summary`
+- **Purpose:** aggregate canonical headline metrics for the admin home.
+- **Models:** `user`, `post`, `post_view`, `post_comment`, `newsletter_subscriber`, `media`.
+- **Request payload:**
+  ```json
+  {
+    "filters": {
+      "period": "30d"
+    }
+  }
+  ```
+  - `period`: `7d`, `30d` (default), `90d`.
+- **Response example:**
+  ```json
+  {
+    "data": {
+      "users": {
+        "total": 1456,
+        "new_in_period": 123
+      },
+      "posts": {
+        "published": 198,
+        "drafts": 36,
+        "views_in_period": 45678
+      },
+      "engagement": {
+        "comments_in_period": 567,
+        "newsletter_confirmed": 1245
+      },
+      "media": {
+        "total_files": 1234,
+        "uploads_in_period": 87
+      }
+    },
+    "meta": {
+      "total": 1,
+      "page": 1,
+      "per_page": 1,
+      "period": "30d"
+    }
+  }
+  ```
+- **Notes:** avoid metrics that rely on session duration until we log entry/exit timestamps. Views and comments in period reuse the shared filter extractor to respect `date_from` / `date_to` overrides.
+
+---
+
+## Phase 2 – Backlog (needs extra instrumentation)
+- **Session analytics:** requires device normalisation and geo lookup to provide `device`/`country` aggregations.
+- **Traffic sources:** needs UTM ingestion or referer parsing stored alongside `post_view`.
+- **System health metrics (error rates, scheduled post success):** depends on log ingestion (e.g. OpenTelemetry, Logflare) and a dedicated `scheduled_posts` processing audit table.
+- **Media optimisation + utilisation:** finish `media_variants` ingestion and `media_usage` tracking to support accurate stats.
+- **Database growth overview:** introduce periodic snapshots or event-sourced counters to avoid `COUNT(*)` over entire tables.
+
+Each backlog item should include a migration plus background job or data pipeline so the analytics routes run off reliable, pre-aggregated data.
 
 ---
 
 ## Implementation Notes
+- **Caching:** 
+  - Time-series routes (`registration-trends`, `page-views`, `newsletter-growth`, `upload-trends`) should cache aggregated results for 5 minutes.
+  - The dashboard summary can cache the entire payload for 60 seconds.
+- **Indexes:**
+  - `users(created_at)`, `posts(published_at, status)`, `post_views(created_at, post_id)`, `post_comments(created_at, post_id)`, `newsletter_subscribers(created_at, status)`, `media(created_at)`.
+  - Add partial indexes if filters focus on a subset (e.g. `post_views(post_id) WHERE created_at >= current_date - interval '90 days'`).
+- **Pagination defaults:** `per_page` falls back to 30 unless the endpoint explicitly returns a single aggregate; validation should clamp over-limit requests.
+- **Authorization:** guard all analytics endpoints with `AuthSession`. Role access:
+  - `SuperAdmin` / `Admin`: full coverage.
+  - `Moderator`: read everything except user/account-specific data (e.g. hide email counts if compliance demands).
+  - `Author`: access limited to their own posts (`filters.author_id = session.user_id` enforced server-side).
+- **Rate limiting:** apply moderate limits (e.g. 60 rpm) because aggregations may still be expensive.
+- **Testing:** add integration tests in `tests/*.sh` or Rust’s `#[tokio::test]` suites that seed deterministic data and verify the envelope and metric calculations.
+- **Documentation:** update `docs/MODULES_OVERVIEW.md` and corresponding smoke tests whenever a new endpoint graduates from Phase 2 into the MVP set.
 
-### Query Parameters
-All endpoints support:
-- `date_from`: ISO8601 timestamp
-- `date_to`: ISO8601 timestamp
-- `page`: page number (default: 1)
-- `per_page`: items per page (default: 20, max: 100)
-- `sort_by`: field to sort by
-- `sort_order`: asc|desc (default: desc)
-
-### Response Format
-All endpoints return:
-```json
-{
-  "data": {/* response data */},
-  "total": total_count,
-  "page": current_page,
-  "per_page": items_per_page
-}
-```
-
-### Authentication
-All analytics endpoints require:
-- Authentication via `AuthSession`
-- Role-based access control:
-  - Admin/SuperAdmin: Full access to all analytics
-  - Moderator: Access to content and engagement analytics
-  - Author: Access to their own content analytics
-  - User: Limited access (only newsletter and own profile)
-
-### Performance Considerations
-- Implement caching for expensive queries (Redis recommended)
-- Use database indexes on frequently queried fields (created_at, status, etc.)
-- Consider materialized views for complex aggregations
-- Implement rate limiting on analytics endpoints
-- Use connection pooling for database queries
-
-### Caching Strategy
-Recommended cache durations:
-- Real-time metrics (views, active users): 5 minutes
-- Daily metrics (registrations, posts): 1 hour
-- Historical data (trends, distributions): 24 hours
-- Summary statistics: 30 minutes
-
-### Database Indexes
-Ensure indexes exist on:
-- `users.created_at`
-- `posts.created_at`, `posts.status`, `posts.author_id`, `posts.category_id`
-- `post_views.created_at`, `post_views.post_id`
-- `post_comments.created_at`, `post_comments.post_id`
-- `media.created_at`, `media.uploader_id`
-- `user_sessions.last_seen`
-- `newsletter_subscribers.created_at`, `newsletter_subscribers.status`
+This tightened scope keeps the analytics surface area shippable while leaving clear signposts for richer metrics once the underlying telemetry and storage catch up.
