@@ -30,6 +30,7 @@ mod m20251118_000024_alter_user_add_avatar_id;
 mod m20251104_000025_create_route_status_table;
 mod m20251106_000026_alter_posts_content_to_jsonb;
 mod m20251106_000027_fill_posts_content_from_string;
+mod m20251119_000028_alter_posts_featured_image;
 
 pub struct Migrator;
 
@@ -67,6 +68,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20251104_000025_create_route_status_table::Migration),
             Box::new(m20251106_000026_alter_posts_content_to_jsonb::Migration),
             Box::new(m20251106_000027_fill_posts_content_from_string::Migration),
+            Box::new(m20251119_000028_alter_posts_featured_image::Migration),
         ]
     }
 }

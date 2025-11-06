@@ -72,7 +72,9 @@ impl Validate for EditorJsDocument {
                         .map(|t| matches!(t, "info" | "warning" | "success" | "error"))
                         .unwrap_or(false);
                     if !(msg_ok && type_ok) {
-                        Err(ValidationError::new("alert_requires_message_and_valid_type"))
+                        Err(ValidationError::new(
+                            "alert_requires_message_and_valid_type",
+                        ))
                     } else {
                         Ok(())
                     }
@@ -115,7 +117,9 @@ impl Validate for EditorJsDocument {
                     }
                 }
                 "code" => {
-                    let code_ok = get_str(&b.data, "code").map(|s| !s.is_empty()).unwrap_or(false);
+                    let code_ok = get_str(&b.data, "code")
+                        .map(|s| !s.is_empty())
+                        .unwrap_or(false);
                     if !code_ok {
                         Err(ValidationError::new("code_block_code_required"))
                     } else {
@@ -267,7 +271,7 @@ pub struct V1CreatePostPayload {
     pub slug: String,
     #[validate(length(max = 500))]
     pub excerpt: Option<String>,
-    pub featured_image: Option<String>,
+    pub featured_image_id: Option<i32>,
     pub category_id: i32,
     #[serde(default = "Vec::new")]
     pub tag_ids: Vec<i32>,
@@ -287,7 +291,7 @@ impl V1CreatePostPayload {
             },
             slug: self.slug,
             excerpt: self.excerpt,
-            featured_image: self.featured_image,
+            featured_image_id: self.featured_image_id,
             category_id: self.category_id,
             view_count: 0,
             likes_count: 0,
@@ -308,7 +312,7 @@ pub struct V1UpdatePostPayload {
     pub slug: Option<String>,
     #[validate(length(max = 500))]
     pub excerpt: Option<String>,
-    pub featured_image: Option<String>,
+    pub featured_image_id: Option<Option<i32>>,
     pub category_id: Option<i32>,
     pub tag_ids: Option<Vec<i32>>,
 }
@@ -324,7 +328,7 @@ impl V1UpdatePostPayload {
             status: self.status,
             slug: self.slug,
             excerpt: self.excerpt,
-            featured_image: self.featured_image,
+            featured_image_id: self.featured_image_id,
             category_id: self.category_id,
             view_count: None,
             likes_count: None,

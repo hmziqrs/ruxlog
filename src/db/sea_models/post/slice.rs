@@ -32,7 +32,7 @@ pub struct NewPost {
     pub slug: String,
     pub content: Json,
     pub excerpt: Option<String>,
-    pub featured_image: Option<String>,
+    pub featured_image_id: Option<i32>,
     pub status: PostStatus,
     pub author_id: i32,
     pub published_at: Option<DateTimeWithTimeZone>,
@@ -48,7 +48,7 @@ pub struct UpdatePost {
     pub slug: Option<String>,
     pub content: Option<Json>,
     pub excerpt: Option<String>,
-    pub featured_image: Option<String>,
+    pub featured_image_id: Option<Option<i32>>,
     pub status: Option<PostStatus>,
     pub published_at: Option<DateTimeWithTimeZone>,
     pub updated_at: DateTimeWithTimeZone,
@@ -107,6 +107,17 @@ pub struct PostAuthor {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PostFeaturedImage {
+    pub id: i32,
+    pub object_key: String,
+    pub file_url: String,
+    pub mime_type: String,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub size: i64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PostWithRelations {
     // Core post data
     pub id: i32,
@@ -114,7 +125,8 @@ pub struct PostWithRelations {
     pub slug: String,
     pub content: Json,
     pub excerpt: Option<String>,
-    pub featured_image: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub featured_image: Option<PostFeaturedImage>,
     pub status: PostStatus,
     pub published_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
@@ -155,7 +167,7 @@ pub struct PostWithJoinedData {
     pub slug: String,
     pub content: Json,
     pub excerpt: Option<String>,
-    pub featured_image: Option<String>,
+    pub featured_image_id: Option<i32>,
     pub status: super::PostStatus,
     pub published_at: Option<DateTime<FixedOffset>>,
     pub created_at: DateTime<FixedOffset>,
@@ -201,6 +213,14 @@ pub struct PostWithJoinedData {
     pub category_logo_width: Option<i32>,
     pub category_logo_height: Option<i32>,
     pub category_logo_size: Option<i64>,
+
+    // Featured image media fields
+    pub featured_image_object_key: Option<String>,
+    pub featured_image_file_url: Option<String>,
+    pub featured_image_mime_type: Option<String>,
+    pub featured_image_width: Option<i32>,
+    pub featured_image_height: Option<i32>,
+    pub featured_image_size: Option<i64>,
 
     pub comment_count: i64,
 }
@@ -267,13 +287,33 @@ impl PostWithJoinedData {
             None
         };
 
+        let featured_image = if let (Some(id), Some(key), Some(url), Some(mime), Some(size)) = (
+            self.featured_image_id,
+            self.featured_image_object_key.clone(),
+            self.featured_image_file_url.clone(),
+            self.featured_image_mime_type.clone(),
+            self.featured_image_size,
+        ) {
+            Some(PostFeaturedImage {
+                id,
+                object_key: key,
+                file_url: url,
+                mime_type: mime,
+                width: self.featured_image_width,
+                height: self.featured_image_height,
+                size,
+            })
+        } else {
+            None
+        };
+
         PostWithRelations {
             id: self.id,
             title: self.title.clone(),
             slug: self.slug.clone(),
             content: self.content.clone(),
             excerpt: self.excerpt.clone(),
-            featured_image: self.featured_image.clone(),
+            featured_image,
             status: self.status,
             published_at: self.published_at,
             created_at: self.created_at,

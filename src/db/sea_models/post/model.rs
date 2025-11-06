@@ -33,7 +33,7 @@ pub struct Model {
     #[sea_orm(column_type = "JsonBinary")]
     pub content: Json,
     pub excerpt: Option<String>,
-    pub featured_image: Option<String>,
+    pub featured_image_id: Option<i32>,
     pub status: PostStatus,
     pub published_at: Option<DateTimeWithTimeZone>,
 
@@ -65,6 +65,12 @@ pub enum Relation {
         to = "super::super::category::Column::Id"
     )]
     Category,
+    #[sea_orm(
+        belongs_to = "super::super::media::Entity",
+        from = "Column::FeaturedImageId",
+        to = "super::super::media::Column::Id"
+    )]
+    FeaturedImage,
     // We're using a tag_ids array directly in the Post model for now
     // but for now, just removing this relation
 }
@@ -90,6 +96,12 @@ impl Related<super::super::post_view::Entity> for Entity {
 impl Related<super::super::category::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Category.def()
+    }
+}
+
+impl Related<super::super::media::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::FeaturedImage.def()
     }
 }
 

@@ -224,7 +224,7 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
                 slug: post_slug,
                 content: post_content,
                 excerpt: Some(post_excerpt),
-                featured_image: None,
+                featured_image_id: None,
                 status: if is_published {
                     post::PostStatus::Published
                 } else {
@@ -467,7 +467,7 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
                     slug: post_title.to_lowercase().replace(' ', "-"),
                     content: post_content,
                     excerpt: Some(post_excerpt),
-                    featured_image: None,
+                    featured_image_id: None,
                     status: if is_published {
                         post::PostStatus::Published
                     } else {

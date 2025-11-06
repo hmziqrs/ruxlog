@@ -17,6 +17,7 @@ impl Entity {
         use super::super::user::Column as UserColumn;
 
         Self::find()
+            .column_as(Column::FeaturedImageId, "featured_image_id")
             .column_as(UserColumn::Id, "author_id")
             .column_as(UserColumn::Name, "author_name")
             .column_as(UserColumn::Email, "author_email")
@@ -174,6 +175,53 @@ impl Entity {
                 )),
                 "category_logo_size",
             )
+            .join_as(
+                JoinType::LeftJoin,
+                Relation::FeaturedImage.def(),
+                Alias::new("featured_image_media"),
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("featured_image_media"),
+                    super::super::media::Column::ObjectKey,
+                )),
+                "featured_image_object_key",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("featured_image_media"),
+                    super::super::media::Column::FileUrl,
+                )),
+                "featured_image_file_url",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("featured_image_media"),
+                    super::super::media::Column::MimeType,
+                )),
+                "featured_image_mime_type",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("featured_image_media"),
+                    super::super::media::Column::Width,
+                )),
+                "featured_image_width",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("featured_image_media"),
+                    super::super::media::Column::Height,
+                )),
+                "featured_image_height",
+            )
+            .expr_as(
+                Expr::col((
+                    Alias::new("featured_image_media"),
+                    super::super::media::Column::Size,
+                )),
+                "featured_image_size",
+            )
     }
 
     async fn sanitized_tag_ids(conn: &DbConn, tag_ids: Vec<i32>) -> DbResult<Vec<i32>> {
@@ -200,7 +248,7 @@ impl Entity {
             slug: Set(new_post.slug.clone()),
             content: Set(new_post.content),
             excerpt: Set(new_post.excerpt),
-            featured_image: Set(new_post.featured_image),
+            featured_image_id: Set(new_post.featured_image_id),
             status: Set(new_post.status),
             published_at: Set(new_post.published_at),
             author_id: Set(new_post.author_id),
@@ -264,8 +312,8 @@ impl Entity {
                 post_active.excerpt = Set(Some(excerpt));
             }
 
-            if let Some(featured_image) = update_post.featured_image {
-                post_active.featured_image = Set(Some(featured_image));
+            if let Some(featured_image_id) = update_post.featured_image_id {
+                post_active.featured_image_id = Set(featured_image_id);
             }
 
             if let Some(status) = update_post.status {
@@ -415,10 +463,7 @@ impl Entity {
 
         if let Some(search_term) = &query.search {
             let pattern = format!("%{}%", search_term);
-            post_query = post_query.filter(
-                Condition::any()
-                    .add(Column::Title.contains(&pattern)),
-            );
+            post_query = post_query.filter(Condition::any().add(Column::Title.contains(&pattern)));
         }
 
         if let Some(tag_ids_filter) = query.tag_ids {

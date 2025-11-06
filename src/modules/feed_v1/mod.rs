@@ -165,7 +165,11 @@ pub mod controller {
             let item_url = format!("{}/posts/{}", site_url.trim_end_matches('/'), p.slug);
             let pub_date = p.published_at.unwrap_or(p.updated_at).to_rfc2822();
             let title = xml_escape(&p.title);
-            let desc_raw = if let Some(ex) = &p.excerpt { ex.clone() } else { content_to_summary(&p.content, 500) };
+            let desc_raw = if let Some(ex) = &p.excerpt {
+                ex.clone()
+            } else {
+                content_to_summary(&p.content, 500)
+            };
             let desc = xml_escape(&desc_raw);
 
             xml.push_str("<item>");
@@ -218,7 +222,11 @@ pub mod controller {
             let entry_url = format!("{}/posts/{}", site_url.trim_end_matches('/'), p.slug);
             let pub_date = p.published_at.unwrap_or(p.updated_at).to_rfc3339();
             let title = xml_escape(&p.title);
-            let summary_raw = if let Some(ex) = &p.excerpt { ex.clone() } else { content_to_summary(&p.content, 500) };
+            let summary_raw = if let Some(ex) = &p.excerpt {
+                ex.clone()
+            } else {
+                content_to_summary(&p.content, 500)
+            };
             let summary = xml_escape(&summary_raw);
             let entry_id = entry_url.clone();
 

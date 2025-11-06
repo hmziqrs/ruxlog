@@ -2,19 +2,13 @@ type: http_request
 model: http_request
 id: rq_ZfzsHxBcH2
 createdAt: 2025-05-01T09:59:59.909037
-updatedAt: 2025-11-06T08:34:13.769332
+updatedAt: 2025-11-06T17:28:26.719498
 workspaceId: wk_udoUbrFfLp
 folderId: fl_qgXRbryiBV
 authentication: {}
 authenticationType: null
 body:
-  text: |-
-    {
-      "title": "hamza",
-      "content": "heeeaasdaee",
-      "slug": "uoazooaaasdasdsa",
-      "tags": [99999]
-    }
+  text: ''
 bodyType: application/json
 description: ''
 headers:
@@ -33,5 +27,5 @@ headers:
 method: POST
 name: host/post/v1/view/118
 sortPriority: 2000.0
-url: ${[ host ]}/post/v1/view/118
+url: ${[ host ]}/post/v1/view/263
 urlParameters: []

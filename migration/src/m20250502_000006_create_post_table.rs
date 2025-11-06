@@ -30,7 +30,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Posts::Slug).string().not_null().unique_key())
                     .col(ColumnDef::new(Posts::Content).text().not_null())
                     .col(ColumnDef::new(Posts::Excerpt).text())
-                    .col(ColumnDef::new(Posts::FeaturedImage).string())
+                    .col(ColumnDef::new(Posts::FeaturedImageId).integer())
                     .col(
                         ColumnDef::new(Posts::Status) // Changed from PostStatus to Status
                             .custom(PostStatus::PostStatus) // Use the Iden for the custom type
@@ -115,7 +115,7 @@ enum Posts {
     Slug,
     Content,
     Excerpt,
-    FeaturedImage,
+    FeaturedImageId,
     Status,
     PublishedAt,
     AuthorId,
