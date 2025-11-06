@@ -427,3 +427,75 @@ Each backlog item should include a migration plus background job or data pipelin
 - **Documentation:** update `docs/MODULES_OVERVIEW.md` and corresponding smoke tests whenever a new endpoint graduates from Phase 2 into the MVP set.
 
 This tightened scope keeps the analytics surface area shippable while leaving clear signposts for richer metrics once the underlying telemetry and storage catch up.
+
+---
+
+## Operational Playbook
+
+### Pre-Launch Checklist
+- Verify the latest migrations have been applied (`cargo run -- up` within the `migration/` crate) and the materialised views referenced in Phase 1 are refreshed.
+- Confirm the shared extractor validates pagination bounds by running the unit tests in `src/modules/analytics_v1/validator.rs`.
+- Ensure background workers that hydrate `post_view_counts` and `post_comment_counts` are running; backfill any missing windows larger than 30 days.
+- Benchmark representative queries in staging (at least 10k rows) and capture the query plans for future regressions.
+
+### Deployment Procedure
+- Deploy the backend, then immediately run the analytics smoke scripts (see Testing Matrix) against the staging URL.
+- Monitor database connections and runtime latencies via whatever APM is available (New Relic, Datadog, etc.), paying special attention to `post_views` aggregations.
+- If pagination defaults were changed, notify frontend consumers before promoting the release to production.
+- For the first production deploy, enable the new endpoints behind a feature flag or auth gate so the admin dashboard rollout can be staged.
+
+### Post-Launch Monitoring
+- Watch the error budget on query timeouts; if P95 exceeds 1.5s, fall back to cached materialisations and tighten rate limits.
+- Track 5xx responses per endpoint and confirm the envelope always includes a `meta` object (even for error cases).
+- Review scheduled tasks that backfill rollups; the jobs should complete before 04:00 UTC to keep the dashboard current.
+- Reconcile key metrics (registrations, newsletter confirmations) against authoritative sources weekly to detect drift.
+
+---
+
+## Testing Matrix
+
+| Coverage Area | Tests | Notes |
+| --- | --- | --- |
+| Shared extractor | `cargo test analytics_v1::validator` | Validates pagination, date parsing, and filter defaults. |
+| Registration trends | `tests/analytics_registration_trends.sh` | Seeds users across multiple buckets and verifies counts. |
+| Verification rates | `tests/analytics_verification_rates.sh` | Exercises day/week/month grouping and success rate rounding. |
+| Publishing trends | `tests/analytics_publishing_trends.sh` | Confirms status filters and default aggregation scope. |
+| Page views | `tests/analytics_page_views.sh` | Covers unique visitor toggle plus author/post filtering. |
+| Comment rate | `tests/analytics_comment_rate.sh` | Verifies minimum view threshold and sorting options. |
+| Newsletter growth | `tests/analytics_newsletter_growth.sh` | Asserts churn math and `net_growth` derivation. |
+| Media upload trends | `tests/analytics_media_upload_trends.sh` | Checks MB conversions and average size math. |
+| Dashboard summary | `tests/analytics_dashboard_summary.sh` | Ensures envelope integrity and per-section totals. |
+
+- Smoke scripts should accept a `BASE_URL` env var; default it to `http://localhost:3000`.
+- Idempotent seeding helpers in `scripts/seed_analytics.sh` keep test fixtures deterministic.
+- Add new test rows to the table above as endpoints graduate from the backlog.
+
+---
+
+## Appendix – Filter & Meta Reference
+
+| Key | Type | Default | Endpoints | Notes |
+| --- | --- | --- | --- | --- |
+| `date_from` | string (ISO date) | `today - 30d` | All | Clamp to 365 days to avoid massive scans. |
+| `date_to` | string (ISO date) | `today` | All | Validation ensures `date_to >= date_from`. |
+| `page` | integer | `1` | All paginated | Reject values > 500 to prevent overfetch. |
+| `per_page` | integer | `30` | All paginated | Hard cap at `200`. |
+| `sort_by` | string | endpoint-specific | Comment rate, page views | Validate against an enum defined per endpoint. |
+| `sort_order` | string (`asc`/`desc`) | `desc` | Comment rate, page views | Defaults to `desc`; `asc` only for niche trends. |
+| `filters.author_id` | integer | null | Page views, comment rate | Enforced via auth layer for authors. |
+| `filters.post_id` | integer | null | Page views, comment rate | Optional for deep dives on a single post. |
+| `filters.group_by` | string | `day` | Trends endpoints | Supported values: `hour`, `day`, `week`, `month`. |
+| `meta.interval` | string | derived | Trends endpoints | Mirrors the `group_by` to simplify charting. |
+| `meta.filters_applied` | object | `{}` | Conditional | Only include when filters are non-empty. |
+| `meta.sorted_by` | string | derived | Comment rate | Echoes the server-resolved sort order. |
+
+- Keep the schema source of truth in `src/modules/analytics_v1/validator.rs`; update the appendix when the validator changes.
+- When new filters are introduced, supply both validation rules and frontend documentation to avoid untyped payloads.
+
+---
+
+## Open Questions & Next Steps
+- Do we need read replicas before enabling hour-level page view groupings in production?
+- Should the admin dashboard request a cached summary or hit the live aggregation every load?
+- What retention window should we enforce on `user_sessions` once session analytics move into Phase 2?
+- Consider adding Redshift/BigQuery export jobs if analytics needs extend beyond the operational datastore.
