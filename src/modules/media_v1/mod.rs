@@ -19,6 +19,7 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/view/{media_id}", post(controller::view))
         .route("/list/query", post(controller::find_with_query))
+        .route("/usage/details", post(controller::list_usage_details))
         .route("/delete/{media_id}", post(controller::delete))
         .merge(media_limited)
         .route_layer(middleware::from_fn(user_permission::author))

@@ -1,3 +1,5 @@
+use std::collections::{BTreeSet, HashMap};
+
 use aws_sdk_s3::primitives::ByteStream;
 use axum::{
     extract::{Path, State},
@@ -8,13 +10,21 @@ use axum::{
 use axum_macros::debug_handler;
 use bytes::Bytes;
 use chrono::{Datelike, Utc};
+use sea_orm::{prelude::DateTimeWithTimeZone, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use serde::Serialize;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::{
-    db::sea_models::media::{Entity as Media, NewMedia},
-    db::sea_models::media_variant::{Entity as MediaVariant, NewMediaVariant},
+    db::sea_models::{
+        category::{self, Model as CategoryModel},
+        media::{self, Entity as Media, NewMedia},
+        media_usage,
+        media_variant::{Entity as MediaVariant, NewMediaVariant},
+        post::{self, Model as PostModel},
+        user::{self, Model as UserModel},
+    },
     error::{ErrorCode, ErrorResponse},
     extractors::{ValidatedJson, ValidatedMultipart},
     services::{auth::AuthSession, image_optimizer},
@@ -22,9 +32,112 @@ use crate::{
 };
 use tracing::{debug, error, info, instrument, warn};
 
-use super::validator::{MediaUploadMetadata, V1MediaListQuery};
+use super::validator::{MediaUploadMetadata, V1MediaListQuery, V1MediaUsageQuery};
 
 const MAX_UPLOAD_SIZE_BYTES: usize = 20 * 1024 * 1024; // 20MiB ceiling
+
+#[derive(Debug, Serialize)]
+struct PostUsage {
+    usage_id: i32,
+    field_name: String,
+    created_at: DateTimeWithTimeZone,
+    post: Option<PostSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct CategoryUsage {
+    usage_id: i32,
+    field_name: String,
+    created_at: DateTimeWithTimeZone,
+    category: Option<CategorySummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct UserUsage {
+    usage_id: i32,
+    field_name: String,
+    created_at: DateTimeWithTimeZone,
+    user: Option<UserSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct PostSummary {
+    id: i32,
+    title: String,
+    slug: String,
+    status: post::PostStatus,
+    featured_image_id: Option<i32>,
+}
+
+impl From<&PostModel> for PostSummary {
+    fn from(model: &PostModel) -> Self {
+        Self {
+            id: model.id,
+            title: model.title.clone(),
+            slug: model.slug.clone(),
+            status: model.status,
+            featured_image_id: model.featured_image_id,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct CategorySummary {
+    id: i32,
+    name: String,
+    slug: String,
+    cover_id: Option<i32>,
+    logo_id: Option<i32>,
+}
+
+impl From<&CategoryModel> for CategorySummary {
+    fn from(model: &CategoryModel) -> Self {
+        Self {
+            id: model.id,
+            name: model.name.clone(),
+            slug: model.slug.clone(),
+            cover_id: model.cover_id,
+            logo_id: model.logo_id,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct UserSummary {
+    id: i32,
+    name: String,
+    email: String,
+    role: user::UserRole,
+    avatar_id: Option<i32>,
+}
+
+impl From<&UserModel> for UserSummary {
+    fn from(model: &UserModel) -> Self {
+        Self {
+            id: model.id,
+            name: model.name.clone(),
+            email: model.email.clone(),
+            role: model.role,
+            avatar_id: model.avatar_id,
+        }
+    }
+}
+
+#[derive(Default)]
+struct UsageAccumulator {
+    posts: Vec<PostUsage>,
+    categories: Vec<CategoryUsage>,
+    users: Vec<UserUsage>,
+}
+
+#[derive(Debug, Serialize)]
+struct MediaUsageGroup {
+    media_id: i32,
+    media: Option<media::Model>,
+    posts: Vec<PostUsage>,
+    categories: Vec<CategoryUsage>,
+    users: Vec<UserUsage>,
+}
 
 #[debug_handler]
 #[instrument(
@@ -363,6 +476,152 @@ pub async fn find_with_query(
             .into_response(),
         Err(err) => err.into_response(),
     }
+}
+
+#[debug_handler]
+pub async fn list_usage_details(
+    State(state): State<AppState>,
+    payload: ValidatedJson<V1MediaUsageQuery>,
+) -> Result<impl IntoResponse, ErrorResponse> {
+    let payload = payload.0;
+    let media_ids = payload.media_ids;
+
+    let usage_records = media_usage::Entity::find()
+        .filter(media_usage::Column::MediaId.is_in(media_ids.clone()))
+        .order_by_asc(media_usage::Column::MediaId)
+        .order_by_asc(media_usage::Column::CreatedAt)
+        .all(&state.sea_db)
+        .await
+        .map_err(ErrorResponse::from)?;
+
+    let media_records = Media::find()
+        .filter(media::Column::Id.is_in(media_ids.clone()))
+        .all(&state.sea_db)
+        .await
+        .map_err(ErrorResponse::from)?
+        .into_iter()
+        .map(|media| (media.id, media))
+        .collect::<HashMap<_, _>>();
+
+    let mut post_ids = BTreeSet::new();
+    let mut category_ids = BTreeSet::new();
+    let mut user_ids = BTreeSet::new();
+
+    for usage in &usage_records {
+        match usage.entity_type {
+            media_usage::EntityType::Post => {
+                post_ids.insert(usage.entity_id);
+            }
+            media_usage::EntityType::Category => {
+                category_ids.insert(usage.entity_id);
+            }
+            media_usage::EntityType::User => {
+                user_ids.insert(usage.entity_id);
+            }
+        }
+    }
+
+    let post_map = if post_ids.is_empty() {
+        HashMap::new()
+    } else {
+        post::Entity::find()
+            .filter(post::Column::Id.is_in(post_ids.iter().copied().collect::<Vec<_>>()))
+            .all(&state.sea_db)
+            .await
+            .map_err(ErrorResponse::from)?
+            .into_iter()
+            .map(|post| (post.id, post))
+            .collect::<HashMap<_, _>>()
+    };
+
+    let category_map = if category_ids.is_empty() {
+        HashMap::new()
+    } else {
+        category::Entity::find()
+            .filter(category::Column::Id.is_in(category_ids.iter().copied().collect::<Vec<_>>()))
+            .all(&state.sea_db)
+            .await
+            .map_err(ErrorResponse::from)?
+            .into_iter()
+            .map(|category| (category.id, category))
+            .collect::<HashMap<_, _>>()
+    };
+
+    let user_map = if user_ids.is_empty() {
+        HashMap::new()
+    } else {
+        user::Entity::find()
+            .filter(user::Column::Id.is_in(user_ids.iter().copied().collect::<Vec<_>>()))
+            .all(&state.sea_db)
+            .await
+            .map_err(ErrorResponse::from)?
+            .into_iter()
+            .map(|user| (user.id, user))
+            .collect::<HashMap<_, _>>()
+    };
+
+    let mut usage_map: HashMap<i32, UsageAccumulator> = HashMap::new();
+
+    for usage in usage_records {
+        let media_usage::Model {
+            id: usage_id,
+            media_id,
+            entity_type,
+            entity_id,
+            field_name,
+            created_at,
+        } = usage;
+
+        let entry = usage_map.entry(media_id).or_default();
+
+        match entity_type {
+            media_usage::EntityType::Post => {
+                let summary = post_map.get(&entity_id).map(PostSummary::from);
+                entry.posts.push(PostUsage {
+                    usage_id,
+                    field_name,
+                    created_at,
+                    post: summary,
+                });
+            }
+            media_usage::EntityType::Category => {
+                let summary = category_map.get(&entity_id).map(CategorySummary::from);
+                entry.categories.push(CategoryUsage {
+                    usage_id,
+                    field_name,
+                    created_at,
+                    category: summary,
+                });
+            }
+            media_usage::EntityType::User => {
+                let summary = user_map.get(&entity_id).map(UserSummary::from);
+                entry.users.push(UserUsage {
+                    usage_id,
+                    field_name,
+                    created_at,
+                    user: summary,
+                });
+            }
+        }
+    }
+
+    let mut response = Vec::new();
+    for media_id in media_ids {
+        let mut accumulator = usage_map.remove(&media_id).unwrap_or_default();
+        accumulator.posts.sort_by_key(|item| item.usage_id);
+        accumulator.categories.sort_by_key(|item| item.usage_id);
+        accumulator.users.sort_by_key(|item| item.usage_id);
+
+        response.push(MediaUsageGroup {
+            media_id,
+            media: media_records.get(&media_id).cloned(),
+            posts: accumulator.posts,
+            categories: accumulator.categories,
+            users: accumulator.users,
+        });
+    }
+
+    Ok((StatusCode::OK, Json(json!({ "data": response }))))
 }
 
 #[debug_handler]

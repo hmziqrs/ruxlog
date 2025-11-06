@@ -86,3 +86,9 @@ impl V1MediaListQuery {
         }
     }
 }
+
+#[derive(Debug, Deserialize, Serialize, Validate)]
+pub struct V1MediaUsageQuery {
+    #[validate(length(min = 1, message = "media_ids must contain at least one id"))]
+    pub media_ids: Vec<i32>,
+}
