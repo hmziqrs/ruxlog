@@ -6,12 +6,9 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use std::env;
-use tracing::{debug, warn, error};
+use tracing::{debug, error, warn};
 
-pub async fn block_routes(
-    req: Request,
-    next: Next,
-) -> Result<Response, Response> {
+pub async fn block_routes(req: Request, next: Next) -> Result<Response, Response> {
     let path = req.uri().path().to_string();
 
     let is_development =
@@ -26,10 +23,7 @@ pub async fn block_routes(
 
     match RouteBlockerService::is_route_blocked(State(state.clone()), &path).await {
         Ok(true) => {
-            warn!(
-                path,
-                "Route blocked by dynamic route_blocker middleware"
-            );
+            warn!(path, "Route blocked by dynamic route_blocker middleware");
             return Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
                 .with_message("This route is currently unavailable")
                 .into_response());

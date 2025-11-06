@@ -52,6 +52,7 @@
 - `total`: the unpaginated total number of rows in the result set.
 - `page` / `per_page`: echo the pagination context even for single-object responses.
 - Additional keys under `meta` (for example `interval`, `sorted_by`, `filters_applied`) surface endpoint-specific context.
+- Implemented envelope + metadata helpers live in `src/modules/analytics_v1/validator.rs`; additional endpoints should reuse or extend those types.
 
 ### Data Prerequisites
 - Ensure migrations for `post_views`, `post_comments`, `newsletter_subscribers`, `media`, and `user_sessions` are migrated before enabling the routes.
@@ -62,16 +63,16 @@
 
 ## Phase 1 – MVP Endpoints (deliverable now)
 
-| Endpoint | Purpose | Primary Models |
-| --- | --- | --- |
-| `POST /analytics/v1/user/registration-trends` | Chart net new users across time | `user` |
-| `POST /analytics/v1/user/verification-rates` | Measure verification success vs. requests | `email_verification`, `user` |
-| `POST /analytics/v1/content/publishing-trends` | Track publish cadence by status | `post` |
-| `POST /analytics/v1/engagement/page-views` | Group view counts (with unique visitors) | `post_view` |
-| `POST /analytics/v1/engagement/comment-rate` | Rank posts by comments vs. views | `post_comment`, `post_view` |
-| `POST /analytics/v1/engagement/newsletter-growth` | Monitor newsletter churn and confirmations | `newsletter_subscriber` |
-| `POST /analytics/v1/media/upload-trends` | Understand upload volume + storage footprint | `media` |
-| `POST /analytics/v1/dashboard/summary` | Combine headline counts for the admin dashboard | `user`, `post`, `post_comment`, `post_view`, `newsletter_subscriber`, `media` |
+| Endpoint | Purpose | Primary Models | Status |
+| --- | --- | --- | --- |
+| `POST /analytics/v1/user/registration-trends` | Chart net new users across time | `user` | Implemented in `analytics_v1::registration_trends` |
+| `POST /analytics/v1/user/verification-rates` | Measure verification success vs. requests | `email_verification`, `user` | Pending |
+| `POST /analytics/v1/content/publishing-trends` | Track publish cadence by status | `post` | Pending |
+| `POST /analytics/v1/engagement/page-views` | Group view counts (with unique visitors) | `post_view` | Pending |
+| `POST /analytics/v1/engagement/comment-rate` | Rank posts by comments vs. views | `post_comment`, `post_view` | Pending |
+| `POST /analytics/v1/engagement/newsletter-growth` | Monitor newsletter churn and confirmations | `newsletter_subscriber` | Pending |
+| `POST /analytics/v1/media/upload-trends` | Understand upload volume + storage footprint | `media` | Pending |
+| `POST /analytics/v1/dashboard/summary` | Combine headline counts for the admin dashboard | `user`, `post`, `post_comment`, `post_view`, `newsletter_subscriber`, `media` | Pending |
 
 Below, each MVP endpoint details payloads, behaviours, and response shapes.
 
@@ -79,6 +80,7 @@ Below, each MVP endpoint details payloads, behaviours, and response shapes.
 - **Endpoint:** `POST /analytics/v1/user/registration-trends`
 - **Purpose:** time series of user sign-ups.
 - **Models:** `user` (SeaORM model).
+- **Status:** Implemented in backend via `src/modules/analytics_v1/controller.rs`.
 - **Request payload:**
   ```json
   {

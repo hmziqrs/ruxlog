@@ -3,7 +3,11 @@ use validator::Validate;
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1BlockRoutePayload {
-    #[validate(length(min = 1, max = 255, message = "Route pattern must be between 1 and 255 characters"))]
+    #[validate(length(
+        min = 1,
+        max = 255,
+        message = "Route pattern must be between 1 and 255 characters"
+    ))]
     pub pattern: String,
 
     #[validate(length(max = 500, message = "Reason must be less than 500 characters"))]

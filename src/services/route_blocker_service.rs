@@ -89,7 +89,10 @@ impl RouteBlockerService {
     ) -> Result<Vec<crate::db::sea_models::route_status::Model>, ErrorResponse> {
         RouteStatus::find_blocked_routes(&state.sea_db)
             .await
-            .map_err(|e| ErrorResponse::new(crate::error::ErrorCode::InternalServerError).with_message(e.to_string()))
+            .map_err(|e| {
+                ErrorResponse::new(crate::error::ErrorCode::InternalServerError)
+                    .with_message(e.to_string())
+            })
     }
 
     pub async fn sync_all_routes_to_redis(
@@ -117,9 +120,15 @@ impl RouteBlockerService {
         is_blocked: bool,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         if is_blocked {
-            state.redis_pool.sadd::<(), _, _>(Self::REDIS_KEY, pattern).await?;
+            state
+                .redis_pool
+                .sadd::<(), _, _>(Self::REDIS_KEY, pattern)
+                .await?;
         } else {
-            state.redis_pool.srem::<(), _, _>(Self::REDIS_KEY, pattern).await?;
+            state
+                .redis_pool
+                .srem::<(), _, _>(Self::REDIS_KEY, pattern)
+                .await?;
         }
 
         Ok(())
@@ -129,7 +138,10 @@ impl RouteBlockerService {
         state: &AppState,
         pattern: &str,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        state.redis_pool.srem::<(), _, _>(Self::REDIS_KEY, pattern).await?;
+        state
+            .redis_pool
+            .srem::<(), _, _>(Self::REDIS_KEY, pattern)
+            .await?;
         Ok(())
     }
 

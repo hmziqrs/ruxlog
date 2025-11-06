@@ -13,8 +13,7 @@ use utils::telemetry;
 
 use axum::{
     http::{HeaderName, HeaderValue},
-    middleware,
-    routing,
+    middleware, routing,
 };
 use axum_client_ip::ClientIpSource;
 use axum_login::AuthManagerLayerBuilder;
@@ -242,7 +241,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .allow_credentials(true)
         .max_age(Duration::from_secs(360));
     let request_size = RequestBodyLimitLayer::new(config::body_limits::DEFAULT);
-
 
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 

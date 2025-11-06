@@ -9,11 +9,8 @@ use serde_json::json;
 use tracing::{error, info, instrument};
 
 use crate::{
-    error::ErrorResponse,
-    extractors::ValidatedJson,
-    services::auth::AuthSession,
-    services::route_blocker_service::RouteBlockerService,
-    AppState,
+    error::ErrorResponse, extractors::ValidatedJson, services::auth::AuthSession,
+    services::route_blocker_service::RouteBlockerService, AppState,
 };
 
 use super::validator::{V1BlockRoutePayload, V1UpdateRoutePayload};
@@ -75,7 +72,8 @@ pub async fn update_route_status(
     payload: ValidatedJson<V1UpdateRoutePayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let result = if payload.is_blocked {
-        RouteBlockerService::block_route(State(state), pattern.clone(), payload.reason.clone()).await
+        RouteBlockerService::block_route(State(state), pattern.clone(), payload.reason.clone())
+            .await
     } else {
         RouteBlockerService::unblock_route(State(state), pattern.clone()).await
     };
