@@ -417,8 +417,7 @@ impl Entity {
             let pattern = format!("%{}%", search_term);
             post_query = post_query.filter(
                 Condition::any()
-                    .add(Column::Title.contains(&pattern))
-                    .add(Column::Content.contains(&pattern)),
+                    .add(Column::Title.contains(&pattern)),
             );
         }
 

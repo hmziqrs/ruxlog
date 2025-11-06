@@ -23,14 +23,15 @@ impl fmt::Display for PostStatus {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "posts")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub title: String,
     pub slug: String,
-    pub content: String,
+    #[sea_orm(column_type = "JsonBinary")]
+    pub content: Json,
     pub excerpt: Option<String>,
     pub featured_image: Option<String>,
     pub status: PostStatus,

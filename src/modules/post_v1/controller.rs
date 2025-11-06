@@ -244,7 +244,14 @@ pub async fn autosave(
     let _user = auth.user.unwrap();
     let p = payload.0;
 
-    match post_revision::Entity::create(&state.sea_db, p.post_id, p.content.clone(), None).await {
+    match post_revision::Entity::create(
+        &state.sea_db,
+        p.post_id,
+        serde_json::to_string(&p.content).unwrap_or_else(|_| "{}".to_string()),
+        None,
+    )
+    .await
+    {
         Ok(revision) => {
             let update = UpdatePost {
                 title: None,
@@ -321,7 +328,7 @@ pub async fn revisions_restore(
     let update = UpdatePost {
         title: None,
         slug: None,
-        content: Some(rev.content.clone()),
+        content: Some(serde_json::from_str(&rev.content).unwrap_or(serde_json::json!({}))),
         excerpt: None,
         featured_image: None,
         status: None,

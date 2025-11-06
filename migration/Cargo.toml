@@ -8,6 +8,10 @@ publish = false
 name = "migration"
 path = "src/lib.rs"
 
+[[bin]]
+name = "migrate"
+path = "bin/migrate.rs"
+
 [dependencies]
 async-std = { version = "1.13.1", features = ["attributes", "tokio1"] }
 chrono = "0.4.41"

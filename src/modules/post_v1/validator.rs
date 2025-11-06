@@ -1,4 +1,4 @@
-use sea_orm::prelude::DateTimeWithTimeZone;
+use sea_orm::prelude::{DateTimeWithTimeZone, Json};
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
@@ -9,8 +9,7 @@ use crate::utils::SortParam;
 pub struct V1CreatePostPayload {
     #[validate(length(min = 3, max = 255))]
     pub title: String,
-    #[validate(length(min = 10))]
-    pub content: String,
+    pub content: Json,
     pub published_at: Option<DateTimeWithTimeZone>,
     #[serde(default)]
     pub is_published: bool,
@@ -51,8 +50,7 @@ impl V1CreatePostPayload {
 pub struct V1UpdatePostPayload {
     #[validate(length(min = 3, max = 255))]
     pub title: Option<String>,
-    #[validate(length(min = 10))]
-    pub content: Option<String>,
+    pub content: Option<Json>,
     pub published_at: Option<DateTimeWithTimeZone>,
     pub status: Option<PostStatus>,
     #[validate(length(min = 3, max = 255))]
@@ -127,8 +125,7 @@ impl V1PostQueryParams {
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1AutosavePayload {
     pub post_id: i32,
-    #[validate(length(min = 1))]
-    pub content: String,
+    pub content: Json,
     pub updated_at: DateTimeWithTimeZone,
 }
 

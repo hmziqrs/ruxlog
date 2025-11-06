@@ -209,7 +209,14 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
                 .map(|t| t.id)
                 .collect();
             let post_excerpt = l::Words(EN, 1..8).fake::<Vec<String>>().join(" ");
-            let post_content: String = l::Paragraphs(EN, 1..8).fake::<Vec<String>>().join(" ");
+            let post_content_text: String = l::Paragraphs(EN, 1..8).fake::<Vec<String>>().join(" ");
+            let post_content = serde_json::json!({
+                "time": chrono::Utc::now().timestamp_millis(),
+                "blocks": [
+                    {"type": "paragraph", "data": {"text": post_content_text}}
+                ],
+                "version": "2.30.7"
+            });
             let is_published = rng.random_bool(0.8);
 
             let new_post = post::NewPost {
@@ -445,7 +452,14 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
                     .collect();
                 let post_title: String = l::Sentence(EN, 1..2).fake();
                 let post_excerpt = l::Words(EN, 1..8).fake::<Vec<String>>().join(" ");
-                let post_content: String = l::Paragraph(EN, 1..8).fake();
+                let post_content_text: String = l::Paragraph(EN, 1..8).fake();
+                let post_content = serde_json::json!({
+                    "time": chrono::Utc::now().timestamp_millis(),
+                    "blocks": [
+                        {"type": "paragraph", "data": {"text": post_content_text}}
+                    ],
+                    "version": "2.30.7"
+                });
                 let is_published = rng.random_bool(0.5);
 
                 let new_post = post::NewPost {

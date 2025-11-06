@@ -32,6 +32,67 @@ pub mod controller {
             .replace('\'', "&apos;")
     }
 
+    // Extract a short plain-text summary from Editor.js-style JSON
+    fn content_to_summary(value: &serde_json::Value, max_len: usize) -> String {
+        let mut out = String::new();
+        if let Some(blocks) = value.get("blocks").and_then(|b| b.as_array()) {
+            for b in blocks {
+                if let Some(typ) = b.get("type").and_then(|t| t.as_str()) {
+                    let text = match typ {
+                        "paragraph" | "header" | "quote" => b
+                            .get("data")
+                            .and_then(|d| d.get("text"))
+                            .and_then(|t| t.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        "alert" => b
+                            .get("data")
+                            .and_then(|d| d.get("message"))
+                            .and_then(|t| t.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        "checklist" => {
+                            if let Some(items) = b
+                                .get("data")
+                                .and_then(|d| d.get("items"))
+                                .and_then(|i| i.as_array())
+                            {
+                                let texts: Vec<&str> = items
+                                    .iter()
+                                    .filter_map(|it| it.get("text").and_then(|t| t.as_str()))
+                                    .collect();
+                                texts.join(", ")
+                            } else {
+                                String::new()
+                            }
+                        }
+                        "code" => b
+                            .get("data")
+                            .and_then(|d| d.get("code"))
+                            .and_then(|t| t.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        _ => String::new(),
+                    };
+                    if !text.is_empty() {
+                        if !out.is_empty() {
+                            out.push(' ');
+                        }
+                        out.push_str(&text);
+                        if out.len() >= max_len {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        if out.is_empty() {
+            // fallback to the entire JSON as string, trimmed
+            out = value.to_string();
+        }
+        out.chars().take(max_len).collect()
+    }
+
     fn build_xml_response(
         content_type: &'static str,
         xml: String,
@@ -104,8 +165,8 @@ pub mod controller {
             let item_url = format!("{}/posts/{}", site_url.trim_end_matches('/'), p.slug);
             let pub_date = p.published_at.unwrap_or(p.updated_at).to_rfc2822();
             let title = xml_escape(&p.title);
-            let desc_src = p.excerpt.as_deref().unwrap_or_else(|| p.content.as_str());
-            let desc = xml_escape(&desc_src.chars().take(500).collect::<String>());
+            let desc_raw = if let Some(ex) = &p.excerpt { ex.clone() } else { content_to_summary(&p.content, 500) };
+            let desc = xml_escape(&desc_raw);
 
             xml.push_str("<item>");
             xml.push_str(&format!("<title>{}</title>", title));
@@ -157,8 +218,8 @@ pub mod controller {
             let entry_url = format!("{}/posts/{}", site_url.trim_end_matches('/'), p.slug);
             let pub_date = p.published_at.unwrap_or(p.updated_at).to_rfc3339();
             let title = xml_escape(&p.title);
-            let summary_src = p.excerpt.as_deref().unwrap_or_else(|| p.content.as_str());
-            let summary = xml_escape(&summary_src.chars().take(500).collect::<String>());
+            let summary_raw = if let Some(ex) = &p.excerpt { ex.clone() } else { content_to_summary(&p.content, 500) };
+            let summary = xml_escape(&summary_raw);
             let entry_id = entry_url.clone();
 
             xml.push_str("<entry>");

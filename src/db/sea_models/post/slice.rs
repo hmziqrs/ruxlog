@@ -1,6 +1,6 @@
 use super::PostStatus;
 use chrono::{DateTime, FixedOffset};
-use sea_orm::prelude::DateTimeWithTimeZone;
+use sea_orm::prelude::{DateTimeWithTimeZone, Json};
 use sea_orm::FromQueryResult;
 use serde::{Deserialize, Serialize};
 
@@ -30,7 +30,7 @@ pub struct CategoryMedia {
 pub struct NewPost {
     pub title: String,
     pub slug: String,
-    pub content: String,
+    pub content: Json,
     pub excerpt: Option<String>,
     pub featured_image: Option<String>,
     pub status: PostStatus,
@@ -46,7 +46,7 @@ pub struct NewPost {
 pub struct UpdatePost {
     pub title: Option<String>,
     pub slug: Option<String>,
-    pub content: Option<String>,
+    pub content: Option<Json>,
     pub excerpt: Option<String>,
     pub featured_image: Option<String>,
     pub status: Option<PostStatus>,
@@ -112,7 +112,7 @@ pub struct PostWithRelations {
     pub id: i32,
     pub title: String,
     pub slug: String,
-    pub content: String,
+    pub content: Json,
     pub excerpt: Option<String>,
     pub featured_image: Option<String>,
     pub status: PostStatus,
@@ -153,7 +153,7 @@ pub struct PostWithJoinedData {
     pub id: i32,
     pub title: String,
     pub slug: String,
-    pub content: String,
+    pub content: Json,
     pub excerpt: Option<String>,
     pub featured_image: Option<String>,
     pub status: super::PostStatus,
