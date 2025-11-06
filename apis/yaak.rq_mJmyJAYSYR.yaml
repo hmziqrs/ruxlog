@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_mJmyJAYSYR
 createdAt: 2025-05-01T00:06:13.497946
-updatedAt: 2025-11-04T09:59:19.683863
+updatedAt: 2025-11-06T08:23:29.463646
 workspaceId: wk_udoUbrFfLp
 folderId: fl_qgXRbryiBV
 authentication: {}
@@ -13,6 +13,7 @@ body:
       "title": "hamza",
       "content": "heeeaasdaee",
       "slug": "12aaaaaa",
+      "category_id": 17,
       "tag_ids": [0,1,2,3,4,11,28,36,63]
     }
 bodyType: application/json

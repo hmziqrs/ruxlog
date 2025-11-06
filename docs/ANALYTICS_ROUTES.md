@@ -67,7 +67,7 @@
 | --- | --- | --- | --- |
 | `POST /analytics/v1/user/registration-trends` | Chart net new users across time | `user` | Implemented in `analytics_v1::registration_trends` |
 | `POST /analytics/v1/user/verification-rates` | Measure verification success vs. requests | `email_verification`, `user` | Implemented in `analytics_v1::verification_rates` |
-| `POST /analytics/v1/content/publishing-trends` | Track publish cadence by status | `post` | Pending |
+| `POST /analytics/v1/content/publishing-trends` | Track publish cadence by status | `post` | Implemented in `analytics_v1::publishing_trends` |
 | `POST /analytics/v1/engagement/page-views` | Group view counts (with unique visitors) | `post_view` | Pending |
 | `POST /analytics/v1/engagement/comment-rate` | Rank posts by comments vs. views | `post_comment`, `post_view` | Pending |
 | `POST /analytics/v1/engagement/newsletter-growth` | Monitor newsletter churn and confirmations | `newsletter_subscriber` | Pending |
@@ -153,6 +153,7 @@ Below, each MVP endpoint details payloads, behaviours, and response shapes.
 - **Endpoint:** `POST /analytics/v1/content/publishing-trends`
 - **Purpose:** show draft vs. published throughput.
 - **Models:** `post`.
+- **Status:** Implemented in backend via `src/modules/analytics_v1/controller.rs`.
 - **Request payload:**
   ```json
   {
@@ -186,6 +187,7 @@ Below, each MVP endpoint details payloads, behaviours, and response shapes.
   }
   ```
 - **Notes:** status filters map to the `post_status` enum; default to aggregating all statuses when omitted.
+- **Implementation note:** counts presently group by `posts.created_at`; once a dedicated `published_at` audit pipeline ships we can switch to that timestamp for richer cadence tracking.
 
 ### 4. Page Views
 - **Endpoint:** `POST /analytics/v1/engagement/page-views`

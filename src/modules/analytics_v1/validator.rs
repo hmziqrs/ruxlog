@@ -1,10 +1,12 @@
-use std::ops::Bound;
+use std::{collections::BTreeMap, ops::Bound};
 
 use chrono::{DateTime, Datelike, Duration, FixedOffset, NaiveDate, TimeZone, Utc};
 use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use validator::{Validate, ValidationError, ValidationErrors};
+
+use crate::db::sea_models::post::PostStatus;
 
 pub const DEFAULT_PER_PAGE: u64 = 30;
 pub const MAX_PER_PAGE: u64 = 200;
@@ -275,6 +277,44 @@ pub struct VerificationRatePoint {
     pub requested: i64,
     pub verified: i64,
     pub success_rate: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+pub struct PublishingTrendsFilters {
+    #[serde(default)]
+    pub group_by: AnalyticsInterval,
+    #[serde(default)]
+    pub status: Option<Vec<PostStatus>>,
+}
+
+impl Default for PublishingTrendsFilters {
+    fn default() -> Self {
+        Self {
+            group_by: AnalyticsInterval::Week,
+            status: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishingTrendsRequest {
+    #[serde(flatten)]
+    pub envelope: AnalyticsEnvelope,
+    #[serde(default)]
+    pub filters: PublishingTrendsFilters,
+}
+
+impl Validate for PublishingTrendsRequest {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        self.envelope.validate()?;
+        self.filters.validate()
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PublishingTrendPoint {
+    pub bucket: String,
+    pub counts: BTreeMap<String, i64>,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -21,6 +21,10 @@ pub fn routes() -> Router<AppState> {
             "/user/verification-rates",
             post(controller::verification_rates),
         )
+        .route(
+            "/content/publishing-trends",
+            post(controller::publishing_trends),
+        )
         .route_layer(middleware::from_fn(user_permission::admin))
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend))
