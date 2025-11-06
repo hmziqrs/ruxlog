@@ -1,16 +1,15 @@
 type: http_request
 model: http_request
-id: rq_pWN7RqhzTg
-createdAt: 2025-10-29T10:38:15.128159
-updatedAt: 2025-11-06T21:10:08.085722
+id: rq_rnJSETPj8T
+createdAt: 2025-11-06T21:14:27.095719
+updatedAt: 2025-11-06T21:14:45.076881
 workspaceId: wk_udoUbrFfLp
-folderId: fl_WjNRY8Yubh
+folderId: fl_Trxzj2VmHS
 authentication: {}
 authenticationType: null
 body:
   text: |-
     {
-
     }
 bodyType: application/json
 description: ''
@@ -26,9 +25,9 @@ headers:
 - enabled: true
   name: Content-Type
   value: application/json
-  id: 4Ea2S89MEj
+  id: d2bpjFn2wa
 method: POST
-name: ''
-sortPriority: 2000.0
-url: ${[ host ]}/media/v1/list/query
+name: host/analytics/v1/user/verification-rates
+sortPriority: 0.001
+url: ${[ host ]}/analytics/v1//user/verification-rates
 urlParameters: []

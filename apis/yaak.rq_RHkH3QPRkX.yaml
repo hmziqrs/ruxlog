@@ -1,8 +1,8 @@
 type: http_request
 model: http_request
-id: rq_p6BFKzadw4
-createdAt: 2025-11-04T09:51:43.568160
-updatedAt: 2025-11-06T21:10:08.083564
+id: rq_RHkH3QPRkX
+createdAt: 2025-11-06T21:10:10.550012
+updatedAt: 2025-11-06T21:10:10.550013
 workspaceId: wk_udoUbrFfLp
 folderId: fl_WjNRY8Yubh
 authentication: {}
@@ -11,18 +11,18 @@ body:
   form:
   - contentType: image/png
     enabled: true
-    file: /Users/hmziq/Documents/opensource/ruxlog-backend/tmp/2mbunder.jpg
+    file: /Users/hmziq/Downloads/AQMz413M32M4IMhzB9b_4hbR2_kCuQHInRua0Xn6D6sbIvcGGdzSOSSYs6tx0ZxxHg05zohUWUoF9MGw4dv2fAR3Q3kPhhgGIBkA5Ys6yYD8PvX-VO0FFRaWs7X1FOhS.png
     id: SkxXEQw9Ee
     name: file
-  - enabled: false
+  - enabled: true
     id: gmtx3jVpp0
     name: reference_type
-    value: a
+    value: user
   - enabled: true
-    id: hUhigwhdJv
+    id: FCJaJ0xmKK
     name: ''
     value: ''
-bodyType: multipart/form-data
+bodyType: application/json
 description: ''
 headers:
 - enabled: true
@@ -35,10 +35,10 @@ headers:
   id: D57mjz6dN3
 - enabled: true
   name: Content-Type
-  value: multipart/form-data
-  id: dqFpYQXcG8
+  value: application/json
+  id: iebJ0Vvd4n
 method: POST
-name: ''
-sortPriority: 1000.0
-url: ${[ host ]}/media/v1/create
+name: host/media/v1/delete/2 Copy
+sortPriority: 5000.001
+url: ${[ host ]}/media/v1/delete/2
 urlParameters: []

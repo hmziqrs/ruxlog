@@ -2,9 +2,9 @@ type: http_request
 model: http_request
 id: rq_vmwVNW2GAf
 createdAt: 2025-11-06T20:35:32.002996
-updatedAt: 2025-11-06T20:36:55.987578
+updatedAt: 2025-11-06T21:10:08.089399
 workspaceId: wk_udoUbrFfLp
-folderId: fl_Pj3JaShfob
+folderId: fl_WjNRY8Yubh
 authentication: {}
 authenticationType: null
 body:
@@ -29,6 +29,6 @@ headers:
   id: 4Ea2S89MEj
 method: POST
 name: ''
-sortPriority: 2000.0012
+sortPriority: 4000.0
 url: ${[ host ]}/media/v1/usage/details
 urlParameters: []
