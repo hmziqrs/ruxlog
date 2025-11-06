@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_dLahYnskQd
 createdAt: 2025-11-06T21:12:36.006705
-updatedAt: 2025-11-06T21:14:26.544961
+updatedAt: 2025-11-06T21:55:56.218487
 workspaceId: wk_udoUbrFfLp
 folderId: fl_Trxzj2VmHS
 authentication: {}
@@ -27,7 +27,7 @@ headers:
   value: application/json
   id: d2bpjFn2wa
 method: POST
-name: host/analytics/v1/dashboard/summary_
+name: host/analytics/v1/dashboard/summary
 sortPriority: 0.0
 url: ${[ host ]}/analytics/v1/dashboard/summary
 urlParameters: []

@@ -1,8 +1,8 @@
 type: http_request
 model: http_request
-id: rq_rnJSETPj8T
-createdAt: 2025-11-06T21:14:27.095719
-updatedAt: 2025-11-06T21:54:24.264209
+id: rq_kiqt7HAghs
+createdAt: 2025-11-06T22:00:34.640306
+updatedAt: 2025-11-06T22:00:56.424790
 workspaceId: wk_udoUbrFfLp
 folderId: fl_Trxzj2VmHS
 authentication: {}
@@ -27,7 +27,7 @@ headers:
   value: application/json
   id: d2bpjFn2wa
 method: POST
-name: host/analytics/v1/user/verification-rates
-sortPriority: 0.001
-url: ${[ host ]}/analytics/v1/user/verification-rates
+name: host/analytics/v1/user/registration-trends
+sortPriority: 0.004
+url: ${[ host ]}/analytics/v1/user/registration-trends
 urlParameters: []
