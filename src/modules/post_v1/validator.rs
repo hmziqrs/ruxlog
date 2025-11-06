@@ -144,10 +144,17 @@ impl Validate for EditorJsDocument {
                 "image" => {
                     let file_url = get_nested_str(&b.data, "file", "url");
                     let url = get_str(&b.data, "url");
-                    if non_empty_str(file_url.or(url)) {
-                        Ok(())
-                    } else {
-                        Err(ValidationError::new("image_url_required"))
+                    let media_id = b
+                        .data
+                        .get("file")
+                        .and_then(|f| f.get("media_id"))
+                        .and_then(|v| v.as_i64())
+                        .or_else(|| b.data.get("media_id").and_then(|v| v.as_i64()));
+
+                    match (non_empty_str(file_url.or(url)), media_id) {
+                        (true, Some(_)) => Ok(()),
+                        (false, _) => Err(ValidationError::new("image_url_required")),
+                        (_, None) => Err(ValidationError::new("image_media_id_required")),
                     }
                 }
                 "embed" => {
