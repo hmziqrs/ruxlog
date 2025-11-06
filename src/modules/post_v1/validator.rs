@@ -1,15 +1,132 @@
 use sea_orm::prelude::{DateTimeWithTimeZone, Json};
 use serde::{Deserialize, Serialize};
-use validator::Validate;
+use validator::{Validate, ValidationError};
 
 use crate::db::sea_models::post::{NewPost, PostQuery, PostStatus, UpdatePost};
 use crate::utils::SortParam;
+
+// Validated Editor.js document types
+#[derive(Debug, Clone, Deserialize, Serialize, Validate)]
+pub struct EditorJsDocument {
+    pub time: Option<i64>,
+    #[validate(custom(validate_editorjs_blocks))]
+    pub blocks: Vec<EditorJsBlock>,
+    pub version: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Validate)]
+pub struct EditorJsBlock {
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub data: serde_json::Value,
+}
+
+fn validate_editorjs_blocks(blocks: &Vec<EditorJsBlock>) -> Result<(), ValidationError> {
+    if blocks.is_empty() {
+        return Err(ValidationError::new("blocks_empty"));
+    }
+    for b in blocks.iter() {
+        match b.kind.as_str() {
+            "paragraph" => {
+                let text = b.data.get("text").and_then(|v| v.as_str()).unwrap_or("");
+                if text.trim().is_empty() {
+                    return Err(ValidationError::new("paragraph_text_required"));
+                }
+            }
+            "header" => {
+                let text_ok = b
+                    .data
+                    .get("text")
+                    .and_then(|v| v.as_str())
+                    .map(|s| !s.trim().is_empty())
+                    .unwrap_or(false);
+                let level_ok = b
+                    .data
+                    .get("level")
+                    .and_then(|v| v.as_i64())
+                    .map(|l| (1..=6).contains(&l))
+                    .unwrap_or(false);
+                if !(text_ok && level_ok) {
+                    return Err(ValidationError::new("header_requires_text_and_level_1_6"));
+                }
+            }
+            "alert" => {
+                let msg_ok = b
+                    .data
+                    .get("message")
+                    .and_then(|v| v.as_str())
+                    .map(|s| !s.trim().is_empty())
+                    .unwrap_or(false);
+                let type_ok = b
+                    .data
+                    .get("type")
+                    .and_then(|v| v.as_str())
+                    .map(|t| matches!(t, "info" | "warning" | "success" | "error"))
+                    .unwrap_or(false);
+                if !(msg_ok && type_ok) {
+                    return Err(ValidationError::new("alert_requires_message_and_valid_type"));
+                }
+            }
+            "quote" => {
+                let text_ok = b
+                    .data
+                    .get("text")
+                    .and_then(|v| v.as_str())
+                    .map(|s| !s.trim().is_empty())
+                    .unwrap_or(false);
+                if !text_ok {
+                    return Err(ValidationError::new("quote_text_required"));
+                }
+            }
+            "checklist" => {
+                let items = b.data.get("items").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+                if items.is_empty() {
+                    return Err(ValidationError::new("checklist_items_required"));
+                }
+                for it in items.iter() {
+                    let text_ok = it
+                        .get("text")
+                        .and_then(|v| v.as_str())
+                        .map(|s| !s.trim().is_empty())
+                        .unwrap_or(false);
+                    if !text_ok {
+                        return Err(ValidationError::new("checklist_item_text_required"));
+                    }
+                }
+            }
+            "code" => {
+                let code_ok = b
+                    .data
+                    .get("code")
+                    .and_then(|v| v.as_str())
+                    .map(|s| !s.is_empty())
+                    .unwrap_or(false);
+                if !code_ok {
+                    return Err(ValidationError::new("code_block_code_required"));
+                }
+            }
+            _ => return Err(ValidationError::new("unsupported_block_type")),
+        }
+    }
+    Ok(())
+}
+
+impl EditorJsDocument {
+    pub fn into_json(self) -> Json {
+        serde_json::to_value(self).unwrap_or(serde_json::json!({
+            "time": 0,
+            "blocks": [],
+            "version": "2.30.7"
+        }))
+    }
+}
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1CreatePostPayload {
     #[validate(length(min = 3, max = 255))]
     pub title: String,
-    pub content: Json,
+    #[validate(nested)]
+    pub content: EditorJsDocument,
     pub published_at: Option<DateTimeWithTimeZone>,
     #[serde(default)]
     pub is_published: bool,
@@ -27,7 +144,7 @@ impl V1CreatePostPayload {
     pub fn into_new_post(self, author_id: i32) -> NewPost {
         NewPost {
             title: self.title,
-            content: self.content,
+            content: self.content.into_json(),
             author_id: author_id,
             published_at: self.published_at,
             status: if self.is_published {
@@ -50,7 +167,8 @@ impl V1CreatePostPayload {
 pub struct V1UpdatePostPayload {
     #[validate(length(min = 3, max = 255))]
     pub title: Option<String>,
-    pub content: Option<Json>,
+    #[validate(nested)]
+    pub content: Option<EditorJsDocument>,
     pub published_at: Option<DateTimeWithTimeZone>,
     pub status: Option<PostStatus>,
     #[validate(length(min = 3, max = 255))]
@@ -66,7 +184,7 @@ impl V1UpdatePostPayload {
     pub fn into_update_post(self) -> UpdatePost {
         UpdatePost {
             title: self.title,
-            content: self.content,
+            content: self.content.map(|d| d.into_json()),
             // author_id: Some(author_id),
             published_at: self.published_at,
             updated_at: chrono::Utc::now().fixed_offset(),
@@ -125,7 +243,8 @@ impl V1PostQueryParams {
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1AutosavePayload {
     pub post_id: i32,
-    pub content: Json,
+    #[validate(nested)]
+    pub content: EditorJsDocument,
     pub updated_at: DateTimeWithTimeZone,
 }
 

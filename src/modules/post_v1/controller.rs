@@ -256,7 +256,7 @@ pub async fn autosave(
             let update = UpdatePost {
                 title: None,
                 slug: None,
-                content: Some(p.content),
+                content: Some(serde_json::to_value(&p.content).unwrap_or(serde_json::json!({}))),
                 excerpt: None,
                 featured_image: None,
                 status: None,
