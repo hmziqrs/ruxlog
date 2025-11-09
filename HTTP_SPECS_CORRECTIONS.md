@@ -9,34 +9,36 @@ After analyzing all 16 modules in `src/modules/`, **23 routes** were identified 
 - **Read operations using POST**: Violates HTTP caching, bookmarking, and idempotency standards
 - **Naming inconsistencies**: Some routes use `/query`, others use `/list` for similar operations
 
-### Quick Reference: All 23 Routes Requiring Changes
+### Quick Reference: Routes Requiring Changes
 
-| Module | File:Line(s) | Route | Current | Should Be |
-|--------|--------------|-------|---------|-----------|
-| **analytics_v1** | mod.rs:16-18 | `/user/registration-trends` | POST | GET |
-| **analytics_v1** | mod.rs:20-22 | `/user/verification-rates` | POST | GET |
-| **analytics_v1** | mod.rs:24-26 | `/content/publishing-trends` | POST | GET |
-| **analytics_v1** | mod.rs:28 | `/engagement/page-views` | POST | GET |
-| **analytics_v1** | mod.rs:29 | `/engagement/comment-rate` | POST | GET |
-| **analytics_v1** | mod.rs:30-32 | `/engagement/newsletter-growth` | POST | GET |
-| **analytics_v1** | mod.rs:34-36 | `/media/upload-trends` | POST | GET |
-| **analytics_v1** | mod.rs:38 | `/dashboard/summary` | POST | GET |
-| **post_v1** | mod.rs:57 | `/view/{id_or_slug}` | POST | GET |
-| **post_v1** | mod.rs:58 | `/list/published` | POST | GET |
-| **post_v1** | mod.rs:59 | `/sitemap` | POST | GET |
-| **post_comment_v1** | mod.rs:24 | `/{post_id}` (list) | POST | GET |
-| **post_comment_v1** | mod.rs:28 | `/admin/list` | POST | GET |
-| **post_comment_v1** | mod.rs:36 | `/admin/flags/list` | POST | GET |
-| **post_comment_v1** | mod.rs:37-39 | `/admin/flags/summary/{comment_id}` | POST | GET |
-| **media_v1** | mod.rs:20 | `/view/{media_id}` | POST | GET |
-| **media_v1** | mod.rs:21 | `/list/query` | POST | GET |
-| **media_v1** | mod.rs:22 | `/usage/details` | POST | GET |
-| **user_v1** | mod.rs:27 | `/admin/list` | POST | GET |
-| **user_v1** | mod.rs:28 | `/admin/view/{user_id}` | POST | GET |
-| **tag_v1** | mod.rs:22 | `/view/{tag_id}` | POST | GET |
-| **tag_v1** | mod.rs:23 | `/list/query` | POST | GET |
-| **newsletter_v1** | mod.rs:21 | `/subscribers/list` | POST | GET |
-| **admin_route_v1** | mod.rs:23 | `/list` | GET ✓ | - |
+| Module | File:Line(s) | Route | Current | Recommended | Reason |
+|--------|--------------|-------|---------|-------------|--------|
+| **analytics_v1** | mod.rs:16-18 | `/user/registration-trends` | POST | **GET** | Simple read |
+| **analytics_v1** | mod.rs:20-22 | `/user/verification-rates` | POST | **GET** | Simple read |
+| **analytics_v1** | mod.rs:24-26 | `/content/publishing-trends` | POST | **GET** | Simple read |
+| **analytics_v1** | mod.rs:28 | `/engagement/page-views` | POST | **GET** | Simple read |
+| **analytics_v1** | mod.rs:29 | `/engagement/comment-rate` | POST | **GET** | Simple read |
+| **analytics_v1** | mod.rs:30-32 | `/engagement/newsletter-growth` | POST | **GET** | Simple read |
+| **analytics_v1** | mod.rs:34-36 | `/media/upload-trends` | POST | **GET** | Simple read |
+| **analytics_v1** | mod.rs:38 | `/dashboard/summary` | POST | **GET** | Simple read |
+| **post_v1** | mod.rs:57 | `/view/{id_or_slug}` | POST | **GET** | Simple read |
+| **post_v1** | mod.rs:58 | `/list/published` | POST | **GET** | Simple list |
+| **post_v1** | mod.rs:59 | `/sitemap` | POST | **GET** | Simple read |
+| **post_comment_v1** | mod.rs:24 | `/{post_id}` (list) | POST | **GET** | Simple list |
+| **post_comment_v1** | mod.rs:28 | `/admin/list` | POST | **POST /search** ⚠️ | Complex filters |
+| **post_comment_v1** | mod.rs:36 | `/admin/flags/list` | POST | **GET** | Simple read |
+| **post_comment_v1** | mod.rs:37-39 | `/admin/flags/summary/{comment_id}` | POST | **GET** | Simple read |
+| **media_v1** | mod.rs:20 | `/view/{media_id}` | POST | **GET** | Simple read |
+| **media_v1** | mod.rs:21 | `/list/query` | POST | **POST /search** ⚠️ | Complex query |
+| **media_v1** | mod.rs:22 | `/usage/details` | POST | **GET** | Simple read |
+| **user_v1** | mod.rs:27 | `/admin/list` | POST | **POST /search** ⚠️ | Complex filters |
+| **user_v1** | mod.rs:28 | `/admin/view/{user_id}` | POST | **GET** | Simple read |
+| **tag_v1** | mod.rs:22 | `/view/{tag_id}` | POST | **GET** | Simple read |
+| **tag_v1** | mod.rs:23 | `/list/query` | POST | **POST /search** ⚠️ | Complex query |
+| **newsletter_v1** | mod.rs:21 | `/subscribers/list` | POST | **POST /search** ⚠️ | Likely complex |
+| **admin_route_v1** | mod.rs:23 | `/list` | GET ✓ | **GET** | Already correct |
+
+⚠️ **Routes marked with ⚠️ should use POST with `/search` endpoint for better handling of complex filters and arrays**
 
 ### Impact
 - GET responses are cacheable by browsers/CDNs; POST responses are not
@@ -52,7 +54,8 @@ After analyzing all 16 modules in `src/modules/`, **23 routes** were identified 
 
 | Operation | HTTP Method | Use Case | Idempotent |
 |-----------|------------|----------|------------|
-| **Read** | `GET` | Retrieve data, list items, view single resource | ✓ Yes |
+| **Read** | `GET` | Retrieve data, view single resource, simple lists | ✓ Yes |
+| **Search/Filter** | `POST` | Complex queries with many filters/arrays | ✗ No |
 | **Create** | `POST` | Create new resource, submit data | ✗ No |
 | **Update** | `PUT` | Replace entire resource | ✓ Yes |
 | **Partial Update** | `PATCH` | Update specific fields | ✓ Yes |
@@ -74,7 +77,8 @@ POST   /{module}/v1/flag/{id}               # Flag/report resource
 
 #### Recommended Pattern (Resource-Based)
 ```
-GET    /{module}/v1                         # List multiple resources
+GET    /{module}/v1                         # Simple list (few filters)
+POST   /{module}/v1/search                  # Complex search (many filters/arrays)
 GET    /{module}/v1/{id}                    # View single resource by ID
 GET    /{module}/v1/slug/{slug}             # View single resource by slug
 POST   /{module}/v1                         # Create new resource
@@ -90,12 +94,48 @@ POST   /{module}/v1/{id}/flag               # Flag/report resource
 - ✓ Standard - Industry best practice for REST APIs
 - ✓ Self-documenting - HTTP method clearly indicates operation type
 - ✓ Better HATEOAS compatibility - easier to build hypermedia APIs
+- ✓ Practical - POST for complex queries handles arrays and nested filters easily
 
 ### Avoid These Patterns
 - ❌ `/list`, `/view`, `/query` using `POST` (read operations should use GET)
 - ❌ `/get` (use `/view` or just `/{id}` instead)
 - ❌ Mixed naming: `/list/query` → just `/list` with query parameters
 - ❌ Action words in URL: `/create`, `/update`, `/delete` (use HTTP methods instead)
+
+---
+
+## Important Nuance: GET vs POST for List/Query Operations
+
+**For simple lists with few filters:** Use `GET /{module}/v1`
+```rust
+GET /post/v1?status=published&page=1
+```
+
+**For complex queries with many filters/arrays:** Use `POST /{module}/v1/search`
+```rust
+POST /post/v1/search
+{
+  "tags": ["rust", "web", "axum"],
+  "category": ["tech", "tutorial"],
+  "date_range": { "from": "2025-01-01", "to": "2025-12-31" },
+  "author_ids": [1, 2, 3],
+  "sort": "created_at",
+  "order": "desc",
+  "nested": {
+    "condition": "AND",
+    "filters": [...]
+  }
+}
+```
+
+**Why use POST for complex queries?**
+- ✓ **Array handling**: Query params with arrays are awkward: `?tags=rust&tags=web` vs clean JSON array
+- ✓ **No URL length limits**: POST bodies can be much larger than GET query strings
+- ✓ **Complex structures**: JSON allows nested objects/arrays, query params don't
+- ✓ **Readability**: JSON body is more readable than long query strings
+- ✓ **Type safety**: JSON can enforce types, query params are all strings
+
+**Note:** This is a pragmatic approach used by many real-world APIs (Stripe, GitHub, Elasticsearch). Pure REST theory says GET, but practical implementation often uses POST for complex search.
 
 ---
 
@@ -149,10 +189,11 @@ POST   /{module}/v1/{id}/flag               # Flag/report resource
 #### Change 1: Admin List Users (Line 27)
 ```diff
 - .route("/list", post(controller::admin_list))
-+ .route("/list", get(controller::admin_list))
++ .route("/search", post(controller::search))  // Use POST for complex query
 ```
-**Reason:** Lists users with filters - read operation
+**Reason:** Admin list with complex filters - POST handles arrays better
 **File:** `src/modules/user_v1/mod.rs:27`
+**Note:** Consider using POST with `/search` for complex admin filtering with many params
 
 #### Change 2: Admin View User (Line 28)
 ```diff
@@ -185,10 +226,11 @@ POST   /{module}/v1/{id}/flag               # Flag/report resource
 #### Change 2: Query Tags (Line 23)
 ```diff
 - .route("/list/query", post(controller::find_with_query))
-+ .route("/list/query", get(controller::find_with_query))
++ .route("/search", post(controller::search))  // Use POST for complex query
 ```
-**Reason:** Queries tags with filters - read operation
+**Reason:** Complex queries with filters - POST is more practical for array parameters
 **File:** `src/modules/tag_v1/mod.rs:23`
+**Note:** Consider renaming to `/search` endpoint with POST for better handling of complex filters
 
 ### Correct Routes
 ```rust
@@ -213,10 +255,11 @@ POST   /{module}/v1/{id}/flag               # Flag/report resource
 #### Change 2: List Media (Line 21)
 ```diff
 - .route("/list/query", post(controller::find_with_query))
-+ .route("/list/query", get(controller::find_with_query))
++ .route("/search", post(controller::search))  // Use POST for complex query
 ```
-**Reason:** Lists media with query params - read operation
+**Reason:** Complex queries with filters - POST is more practical for array parameters
 **File:** `src/modules/media_v1/mod.rs:21`
+**Note:** Consider renaming to `/search` endpoint with POST for better handling of complex filters
 
 #### Change 3: Usage Details (Line 22)
 ```diff
@@ -318,10 +361,11 @@ POST   /{module}/v1/{id}/flag               # Flag/report resource
 #### Change 2: Admin List Comments (Line 28)
 ```diff
 - .route("/list", post(controller::find_with_query))
-+ .route("/list", get(controller::find_with_query))
++ .route("/search", post(controller::search))  // Use POST for complex query
 ```
-**Reason:** Admin list of comments - read operation
+**Reason:** Admin list with complex filters - POST is more practical for arrays
 **File:** `src/modules/post_comment_v1/mod.rs:28`
+**Note:** Consider using POST with `/search` for complex admin filtering
 
 #### Change 3: Admin List Flags (Line 36)
 ```diff
@@ -458,17 +502,17 @@ Various write operations using appropriate HTTP methods
 
 ## Summary of Changes Required
 
-| Module | Routes to Change | Impact |
-|--------|-----------------|--------|
-| **analytics_v1** | 8 | Critical - all analytics endpoints |
-| **post_v1** | 3 | High - public content endpoints |
-| **post_comment_v1** | 4 | Medium - comment listing |
-| **media_v1** | 3 | Medium - media listing |
-| **user_v1** | 2 | Medium - user management |
-| **tag_v1** | 2 | Medium - tag listing |
-| **newsletter_v1** | 1 | Low - subscriber list |
-| **admin_route_v1** | 0 | ✓ Already correct (uses GET) |
-| **TOTAL** | **23** | **8 modules affected** |
+| Module | Routes to Change | Impact | Recommended Approach |
+|--------|-----------------|--------|---------------------|
+| **analytics_v1** | 8 | Critical - all analytics endpoints | **Change to GET** (simple read operations) |
+| **post_v1** | 3 | High - public content endpoints | **Change to GET** (view/list ops) |
+| **post_comment_v1** | 3-4 | Medium - comment listing | **Mixed**: Simple list→GET, Complex search→POST |
+| **media_v1** | 2-3 | Medium - media listing | **Mixed**: Simple view→GET, Complex search→POST |
+| **user_v1** | 1-2 | Medium - user management | **Mixed**: View→GET, List search→POST |
+| **tag_v1** | 1-2 | Medium - tag listing | **Mixed**: View→GET, Query search→POST |
+| **newsletter_v1** | 1 | Low - subscriber list | **Evaluate complexity** (likely POST) |
+| **admin_route_v1** | 0 | ✓ Already correct (uses GET) | No changes needed |
+| **TOTAL** | **19-23** | **8 modules affected** | **Use judgment based on query complexity** |
 
 ---
 
@@ -476,30 +520,43 @@ Various write operations using appropriate HTTP methods
 
 1. **For each affected module**, locate the `mod.rs` file in `src/modules/{module_name}/mod.rs`
 
-2. **Change HTTP method** from `post()` to `get()` for read-only endpoints (23 total changes across 8 modules)
-
-3. **Update import statements** if needed:
+2. **Decide: GET or POST for each endpoint** based on query complexity:
    ```rust
-   // Add `get` to imports in affected modules
+   // Simple filters (few params) → GET
+   GET /post/v1?status=published&page=1
+
+   // Complex filters (many params, arrays) → POST
+   POST /post/v1/search
+   ```
+
+3. **For GET endpoints** (simple queries):
+   - Change from `post()` to `get()`
+   - Update handlers to use `Query<T>` extractor instead of `ValidatedJson`
+   - Update frontend to pass filters as query parameters
+
+4. **For POST endpoints** (complex queries):
+   - Rename route to `/search` (e.g., `/list/query` → `/search`)
+   - Keep `post()` method
+   - Handler receives JSON body with complex filter structure
+   - Update frontend to send POST request with JSON body
+
+5. **Update import statements** if needed:
+   ```rust
    use axum::{routing::{get, post}, Router};
    ```
 
-4. **Update any relevant code** that might depend on POST-specific behavior:
-   - Ensure handlers don't read `ValidatedJson` (use extractors instead)
-   - Verify query parameters are properly extracted via `Query<T>`
-   - Check for any body extraction in handler functions
-
-5. **Test all changes**:
+6. **Test all changes**:
    - Verify endpoints still function correctly
-   - Check that GET requests can be cached
-   - Ensure frontend properly uses GET for these endpoints
-   - Update API documentation if present
+   - Check caching for GET endpoints
+   - Ensure frontend properly uses GET/POST for each endpoint
+   - Update API documentation
+   - Test with both simple and complex queries
 
-6. **Document any edge cases**:
-   - `/post/v1/track_view/{post_id}` (line 60) - decide if tracking should be GET (safe/idempotent) or POST (non-idempotent tracking)
-   - Consider using PUT for idempotent operations like "block/unblock" in admin_route_v1
+7. **Document the approach**:
+   - Simple list: `GET /{module}/v1?filters`
+   - Complex search: `POST /{module}/v1/search` with JSON body
 
-**Note:** admin_route_v1 module is already correctly implemented - no changes needed!
+**Note:** This pragmatic approach balances REST principles with practical implementation concerns. See table above for module-specific recommendations.
 
 ---
 
@@ -590,18 +647,19 @@ if let Some(if_none_match) = request.headers().get(header::IF_NONE_MATCH) {
 
 ---
 
-**Document Version:** 2.0
+**Document Version:** 2.1
 **Last Updated:** 2025-11-10
 **Total Routes Analyzed:** 85+
-**Routes Requiring Correction:** 23 (change POST→GET for read operations)
+**Routes Requiring Correction:** 19-23 (evaluate complexity: GET for simple, POST for complex)
 **Major Refactor Opportunity:** Resource-based REST routes (see section 1 in Additional Recommendations)
 **Modules with Line References:** ✓ All corrections include exact file paths and line numbers
+**Pragmatic Approach:** GET for simple queries, POST for complex search with arrays/nested filters
 
 ---
 
 ## Future-Proofing: Resource-Based REST Design
 
-**Yes, absolutely!** The current codebase uses action-based naming (e.g., `/create`, `/update`, `/delete`) which is less RESTful than pure resource-based design.
+**Yes, absolutely!** The current codebase uses action-based naming (e.g., `/create`, `/update`, `/delete`) which is less RESTful than pure resource-based design. Additionally, **use POST for complex queries with arrays** - it's more practical than GET for such cases.
 
 **Current (Action-Based):**
 ```rust
@@ -615,4 +673,15 @@ POST   /post/v1              // HTTP method = action
 GET    /post/v1/{id}         // No action word needed
 ```
 
-**See section "Additional Recommendations → 1. Adopt Resource-Based REST Routes" for a complete migration strategy with backward compatibility.**
+**Complex Query Approach:**
+```rust
+GET    /post/v1?status=published                           // Simple
+POST   /post/v1/search                                     // Complex with arrays
+{
+  "tags": ["rust", "web"],
+  "author_ids": [1, 2, 3],
+  "filters": {...}
+}
+```
+
+**See section "Additional Recommendations → 1. Adopt Resource-Based REST Routes" and "Important Nuance: GET vs POST for List/Query Operations" for complete guidance.**
