@@ -54,11 +54,10 @@ After analyzing all 16 modules in `src/modules/`, **23 routes** were identified 
 
 | Operation | HTTP Method | Use Case | Idempotent |
 |-----------|------------|----------|------------|
-| **Read** | `GET` | Retrieve data, view single resource, simple lists | ✓ Yes |
-| **Search/Filter** | `POST` | Complex queries with many filters/arrays | ✗ No |
-| **Create** | `POST` | Create new resource, submit data | ✗ No |
-| **Update** | `PUT` | Replace entire resource | ✓ Yes |
-| **Partial Update** | `PATCH` | Update specific fields | ✓ Yes |
+| **Query/List** | `POST` | All list and query operations (any complexity) | ✗ No |
+| **Read** | `GET` | View single resource by ID/slug | ✓ Yes |
+| **Create** | `PUT` | Create new resource (idempotent) | ✓ Yes |
+| **Update** | `PATCH` | Update existing resource | ✓ Yes |
 | **Delete** | `DELETE` | Remove resource | ✓ Yes |
 
 ### Route Naming Best Practices
@@ -75,43 +74,47 @@ POST   /{module}/v1/delete/{id}             # Delete resource
 POST   /{module}/v1/flag/{id}               # Flag/report resource
 ```
 
-#### Recommended Pattern (Resource-Based)
+#### Recommended Pattern (Pragmatic Resource-Based)
 ```
-GET    /{module}/v1                         # Simple list (few filters)
-POST   /{module}/v1/search                  # Complex search (many filters/arrays)
+POST   /{module}/v1/list                    # List resources (any complexity)
+POST   /{module}/v1/search                  # Search/filter resources
 GET    /{module}/v1/{id}                    # View single resource by ID
 GET    /{module}/v1/slug/{slug}             # View single resource by slug
-POST   /{module}/v1                         # Create new resource
-PUT    /{module}/v1/{id}                    # Replace entire resource
-PATCH  /{module}/v1/{id}                    # Partial update
+PUT    /{module}/v1                         # Create new resource (idempotent)
+PATCH  /{module}/v1/{id}                    # Update existing resource
 DELETE /{module}/v1/{id}                    # Delete resource
 POST   /{module}/v1/{id}/flag               # Flag/report resource
 ```
 
-**Benefits of Resource-Based Pattern:**
-- ✓ More RESTful - HTTP method defines the action, URL defines the resource
-- ✓ Cleaner URLs - `/posts/v1/123` instead of `/post/v1/view/123`
-- ✓ Standard - Industry best practice for REST APIs
-- ✓ Self-documenting - HTTP method clearly indicates operation type
-- ✓ Better HATEOAS compatibility - easier to build hypermedia APIs
-- ✓ Practical - POST for complex queries handles arrays and nested filters easily
+**Benefits of This Pattern:**
+- ✓ Simpler - Use POST for all queries regardless of complexity
+- ✓ Consistent - Same method for all list/search operations
+- ✓ Practical - POST handles arrays, filters, nested objects easily
+- ✓ Idempotent Create - PUT for create allows safe retries
+- ✓ Clear Updates - PATCH for updates
+- ✓ Self-documenting - HTTP method indicates operation type
 
 ### Avoid These Patterns
-- ❌ `/list`, `/view`, `/query` using `POST` (read operations should use GET)
+- ❌ Using `GET` for list operations with complex filters (use POST instead)
 - ❌ `/get` (use `/view` or just `/{id}` instead)
-- ❌ Mixed naming: `/list/query` → just `/list` with query parameters
+- ❌ Mixed naming: `/list/query` → just `/list` with POST request
 - ❌ Action words in URL: `/create`, `/update`, `/delete` (use HTTP methods instead)
+- ❌ Using `POST` for single resource views (use GET instead)
 
 ---
 
-## Important Nuance: GET vs POST for List/Query Operations
+## Chosen Approach: POST for All List/Query Operations
 
-**For simple lists with few filters:** Use `GET /{module}/v1`
+**Simple or complex lists:** Use `POST /{module}/v1/list`
 ```rust
-GET /post/v1?status=published&page=1
+POST /post/v1/list
+{
+  "page": 1,
+  "limit": 20
+}
 ```
 
-**For complex queries with many filters/arrays:** Use `POST /{module}/v1/search`
+**Search with filters:** Use `POST /{module}/v1/search`
 ```rust
 POST /post/v1/search
 {
@@ -121,21 +124,26 @@ POST /post/v1/search
   "author_ids": [1, 2, 3],
   "sort": "created_at",
   "order": "desc",
-  "nested": {
+  "filters": {
     "condition": "AND",
-    "filters": [...]
+    "nested": [...]
   }
 }
 ```
 
-**Why use POST for complex queries?**
-- ✓ **Array handling**: Query params with arrays are awkward: `?tags=rust&tags=web` vs clean JSON array
-- ✓ **No URL length limits**: POST bodies can be much larger than GET query strings
-- ✓ **Complex structures**: JSON allows nested objects/arrays, query params don't
-- ✓ **Readability**: JSON body is more readable than long query strings
-- ✓ **Type safety**: JSON can enforce types, query params are all strings
+**Why use POST for all queries?**
+- ✓ **Consistency**: Same method for all list/search operations
+- ✓ **Array handling**: Clean JSON arrays vs awkward query params
+- ✓ **No URL limits**: POST bodies have no length restrictions
+- ✓ **Complex structures**: JSON allows nested objects/arrays
+- ✓ **Type safety**: JSON schema validation vs string-only query params
+- ✓ **Readable**: JSON body is cleaner than long query strings
+- ✓ **Flexibility**: Easy to add new filter types without URL changes
 
-**Note:** This is a pragmatic approach used by many real-world APIs (Stripe, GitHub, Elasticsearch). Pure REST theory says GET, but practical implementation often uses POST for complex search.
+**Creation uses PUT** (idempotent - safe to retry)
+**Updates use PATCH** (modify existing resources)
+
+**This is a pragmatic, consistent approach that simplifies API design.**
 
 ---
 
@@ -595,10 +603,9 @@ GET    /post/v1              // List all
       .route("/post/v1/list", get(list_posts_legacy))
   ```
 
-### 2. Use PATCH for Partial Updates
+### 2. Use PATCH for Updates
 Current pattern uses POST for all updates. Consider:
-- `PUT` for full resource replacement
-- `PATCH` for partial updates
+- `PATCH` for updating existing resources
 
 Example:
 ```rust
@@ -606,8 +613,7 @@ Example:
 "/update/{id}" → post(update)
 
 // Better
-PATCH /post/v1/{id}  // Partial update
-PUT   /post/v1/{id}  // Full replacement
+PATCH /post/v1/{id}  // Update existing resource
 ```
 
 ### 3. Response Caching
@@ -647,41 +653,40 @@ if let Some(if_none_match) = request.headers().get(header::IF_NONE_MATCH) {
 
 ---
 
-**Document Version:** 2.1
+**Document Version:** 3.0
 **Last Updated:** 2025-11-10
 **Total Routes Analyzed:** 85+
-**Routes Requiring Correction:** 19-23 (evaluate complexity: GET for simple, POST for complex)
+**Routes Requiring Correction:** 22 (GET for single views, POST for lists)
 **Major Refactor Opportunity:** Resource-based REST routes (see section 1 in Additional Recommendations)
 **Modules with Line References:** ✓ All corrections include exact file paths and line numbers
-**Pragmatic Approach:** GET for simple queries, POST for complex search with arrays/nested filters
+**Chosen Pattern:** POST for all list/query operations, PUT for create, PATCH for update, GET for single views
 
 ---
 
 ## Future-Proofing: Resource-Based REST Design
 
-**Yes, absolutely!** The current codebase uses action-based naming (e.g., `/create`, `/update`, `/delete`) which is less RESTful than pure resource-based design. Additionally, **use POST for complex queries with arrays** - it's more practical than GET for such cases.
+**Yes!** The current codebase uses action-based naming (e.g., `/create`, `/update`, `/delete`) which should be modernized. Additionally, **use POST for all list/query operations** for consistency.
 
 **Current (Action-Based):**
 ```rust
 POST /post/v1/create          // Action in URL
 POST /post/v1/update/{id}     // Action in URL
+POST /post/v1/list            // List with POST (keep this!)
 ```
 
-**Better (Resource-Based):**
+**Better (Resource-Based with Pragmatic POST for Lists):**
 ```rust
-POST   /post/v1              // HTTP method = action
-GET    /post/v1/{id}         // No action word needed
+PUT    /post/v1              // Create (idempotent)
+GET    /post/v1/{id}         // Read single
+PATCH  /post/v1/{id}         // Update
+POST   /post/v1/list         // List all (consistent approach)
+POST   /post/v1/search       # Search with filters
 ```
 
-**Complex Query Approach:**
-```rust
-GET    /post/v1?status=published                           // Simple
-POST   /post/v1/search                                     // Complex with arrays
-{
-  "tags": ["rust", "web"],
-  "author_ids": [1, 2, 3],
-  "filters": {...}
-}
-```
+**Benefits:**
+- ✓ **Consistent**: POST for all list/search regardless of complexity
+- ✓ **Idempotent Create**: PUT allows safe retry of create operations
+- ✓ **Clear Updates**: PATCH for updates
+- ✓ **Practical**: JSON body for all list operations handles any complexity
 
-**See section "Additional Recommendations → 1. Adopt Resource-Based REST Routes" and "Important Nuance: GET vs POST for List/Query Operations" for complete guidance.**
+**See section "Additional Recommendations → 1. Adopt Resource-Based REST Routes" and "Chosen Approach: POST for All List/Query Operations" for complete guidance.**
