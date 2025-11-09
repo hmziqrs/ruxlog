@@ -45,6 +45,9 @@
 - analytics_v1: keep POST (complex analytics). Optional future rename: `/metrics` or `/search`.
 - category_v1, tag_v1: public list stays `GET /list`; admin search uses `POST /search`.
 
+## Controller validation
+- GET list handlers should consume `ValidatedQuery` instead of `ValidatedJson`, and their modules must import `extractors::ValidatedQuery` so Axum pulls parameters from the query string and validates them consistently.
+
 ## Minimal Shapes
 - List simple: `GET /{module}/v1?status=published&page=1`
 - Search complex: `POST /{module}/v1/search { filters... }`
