@@ -323,168 +323,18 @@ These modules already use appropriate HTTP methods for their operations:
 
 ### 9. auth_v1 Module
 All routes use POST appropriately (authentication involves state changes).
-```rust
-"/login" → post(login)
-"/logout" → post(logout)
-"/register" → post(register)
-"/refresh" → post(refresh)
-```
-
 ### 10. category_v1 Module
-Public reads are correct; admin list uses POST for complex queries.
-```rust
-"/list" → get(find_all)
-"/view/{category_id}" → get(find_by_id_or_slug)
-"/list/query" → post(find_with_query)  // rename to /search
-```
-Prefer PATCH for updates and DELETE for deletes in admin routes.
-
+Public reads are correct; admin list uses POST for complex queries (rename to /search when applied).
 ### 11. feed_v1 Module
-```rust
-"/rss" → get(rss)
-"/atom" → get(atom)
-```
-
+RSS/Atom routes use GET correctly.
 ### 12. email_verification_v1 Module
-```rust
-"/send" → post(send_verification)
-```
-
+Send route uses POST (state change).
 ### 13. forgot_password_v1 Module
-```rust
-"/send" → post(send_reset_code)
-"/reset" → post(reset_password)
-```
-
+Send/reset routes use POST (state change).
 ### 14. csrf_v1 Module
-```rust
-"/token" → post(generate_token)
-```
-
+Token route uses POST (state change).
 ### 15. seed_v1 Module
-```rust
-"/run" → post(run_seed)
-```
-
+Run route uses POST (state change).
 ### 16. super_admin_v1 Module
-Various write operations using appropriate HTTP methods.
-
----
-
-## Summary of Changes Required
-
-| Category | Count | Notes |
-|----------|-------|-------|
-| Read/list → GET | 10 | Simple views/lists currently POST (see Quick Reference) |
-| Delete → DELETE | 6 | Switch POST deletes to DELETE (phase-in) |
-| Update → PATCH | 7 | Switch POST updates to PATCH (phase-in) |
-| Complex lists renames | 7 | Normalize to `/search` (method stays POST) |
-
-Modules primarily affected: post_v1, post_comment_v1, media_v1, user_v1, tag_v1, category_v1. Analytics remains POST due to complex queries.
-
----
-
-## Implementation Steps
-
-1) Update router methods for the listed simple reads/lists to GET.
-2) Rename complex list endpoints to `/search` keeping POST.
-3) Phase-in PATCH for updates and DELETE for deletes; keep legacy POST routes during migration.
-4) Introduce `PUT /{collection}/v1` create endpoints alongside existing `/create` routes; deprecate over time.
-5) Update docs (docs/MODULES_OVERVIEW.md) and smoke tests (tests/*.sh) accordingly.
-
----
-
-## Additional Recommendations
-
-### 1. Adopt Resource-Based REST Routes (Major Refactor)
-
-**Current action-based pattern:**
-```rust
-POST /post/v1/create
-POST /post/v1/update/{id}
-POST /post/v1/delete/{id}
-```
-
-**Recommended resource-based pattern (project standard):**
-```rust
-PUT    /post/v1              // Create (idempotent)
-GET    /post/v1/{id}         // Read single
-PUT    /post/v1/{id}         // Replace full resource
-PATCH  /post/v1/{id}         // Partial update
-DELETE /post/v1/{id}         // Delete
-GET    /post/v1              // List simple
-POST   /post/v1/search       // Complex list/search
-```
-
-**Migration strategy:**
-- Keep current routes working (backward compatibility)
-- Add new resource-based routes alongside existing ones
-- Deprecation plan: Add `Deprecated` headers, document migration timeline
-- Example:
-  ```rust
-  Router::new()
-      // New resource-based routes
-      .route("/post/v1", get(list_posts).put(create_post))
-      .route("/post/v1/{id}", get(view_post).put(replace_post).patch(update_post).delete(delete_post))
-      .route("/post/v1/search", post(search_posts))
-      // Keep old routes for backward compatibility
-      .route("/post/v1/list", get(list_posts_legacy))
-  ```
-
-### 2. Response Caching
-After changing to GET, implement proper HTTP caching headers:
-```rust
-use axum::http::{header, HeaderValue};
-
-Response::builder()
-    .header(header::CACHE_CONTROL, "public, max-age=3600")
-    .header(header::VARY, "Accept-Encoding")
-    .body(Body::from(serialized))
-    .unwrap()
-```
-
-### 3. Add ETag Support
-For conditional GET requests to reduce bandwidth:
-```rust
-let etag = format!("\"{}\"", hash_of_resource);
-if let Some(if_none_match) = request.headers().get(header::IF_NONE_MATCH) {
-    if if_none_match == etag {
-        return StatusCode::NOT_MODIFIED.into_response();
-    }
-}
-```
-
-### 4. Standardize Route Names
-- `/list/query` → `/search` (POST with JSON body)
-- Simple list → `GET /{collection}` (with query params)
-- Single view → `GET /{collection}/{id}` or `/slug/{slug}`
-- Keep action paths during migration; prefer resource-based paths long-term
-
----
-
-## References
-
-- RFC 9110: HTTP Semantics
-- REST API Tutorial: HTTP Methods
-- MDN: HTTP Caching
-
----
-
-**Document Version:** 3.1
-**Last Updated:** 2025-11-09
-**Total Routes Analyzed:** 85+
-**Method Corrections:** 23 (10 GET reads, 7 PATCH updates, 6 DELETE deletes)
-**Major Refactor:** Introduce resource-based routes with PUT create; normalize `/search` for complex lists
-**Modules with Line References:** ✓ Included where applicable
-
----
-
-## Future-Proofing: Resource-Based REST Design
-
-We will modernize action-based naming (e.g., `/create`, `/update`, `/delete`) to resource-based routes while maintaining backward compatibility during a deprecation window.
-
-Key points:
-- GET for simple list/view; POST `/search` for complex lists.
-- PUT for create, PATCH for updates, DELETE for deletes.
-- Add new resource-based routes alongside legacy paths; deprecate over time.
+Various write operations use appropriate methods.
 
