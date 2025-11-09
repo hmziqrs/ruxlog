@@ -60,6 +60,7 @@ After analyzing all 16 modules in `src/modules/`, **23 routes** were identified 
 
 ### Route Naming Best Practices
 
+#### Current Pattern (Action-Based)
 ```
 GET    /{module}/v1/list                    # List multiple resources
 GET    /{module}/v1/view/{id}               # View single resource by ID
@@ -71,10 +72,30 @@ POST   /{module}/v1/delete/{id}             # Delete resource
 POST   /{module}/v1/flag/{id}               # Flag/report resource
 ```
 
+#### Recommended Pattern (Resource-Based)
+```
+GET    /{module}/v1                         # List multiple resources
+GET    /{module}/v1/{id}                    # View single resource by ID
+GET    /{module}/v1/slug/{slug}             # View single resource by slug
+POST   /{module}/v1                         # Create new resource
+PUT    /{module}/v1/{id}                    # Replace entire resource
+PATCH  /{module}/v1/{id}                    # Partial update
+DELETE /{module}/v1/{id}                    # Delete resource
+POST   /{module}/v1/{id}/flag               # Flag/report resource
+```
+
+**Benefits of Resource-Based Pattern:**
+- ✓ More RESTful - HTTP method defines the action, URL defines the resource
+- ✓ Cleaner URLs - `/posts/v1/123` instead of `/post/v1/view/123`
+- ✓ Standard - Industry best practice for REST APIs
+- ✓ Self-documenting - HTTP method clearly indicates operation type
+- ✓ Better HATEOAS compatibility - easier to build hypermedia APIs
+
 ### Avoid These Patterns
-- ❌ `/list`, `/view`, `/query` using `POST`
-- ❌ `/get` (use `/view` instead)
-- ❌ Mixed naming: `/list/query` → just `/list`
+- ❌ `/list`, `/view`, `/query` using `POST` (read operations should use GET)
+- ❌ `/get` (use `/view` or just `/{id}` instead)
+- ❌ Mixed naming: `/list/query` → just `/list` with query parameters
+- ❌ Action words in URL: `/create`, `/update`, `/delete` (use HTTP methods instead)
 
 ---
 
@@ -484,11 +505,38 @@ Various write operations using appropriate HTTP methods
 
 ## Additional Recommendations
 
-### 1. Standardize Route Names
-Consider renaming:
-- `/list/query` → `/list` (accepts query params)
-- `/view/{id}` → `/{id}` (common REST pattern)
-- `/admin/view/{id}` → `/admin/{id}` (simpler)
+### 1. Adopt Resource-Based REST Routes (Major Refactor)
+
+**Current action-based pattern:**
+```rust
+POST /post/v1/create
+POST /post/v1/update/{id}
+POST /post/v1/delete/{id}
+```
+
+**Recommended resource-based pattern:**
+```rust
+POST   /post/v1              // Create
+GET    /post/v1/{id}         // Read single
+PUT    /post/v1/{id}         // Replace full resource
+PATCH  /post/v1/{id}         // Partial update
+DELETE /post/v1/{id}         // Delete
+GET    /post/v1              // List all
+```
+
+**Migration strategy:**
+- Keep current routes working (backward compatibility)
+- Add new resource-based routes alongside existing ones
+- Deprecation plan: Add `Deprecated` headers, document migration timeline
+- Example:
+  ```rust
+  Router::new()
+      // New resource-based routes
+      .route("/posts/v1", get(list_posts).post(create_post))
+      .route("/posts/v1/{id}", get(view_post).put(replace_post).patch(update_post).delete(delete_post))
+      // Keep old routes for backward compatibility
+      .route("/post/v1/list", get(list_posts_legacy))
+  ```
 
 ### 2. Use PATCH for Partial Updates
 Current pattern uses POST for all updates. Consider:
@@ -501,8 +549,8 @@ Example:
 "/update/{id}" → post(update)
 
 // Better
-"/update/{id}" → patch(update_partial)  // Partial update
-"/replace/{id}" → put(update_full)       // Full replacement
+PATCH /post/v1/{id}  // Partial update
+PUT   /post/v1/{id}  // Full replacement
 ```
 
 ### 3. Response Caching
@@ -516,7 +564,7 @@ Response::builder()
 ```
 
 ### 4. Add ETag Support
-For conditional GET requests:
+For conditional GET requests to reduce bandwidth:
 ```rust
 let etag = format!("\"{}\"", hash_of_resource);
 if let Some(if_none_match) = request.headers().get(header::IF_NONE_MATCH) {
@@ -525,6 +573,12 @@ if let Some(if_none_match) = request.headers().get(header::IF_NONE_MATCH) {
     }
 }
 ```
+
+### 5. Standardize Route Names
+- `/list/query` → `/list` (accepts query params)
+- `/view/{id}` → `/{id}` (resource-based REST)
+- `/admin/view/{id}` → `/admin/{id}` (simpler)
+- Remove action words: avoid `/create`, `/update`, `/delete` in URLs
 
 ---
 
@@ -536,8 +590,29 @@ if let Some(if_none_match) = request.headers().get(header::IF_NONE_MATCH) {
 
 ---
 
-**Document Version:** 1.1
+**Document Version:** 2.0
 **Last Updated:** 2025-11-10
 **Total Routes Analyzed:** 85+
-**Routes Requiring Correction:** 23
+**Routes Requiring Correction:** 23 (change POST→GET for read operations)
+**Major Refactor Opportunity:** Resource-based REST routes (see section 1 in Additional Recommendations)
 **Modules with Line References:** ✓ All corrections include exact file paths and line numbers
+
+---
+
+## Future-Proofing: Resource-Based REST Design
+
+**Yes, absolutely!** The current codebase uses action-based naming (e.g., `/create`, `/update`, `/delete`) which is less RESTful than pure resource-based design.
+
+**Current (Action-Based):**
+```rust
+POST /post/v1/create          // Action in URL
+POST /post/v1/update/{id}     // Action in URL
+```
+
+**Better (Resource-Based):**
+```rust
+POST   /post/v1              // HTTP method = action
+GET    /post/v1/{id}         // No action word needed
+```
+
+**See section "Additional Recommendations → 1. Adopt Resource-Based REST Routes" for a complete migration strategy with backward compatibility.**
