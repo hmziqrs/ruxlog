@@ -1,5 +1,4 @@
-use crate::store::ListQuery;
-use crate::types::{Order, SortParam};
+use oxstore::{ListQuery, Order, SortParam};
 use dioxus::prelude::*;
 use gloo_timers::future::sleep;
 use std::time::Duration;

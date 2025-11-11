@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
+use oxstore::StateFrame;
 
-use crate::store::{AnalyticsEnvelopeResponse, RegistrationTrendPoint, StateFrame};
+use crate::store::{AnalyticsEnvelopeResponse, RegistrationTrendPoint};
 
 /// Props for `RegistrationTrendChart`.
 ///

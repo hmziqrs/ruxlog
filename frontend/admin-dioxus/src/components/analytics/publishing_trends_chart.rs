@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
+use oxstore::StateFrame;
 
 use crate::store::analytics::{AnalyticsEnvelopeResponse, PublishingTrendPoint};
-use crate::store::StateFrame;
 
 /// Props for `PublishingTrendsChart`.
 ///

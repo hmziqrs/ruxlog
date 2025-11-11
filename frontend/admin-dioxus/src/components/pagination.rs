@@ -1,4 +1,4 @@
-use crate::store::PaginatedList;
+use oxstore::PaginatedList;
 use crate::ui::shadcn::{Button, ButtonVariant};
 use dioxus::prelude::*;
 

@@ -10,9 +10,8 @@ use dioxus::prelude::*;
 use crate::components::{DataTableScreen, HeaderColumn, ListToolbarProps, PageHeaderProps};
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
 use crate::router::Route;
-use crate::store::{use_categories, use_post, use_tag, use_user};
-use crate::store::ListStore;
-use crate::types::Order;
+use crate::store::{use_categories, use_post, use_tag, use_user, Post, PostListQuery};
+use oxstore::{ListQuery, ListStore, Order};
 use crate::ui::shadcn::{Button, ButtonSize, ButtonVariant};
 
 use hmziq_dioxus_free_icons::{
@@ -28,8 +27,11 @@ pub fn PostsListScreen() -> Element {
     let tags_state = use_tag();
     let users_state = use_user();
 
-    // Initialize context
-    let ctx = PostListContext::new();
+    // Use direct filter signal instead of context-based filters
+    let filters = use_signal(|| PostListQuery::new());
+
+    // Initialize context for UI-specific state (view mode, selections)
+    let mut ctx = PostListContext::new();
     use_context_provider(|| ctx.clone());
 
     let (list_state, handlers) = use_list_screen_with_handlers(
@@ -37,7 +39,7 @@ pub fn PostsListScreen() -> Element {
             default_sort_field: "created_at".to_string(),
             default_sort_order: Order::Desc,
         }),
-        ctx.filters,
+        filters,
     );
 
     // Load filter data on mount
@@ -49,15 +51,16 @@ pub fn PostsListScreen() -> Element {
         });
     });
 
-    // Effect to load posts when filters change
+    // Effect to load posts when filters change - using the trait method
     use_effect({
         let list_state = list_state;
-        let mut ctx_clone = ctx.clone();
+        let mut selected_ids = ctx.selected_ids;
         move || {
-            let q = ctx_clone.filters.read().clone();
+            let q = filters();
             let _tick = list_state.reload_tick();
             let posts_state = posts_state;
-            ctx_clone.clear_selections();
+            // Clear any selection on query changes (page, search, filters, sorts)
+            selected_ids.set(Vec::new());
             spawn(async move {
                 posts_state.fetch_list_with_query(q).await;
             });
@@ -74,7 +77,9 @@ pub fn PostsListScreen() -> Element {
     };
 
     let has_data = !posts.is_empty();
-    let active_filter_count = ctx.active_filter_count();
+
+  // Calculate active filter count from the query filters
+    let active_filter_count = ctx.active_filter_count(&filters);
 
     // Custom view mode switcher for the header actions
     let view_mode_switcher = {
@@ -114,11 +119,11 @@ pub fn PostsListScreen() -> Element {
         div { class: "flex flex-col gap-3",
             // Filter controls row
             div { class: "flex items-center gap-2",
-                components::FilterPopover { active_filter_count }
+                components::FilterPopover { active_filter_count, filters }
             }
             // Active filter badges
             if active_filter_count > 0 {
-                components::ActiveFilters { active_filter_count }
+                components::ActiveFilters { active_filter_count, filters }
             }
         }
     };
@@ -187,7 +192,7 @@ pub fn PostsListScreen() -> Element {
     ];
 
     rsx! {
-        DataTableScreen {
+        DataTableScreen::<Post> {
             frame: (posts_state.list)(),
             headers: if *ctx.view_mode.read() == ViewMode::Table { Some(headers) } else { None },
             current_sort_field: if *ctx.view_mode.read() == ViewMode::Table { Some(list_state.sort_field()) } else { None },
@@ -215,22 +220,24 @@ pub fn PostsListScreen() -> Element {
                 search_placeholder: "Search posts by title, content, or author".to_string(),
                 disabled: list_loading,
                 on_search_input: handlers.handle_search.clone(),
-                status_selected: match ctx.filters.read().status {
+                status_selected: match filters.read().status {
                     Some(crate::store::PostStatus::Published) => "Published".to_string(),
                     Some(crate::store::PostStatus::Draft) => "Draft".to_string(),
                     Some(crate::store::PostStatus::Archived) => "Archived".to_string(),
                     None => "All Status".to_string(),
                 },
                 on_status_select: EventHandler::new({
-                    let mut ctx_clone = ctx.clone();
+                    let mut filters = filters;
                     move |value: String| {
-                        let status = match value.as_str() {
+                        let mut q = filters.peek().clone();
+                        q.set_page(1);
+                        q.status = match value.as_str() {
                             "Published" => Some(crate::store::PostStatus::Published),
                             "Draft" => Some(crate::store::PostStatus::Draft),
                             "Archived" => Some(crate::store::PostStatus::Archived),
                             _ => None,
                         };
-                        ctx_clone.set_status_filter(status);
+                        filters.set(q);
                     }
                 }),
             }),

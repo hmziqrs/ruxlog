@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
+use oxstore::{StateFrame, StateFrameStatus};
 
-use crate::store::{AnalyticsEnvelopeResponse, MediaUploadPoint, StateFrame, StateFrameStatus};
+use crate::store::{AnalyticsEnvelopeResponse, MediaUploadPoint};
 
 /// Props for `MediaUploadTrendsChart`.
 ///

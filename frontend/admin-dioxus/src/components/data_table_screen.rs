@@ -6,7 +6,7 @@ use crate::components::{
 };
 use crate::ui::shadcn::{Button, ButtonVariant};
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdArrowUpDown, Icon};
-use crate::store::{AppError, PaginatedList, StateFrame};
+use oxstore::{AppError, PaginatedList, StateFrame};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct HeaderColumn {

@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::store::{use_categories, use_tag, use_user};
+use crate::store::{use_categories, use_tag, use_user, PostListQuery};
 use crate::ui::shadcn::{
     Badge, BadgeVariant, Button, ButtonSize, ButtonVariant, Checkbox, Popover, PopoverContent,
     PopoverTrigger,
@@ -11,7 +11,7 @@ use hmziq_dioxus_free_icons::{icons::ld_icons::LdFilter, Icon};
 use super::super::context::use_post_list_context;
 
 #[component]
-pub fn FilterPopover(active_filter_count: usize) -> Element {
+pub fn FilterPopover(active_filter_count: usize, filters: Signal<PostListQuery>) -> Element {
     let ctx = use_post_list_context();
     let categories_state = use_categories();
     let tags_state = use_tag();
@@ -71,7 +71,10 @@ pub fn FilterPopover(active_filter_count: usize) -> Element {
                                         variant: ButtonVariant::Ghost,
                                         size: ButtonSize::Sm,
                                         class: "h-auto p-0 text-xs",
-                                        onclick: move |_| { ctx_clone.clear_all_filters(); },
+                                        onclick: {
+                                    let mut filters = filters;
+                                    move |_| { ctx_clone.clear_all_filters(&mut filters); }
+                                },
                                         "Clear all"
                                     }
                                 }
@@ -94,8 +97,11 @@ pub fn FilterPopover(active_filter_count: usize) -> Element {
                                                 class: "flex items-center gap-2",
                                                 Checkbox {
                                                     checked: is_selected,
-                                                    onchange: move |_| {
-                                                        ctx_clone.toggle_category(cat_id);
+                                                    onchange: {
+                                                        let mut filters = filters;
+                                                        move |_| {
+                                                            ctx_clone.toggle_category(&mut filters, cat_id);
+                                                        }
                                                     },
                                                 }
                                                 label { class: "text-sm cursor-pointer", "{cat.name}" }
@@ -123,8 +129,11 @@ pub fn FilterPopover(active_filter_count: usize) -> Element {
                                                 class: "flex items-center gap-2",
                                                 Checkbox {
                                                     checked: is_selected,
-                                                    onchange: move |_| {
-                                                        ctx_clone.toggle_tag(tag_id);
+                                                    onchange: {
+                                                        let mut filters = filters;
+                                                        move |_| {
+                                                            ctx_clone.toggle_tag(&mut filters, tag_id);
+                                                        }
                                                     },
                                                 }
                                                 label { class: "text-sm cursor-pointer", "{tag.name}" }
@@ -152,8 +161,11 @@ pub fn FilterPopover(active_filter_count: usize) -> Element {
                                                 class: "flex items-center gap-2",
                                                 Checkbox {
                                                     checked: is_selected,
-                                                    onchange: move |_| {
-                                                        ctx_clone.toggle_author(author_id);
+                                                    onchange: {
+                                                        let mut filters = filters;
+                                                        move |_| {
+                                                            ctx_clone.toggle_author(&mut filters, author_id);
+                                                        }
                                                     },
                                                 }
                                                 label { class: "text-sm cursor-pointer", "{author.name}" }

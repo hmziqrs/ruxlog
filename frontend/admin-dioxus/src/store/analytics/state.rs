@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use oxstore::StateFrame;
+use oxstore::{StateFrame, ListQuery, SortParam};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -13,6 +13,62 @@ pub enum AnalyticsInterval {
     Day,
     Week,
     Month,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AnalyticsQuery {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub date_from: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub date_to: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub interval: Option<AnalyticsInterval>,
+}
+
+impl Default for AnalyticsQuery {
+    fn default() -> Self {
+        Self {
+            date_from: None,
+            date_to: None,
+            interval: Some(AnalyticsInterval::Day),
+        }
+    }
+}
+
+impl AnalyticsQuery {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl ListQuery for AnalyticsQuery {
+    fn new() -> Self {
+        Self::new()
+    }
+
+    fn page(&self) -> u64 {
+        1 // Analytics queries don't typically use pagination
+    }
+
+    fn set_page(&mut self, _page: u64) {
+        // Analytics queries don't typically use pagination
+    }
+
+    fn search(&self) -> Option<String> {
+        None // Analytics queries don't typically use search
+    }
+
+    fn set_search(&mut self, _search: Option<String>) {
+        // Analytics queries don't typically use search
+    }
+
+    fn sorts(&self) -> Option<Vec<SortParam>> {
+        None // Analytics queries have fixed sort behavior
+    }
+
+    fn set_sorts(&mut self, _sorts: Option<Vec<SortParam>>) {
+        // Analytics queries have fixed sort behavior
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -299,4 +355,8 @@ static ANALYTICS_STATE: OnceLock<AnalyticsState> = OnceLock::new();
 
 pub fn use_analytics() -> &'static AnalyticsState {
     ANALYTICS_STATE.get_or_init(|| AnalyticsState::new())
+}
+
+pub fn use_analytics_query() -> Signal<AnalyticsQuery> {
+    use_signal(AnalyticsQuery::new)
 }

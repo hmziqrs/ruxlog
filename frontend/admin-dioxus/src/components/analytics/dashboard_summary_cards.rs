@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
+use oxstore::{StateFrame, StateFrameStatus};
 
-use crate::store::{StateFrame, StateFrameStatus};
 use crate::store::analytics::{AnalyticsEnvelopeResponse, DashboardSummaryData, DashboardSummaryRequest};
 
 /// Props:

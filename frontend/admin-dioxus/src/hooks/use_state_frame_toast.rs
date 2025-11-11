@@ -1,5 +1,5 @@
 use crate::components::sonner::{use_sonner, ToastOptions};
-use crate::store::StateFrame;
+use oxstore::StateFrame;
 use dioxus::prelude::*;
 use std::collections::HashMap;
 use std::hash::Hash;

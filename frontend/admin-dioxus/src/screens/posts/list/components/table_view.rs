@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 
 use crate::components::{ListEmptyState, SkeletonCellConfig, SkeletonTableRows, UICellType};
 use crate::router::Route;
-use crate::store::{use_post, ListStore, Post, PostStatus};
+use crate::store::{use_post, Post, PostStatus};
 use crate::ui::shadcn::{
     Avatar, AvatarFallback, AvatarImage, Badge, BadgeVariant, Button, ButtonVariant, Checkbox,
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
@@ -196,7 +196,6 @@ pub fn TableView(
                                             class: "text-red-600 dark:text-red-400",
                                             onclick: {
                                                 let posts_state = posts_state;
-                                                let filters = ctx.filters;
                                                 move |_| {
                                                     let posts_state = posts_state;
                                                     spawn(async move {
@@ -204,7 +203,7 @@ pub fn TableView(
                                                         let remove_state = posts_state.remove.read();
                                                         if let Some(state) = remove_state.get(&post_id) {
                                                             if state.is_success() {
-                                                                posts_state.fetch_list_with_query(filters()).await;
+                                                                posts_state.list().await;
                                                             }
                                                         }
                                                     });

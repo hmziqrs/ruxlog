@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::store::{use_categories, use_tag, use_user};
+use crate::store::{use_categories, use_tag, use_user, PostListQuery};
 use crate::ui::shadcn::{Badge, BadgeVariant, Button, ButtonSize, ButtonVariant};
 
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdX, Icon};
@@ -8,7 +8,7 @@ use hmziq_dioxus_free_icons::{icons::ld_icons::LdX, Icon};
 use super::super::context::use_post_list_context;
 
 #[component]
-pub fn ActiveFilters(active_filter_count: usize) -> Element {
+pub fn ActiveFilters(active_filter_count: usize, filters: Signal<PostListQuery>) -> Element {
     if active_filter_count == 0 {
         return rsx! {};
     }
@@ -46,7 +46,7 @@ pub fn ActiveFilters(active_filter_count: usize) -> Element {
     rsx! {
         div { class: "flex flex-wrap items-center gap-2",
             // Status filter badge
-            if let Some(status) = ctx.filters.read().status.as_ref() {
+            if let Some(status) = filters.read().status.as_ref() {
                 {
                     let mut ctx_clone = ctx.clone();
                     rsx! {
@@ -56,8 +56,11 @@ pub fn ActiveFilters(active_filter_count: usize) -> Element {
                             "Status: {status}"
                             button {
                                 class: "ml-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-full",
-                                onclick: move |_| {
-                                    ctx_clone.clear_status_filter();
+                                onclick: {
+                                    let mut filters = filters;
+                                    move |_| {
+                                        ctx_clone.clear_status_filter(&mut filters);
+                                    }
                                 },
                                 Icon { icon: LdX {}, class: "w-3 h-3" }
                             }
@@ -79,8 +82,11 @@ pub fn ActiveFilters(active_filter_count: usize) -> Element {
                                 "Category: {cat.name}"
                                 button {
                                     class: "ml-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-full",
-                                    onclick: move |_| {
-                                        ctx_clone.clear_category_filter();
+                                    onclick: {
+                                        let mut filters = filters;
+                                        move |_| {
+                                            ctx_clone.clear_category_filter(&mut filters);
+                                        }
                                     },
                                     Icon { icon: LdX {}, class: "w-3 h-3" }
                                 }
@@ -104,8 +110,11 @@ pub fn ActiveFilters(active_filter_count: usize) -> Element {
                                 "Tag: {tag.name}"
                                 button {
                                     class: "ml-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-full",
-                                    onclick: move |_| {
-                                        ctx_clone.clear_tag_filter(tag_id_val);
+                                    onclick: {
+                                        let mut filters = filters;
+                                        move |_| {
+                                            ctx_clone.clear_tag_filter(&mut filters, tag_id_val);
+                                        }
                                     },
                                     Icon { icon: LdX {}, class: "w-3 h-3" }
                                 }
@@ -128,8 +137,11 @@ pub fn ActiveFilters(active_filter_count: usize) -> Element {
                                 "Author: {author.name}"
                                 button {
                                     class: "ml-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-full",
-                                    onclick: move |_| {
-                                        ctx_clone.clear_author_filter();
+                                    onclick: {
+                                        let mut filters = filters;
+                                        move |_| {
+                                            ctx_clone.clear_author_filter(&mut filters);
+                                        }
                                     },
                                     Icon { icon: LdX {}, class: "w-3 h-3" }
                                 }
@@ -147,7 +159,10 @@ pub fn ActiveFilters(active_filter_count: usize) -> Element {
                         variant: ButtonVariant::Ghost,
                         size: ButtonSize::Sm,
                         class: "h-7 px-2",
-                        onclick: move |_| { ctx_clone.clear_all_filters(); },
+                        onclick: {
+                            let mut filters = filters;
+                            move |_| { ctx_clone.clear_all_filters(&mut filters); }
+                        },
                         "Clear all"
                     }
                 }

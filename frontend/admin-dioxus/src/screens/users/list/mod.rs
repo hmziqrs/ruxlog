@@ -7,15 +7,13 @@ use crate::components::{
 };
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
 use crate::router::Route;
-use oxstore::{
-    use_user, ListQuery, ListStore, User, UserRole, UsersEditPayload, UsersListQuery,
-};
-use crate::types::Order;
+use crate::store::{use_user, User, UserRole, UsersEditPayload, UsersListQuery};
 use crate::ui::shadcn::{
     Badge, BadgeVariant, Button, ButtonVariant, Checkbox, DropdownMenu, DropdownMenuContent,
     DropdownMenuItem, DropdownMenuTrigger,
 };
 use crate::utils::dates::format_short_date_dt;
+use oxstore::{ListQuery, ListStore, Order};
 
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdEllipsis, Icon};
 
@@ -362,7 +360,7 @@ pub fn UsersListScreen() -> Element {
                                                         let name = user_name.clone();
                                                         let toasts = toasts;
                                                         spawn(async move {
-                                                        let users = use_user();
+                                                        let users = users_state;
                                                         let payload = UsersEditPayload {
                                                             name: None,
                                                             email: None,

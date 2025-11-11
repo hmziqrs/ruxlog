@@ -1,5 +1,6 @@
-use crate::store::{ListQuery, PostListQuery, PostStatus};
+use crate::store::{PostListQuery, PostStatus};
 use dioxus::prelude::*;
+use oxstore::ListQuery;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum ViewMode {
@@ -9,7 +10,6 @@ pub enum ViewMode {
 
 #[derive(Clone)]
 pub struct PostListContext {
-    pub filters: Signal<PostListQuery>,
     pub selected_ids: Signal<Vec<i32>>,
     pub view_mode: Signal<ViewMode>,
     pub selected_category_ids: Signal<Vec<i32>>,
@@ -20,7 +20,6 @@ pub struct PostListContext {
 impl PostListContext {
     pub fn new() -> Self {
         Self {
-            filters: use_signal(|| PostListQuery::new()),
             selected_ids: use_signal(|| Vec::new()),
             view_mode: use_signal(|| ViewMode::Table),
             selected_category_ids: use_signal(|| Vec::new()),
@@ -29,8 +28,8 @@ impl PostListContext {
         }
     }
 
-    pub fn apply_filters(&mut self) {
-        let mut q = self.filters.peek().clone();
+    pub fn apply_filters(&mut self, filters: &mut Signal<PostListQuery>) {
+        let mut q = filters.peek().clone();
         q.set_page(1);
 
         let cat_ids = self.selected_category_ids.peek().clone();
@@ -54,55 +53,55 @@ impl PostListContext {
             None
         };
 
-        self.filters.set(q);
+        filters.set(q);
     }
 
-    pub fn clear_all_filters(&mut self) {
-        let mut q = self.filters.peek().clone();
+    pub fn clear_all_filters(&mut self, filters: &mut Signal<PostListQuery>) {
+        let mut q = filters.peek().clone();
         q.set_page(1);
         q.category_id = None;
         q.tag_ids = None;
         q.author_id = None;
         q.status = None;
         q.set_search(None);
-        self.filters.set(q);
+        filters.set(q);
         self.selected_category_ids.set(Vec::new());
         self.selected_tag_ids.set(Vec::new());
         self.selected_author_ids.set(Vec::new());
     }
 
-    pub fn clear_status_filter(&mut self) {
-        let mut q = self.filters.peek().clone();
+    pub fn clear_status_filter(&mut self, filters: &mut Signal<PostListQuery>) {
+        let mut q = filters.peek().clone();
         q.status = None;
-        self.filters.set(q);
+        filters.set(q);
     }
 
-    pub fn set_status_filter(&mut self, status: Option<PostStatus>) {
-        let mut q = self.filters.peek().clone();
+    pub fn set_status_filter(&mut self, filters: &mut Signal<PostListQuery>, status: Option<PostStatus>) {
+        let mut q = filters.peek().clone();
         q.set_page(1);
         q.status = status;
-        self.filters.set(q);
+        filters.set(q);
     }
 
-    pub fn clear_category_filter(&mut self) {
+    pub fn clear_category_filter(&mut self, filters: &mut Signal<PostListQuery>) {
         self.selected_category_ids.set(Vec::new());
-        self.apply_filters();
+        self.apply_filters(filters);
     }
 
-    pub fn clear_tag_filter(&mut self, tag_id: i32) {
+    pub fn clear_tag_filter(&mut self, filters: &mut Signal<PostListQuery>, tag_id: i32) {
         let mut ids = self.selected_tag_ids.peek().clone();
         ids.retain(|id| *id != tag_id);
         self.selected_tag_ids.set(ids);
-        self.apply_filters();
+        self.apply_filters(filters);
     }
 
-    pub fn clear_author_filter(&mut self) {
+    pub fn clear_author_filter(&mut self, filters: &mut Signal<PostListQuery>) {
         self.selected_author_ids.set(Vec::new());
-        self.apply_filters();
+        self.apply_filters(filters);
     }
 
-    pub fn active_filter_count(&self) -> usize {
-        let q = self.filters.read();
+    pub fn active_filter_count(&self, filters: &Signal<PostListQuery>) -> usize {
+        let q = filters.read();
         let mut count = 0;
         if q.category_id.is_some() {
             count += 1;
@@ -119,7 +118,7 @@ impl PostListContext {
         count
     }
 
-    pub fn toggle_category(&mut self, cat_id: i32) {
+    pub fn toggle_category(&mut self, filters: &mut Signal<PostListQuery>, cat_id: i32) {
         let mut ids = self.selected_category_ids.peek().clone();
         if ids.contains(&cat_id) {
             ids.retain(|id| *id != cat_id);
@@ -128,10 +127,10 @@ impl PostListContext {
             ids.push(cat_id);
         }
         self.selected_category_ids.set(ids);
-        self.apply_filters();
+        self.apply_filters(filters);
     }
 
-    pub fn toggle_tag(&mut self, tag_id: i32) {
+    pub fn toggle_tag(&mut self, filters: &mut Signal<PostListQuery>, tag_id: i32) {
         let mut ids = self.selected_tag_ids.peek().clone();
         if ids.contains(&tag_id) {
             ids.retain(|id| *id != tag_id);
@@ -139,10 +138,10 @@ impl PostListContext {
             ids.push(tag_id);
         }
         self.selected_tag_ids.set(ids);
-        self.apply_filters();
+        self.apply_filters(filters);
     }
 
-    pub fn toggle_author(&mut self, author_id: i32) {
+    pub fn toggle_author(&mut self, filters: &mut Signal<PostListQuery>, author_id: i32) {
         let mut ids = self.selected_author_ids.peek().clone();
         if ids.contains(&author_id) {
             ids.retain(|id| *id != author_id);
@@ -151,7 +150,7 @@ impl PostListContext {
             ids.push(author_id);
         }
         self.selected_author_ids.set(ids);
-        self.apply_filters();
+        self.apply_filters(filters);
     }
 
     pub fn toggle_post_selection(&mut self, post_id: i32) {

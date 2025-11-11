@@ -6,14 +6,14 @@ use crate::components::{
 };
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
 use crate::router::Route;
-use crate::store::{use_tag, ListQuery, ListStore, Tag, TagsListQuery};
-use crate::types::Order;
+use crate::store::{use_tag, Tag, TagsListQuery};
 use crate::ui::shadcn::{
     Badge, BadgeVariant, Button, ButtonVariant, Checkbox, DropdownMenu, DropdownMenuContent,
     DropdownMenuItem, DropdownMenuTrigger,
 };
 use crate::utils::dates::format_short_date_dt;
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdEllipsis, Icon};
+use oxstore::{ListQuery, ListStore, Order};
 
 #[component]
 pub fn TagsListScreen() -> Element {

@@ -1,4 +1,4 @@
-use crate::store::AppError;
+use oxstore::AppError;
 use crate::ui::shadcn::{Button, ButtonSize, ButtonVariant, Dialog, DialogContent, DialogTrigger};
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::{

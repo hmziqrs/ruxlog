@@ -1,5 +1,5 @@
 use super::{User, UsersAddPayload, UsersEditPayload, UsersListQuery, UsersState};
-use crate::services::http_client;
+use crate::services::http_client::{self, OxstoreResponse};
 use oxstore::{
     edit_state_abstraction, list_state_abstraction, remove_state_abstraction,
     state_request_abstraction, view_state_abstraction, PaginatedList, StateFrame,
@@ -13,7 +13,13 @@ impl UsersState {
         let created = state_request_abstraction(
             &self.add,
             Some(meta_payload),
-            request.send(),
+            async {
+                request
+                    .send()
+                    .await
+                    .map(OxstoreResponse)
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+            },
             "user",
             |_user: &User| (None, None),
         )
@@ -25,11 +31,18 @@ impl UsersState {
     }
 
     pub async fn edit(&self, id: i32, payload: UsersEditPayload) {
+        let request = http_client::post(&format!("/user/v1/admin/update/{}", id), &payload);
         let _user = edit_state_abstraction(
             &self.edit,
             id,
             payload.clone(),
-            http_client::post(&format!("/user/v1/admin/update/{}", id), &payload).send(),
+            async {
+                request
+                    .send()
+                    .await
+                    .map(OxstoreResponse)
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+            },
             "user",
             Some(&self.list),
             Some(&self.view),
@@ -40,10 +53,17 @@ impl UsersState {
     }
 
     pub async fn remove(&self, id: i32) {
+        let request = http_client::post(&format!("/user/v1/admin/delete/{}", id), &());
         let _ = remove_state_abstraction(
             &self.remove,
             id,
-            http_client::post(&format!("/user/v1/admin/delete/{}", id), &()).send(),
+            async {
+                request
+                    .send()
+                    .await
+                    .map(OxstoreResponse)
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+            },
             "user",
             Some(&self.list),
             Some(&self.view),
@@ -54,28 +74,49 @@ impl UsersState {
     }
 
     pub async fn list(&self) {
-        let _ = list_state_abstraction::<PaginatedList<User>>(
+        let request = http_client::post("/user/v1/admin/list", &serde_json::json!({}));
+        let _ = list_state_abstraction::<PaginatedList<User>, OxstoreResponse>(
             &self.list,
-            http_client::post("/user/v1/admin/list", &serde_json::json!({})),
+            async {
+                request
+                    .send()
+                    .await
+                    .map(OxstoreResponse)
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+            },
             "users",
         )
         .await;
     }
 
     pub async fn list_with_query(&self, query: UsersListQuery) {
-        let _ = list_state_abstraction::<PaginatedList<User>>(
+        let request = http_client::post("/user/v1/admin/list", &query);
+        let _ = list_state_abstraction::<PaginatedList<User>, OxstoreResponse>(
             &self.list,
-            http_client::post("/user/v1/admin/list", &query),
+            async {
+                request
+                    .send()
+                    .await
+                    .map(OxstoreResponse)
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+            },
             "users",
         )
         .await;
     }
 
     pub async fn view(&self, id: i32) {
+        let request = http_client::post(&format!("/user/v1/admin/view/{}", id), &());
         let _ = view_state_abstraction(
             &self.view,
             id,
-            http_client::post(&format!("/user/v1/admin/view/{}", id), &()).send(),
+            async {
+                request
+                    .send()
+                    .await
+                    .map(OxstoreResponse)
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+            },
             "user",
             |user: &User| user.clone(),
         )

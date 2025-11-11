@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use oxstore::ListQuery;
 
 use crate::components::analytics::{
     comment_rate_chart::CommentRateChartFromStore, dashboard_summary_cards::DashboardSummaryCards,
@@ -10,11 +11,12 @@ use crate::components::analytics::{
 };
 use crate::components::PageHeader;
 use crate::store::analytics::{
-    use_analytics, use_analytics_filters, AnalyticsInterval, CommentRateFilters,
-    CommentRateRequest, DashboardSummaryFilters, DashboardSummaryRequest, MediaUploadFilters,
-    MediaUploadRequest, NewsletterGrowthFilters, NewsletterGrowthRequest, PageViewsFilters,
-    PageViewsRequest, PublishingTrendsFilters, PublishingTrendsRequest, RegistrationTrendsFilters,
-    RegistrationTrendsRequest, VerificationRatesFilters, VerificationRatesRequest,
+    use_analytics, use_analytics_filters, use_analytics_query, AnalyticsInterval,
+    CommentRateFilters, CommentRateRequest, DashboardSummaryFilters, DashboardSummaryRequest,
+    MediaUploadFilters, MediaUploadRequest, NewsletterGrowthFilters, NewsletterGrowthRequest,
+    PageViewsFilters, PageViewsRequest, PublishingTrendsFilters, PublishingTrendsRequest,
+    RegistrationTrendsFilters, RegistrationTrendsRequest, VerificationRatesFilters,
+    VerificationRatesRequest,
 };
 
 /// Full analytics screen:
@@ -27,6 +29,7 @@ use crate::store::analytics::{
 pub fn AnalyticsScreen() -> Element {
     let analytics = use_analytics();
     let filters = use_analytics_filters();
+    let query = use_analytics_query();
 
     //
     // Local UI state for per-chart filters.
@@ -59,89 +62,97 @@ pub fn AnalyticsScreen() -> Element {
     // Media upload trends interval
     let media_interval = use_signal(|| AnalyticsInterval::Day);
 
-    //
-    // Initial fetch on mount:
-    // Fetch all analytics series so the screen loads with data.
-    //
-    use_future({
-        let analytics = analytics;
+    // Effect to load data when filters change
+    use_effect({
         let filters = filters;
-        move || async move {
+        let summary_period = summary_period;
+        let pv_interval = pv_interval;
+        let pv_post_id = pv_post_id;
+        let pv_author_id = pv_author_id;
+        let pv_only_unique = pv_only_unique;
+        let publishing_interval = publishing_interval;
+        let registration_interval = registration_interval;
+        let verification_interval = verification_interval;
+        let newsletter_interval = newsletter_interval;
+        let media_interval = media_interval;
+        move || {
             let envelope = filters.build_envelope();
+            let analytics = analytics;
+            spawn(async move {
+                // Summary
+                let summary_req = DashboardSummaryRequest {
+                    envelope: Some(envelope.clone()),
+                    filters: DashboardSummaryFilters {
+                        period: summary_period.read().clone(),
+                    },
+                };
+                analytics.fetch_dashboard_summary(summary_req).await;
 
-            // Summary
-            let summary_req = DashboardSummaryRequest {
-                envelope: Some(envelope.clone()),
-                filters: DashboardSummaryFilters {
-                    period: summary_period.read().clone(),
-                },
-            };
-            analytics.fetch_dashboard_summary(summary_req).await;
+                // Page views
+                let page_views_req = PageViewsRequest {
+                    envelope: envelope.clone(),
+                    filters: PageViewsFilters {
+                        group_by: *pv_interval.read(),
+                        post_id: *pv_post_id.read(),
+                        author_id: *pv_author_id.read(),
+                        only_unique: *pv_only_unique.read(),
+                    },
+                };
+                analytics.fetch_page_views(page_views_req).await;
 
-            // Page views
-            let page_views_req = PageViewsRequest {
-                envelope: envelope.clone(),
-                filters: PageViewsFilters {
-                    group_by: *pv_interval.read(),
-                    post_id: *pv_post_id.read(),
-                    author_id: *pv_author_id.read(),
-                    only_unique: *pv_only_unique.read(),
-                },
-            };
-            analytics.fetch_page_views(page_views_req).await;
+                // Publishing trends
+                let publishing_req = PublishingTrendsRequest {
+                    envelope: envelope.clone(),
+                    filters: PublishingTrendsFilters {
+                        group_by: *publishing_interval.read(),
+                        status: None,
+                    },
+                };
+                analytics.fetch_publishing_trends(publishing_req).await;
 
-            // Publishing trends
-            let publishing_req = PublishingTrendsRequest {
-                envelope: envelope.clone(),
-                filters: PublishingTrendsFilters {
-                    group_by: *publishing_interval.read(),
-                    status: None,
-                },
-            };
-            analytics.fetch_publishing_trends(publishing_req).await;
+                // Registration trends
+                let registration_req = RegistrationTrendsRequest {
+                    envelope: envelope.clone(),
+                    filters: RegistrationTrendsFilters {
+                        group_by: *registration_interval.read(),
+                    },
+                };
+                analytics.fetch_registration_trends(registration_req).await;
 
-            // Registration trends
-            let registration_req = RegistrationTrendsRequest {
-                envelope: envelope.clone(),
-                filters: RegistrationTrendsFilters {
-                    group_by: *registration_interval.read(),
-                },
-            };
-            analytics.fetch_registration_trends(registration_req).await;
+                // Verification rates
+                let verification_req = VerificationRatesRequest {
+                    envelope: envelope.clone(),
+                    filters: VerificationRatesFilters {
+                        group_by: *verification_interval.read(),
+                    },
+                };
+                analytics.fetch_verification_rates(verification_req).await;
 
-            // Verification rates
-            let verification_req = VerificationRatesRequest {
-                envelope: envelope.clone(),
-                filters: VerificationRatesFilters {
-                    group_by: *verification_interval.read(),
-                },
-            };
-            analytics.fetch_verification_rates(verification_req).await;
+                // Comment rate
+                let comment_req = CommentRateRequest {
+                    envelope: envelope.clone(),
+                    filters: CommentRateFilters { min_views: None },
+                };
+                analytics.fetch_comment_rate(comment_req).await;
 
-            // Comment rate
-            let comment_req = CommentRateRequest {
-                envelope: envelope.clone(),
-                filters: CommentRateFilters { min_views: None },
-            };
-            analytics.fetch_comment_rate(comment_req).await;
+                // Newsletter growth
+                let newsletter_req = NewsletterGrowthRequest {
+                    envelope: envelope.clone(),
+                    filters: NewsletterGrowthFilters {
+                        group_by: *newsletter_interval.read(),
+                    },
+                };
+                analytics.fetch_newsletter_growth(newsletter_req).await;
 
-            // Newsletter growth
-            let newsletter_req = NewsletterGrowthRequest {
-                envelope: envelope.clone(),
-                filters: NewsletterGrowthFilters {
-                    group_by: *newsletter_interval.read(),
-                },
-            };
-            analytics.fetch_newsletter_growth(newsletter_req).await;
-
-            // Media uploads
-            let media_req = MediaUploadRequest {
-                envelope,
-                filters: MediaUploadFilters {
-                    group_by: *media_interval.read(),
-                },
-            };
-            analytics.fetch_media_upload(media_req).await;
+                // Media uploads
+                let media_req = MediaUploadRequest {
+                    envelope,
+                    filters: MediaUploadFilters {
+                        group_by: *media_interval.read(),
+                    },
+                };
+                analytics.fetch_media_upload(media_req).await;
+            });
         }
     });
 

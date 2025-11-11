@@ -68,7 +68,7 @@ pub async fn state_request_abstraction<Data, Meta, Parsed, F, OnSuccess, R>(
     on_success: OnSuccess,
 ) -> Option<Parsed>
 where
-    Data: Clone + 'static,
+    Data: DeserializeOwned + Clone + 'static,
     Meta: Clone + 'static,
     Parsed: DeserializeOwned + Clone + 'static,
     F: Future<Output = Result<R, Box<dyn std::error::Error + Send + Sync>>>,

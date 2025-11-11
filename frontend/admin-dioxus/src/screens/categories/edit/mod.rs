@@ -5,7 +5,7 @@ use crate::components::{FormTwoColumnSkeleton, PageHeader};
 use crate::containers::{CategoryForm, CategoryFormContainer};
 use crate::hooks::{use_category_view, use_state_frame_map_toast, StateFrameToastConfig};
 use crate::router::Route;
-use crate::store::use_categories;
+use crate::store::{use_categories, Category, CategoriesEditPayload};
 use crate::ui::shadcn::{Button, ButtonVariant};
 
 #[component]

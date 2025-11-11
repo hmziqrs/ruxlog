@@ -2,7 +2,6 @@ use dioxus::prelude::*;
 
 use crate::router::Route;
 use crate::store::{use_post, Post, PostStatus};
-use crate::store::ListStore;
 use crate::ui::shadcn::{
     Avatar, AvatarFallback, AvatarImage, Badge, BadgeVariant, Button, ButtonVariant, Card,
     CardContent, CardFooter, CardHeader, Checkbox, DropdownMenu, DropdownMenuContent,
@@ -146,7 +145,6 @@ pub fn GridView(posts: Vec<Post>, list_loading: bool, has_data: bool) -> Element
                                                         class: "text-red-600 dark:text-red-400",
                                                         onclick: {
                                                             let posts_state = posts_state;
-                                                            let filters = ctx.filters;
                                                             move |_| {
                                                                 let posts_state = posts_state;
                                                                 spawn(async move {
@@ -154,7 +152,7 @@ pub fn GridView(posts: Vec<Post>, list_loading: bool, has_data: bool) -> Element
                                                                     let remove_state = posts_state.remove.read();
                                                                     if let Some(state) = remove_state.get(&post_id) {
                                                                         if state.is_success() {
-                                                                            posts_state.fetch_list_with_query(filters()).await;
+                                                                            posts_state.list().await;
                                                                         }
                                                                     }
                                                                 });

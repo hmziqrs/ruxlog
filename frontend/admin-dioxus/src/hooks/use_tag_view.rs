@@ -24,7 +24,6 @@ pub fn use_tag_view(id: i32) -> TagViewState {
             };
             if needs_fetch {
                 spawn(async move {
-                    let tags = use_tag();
                     tags.view(id).await;
                 });
             }
