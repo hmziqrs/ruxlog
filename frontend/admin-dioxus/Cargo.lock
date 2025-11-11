@@ -4002,6 +4002,7 @@ name = "oxcore"
 version = "0.1.0"
 dependencies = [
  "gloo-net",
+ "js-sys",
  "reqwest",
  "serde",
  "serde_json",
