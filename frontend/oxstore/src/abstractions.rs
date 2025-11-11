@@ -1,7 +1,8 @@
-use crate::http::{classify_transport_error, HttpResponse};
+use crate::error::classify_transport_error;
 use crate::pagination::PaginatedList;
 use crate::state::StateFrame;
 use dioxus::prelude::GlobalSignal;
+use oxcore::http;
 use serde::de::DeserializeOwned;
 use std::collections::HashMap;
 use std::future::Future;
@@ -9,36 +10,36 @@ use std::hash::Hash;
 
 /// Send a request, parse JSON into `T`, and update the provided `StateFrame<T>`.
 /// Returns `Some(T)` on success to allow callers to perform cache-sync logic if needed.
-pub async fn list_state_abstraction<T, R>(
+pub async fn list_state_abstraction<T, Req>(
     state: &GlobalSignal<StateFrame<T>>,
-    send_future: impl Future<Output = Result<R, Box<dyn std::error::Error + Send + Sync>>>,
+    request: Req,
     parse_label: &str,
 ) -> Option<T>
 where
     T: DeserializeOwned + Clone + 'static,
-    R: HttpResponse,
+    Req: Future<Output = Result<http::Response, http::Error>>,
 {
     state.write().set_loading();
-    match send_future.await {
+    match request.await {
         Ok(response) => {
             if (200..300).contains(&response.status()) {
+                let body_text = response.body_text();
                 match response.json::<T>().await {
                     Ok(data) => {
                         state.write().set_success(Some(data.clone()));
                         Some(data)
                     }
                     Err(e) => {
-                        let response_text = response.text().await.unwrap_or_default();
                         dioxus::logger::tracing::error!(
                             "Failed to parse {}: {:?}\nResponse: {}",
                             parse_label,
                             e,
-                            response_text
+                            body_text
                         );
                         state.write().set_decode_error(
                             parse_label,
                             format!("{}", e),
-                            Some(response_text),
+                            Some(body_text),
                         );
                         None
                     }
@@ -60,7 +61,7 @@ where
 
 /// Generic helper for request/response cycles that update a single `StateFrame`.
 /// Returns `Some(Parsed)` on success so callers can chain follow-up actions.
-pub async fn state_request_abstraction<Data, Meta, Parsed, F, OnSuccess, R>(
+pub async fn state_request_abstraction<Data, Meta, Parsed, F, OnSuccess>(
     state: &GlobalSignal<StateFrame<Data, Meta>>,
     meta: Option<Meta>,
     send_future: F,
@@ -71,9 +72,8 @@ where
     Data: DeserializeOwned + Clone + 'static,
     Meta: Clone + 'static,
     Parsed: DeserializeOwned + Clone + 'static,
-    F: Future<Output = Result<R, Box<dyn std::error::Error + Send + Sync>>>,
+    F: Future<Output = Result<http::Response, http::Error>>,
     OnSuccess: Fn(&Parsed) -> (Option<Data>, Option<String>),
-    R: HttpResponse,
 {
     {
         let mut frame = state.write();
@@ -83,6 +83,7 @@ where
     match send_future.await {
         Ok(response) => {
             if (200..300).contains(&response.status()) {
+                let body_text = response.body_text();
                 match response.json::<Parsed>().await {
                     Ok(parsed) => {
                         let (data, _message) = on_success(&parsed);
@@ -90,11 +91,10 @@ where
                         Some(parsed)
                     }
                     Err(e) => {
-                        let response_text = response.text().await.unwrap_or_default();
                         state.write().set_decode_error(
                             parse_label,
                             format!("{}", e),
-                            Some(response_text),
+                            Some(body_text),
                         );
                         None
                     }
@@ -116,7 +116,7 @@ where
 
 /// Shared helper to fetch a single record and hydrate a keyed `StateFrame` map.
 /// Returns `Some(Parsed)` on success so callers can optionally sync additional caches.
-pub async fn view_state_abstraction<K, StoreData, Parsed, F, MapFn, R>(
+pub async fn view_state_abstraction<K, StoreData, Parsed, F, MapFn>(
     state: &GlobalSignal<HashMap<K, StateFrame<StoreData>>>,
     id: K,
     send_future: F,
@@ -127,9 +127,8 @@ where
     K: Eq + Hash + Copy + 'static,
     StoreData: Clone + 'static,
     Parsed: DeserializeOwned + Clone + 'static,
-    F: Future<Output = Result<R, Box<dyn std::error::Error + Send + Sync>>>,
+    F: Future<Output = Result<http::Response, http::Error>>,
     MapFn: Fn(&Parsed) -> StoreData,
-    R: HttpResponse,
 {
     {
         let mut map = state.write();
@@ -139,6 +138,7 @@ where
     match send_future.await {
         Ok(response) => {
             if (200..300).contains(&response.status()) {
+                let body_text = response.body_text();
                 match response.json::<Parsed>().await {
                     Ok(parsed) => {
                         let store_value = map_to_store(&parsed);
@@ -149,17 +149,16 @@ where
                         Some(parsed)
                     }
                     Err(e) => {
-                        let response_text = response.text().await.unwrap_or_default();
                         dioxus::logger::tracing::error!(
                             "Failed to parse {}: {}\nResponse: {}",
                             parse_label,
                             e,
-                            response_text
+                            body_text
                         );
                         let mut map = state.write();
                         map.entry(id)
                             .or_insert_with(StateFrame::new)
-                            .set_decode_error(parse_label, format!("{}", e), Some(response_text));
+                            .set_decode_error(parse_label, format!("{}", e), Some(body_text));
                         None
                     }
                 }
@@ -185,7 +184,7 @@ where
 }
 
 /// Specialized version for updating items in a PaginatedList cache
-pub async fn edit_state_abstraction<K, T, Payload, F, GetId, OnSuccess, R>(
+pub async fn edit_state_abstraction<K, T, Payload, F, GetId, OnSuccess>(
     state: &GlobalSignal<HashMap<K, StateFrame<(), Payload>>>,
     id: K,
     payload: Payload,
@@ -200,10 +199,9 @@ where
     K: Eq + Hash + Copy + 'static,
     T: DeserializeOwned + Clone + PartialEq + 'static,
     Payload: Clone + 'static,
-    F: Future<Output = Result<R, Box<dyn std::error::Error + Send + Sync>>>,
+    F: Future<Output = Result<http::Response, http::Error>>,
     GetId: Fn(&T) -> K,
     OnSuccess: FnOnce(&T),
-    R: HttpResponse,
 {
     {
         let mut map = state.write();
@@ -215,6 +213,7 @@ where
     match send_future.await {
         Ok(response) => {
             if (200..300).contains(&response.status()) {
+                let body_text = response.body_text();
                 match response.json::<T>().await {
                     Ok(parsed) => {
                         {
@@ -248,11 +247,10 @@ where
                         Some(parsed)
                     }
                     Err(e) => {
-                        let response_text = response.text().await.unwrap_or_default();
                         let mut map = state.write();
                         map.entry(id)
                             .or_insert_with(StateFrame::new)
-                            .set_decode_error(parse_label, format!("{}", e), Some(response_text));
+                            .set_decode_error(parse_label, format!("{}", e), Some(body_text));
                         None
                     }
                 }
@@ -277,7 +275,7 @@ where
     }
 }
 
-pub async fn remove_state_abstraction<K, T, F, GetId, OnSuccess, R>(
+pub async fn remove_state_abstraction<K, T, F, GetId, OnSuccess>(
     state: &GlobalSignal<HashMap<K, StateFrame>>,
     id: K,
     send_future: F,
@@ -290,10 +288,9 @@ pub async fn remove_state_abstraction<K, T, F, GetId, OnSuccess, R>(
 where
     K: Eq + Hash + Copy + 'static,
     T: Clone + PartialEq + 'static,
-    F: Future<Output = Result<R, Box<dyn std::error::Error + Send + Sync>>>,
+    F: Future<Output = Result<http::Response, http::Error>>,
     GetId: Fn(&T) -> K,
     OnSuccess: FnOnce(),
-    R: HttpResponse,
 {
     {
         let mut map = state.write();
@@ -351,7 +348,7 @@ where
     }
 }
 
-pub async fn remove_state_abstraction_vec<K, T, F, GetId, OnSuccess, R>(
+pub async fn remove_state_abstraction_vec<K, T, F, GetId, OnSuccess>(
     state: &GlobalSignal<HashMap<K, StateFrame>>,
     id: K,
     send_future: F,
@@ -364,10 +361,9 @@ pub async fn remove_state_abstraction_vec<K, T, F, GetId, OnSuccess, R>(
 where
     K: Eq + Hash + Copy + 'static,
     T: Clone + PartialEq + 'static,
-    F: Future<Output = Result<R, Box<dyn std::error::Error + Send + Sync>>>,
+    F: Future<Output = Result<http::Response, http::Error>>,
     GetId: Fn(&T) -> K,
     OnSuccess: FnOnce(),
-    R: HttpResponse,
 {
     {
         let mut map = state.write();
