@@ -23,14 +23,15 @@ mod m20250813_000017_create_comment_flags_table;
 mod m20250814_000018_create_media_table;
 mod m20251029_000019_drop_asset_table;
 mod m20251030_000021_alter_category_change_media_fields;
+mod m20251104_000025_create_route_status_table;
+mod m20251106_000026_alter_posts_content_to_jsonb;
+mod m20251106_000027_fill_posts_content_from_string;
 mod m20251116_000020_create_media_variant_table;
 mod m20251116_000022_alter_media_add_hash;
 mod m20251117_000023_create_media_usages_table;
 mod m20251118_000024_alter_user_add_avatar_id;
-mod m20251104_000025_create_route_status_table;
-mod m20251106_000026_alter_posts_content_to_jsonb;
-mod m20251106_000027_fill_posts_content_from_string;
 mod m20251119_000028_alter_posts_featured_image;
+mod m20251201_000029_alter_user_add_oauth_fields;
 
 pub struct Migrator;
 
@@ -69,6 +70,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20251106_000026_alter_posts_content_to_jsonb::Migration),
             Box::new(m20251106_000027_fill_posts_content_from_string::Migration),
             Box::new(m20251119_000028_alter_posts_featured_image::Migration),
+            Box::new(m20251201_000029_alter_user_add_oauth_fields::Migration),
         ]
     }
 }

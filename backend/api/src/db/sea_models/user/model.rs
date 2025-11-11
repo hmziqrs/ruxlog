@@ -78,13 +78,15 @@ pub struct Model {
     pub name: String,
     pub email: String,
     #[serde(skip_serializing)]
-    pub password: String,
+    pub password: Option<String>,
     pub avatar_id: Option<i32>,
     pub is_verified: bool,
     pub role: UserRole,
     pub two_fa_enabled: bool,
     pub two_fa_secret: Option<String>,
     pub two_fa_backup_codes: Option<Json>,
+    pub google_id: Option<String>,
+    pub oauth_provider: Option<String>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }

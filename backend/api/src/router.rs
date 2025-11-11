@@ -16,7 +16,7 @@ use crate::{
 };
 
 use super::{
-    modules::{auth_v1, email_verification_v1, forgot_password_v1, user_v1},
+    modules::{auth_v1, email_verification_v1, forgot_password_v1, google_auth_v1, user_v1},
     AppState,
 };
 
@@ -25,6 +25,7 @@ pub fn router() -> Router<AppState> {
         .route("/healthz", get(health_check))
         .layer(middleware::from_fn(block_routes))
         .nest("/auth/v1", auth_v1::routes())
+        .nest("/auth/google/v1", google_auth_v1::routes())
         .nest("/user/v1", user_v1::routes())
         .nest("/email_verification/v1", email_verification_v1::routes())
         .nest("/forgot_password/v1", forgot_password_v1::routes())

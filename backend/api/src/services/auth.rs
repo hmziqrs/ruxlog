@@ -55,7 +55,11 @@ impl AuthUser for user::Model {
     }
 
     fn session_auth_hash(&self) -> &[u8] {
-        self.password.as_bytes()
+        // For OAuth users without passwords, use email as session hash
+        match &self.password {
+            Some(password) => password.as_bytes(),
+            None => self.email.as_bytes(),
+        }
     }
 }
 
@@ -90,6 +94,12 @@ unsafe impl Send for AuthError {}
 #[derive(Debug, Clone, Deserialize)]
 pub enum Credentials {
     Password(V1LoginPayload),
+    OAuth(OAuthCredentials),
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct OAuthCredentials {
+    pub google_id: String,
 }
 
 #[async_trait]
@@ -136,8 +146,20 @@ impl AuthnBackend for AuthBackend {
                     }
                 };
 
+                // Check if user has a password (not OAuth user)
+                let password = match &user.password {
+                    Some(pwd) => pwd.clone(),
+                    None => {
+                        warn!("User has no password (OAuth user attempting password login)");
+                        tracing::Span::current().record("result", "no_password");
+                        metrics
+                            .login_failure
+                            .add(1, &[opentelemetry::KeyValue::new("reason", "oauth_user")]);
+                        return Ok(None);
+                    }
+                };
+
                 // Verify password
-                let password = user.password.clone();
                 let verify_start = Instant::now();
                 let password_valid = match task::spawn_blocking(move || {
                     Self::check_password(password_creds.password, &password)
@@ -177,7 +199,38 @@ impl AuthnBackend for AuthBackend {
                     );
                     Ok(None)
                 }
-            } // Add other credential types here if needed
+            }
+            Credentials::OAuth(oauth_creds) => {
+                // OAuth authentication - find user by Google ID
+                info!("OAuth authentication attempt");
+
+                let user = user::Entity::find_by_google_id(&self.pool, oauth_creds.google_id)
+                    .await
+                    .map_err(|err| {
+                        error!(error = ?err, "Database error during OAuth user lookup");
+                        AuthError::DatabaseError(err)
+                    })?;
+
+                match user {
+                    Some(user) => {
+                        info!(user_id = user.id, "OAuth authentication successful");
+                        metrics.login_success.add(1, &[]);
+                        metrics.session_created.add(1, &[]);
+                        Ok(Some(user))
+                    }
+                    None => {
+                        warn!("OAuth user not found");
+                        metrics.login_failure.add(
+                            1,
+                            &[opentelemetry::KeyValue::new(
+                                "reason",
+                                "oauth_user_not_found",
+                            )],
+                        );
+                        Ok(None)
+                    }
+                }
+            }
         }
     }
 

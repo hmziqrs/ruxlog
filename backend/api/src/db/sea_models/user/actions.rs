@@ -79,7 +79,7 @@ impl Entity {
         let user = ActiveModel {
             name: Set(new_user.name),
             email: Set(new_user.email),
-            password: Set(hash),
+            password: Set(Some(hash)),
             role: Set(new_user.role),
             is_verified: Set(false),
             created_at: Set(now),
@@ -188,7 +188,7 @@ impl Entity {
                     .with_message("Failed to generate password hash")
             })?;
 
-        user_active.password = Set(hash);
+        user_active.password = Set(Some(hash));
         user_active.updated_at = Set(chrono::Utc::now().fixed_offset());
 
         match user_active.update(conn).await {
@@ -233,6 +233,52 @@ impl Entity {
         {
             Ok(model) => Ok(model),
             Err(err) => Err(err.into()),
+        }
+    }
+
+    pub async fn find_by_google_id(conn: &DbConn, google_id: String) -> DbResult<Option<Model>> {
+        match Self::find()
+            .filter(Column::GoogleId.eq(google_id))
+            .one(conn)
+            .await
+        {
+            Ok(model) => Ok(model),
+            Err(err) => Err(err.into()),
+        }
+    }
+
+    #[instrument(skip(conn), fields(user_id, email = %google_email))]
+    pub async fn create_from_google(
+        conn: &DbConn,
+        google_id: String,
+        google_email: String,
+        google_name: String,
+    ) -> DbResult<Model> {
+        let now = chrono::Utc::now().fixed_offset();
+
+        let user = ActiveModel {
+            name: Set(google_name),
+            email: Set(google_email),
+            password: Set(None),
+            google_id: Set(Some(google_id)),
+            oauth_provider: Set(Some("google".to_string())),
+            role: Set(UserRole::User),
+            is_verified: Set(true), // Google accounts are pre-verified
+            created_at: Set(now),
+            updated_at: Set(now),
+            ..Default::default()
+        };
+
+        match user.insert(conn).await {
+            Ok(model) => {
+                tracing::Span::current().record("user_id", model.id);
+                info!(user_id = model.id, email = %model.email, "User created from Google");
+                Ok(model)
+            }
+            Err(err) => {
+                error!("Failed to create user from Google: {}", err);
+                Err(err.into())
+            }
         }
     }
 
@@ -290,7 +336,7 @@ impl Entity {
         let user = ActiveModel {
             name: Set(new_user.name),
             email: Set(new_user.email),
-            password: Set(hash),
+            password: Set(Some(hash)),
             role: Set(new_user.role),
             avatar_id: Set(avatar_id),
             is_verified: Set(new_user.is_verified.unwrap_or(false)),
@@ -345,7 +391,7 @@ impl Entity {
                         ErrorResponse::new(ErrorCode::InternalServerError)
                             .with_message("Failed to generate password hash")
                     })?;
-                user_active.password = Set(hash);
+                user_active.password = Set(Some(hash));
             }
 
             if let Some(role) = update_user.role {
