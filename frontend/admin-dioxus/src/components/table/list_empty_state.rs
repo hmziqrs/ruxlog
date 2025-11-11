@@ -1,4 +1,4 @@
-use crate::ui::shadcn::button::Button;
+use crate::ui::shadcn::button::{Button, ButtonVariant};
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdTag, Icon};
 
@@ -25,7 +25,7 @@ pub fn ListEmptyState(props: ListEmptyStateProps) -> Element {
                 p { class: "text-sm text-muted-foreground", "{props.description}" }
             }
             div { class: "flex flex-col items-center gap-2 sm:flex-row",
-                Button { variant: crate::ui::shadcn::ButtonVariant::Outline, onclick: move |_| { props.on_clear.call(()); }, "{props.clear_label}" }
+                Button { variant: ButtonVariant::Outline, onclick: move |_| { props.on_clear.call(()); }, "{props.clear_label}" }
                 Button { onclick: move |_| { props.on_create.call(()); }, "{props.create_label}" }
             }
         }
