@@ -2,10 +2,13 @@ use dioxus::prelude::*;
 
 use crate::router::Route;
 use crate::store::{use_post, Post, PostStatus};
-use crate::ui::shadcn::{
-    Avatar, AvatarFallback, AvatarImage, Badge, BadgeVariant, Button, ButtonVariant, Card,
-    CardContent, CardFooter, CardHeader, Checkbox, DropdownMenu, DropdownMenuContent,
-    DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+use crate::ui::shadcn::avatar::{Avatar, AvatarFallback, AvatarImage};
+use crate::ui::shadcn::badge::{Badge, BadgeVariant};
+use crate::ui::shadcn::button::{Button, ButtonVariant};
+use crate::ui::shadcn::card::{Card, CardContent, CardFooter, CardHeader};
+use crate::ui::shadcn::checkbox::Checkbox;
+use crate::ui::shadcn::dropdown_menu::{
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 };
 use crate::utils::dates::format_short_date_dt;
 

@@ -8,7 +8,7 @@ mod user_form;
 pub mod analytics;
 
 // State-consuming components from src/components/
-mod page_header;
+pub mod page_header;
 
 // Media-related components
 

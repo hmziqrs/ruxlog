@@ -5,14 +5,13 @@ use dioxus::prelude::*;
 
 use crate::screens::login::form::{use_login_form, LoginForm};
 use crate::screens::login::mouse_tracking_card::MouseTrackingCard;
-use crate::ui::shadcn::button::Button;
-use crate::{
-    components::{
-        AnimatedGridBackground, AnimatedGridCircles, AppInput, ErrorDetails, ErrorDetailsVariant,
-        GridContext,
-    },
-    store::use_auth,
+use crate::store::use_auth;
+use crate::ui::components::animated_grid::{
+    AnimatedGridBackground, AnimatedGridCircles, GridContext,
 };
+use crate::ui::components::error::{ErrorDetails, ErrorDetailsVariant};
+use crate::ui::components::form::input::AppInput;
+use crate::ui::shadcn::button::Button;
 
 #[component]
 pub fn LoginScreen() -> Element {

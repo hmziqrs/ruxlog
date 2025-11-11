@@ -1,10 +1,10 @@
 use dioxus::prelude::*;
 
 use crate::store::{use_categories, use_tag, use_user, PostListQuery};
-use crate::ui::shadcn::{
-    Badge, BadgeVariant, Button, ButtonSize, ButtonVariant, Checkbox, Popover, PopoverContent,
-    PopoverTrigger,
-};
+use crate::ui::shadcn::badge::{Badge, BadgeVariant};
+use crate::ui::shadcn::button::{Button, ButtonSize, ButtonVariant};
+use crate::ui::shadcn::checkbox::Checkbox;
+use crate::ui::shadcn::popover::{Popover, PopoverContent, PopoverTrigger};
 
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdFilter, Icon};
 
