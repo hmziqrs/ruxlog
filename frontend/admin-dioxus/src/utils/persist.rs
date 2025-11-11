@@ -1,6 +1,4 @@
 use bevy_pkv::PkvStore;
-#[cfg(target_arch = "wasm32")]
-use gloo_storage::{LocalStorage, Storage};
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 
