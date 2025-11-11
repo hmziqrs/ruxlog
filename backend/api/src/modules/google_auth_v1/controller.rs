@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Query, State},
+    extract::State,
     http::StatusCode,
     response::{IntoResponse, Redirect},
     Json,
@@ -13,6 +13,7 @@ use tracing::{error, info, instrument, warn};
 use crate::{
     db::sea_models::{user, user_session},
     error::{ErrorCode, ErrorResponse},
+    extractors::ValidatedQuery,
     services::auth::AuthSession,
     AppState,
 };
@@ -66,7 +67,7 @@ pub async fn google_login(
 pub async fn google_callback(
     State(state): State<AppState>,
     mut auth: AuthSession,
-    Query(query): Query<GoogleCallbackQuery>,
+    ValidatedQuery(query): ValidatedQuery<GoogleCallbackQuery>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     info!("Processing Google OAuth callback");
 
@@ -92,13 +93,10 @@ pub async fn google_callback(
 
     info!(google_id = %user_info.id, email = %user_info.email, "Retrieved user info from Google");
 
-    let user = find_or_create_user(&state, user_info.clone()).await?;
+    let user = find_or_create_user(&state, user_info).await?;
 
     tracing::Span::current().record("user_id", user.id);
 
-    // OAuth login: We already verified the user with Google, so we directly login
-    // Alternative approach: auth.authenticate(Credentials::OAuth(OAuthCredentials { google_id: user_info.id }))
-    // Current approach is standard for OAuth - we handle external auth, then create session
     auth.login(&user).await.map_err(|e| {
         error!(error = %e, user_id = user.id, "Failed to create session");
         tracing::Span::current().record("result", "session_creation_failed");
