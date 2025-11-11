@@ -1,17 +1,21 @@
 use dioxus::prelude::*;
 
 use super::form::{use_categories_form, CategoryForm};
-use crate::components::{ColorPicker, ConfirmDialog};
-use crate::containers::{AppInput, ImageEditorModal, MediaUploadItem, MediaUploadZone};
+use crate::components::color_picker::ColorPicker;
+use crate::components::media::{upload_item::MediaUploadItem, upload_zone::MediaUploadZone};
+use crate::containers::image_editor::ImageEditorModal;
 use crate::hooks::OxForm;
 use crate::router::Route;
 use crate::store::{
     media::MediaReference, media::MediaUploadPayload, use_categories, use_image_editor, use_media,
 };
+use crate::ui::components::confirm_dialog::ConfirmDialog;
+use crate::ui::components::form::input::AppInput;
 use crate::ui::custom::portal::AppPortal;
-use crate::ui::shadcn::{
-    Button, ButtonSize, ButtonVariant, Checkbox, Combobox, ComboboxItem, Skeleton,
-};
+use crate::ui::shadcn::button::{Button, ButtonSize, ButtonVariant};
+use crate::ui::shadcn::checkbox::Checkbox;
+use crate::ui::shadcn::combobox::{Combobox, ComboboxItem};
+use crate::ui::shadcn::skeleton::Skeleton;
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdLoader, Icon};
 use web_sys::{Blob, Url};
 

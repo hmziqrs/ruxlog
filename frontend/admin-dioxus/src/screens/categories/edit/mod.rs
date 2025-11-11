@@ -1,9 +1,9 @@
 use dioxus::prelude::*;
 
+use crate::components::form_skeleton::FormTwoColumnSkeleton;
 use crate::components::sonner::{Action, ToastOptions};
-use crate::components::FormTwoColumnSkeleton;
-use crate::containers::PageHeader;
-use crate::containers::{CategoryForm, CategoryFormContainer};
+use crate::containers::category_form::{CategoryForm, CategoryFormContainer};
+use crate::containers::page_header::PageHeader;
 use crate::hooks::{use_category_view, use_state_frame_map_toast, StateFrameToastConfig};
 use crate::router::Route;
 use crate::store::{use_categories, CategoriesEditPayload, Category};

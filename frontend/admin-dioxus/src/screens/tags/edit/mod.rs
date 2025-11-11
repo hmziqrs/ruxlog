@@ -1,9 +1,9 @@
 use dioxus::prelude::*;
 
+use crate::components::form_skeleton::FormTwoColumnSkeleton;
 use crate::components::sonner::{Action, ToastOptions};
-use crate::components::FormTwoColumnSkeleton;
-use crate::containers::PageHeader;
-use crate::containers::{TagForm, TagFormContainer};
+use crate::containers::page_header::PageHeader;
+use crate::containers::tag_form::{TagForm, TagFormContainer};
 use crate::hooks::{use_state_frame_map_toast, use_tag_view, StateFrameToastConfig};
 use crate::router::Route;
 use crate::store::use_tag;

@@ -1,11 +1,11 @@
 use dioxus::prelude::*;
 
 use crate::components::sonner::{Action, ToastOptions};
-use crate::containers::PageHeader;
-use crate::containers::{CategoryForm, CategoryFormContainer};
+use crate::containers::category_form::{CategoryForm, CategoryFormContainer};
+use crate::containers::page_header::PageHeader;
 use crate::hooks::{use_state_frame_toast, StateFrameToastConfig};
 use crate::router::Route;
-use crate::store::{use_categories, CategoriesAddPayload, Category};
+use crate::store::use_categories;
 use crate::ui::shadcn::button::{Button, ButtonVariant};
 
 #[component]
