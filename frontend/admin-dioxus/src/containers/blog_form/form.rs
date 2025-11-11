@@ -13,6 +13,7 @@ pub struct BlogForm {
     pub content: String,
 
     #[validate(length(min = 1, message = "Slug is required"))]
+    #[validate(custom(function = "validate_slug"))]
     pub slug: String,
 
     pub excerpt: String,
@@ -26,6 +27,16 @@ pub struct BlogForm {
     pub category_id: Option<i32>,
 
     pub tag_ids: Vec<i32>,
+}
+
+fn validate_slug(slug: &str) -> Result<(), ValidationError> {
+    let regex = regex::Regex::new(r"^[a-z0-9-_]+$").unwrap();
+    if !regex.is_match(slug) {
+        return Err(ValidationError::new(
+            "Slug can only contain lowercase letters, numbers, hyphens and underscores",
+        ));
+    }
+    Ok(())
 }
 
 impl BlogForm {
