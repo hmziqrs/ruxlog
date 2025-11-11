@@ -1,5 +1,5 @@
 use crate::store::use_image_editor;
-use crate::ui::shadcn::{Button, ButtonSize, ButtonVariant};
+use crate::ui::shadcn::button::{Button, ButtonSize, ButtonVariant};
 use dioxus::prelude::*;
 
 /// Format bytes to human readable format

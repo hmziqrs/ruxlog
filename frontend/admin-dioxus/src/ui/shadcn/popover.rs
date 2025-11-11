@@ -86,8 +86,7 @@ pub fn PopoverContent(props: PopoverProps) -> Element {
                 open.set(PopoverContext(false));
             },
             class: format!("{}", if is_open { "block" } else { "hidden" }).to_string(),
-        }
-        div {
+            div {
             onclick: move |e| {
                 e.stop_propagation();
             },
@@ -105,6 +104,7 @@ pub fn PopoverContent(props: PopoverProps) -> Element {
                 }
                 span { class: "sr-only", "Close" }
             }
+        }
         }
     }
 }
