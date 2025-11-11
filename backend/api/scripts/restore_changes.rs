@@ -42,10 +42,7 @@ fn validate_zip_file(zip_path: &Path) -> Result<PathBuf, Box<dyn std::error::Err
 }
 
 fn list_zip_contents(zip_path: &Path) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    let output = Command::new("unzip")
-        .arg("-l")
-        .arg(zip_path)
-        .output()?;
+    let output = Command::new("unzip").arg("-l").arg(zip_path).output()?;
 
     if !output.status.success() {
         return Err("Failed to list zip contents".into());
@@ -64,7 +61,9 @@ fn list_zip_contents(zip_path: &Path) -> Result<Vec<String>, Box<dyn std::error:
             continue;
         }
 
-        if line.trim().matches(|c: char| c.is_ascii_digit()).count() > 0 && line.trim().contains("files") {
+        if line.trim().matches(|c: char| c.is_ascii_digit()).count() > 0
+            && line.trim().contains("files")
+        {
             break;
         }
 
@@ -95,7 +94,11 @@ fn check_conflicts(files: &[String], target_dir: &Path) -> Vec<String> {
     conflicts
 }
 
-fn extract_zip(zip_path: &Path, target_dir: &Path, force: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn extract_zip(
+    zip_path: &Path,
+    target_dir: &Path,
+    force: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     let output = Command::new("unzip")
         .arg(if force { "-o" } else { "-n" })
         .arg("-q")
@@ -131,10 +134,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("📦 Restore Archived Files\n");
 
     let zip_path = validate_zip_file(&args.zip_file)?;
-    let root_dir = env::current_exe()?.parent().unwrap().parent().unwrap().to_path_buf();
+    let root_dir = env::current_exe()?
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_path_buf();
     let target_dir = args.target_dir.unwrap_or(root_dir);
 
-    println!("📂 Archive: {}", zip_path.file_name().unwrap().to_string_lossy());
+    println!(
+        "📂 Archive: {}",
+        zip_path.file_name().unwrap().to_string_lossy()
+    );
     println!("📁 Target directory: {}\n", target_dir.display());
 
     println!("📋 Archive contents:\n");
@@ -154,7 +165,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if !conflicts.is_empty() {
         println!("\n⚠️  {} file(s) would be overwritten:\n", conflicts.len());
-        conflicts.iter().take(10).for_each(|file| println!("   {}", file));
+        conflicts
+            .iter()
+            .take(10)
+            .for_each(|file| println!("   {}", file));
         if conflicts.len() > 10 {
             println!("   ... and {} more", conflicts.len() - 10);
         }
@@ -188,7 +202,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n📦 Extracting files...\n");
     extract_zip(&zip_path, &target_dir, args.force)?;
 
-    println!("\n✨ Done! {} file(s) restored to {}\n", files.len(), target_dir.display());
+    println!(
+        "\n✨ Done! {} file(s) restored to {}\n",
+        files.len(),
+        target_dir.display()
+    );
 
     if !args.force && !conflicts.is_empty() {
         println!("💡 Note: {} existing file(s) were skipped", conflicts.len());

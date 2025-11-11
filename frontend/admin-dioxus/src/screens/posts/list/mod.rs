@@ -9,7 +9,7 @@ use dioxus::prelude::*;
 
 use crate::components::table::data_table_screen::{DataTableScreen, HeaderColumn};
 use crate::components::table::list_toolbar::ListToolbarProps;
-use crate::containers::PageHeaderProps;
+use crate::containers::page_header::PageHeaderProps;
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
 use crate::router::Route;
 use crate::store::{use_categories, use_post, use_tag, use_user, Post, PostListQuery};

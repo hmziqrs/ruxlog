@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use validator::Validate;
 
 use crate::hooks::{OxForm, OxFormModel};
-use crate::store::media::Media;
 use crate::store::auth::UserRole;
+use crate::store::media::Media;
 use crate::store::users::{UsersAddPayload, UsersEditPayload};
 
 #[derive(Debug, Validate, Clone, PartialEq)]
@@ -19,7 +19,6 @@ pub struct UserForm {
 
     pub is_verified: bool,
 
-    #[validate(length(min = 8, message = "Password must be at least 8 characters"))]
     pub password: Option<String>,
 
     pub confirm_password: Option<String>,

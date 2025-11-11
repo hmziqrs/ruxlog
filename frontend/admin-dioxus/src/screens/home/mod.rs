@@ -6,7 +6,7 @@ use crate::containers::analytics::{
     registration_trend_chart::RegistrationTrendChart,
     verification_rates_chart::VerificationRatesChart,
 };
-use crate::containers::PageHeader;
+use crate::containers::page_header::PageHeader;
 use crate::store::analytics::{
     use_analytics, use_analytics_filters, AnalyticsInterval, DashboardSummaryFilters,
     DashboardSummaryRequest, PageViewsFilters, PageViewsRequest, PublishingTrendsFilters,

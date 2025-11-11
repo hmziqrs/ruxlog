@@ -4,17 +4,18 @@ use gloo_console;
 use web_sys::{Blob, Url};
 
 use super::form::{use_user_form, UserForm};
+use crate::components::image_editor::ImageEditorModal;
 use crate::components::media::{
     preview_item::MediaPreviewItem, upload_item::MediaUploadItem, upload_zone::MediaUploadZone,
 };
-use crate::containers::image_editor::ImageEditorModal;
 use crate::hooks::OxForm;
 use crate::router::Route;
 use crate::store::{media::MediaReference, media::MediaUploadPayload, use_image_editor, use_media};
 use crate::ui::components::confirm_dialog::ConfirmDialog;
 use crate::ui::components::form::{input::AppInput, password_input::PasswordInput};
 use crate::ui::custom::portal::AppPortal;
-use crate::ui::shadcn::button::{Button, ButtonVariant, Checkbox};
+use crate::ui::shadcn::button::{Button, ButtonVariant};
+use crate::ui::shadcn::checkbox::Checkbox;
 
 #[derive(Props, PartialEq, Clone)]
 pub struct UserFormContainerProps {

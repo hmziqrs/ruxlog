@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 
 use crate::components::table::list_toolbar::{ListToolbar, ListToolbarProps};
 use crate::components::table::pagination::Pagination;
-use crate::containers::{PageHeader, PageHeaderProps};
+use crate::containers::page_header::{PageHeader, PageHeaderProps};
 use crate::ui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use crate::ui::components::loading_overlay::LoadingOverlay;
 use crate::ui::shadcn::button::{Button, ButtonVariant};

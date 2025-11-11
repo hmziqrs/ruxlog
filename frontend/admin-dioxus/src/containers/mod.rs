@@ -1,9 +1,9 @@
-mod auth_guard;
-mod blog_form;
-mod category_form;
-mod nav_bar;
-mod tag_form;
-mod user_form;
+pub mod auth_guard;
+pub mod blog_form;
+pub mod category_form;
+pub mod nav_bar;
+pub mod tag_form;
+pub mod user_form;
 
 pub mod analytics;
 

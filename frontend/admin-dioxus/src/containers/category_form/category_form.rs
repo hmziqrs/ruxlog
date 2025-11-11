@@ -2,8 +2,8 @@ use dioxus::prelude::*;
 
 use super::form::{use_categories_form, CategoryForm};
 use crate::components::color_picker::ColorPicker;
+use crate::components::image_editor::ImageEditorModal;
 use crate::components::media::{upload_item::MediaUploadItem, upload_zone::MediaUploadZone};
-use crate::containers::image_editor::ImageEditorModal;
 use crate::hooks::OxForm;
 use crate::router::Route;
 use crate::store::{

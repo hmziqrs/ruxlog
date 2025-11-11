@@ -7,7 +7,7 @@ use crate::components::table::list_toolbar::ListToolbarProps;
 use crate::components::table::skeleton_table_rows::{
     SkeletonCellConfig, SkeletonTableRows, UICellType,
 };
-use crate::containers::PageHeaderProps;
+use crate::containers::page_header::PageHeaderProps;
 use crate::hooks::{
     use_list_screen_with_handlers, use_state_frame_map_toast, ListScreenConfig,
     StateFrameToastConfig,
