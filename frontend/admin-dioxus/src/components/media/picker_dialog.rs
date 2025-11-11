@@ -2,8 +2,8 @@
 //! or uploading new ones. Used by the RichTextEditor and other components.
 
 use crate::containers::MediaUploadZone;
-use crate::store::{use_media, media::Media, media::MediaListQuery, media::MediaReference};
-use crate::ui::custom::AppPortal;
+use crate::store::{media::Media, media::MediaListQuery, media::MediaReference, use_media};
+use crate::ui::custom::portal::AppPortal;
 use crate::ui::shadcn::{Badge, Button, ButtonVariant, Checkbox};
 use crate::utils::dates::format_short_date_dt;
 use crate::utils::file_helpers::{format_file_size, is_image};

@@ -5,7 +5,7 @@ use dioxus::prelude::*;
 
 use crate::screens::login::form::{use_login_form, LoginForm};
 use crate::screens::login::mouse_tracking_card::MouseTrackingCard;
-use crate::ui::shadcn::Button;
+use crate::ui::shadcn::button::Button;
 use crate::{
     components::{
         AnimatedGridBackground, AnimatedGridCircles, AppInput, ErrorDetails, ErrorDetailsVariant,

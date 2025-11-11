@@ -1,5 +1,5 @@
 use crate::router::Route;
-use crate::ui::custom::AppPortal;
+use crate::ui::custom::portal::AppPortal;
 use crate::ui::shadcn::{Button, ButtonVariant};
 use dioxus::logger::tracing;
 use dioxus::prelude::*;

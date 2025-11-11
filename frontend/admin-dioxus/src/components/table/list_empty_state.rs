@@ -1,4 +1,4 @@
-use crate::ui::shadcn::Button;
+use crate::ui::shadcn::button::Button;
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdTag, Icon};
 

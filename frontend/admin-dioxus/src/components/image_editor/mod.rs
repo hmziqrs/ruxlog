@@ -12,8 +12,8 @@ pub use resize_tool::*;
 pub use rotate_tool::*;
 pub use toolbar::*;
 
-use crate::store::{use_image_editor, image_editor::EditorTool};
-use crate::ui::custom::AppPortal;
+use crate::store::{image_editor::EditorTool, use_image_editor};
+use crate::ui::custom::portal::AppPortal;
 use crate::ui::shadcn::{Button, ButtonVariant};
 use dioxus::prelude::*;
 

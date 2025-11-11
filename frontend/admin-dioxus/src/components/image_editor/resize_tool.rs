@@ -1,5 +1,5 @@
 use crate::store::use_image_editor;
-use crate::ui::shadcn::Button;
+use crate::ui::shadcn::button::Button;
 use dioxus::prelude::*;
 
 /// Resize tool controls

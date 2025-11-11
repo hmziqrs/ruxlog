@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use crate::components::UserAvatar;
 use crate::router::Route;
 use crate::store::users::User;
-use crate::ui::custom::AppPortal;
+use crate::ui::custom::portal::AppPortal;
 use crate::ui::shadcn::{Badge, BadgeVariant, Button, ButtonVariant};
 use crate::utils::dates::format_short_date_dt;
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdX, Icon};

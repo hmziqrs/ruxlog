@@ -2,15 +2,13 @@ use dioxus::prelude::*;
 
 use super::form::{use_categories_form, CategoryForm};
 use crate::components::{ColorPicker, ConfirmDialog};
-use crate::containers::{
-    AppInput, ImageEditorModal, MediaUploadItem, MediaUploadZone,
-};
+use crate::containers::{AppInput, ImageEditorModal, MediaUploadItem, MediaUploadZone};
 use crate::hooks::OxForm;
 use crate::router::Route;
 use crate::store::{
-    use_categories, use_image_editor, use_media, media::MediaReference, media::MediaUploadPayload,
+    media::MediaReference, media::MediaUploadPayload, use_categories, use_image_editor, use_media,
 };
-use crate::ui::custom::AppPortal;
+use crate::ui::custom::portal::AppPortal;
 use crate::ui::shadcn::{
     Button, ButtonSize, ButtonVariant, Checkbox, Combobox, ComboboxItem, Skeleton,
 };
