@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::store::{use_tag, Tag};
+use crate::store::{use_tag, tags::Tag};
 
 #[derive(Clone)]
 pub struct TagViewState {

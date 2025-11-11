@@ -29,7 +29,7 @@ use dioxus::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use wasm_bindgen::JsCast;
 use crate::components::image_editor::ImageEditorModal;
-use crate::store::{use_media, use_image_editor, MediaReference, MediaUploadPayload};
+use oxstore::{use_media, use_image_editor, MediaReference, MediaUploadPayload};
 
 static EDITOR_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 

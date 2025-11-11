@@ -1,4 +1,4 @@
-use crate::store::{use_image_editor, EditorTool};
+use crate::store::{use_image_editor, image_editor::EditorTool};
 use crate::ui::shadcn::{Button, ButtonSize, ButtonVariant};
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::{

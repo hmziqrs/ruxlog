@@ -4,7 +4,7 @@ use super::form::{use_tag_form, TagForm};
 use crate::components::{AppInput, ColorPicker, TagBadge, TagSize};
 use crate::hooks::OxForm;
 use crate::router::Route;
-use crate::store::Tag;
+use crate::store::tags::Tag;
 use crate::ui::custom::AppPortal;
 use crate::ui::shadcn::{Button, ButtonSize, ButtonVariant, Checkbox};
 use crate::utils::colors::get_contrast_yiq;

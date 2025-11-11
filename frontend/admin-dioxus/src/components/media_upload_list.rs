@@ -1,5 +1,5 @@
 use crate::components::MediaUploadItem;
-use crate::store::{use_media, UploadStatus};
+use crate::store::{use_media, media::UploadStatus};
 use dioxus::prelude::*;
 
 #[derive(Props, Clone, PartialEq)]

@@ -4,7 +4,7 @@
 
 use super::{commands::*, selection_in_code};
 use crate::components::MediaPickerDialog;
-use crate::store::{Media, MediaReference};
+use crate::store::media::{Media, MediaReference};
 use dioxus::prelude::*;
 
 /// Props for the Toolbar component.

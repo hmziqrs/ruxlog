@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::store::analytics::AnalyticsInterval;
+use oxstore::analytics::AnalyticsInterval;
 
 /// Interval selector for analytics charts.
 ///

@@ -1,4 +1,4 @@
-use crate::store::{ListQuery, PostListQuery, PostStatus};
+use oxstore::{ListQuery, PostListQuery, PostStatus};
 use dioxus::prelude::*;
 
 #[derive(Clone, Copy, PartialEq)]

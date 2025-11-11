@@ -7,7 +7,7 @@ use crate::components::analytics::{
     verification_rates_chart::VerificationRatesChart,
 };
 use crate::components::PageHeader;
-use crate::store::analytics::{
+use oxstore::analytics::{
     use_analytics, use_analytics_filters, AnalyticsInterval, DashboardSummaryFilters,
     DashboardSummaryRequest, PageViewsFilters, PageViewsRequest, PublishingTrendsFilters,
     PublishingTrendsRequest, RegistrationTrendsFilters, RegistrationTrendsRequest,

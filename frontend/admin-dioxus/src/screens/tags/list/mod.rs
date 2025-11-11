@@ -6,7 +6,7 @@ use crate::components::{
 };
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
 use crate::router::Route;
-use crate::store::{use_tag, ListQuery, ListStore, Tag, TagsListQuery};
+use oxstore::{use_tag, ListQuery, ListStore, Tag, TagsListQuery};
 use crate::types::Order;
 use crate::ui::shadcn::{
     Badge, BadgeVariant, Button, ButtonVariant, Checkbox, DropdownMenu, DropdownMenuContent,

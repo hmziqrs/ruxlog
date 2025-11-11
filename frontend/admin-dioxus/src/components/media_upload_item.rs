@@ -1,4 +1,4 @@
-use crate::store::{use_media, UploadStatus};
+use crate::store::{use_media, media::UploadStatus};
 use crate::ui::shadcn::{Button, ButtonSize, ButtonVariant, Progress};
 use crate::utils::file_helpers::format_file_size;
 use dioxus::prelude::*;

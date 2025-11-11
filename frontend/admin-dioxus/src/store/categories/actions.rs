@@ -2,7 +2,7 @@ use super::{
     CategoriesAddPayload, CategoriesEditPayload, CategoriesListQuery, CategoriesState, Category,
 };
 use crate::services::http_client;
-use crate::store::{
+use oxstore::{
     edit_state_abstraction, list_state_abstraction, remove_state_abstraction,
     state_request_abstraction, view_state_abstraction, PaginatedList, StateFrame,
 };

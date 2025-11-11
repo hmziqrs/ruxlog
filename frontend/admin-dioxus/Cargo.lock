@@ -4002,8 +4002,10 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "dioxus 0.7.1",
+ "gloo-net",
  "serde",
  "serde_json",
+ "web-sys",
 ]
 
 [[package]]

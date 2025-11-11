@@ -1,4 +1,4 @@
-use crate::store::{use_media, MediaReference, MediaUploadPayload};
+use crate::store::{use_media, media::MediaReference, media::MediaUploadPayload};
 use crate::ui::shadcn::{Button, ButtonVariant};
 use crate::utils::file_helpers::validate_file_type;
 use dioxus::prelude::*;

@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use validator::Validate;
 
 use crate::hooks::{OxForm, OxFormModel};
-use crate::store::{Media, UserRole, UsersAddPayload, UsersEditPayload};
+use crate::store::media::Media;
+use crate::store::auth::UserRole;
+use crate::store::users::{UsersAddPayload, UsersEditPayload};
 
 #[derive(Debug, Validate, Clone, PartialEq)]
 pub struct UserForm {

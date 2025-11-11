@@ -3,7 +3,7 @@ use super::{
     MediaUsageDetailsRequest, MediaUsageDetailsResponse, UploadStatus,
 };
 use crate::services::http_client;
-use crate::store::{
+use oxstore::{
     list_state_abstraction, remove_state_abstraction, view_state_abstraction, PaginatedList,
     StateFrame,
 };

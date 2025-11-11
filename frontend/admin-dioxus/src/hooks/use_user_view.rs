@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::store::{use_user, User};
+use crate::store::{use_user, users::User};
 
 #[derive(Clone)]
 pub struct UserViewState {

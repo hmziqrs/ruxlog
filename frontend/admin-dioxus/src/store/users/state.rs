@@ -1,8 +1,8 @@
+use oxstore::{ListQuery, PaginatedList, StateFrame};
 use crate::store::auth::UserRole;
 use crate::store::media::Media;
 use crate::store::traits::ListStore;
-use crate::store::{PaginatedList, StateFrame};
-use oxstore::{ListQuery, SortParam};
+use crate::types::SortParam;
 use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};

@@ -1,4 +1,4 @@
-use crate::store::{PaginatedList, StateFrame};
+use oxstore::{PaginatedList, StateFrame};
 use dioxus::prelude::*;
 use oxstore::ListQuery;
 

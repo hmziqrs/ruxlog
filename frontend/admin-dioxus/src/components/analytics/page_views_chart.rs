@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use super::interval_selector::IntervalSelector;
-use crate::store::{
+use oxstore::{
     AnalyticsEnvelopeResponse, AnalyticsInterval, PageViewPoint, StateFrame, StateFrameStatus,
 };
 
@@ -17,7 +17,7 @@ use crate::store::{
 pub struct PageViewsChartProps {
     /// State frame wrapping `AnalyticsEnvelopeResponse<Vec<PageViewPoint>>`.
     pub frame:
-        StateFrame<AnalyticsEnvelopeResponse<Vec<PageViewPoint>>, crate::store::PageViewsRequest>,
+        StateFrame<AnalyticsEnvelopeResponse<Vec<PageViewPoint>>, oxstore::PageViewsRequest>,
     /// Optional chart title.
     #[props(default = "Page views".to_string())]
     pub title: String,

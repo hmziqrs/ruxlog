@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 
 use crate::components::{ListEmptyState, SkeletonCellConfig, SkeletonTableRows, UICellType};
 use crate::router::Route;
-use crate::store::{use_post, ListStore, Post, PostStatus};
+use oxstore::{use_post, ListStore, Post, PostStatus};
 use crate::ui::shadcn::{
     Avatar, AvatarFallback, AvatarImage, Badge, BadgeVariant, Button, ButtonVariant, Checkbox,
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,

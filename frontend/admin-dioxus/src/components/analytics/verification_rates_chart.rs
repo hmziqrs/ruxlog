@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use super::interval_selector::IntervalSelector;
-use crate::store::{
+use oxstore::{
     AnalyticsEnvelopeResponse, AnalyticsInterval, StateFrame, StateFrameStatus,
     VerificationRatePoint, VerificationRatesRequest,
 };

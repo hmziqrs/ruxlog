@@ -1,4 +1,4 @@
-use crate::store::StateFrame;
+use oxstore::StateFrame;
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

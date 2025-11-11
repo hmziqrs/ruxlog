@@ -1,4 +1,5 @@
-use crate::store::{ListQuery, ListStore, PaginatedList, StateFrame};
+use oxstore::{ListQuery, PaginatedList, StateFrame};
+use crate::store::traits::ListStore;
 use crate::types::SortParam;
 use chrono::{DateTime, Utc};
 use dioxus::prelude::*;

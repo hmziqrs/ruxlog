@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 
-use crate::store::{AnalyticsEnvelopeResponse, DashboardSummaryData, StateFrame, StateFrameStatus};
+use oxstore::{StateFrame, StateFrameStatus};
+use crate::store::analytics::{AnalyticsEnvelopeResponse, DashboardSummaryData, DashboardSummaryRequest};
 
 /// Props:
 /// - `frame`: state frame for the dashboard summary analytics request
@@ -10,7 +11,7 @@ use crate::store::{AnalyticsEnvelopeResponse, DashboardSummaryData, StateFrame, 
 pub struct DashboardSummaryCardsProps {
     pub frame: StateFrame<
         AnalyticsEnvelopeResponse<DashboardSummaryData>,
-        crate::store::DashboardSummaryRequest,
+        DashboardSummaryRequest,
     >,
     #[props(optional, into)]
     pub title: Option<String>,

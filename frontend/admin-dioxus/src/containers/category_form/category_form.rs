@@ -7,7 +7,7 @@ use crate::components::{
 use crate::hooks::OxForm;
 use crate::router::Route;
 use crate::store::{
-    use_categories, use_image_editor, use_media, MediaReference, MediaUploadPayload,
+    use_categories, use_image_editor, use_media, media::MediaReference, media::MediaUploadPayload,
 };
 use crate::ui::custom::AppPortal;
 use crate::ui::shadcn::{

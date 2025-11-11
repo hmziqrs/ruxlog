@@ -1,4 +1,4 @@
-use crate::store::{use_image_editor, EditorTool};
+use crate::store::{use_image_editor, image_editor::EditorTool};
 use dioxus::prelude::*;
 
 #[derive(Props, PartialEq, Clone)]

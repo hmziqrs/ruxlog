@@ -1,4 +1,4 @@
-use crate::store::Media;
+use crate::store::media::Media;
 use crate::ui::shadcn::{Button, ButtonVariant};
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::{

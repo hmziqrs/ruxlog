@@ -3,8 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::sync::OnceLock;
 
-use crate::store::media::Media;
-use crate::store::StateFrame;
+use oxstore::StateFrame;
 
 pub struct AuthState {
     pub user: GlobalSignal<Option<AuthUser>>,

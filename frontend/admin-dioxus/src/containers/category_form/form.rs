@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use validator::{Validate, ValidationError};
 
 use crate::hooks::{OxForm, OxFormModel};
-use crate::store::{CategoriesAddPayload, CategoriesEditPayload};
+use crate::store::categories::{CategoriesAddPayload, CategoriesEditPayload};
 use crate::utils::colors::get_contrast_yiq;
 
 #[derive(Debug, Validate, Clone, PartialEq)]

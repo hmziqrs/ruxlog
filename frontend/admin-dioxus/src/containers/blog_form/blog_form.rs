@@ -10,8 +10,8 @@ use crate::components::{
 use crate::hooks::use_previous;
 use crate::router::Route;
 use crate::store::{
-    use_categories, use_image_editor, use_media, use_post, use_tag, MediaReference,
-    MediaUploadPayload, PostContent, PostCreatePayload, PostEditPayload, PostStatus,
+    use_categories, use_image_editor, use_media, use_post, use_tag, media::MediaReference,
+    media::MediaUploadPayload, posts::PostContent, posts::PostCreatePayload, posts::PostEditPayload, posts::PostStatus,
 };
 use crate::ui::shadcn::{
     Badge, BadgeVariant, Button, ButtonVariant, Checkbox, Combobox, ComboboxItem, Skeleton,

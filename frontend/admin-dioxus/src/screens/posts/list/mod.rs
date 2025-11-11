@@ -10,7 +10,8 @@ use dioxus::prelude::*;
 use crate::components::{DataTableScreen, HeaderColumn, ListToolbarProps, PageHeaderProps};
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
 use crate::router::Route;
-use crate::store::{use_categories, use_post, use_tag, use_user, ListStore};
+use crate::store::{use_categories, use_post, use_tag, use_user};
+use crate::store::traits::ListStore;
 use crate::types::Order;
 use crate::ui::shadcn::{Button, ButtonSize, ButtonVariant};
 
@@ -215,18 +216,18 @@ pub fn PostsListScreen() -> Element {
                 disabled: list_loading,
                 on_search_input: handlers.handle_search.clone(),
                 status_selected: match ctx.filters.read().status {
-                    Some(crate::store::PostStatus::Published) => "Published".to_string(),
-                    Some(crate::store::PostStatus::Draft) => "Draft".to_string(),
-                    Some(crate::store::PostStatus::Archived) => "Archived".to_string(),
+                    Some(oxstore::PostStatus::Published) => "Published".to_string(),
+                    Some(oxstore::PostStatus::Draft) => "Draft".to_string(),
+                    Some(oxstore::PostStatus::Archived) => "Archived".to_string(),
                     None => "All Status".to_string(),
                 },
                 on_status_select: EventHandler::new({
                     let mut ctx_clone = ctx.clone();
                     move |value: String| {
                         let status = match value.as_str() {
-                            "Published" => Some(crate::store::PostStatus::Published),
-                            "Draft" => Some(crate::store::PostStatus::Draft),
-                            "Archived" => Some(crate::store::PostStatus::Archived),
+                            "Published" => Some(oxstore::PostStatus::Published),
+                            "Draft" => Some(oxstore::PostStatus::Draft),
+                            "Archived" => Some(oxstore::PostStatus::Archived),
                             _ => None,
                         };
                         ctx_clone.set_status_filter(status);

@@ -7,7 +7,7 @@ use crate::components::{
 };
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
 use crate::router::Route;
-use crate::store::{
+use oxstore::{
     use_user, ListQuery, ListStore, User, UserRole, UsersEditPayload, UsersListQuery,
 };
 use crate::types::Order;

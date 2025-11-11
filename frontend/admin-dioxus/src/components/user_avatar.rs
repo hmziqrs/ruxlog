@@ -1,4 +1,4 @@
-use crate::store::Media;
+use crate::store::media::Media;
 use dioxus::prelude::*;
 
 #[component]

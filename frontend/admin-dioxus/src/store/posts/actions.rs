@@ -3,7 +3,7 @@ use super::{
     PostState, Series, SeriesCreatePayload, SeriesEditPayload, SeriesListQuery,
 };
 use crate::services::http_client;
-use crate::store::{
+use oxstore::{
     edit_state_abstraction, list_state_abstraction, remove_state_abstraction,
     state_request_abstraction, view_state_abstraction, PaginatedList, StateFrame,
 };
@@ -184,7 +184,7 @@ impl PostState {
                 }
             }
             Err(e) => {
-                let (kind, msg) = crate::store::lib::classify_transport_error(&e);
+                let (kind, msg) = oxstore::lib::classify_transport_error(&e);
                 schedule_map
                     .entry(post_id)
                     .or_insert_with(StateFrame::new)
@@ -242,7 +242,7 @@ impl PostState {
                 }
             }
             Err(e) => {
-                let (kind, msg) = crate::store::lib::classify_transport_error(&e);
+                let (kind, msg) = oxstore::lib::classify_transport_error(&e);
                 revisions_map
                     .entry(post_id)
                     .or_insert_with(StateFrame::new)
@@ -291,7 +291,7 @@ impl PostState {
                 }
             }
             Err(e) => {
-                let (kind, msg) = crate::store::lib::classify_transport_error(&e);
+                let (kind, msg) = oxstore::lib::classify_transport_error(&e);
                 restore_map
                     .entry(key)
                     .or_insert_with(StateFrame::new)
@@ -335,7 +335,7 @@ impl PostState {
                 }
             }
             Err(e) => {
-                let (kind, msg) = crate::store::lib::classify_transport_error(&e);
+                let (kind, msg) = oxstore::lib::classify_transport_error(&e);
                 track_map
                     .entry(post_id)
                     .or_insert_with(StateFrame::new)
@@ -456,7 +456,7 @@ impl PostState {
                 }
             }
             Err(e) => {
-                let (kind, msg) = crate::store::lib::classify_transport_error(&e);
+                let (kind, msg) = oxstore::lib::classify_transport_error(&e);
                 add_map
                     .entry(key)
                     .or_insert_with(StateFrame::new)
@@ -504,7 +504,7 @@ impl PostState {
                 }
             }
             Err(e) => {
-                let (kind, msg) = crate::store::lib::classify_transport_error(&e);
+                let (kind, msg) = oxstore::lib::classify_transport_error(&e);
                 remove_map
                     .entry(key)
                     .or_insert_with(StateFrame::new)
@@ -564,7 +564,7 @@ impl PostState {
 // ListStore Trait Implementation
 // ============================================================================
 
-use crate::store::ListStore;
+use oxstore::ListStore;
 use dioxus::prelude::GlobalSignal;
 
 impl ListStore<Post, PostListQuery> for PostState {

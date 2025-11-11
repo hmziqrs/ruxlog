@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::store::analytics::use_analytics_filters;
+use oxstore::analytics::use_analytics_filters;
 
 use super::date_range_picker::DateRangePicker;
 use super::period_preset_toggle::PeriodPresetToggle;

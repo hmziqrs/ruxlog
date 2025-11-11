@@ -55,7 +55,7 @@ impl AuthState {
                 }
             }
             Err(e) => {
-                let (kind, msg) = crate::store::lib::classify_transport_error(&e);
+                let (kind, msg) = oxstore::lib::classify_transport_error(&e);
                 self.logout_status
                     .write()
                     .set_transport_error(kind, Some(msg));
@@ -65,7 +65,7 @@ impl AuthState {
     }
 
     fn reset_all_stores(&self) {
-        use crate::store::{
+        use oxstore::{
             analytics::use_analytics, categories::use_categories, image_editor::use_image_editor,
             media::use_media, posts::use_post, tags::use_tag, users::use_user,
         };
@@ -118,7 +118,7 @@ impl AuthState {
                 }
             }
             Err(e) => {
-                let (kind, msg) = crate::store::lib::classify_transport_error(&e);
+                let (kind, msg) = oxstore::lib::classify_transport_error(&e);
                 self.init_status
                     .write()
                     .set_transport_error(kind, Some(msg));
@@ -161,7 +161,7 @@ impl AuthState {
                 }
             }
             Err(e) => {
-                let (kind, msg) = crate::store::lib::classify_transport_error(&e);
+                let (kind, msg) = oxstore::lib::classify_transport_error(&e);
                 self.login_status
                     .write()
                     .set_transport_error(kind, Some(msg));
