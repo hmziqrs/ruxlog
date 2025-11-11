@@ -9,6 +9,14 @@ pub struct GoogleCallbackQuery {
     pub state: String,
 }
 
+#[derive(Debug, Deserialize, Serialize, Validate)]
+pub struct GoogleExchangeRequest {
+    #[validate(length(min = 1))]
+    pub code: String,
+    #[validate(length(min = 1))]
+    pub state: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GoogleUserInfo {
     pub id: String,

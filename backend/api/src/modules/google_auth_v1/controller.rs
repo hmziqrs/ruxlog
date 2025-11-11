@@ -20,7 +20,7 @@ use crate::{
 
 use super::{
     service::get_google_oauth_client,
-    validator::{GoogleCallbackQuery, GoogleUserInfo},
+    validator::{GoogleCallbackQuery, GoogleExchangeRequest, GoogleUserInfo},
 };
 
 #[debug_handler]
@@ -125,6 +125,81 @@ pub async fn google_user_info(auth: AuthSession) -> Result<impl IntoResponse, Er
         Some(user) => Ok((StatusCode::OK, Json(json!(user)))),
         None => Err(ErrorResponse::new(ErrorCode::Unauthorized)),
     }
+}
+
+/// Exchange authorization code from client-side OAuth callback
+/// This endpoint allows the client to receive the OAuth callback and then
+/// send the authorization code to the API for token exchange.
+///
+/// Flow:
+/// 1. Client calls GET /auth/google/v1/login to get auth URL
+/// 2. Client redirects user to Google OAuth (with client's redirect_uri)
+/// 3. Google redirects back to CLIENT with code and state
+/// 4. Client POSTs code and state to this endpoint
+/// 5. API exchanges code, creates session, returns user info
+#[debug_handler]
+#[instrument(skip(state, auth, payload), fields(user_id, result))]
+pub async fn google_exchange(
+    State(state): State<AppState>,
+    mut auth: AuthSession,
+    crate::extractors::ValidatedJson(payload): crate::extractors::ValidatedJson<
+        GoogleExchangeRequest,
+    >,
+) -> Result<impl IntoResponse, ErrorResponse> {
+    info!("Processing Google OAuth code exchange from client");
+
+    verify_csrf_token(&state, &payload.state).await?;
+
+    let client = get_google_oauth_client()?;
+
+    let token_result = client
+        .exchange_code(AuthorizationCode::new(payload.code))
+        .request_async(async_http_client)
+        .await
+        .map_err(|e| {
+            error!(error = ?e, "Failed to exchange authorization code");
+            tracing::Span::current().record("result", "token_exchange_failed");
+            ErrorResponse::new(ErrorCode::ExternalServiceError)
+                .with_message("Failed to exchange authorization code")
+                .with_details(e.to_string())
+        })?;
+
+    let access_token = token_result.access_token().secret();
+
+    let user_info = fetch_google_user_info(access_token).await?;
+
+    info!(google_id = %user_info.id, email = %user_info.email, "Retrieved user info from Google");
+
+    let user = find_or_create_user(&state, user_info).await?;
+
+    tracing::Span::current().record("user_id", user.id);
+
+    auth.login(&user).await.map_err(|e| {
+        error!(error = %e, user_id = user.id, "Failed to create session");
+        tracing::Span::current().record("result", "session_creation_failed");
+        ErrorResponse::new(ErrorCode::InternalServerError).with_message("Failed to create session")
+    })?;
+
+    let _ = user_session::Entity::create(
+        &state.sea_db,
+        user_session::NewUserSession::new(user.id, Some("Google OAuth".to_string()), None),
+    )
+    .await;
+
+    info!(
+        user_id = user.id,
+        "Google login successful via client exchange"
+    );
+    tracing::Span::current().record("result", "success");
+
+    Ok((
+        StatusCode::OK,
+        Json(json!({
+            "success": true,
+            "user": user,
+            "message": "Successfully authenticated with Google"
+        })),
+    ))
 }
 
 async fn verify_csrf_token(state: &AppState, token: &str) -> Result<(), ErrorResponse> {

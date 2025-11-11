@@ -13,8 +13,19 @@ pub fn get_static_csrf_key() -> String {
     return key;
 }
 
-#[instrument(skip(req, next), fields(token_present, decode_status, result))]
+#[instrument(skip(req, next), fields(token_present, decode_status, result, path))]
 pub async fn csrf_guard(req: Request, next: Next) -> Result<Response, Response> {
+    // Exempt OAuth callback routes from CSRF check
+    // OAuth uses the 'state' parameter for CSRF protection
+    let path = req.uri().path();
+    tracing::Span::current().record("path", path);
+
+    if path.starts_with("/auth/google/v1/callback") || path.starts_with("/auth/google/v1/login") {
+        debug!("Skipping CSRF check for OAuth route: {}", path);
+        tracing::Span::current().record("result", "oauth_exempted");
+        return Ok(next.run(req).await);
+    }
+
     let err_resp = ErrorResponse::new(ErrorCode::InvalidToken)
         .with_message("Request is from an unverified client");
     if let Some(token) = req.headers().get("csrf-token") {
