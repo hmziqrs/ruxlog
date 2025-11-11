@@ -1,7 +1,9 @@
-use crate::containers::MediaUploadItem;
-use crate::store::{use_media, media::UploadStatus};
 use dioxus::prelude::*;
-use oxstore::{ListQuery, Order};
+
+use crate::{
+    components::media::upload_item::MediaUploadItem,
+    store::{use_media, UploadStatus},
+};
 
 #[derive(Props, Clone, PartialEq)]
 pub struct MediaUploadListProps {

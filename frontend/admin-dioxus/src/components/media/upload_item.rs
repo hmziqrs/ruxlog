@@ -1,5 +1,6 @@
 use crate::store::{media::UploadStatus, use_media};
-use crate::ui::shadcn::button::{Button, ButtonSize, ButtonVariant, Progress};
+use crate::ui::shadcn::button::{Button, ButtonSize, ButtonVariant};
+use crate::ui::shadcn::progress::Progress;
 use crate::utils::file_helpers::format_file_size;
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::{
