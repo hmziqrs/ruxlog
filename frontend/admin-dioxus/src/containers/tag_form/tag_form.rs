@@ -1,11 +1,12 @@
 use dioxus::prelude::*;
 
 use super::form::{use_tag_form, TagForm};
-use crate::components::{ColorPicker, TagBadge, TagSize};
-use crate::containers::AppInput;
+use crate::components::color_picker::ColorPicker;
+use crate::components::tag::{TagBadge, TagSize};
 use crate::hooks::OxForm;
 use crate::router::Route;
 use crate::store::tags::Tag;
+use crate::ui::components::form::input::AppInput;
 use crate::ui::custom::portal::AppPortal;
 use crate::ui::shadcn::button::{Button, ButtonSize, ButtonVariant, Checkbox};
 use crate::utils::colors::get_contrast_yiq;

@@ -1,19 +1,24 @@
 use dioxus::prelude::*;
 
-use crate::components::{
-    ListEmptyState, ListToolbarProps, SkeletonCellConfig, SkeletonTableRows, UICellType,
+use crate::components::table::data_table_screen::{DataTableScreen, HeaderColumn};
+use crate::components::table::list_empty_state::ListEmptyState;
+use crate::components::table::list_toolbar::ListToolbarProps;
+use crate::components::table::skeleton_table_rows::{
+    SkeletonCellConfig, SkeletonTableRows, UICellType,
 };
-use crate::containers::{DataTableScreen, PageHeaderProps, HeaderColumn};
+use crate::containers::page_header::PageHeaderProps;
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
 use crate::router::Route;
 use crate::store::{use_categories, CategoriesListQuery, Category};
-use oxstore::{ListQuery, ListStore, Order};
-use crate::ui::shadcn::{
-    Badge, BadgeVariant, Button, ButtonVariant, Checkbox, DropdownMenu, DropdownMenuContent,
-    DropdownMenuItem, DropdownMenuTrigger,
+use crate::ui::shadcn::badge::{Badge, BadgeVariant};
+use crate::ui::shadcn::button::{Button, ButtonVariant};
+use crate::ui::shadcn::checkbox::Checkbox;
+use crate::ui::shadcn::dropdown_menu::{
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 };
 use crate::utils::dates::format_short_date_dt;
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdEllipsis, Icon};
+use oxstore::{ListQuery, ListStore, Order};
 
 #[component]
 pub fn CategoriesListScreen() -> Element {
@@ -293,4 +298,3 @@ pub fn CategoriesListScreen() -> Element {
         }
     }
 }
-use crate::containers::{DataTableScreen, PageHeaderProps, HeaderColumn};

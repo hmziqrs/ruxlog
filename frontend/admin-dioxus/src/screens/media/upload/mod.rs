@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 
-use crate::containers::{MediaUploadList, MediaUploadZone, PageHeader};
+use crate::components::media::{upload_list::MediaUploadList, upload_zone::MediaUploadZone};
+use crate::containers::page_header::PageHeader;
 use crate::router::Route;
 use crate::store::use_media;
 use crate::ui::shadcn::button::{Button, ButtonVariant};

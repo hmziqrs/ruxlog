@@ -1,17 +1,24 @@
 use dioxus::prelude::*;
 
 use crate::components::sonner::{use_sonner, ToastOptions};
-use crate::components::{
-    HeaderColumn, ListEmptyState, ListToolbarProps, SkeletonCellConfig, SkeletonTableRows,
-    UserAvatar, UICellType,
+use crate::components::table::data_table_screen::DataTableScreen;
+use crate::components::table::{
+    data_table_screen::HeaderColumn,
+    list_empty_state::ListEmptyState,
+    list_toolbar::ListToolbarProps,
+    skeleton_table_rows::{SkeletonCellConfig, SkeletonTableRows, UICellType},
 };
-use crate::containers::{DataTableScreen, PageHeaderProps, UserDetailsDialog};
+use crate::components::user_details_dialog::UserDetailsDialog;
+use crate::containers::page_header::PageHeaderProps;
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
 use crate::router::Route;
 use crate::store::{use_user, User, UserRole, UsersEditPayload, UsersListQuery};
-use crate::ui::shadcn::{
-    Badge, BadgeVariant, Button, ButtonVariant, Checkbox, DropdownMenu, DropdownMenuContent,
-    DropdownMenuItem, DropdownMenuTrigger,
+use crate::ui::components::user_avatar::UserAvatar;
+use crate::ui::shadcn::badge::{Badge, BadgeVariant};
+use crate::ui::shadcn::button::{Button, ButtonVariant};
+use crate::ui::shadcn::checkbox::Checkbox;
+use crate::ui::shadcn::dropdown_menu::{
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 };
 use crate::utils::dates::format_short_date_dt;
 use oxstore::{ListQuery, ListStore, Order};
