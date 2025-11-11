@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use oxstore::ListQuery;
 
-use crate::components::analytics::{
+use crate::containers::analytics::{
     comment_rate_chart::CommentRateChartFromStore, dashboard_summary_cards::DashboardSummaryCards,
     filter_toolbar::AnalyticsFilterToolbar, media_upload_trends_chart::MediaUploadTrendsChart,
     newsletter_growth_chart::NewsletterGrowthChart, page_views_chart::PageViewsChart,
@@ -9,7 +9,7 @@ use crate::components::analytics::{
     registration_trend_chart::RegistrationTrendChart,
     verification_rates_chart::VerificationRatesChart,
 };
-use crate::components::PageHeader;
+use crate::containers::PageHeader;
 use crate::store::analytics::{
     use_analytics, use_analytics_filters, use_analytics_query, AnalyticsInterval,
     CommentRateFilters, CommentRateRequest, DashboardSummaryFilters, DashboardSummaryRequest,

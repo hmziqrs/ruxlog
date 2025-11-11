@@ -4,9 +4,9 @@ use gloo_console;
 use web_sys::{Blob, Url};
 
 use super::form::{use_user_form, UserForm};
-use crate::components::{
-    AppInput, ConfirmDialog, ImageEditorModal, MediaPreviewItem, MediaUploadItem, MediaUploadZone,
-    PasswordInput,
+use crate::components::{ConfirmDialog, MediaPreviewItem};
+use crate::containers::{
+    AppInput, ImageEditorModal, MediaUploadItem, MediaUploadZone, PasswordInput,
 };
 use crate::hooks::OxForm;
 use crate::router::Route;

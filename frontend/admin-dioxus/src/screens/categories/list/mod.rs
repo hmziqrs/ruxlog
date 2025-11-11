@@ -1,9 +1,9 @@
 use dioxus::prelude::*;
 
 use crate::components::{
-    DataTableScreen, HeaderColumn, ListEmptyState, ListToolbarProps, PageHeaderProps,
-    SkeletonCellConfig, SkeletonTableRows,
+    ListEmptyState, ListToolbarProps, SkeletonCellConfig, SkeletonTableRows, UICellType,
 };
+use crate::containers::{DataTableScreen, PageHeaderProps, HeaderColumn};
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
 use crate::router::Route;
 use crate::store::{use_categories, CategoriesListQuery, Category};
@@ -197,15 +197,15 @@ pub fn CategoriesListScreen() -> Element {
                         row_count: 6,
                         cells: vec![
                             // Selection checkbox placeholder
-                            SkeletonCellConfig::custom(crate::components::UICellType::Default, "w-12 py-2 px-3"),
-                            SkeletonCellConfig::custom(crate::components::UICellType::Default, "py-2 px-3"),
-                            SkeletonCellConfig::custom(crate::components::UICellType::Default, "py-2 px-3"),
-                            SkeletonCellConfig::custom(crate::components::UICellType::Default, "py-2 px-3"),
-                            SkeletonCellConfig::custom(crate::components::UICellType::Default, "py-2 px-3"),
-                            SkeletonCellConfig::custom(crate::components::UICellType::Default, "py-2 px-3"),
-                            SkeletonCellConfig::custom(crate::components::UICellType::Default, "py-2 px-3"),
-                            SkeletonCellConfig::custom(crate::components::UICellType::Badge, "py-2 px-3"),
-                            SkeletonCellConfig::custom(crate::components::UICellType::Action, "py-2 px-3"),
+                            SkeletonCellConfig::custom(UICellType::Default, "w-12 py-2 px-3"),
+                            SkeletonCellConfig::custom(UICellType::Default, "py-2 px-3"),
+                            SkeletonCellConfig::custom(UICellType::Default, "py-2 px-3"),
+                            SkeletonCellConfig::custom(UICellType::Default, "py-2 px-3"),
+                            SkeletonCellConfig::custom(UICellType::Default, "py-2 px-3"),
+                            SkeletonCellConfig::custom(UICellType::Default, "py-2 px-3"),
+                            SkeletonCellConfig::custom(UICellType::Default, "py-2 px-3"),
+                            SkeletonCellConfig::custom(UICellType::Badge, "py-2 px-3"),
+                            SkeletonCellConfig::custom(UICellType::Action, "py-2 px-3"),
                         ],
                     }
                 } else {
@@ -293,3 +293,4 @@ pub fn CategoriesListScreen() -> Element {
         }
     }
 }
+use crate::containers::{DataTableScreen, PageHeaderProps, HeaderColumn};

@@ -28,7 +28,7 @@ use commands::{InsertBlock, InsertLink, SetBlockType};
 use dioxus::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use wasm_bindgen::JsCast;
-use crate::components::image_editor::ImageEditorModal;
+use crate::containers::image_editor::ImageEditorModal;
 use crate::store::{use_media, use_image_editor, MediaReference, MediaUploadPayload};
 
 static EDITOR_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);

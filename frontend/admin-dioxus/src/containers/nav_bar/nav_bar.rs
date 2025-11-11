@@ -2,7 +2,8 @@ use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::icons::ld_icons::{LdBell, LdMenu, LdMoon, LdSun};
 use hmziq_dioxus_free_icons::Icon;
 
-use crate::components::{Sidebar, UserAvatar};
+use crate::components::UserAvatar;
+use crate::containers::Sidebar;
 use crate::config::DarkMode;
 use crate::{router::Route, store::use_auth, utils::persist};
 

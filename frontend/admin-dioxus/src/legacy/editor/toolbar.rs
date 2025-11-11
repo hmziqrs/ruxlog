@@ -3,7 +3,7 @@
 //! Provides formatting controls and block type selection.
 
 use super::{commands::*, selection_in_code};
-use crate::components::MediaPickerDialog;
+use crate::containers::MediaPickerDialog;
 use crate::store::media::{Media, MediaReference};
 use dioxus::prelude::*;
 

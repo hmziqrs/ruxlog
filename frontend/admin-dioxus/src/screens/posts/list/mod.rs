@@ -7,7 +7,9 @@ use context::{PostListContext, ViewMode};
 
 use dioxus::prelude::*;
 
-use crate::components::{DataTableScreen, HeaderColumn, ListToolbarProps, PageHeaderProps};
+use crate::containers::{DataTableScreen, PageHeaderProps};
+use crate::components::ListToolbarProps;
+use crate::containers::HeaderColumn;
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
 use crate::router::Route;
 use crate::store::{use_categories, use_post, use_tag, use_user, Post, PostListQuery};

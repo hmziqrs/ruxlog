@@ -1,12 +1,12 @@
 use dioxus::prelude::*;
 
-use crate::components::analytics::{
+use crate::containers::analytics::{
     dashboard_summary_cards::DashboardSummaryCards, filter_toolbar::AnalyticsFilterToolbar,
     page_views_chart::PageViewsChart, publishing_trends_chart::PublishingTrendsChart,
     registration_trend_chart::RegistrationTrendChart,
     verification_rates_chart::VerificationRatesChart,
 };
-use crate::components::PageHeader;
+use crate::containers::PageHeader;
 use crate::store::analytics::{
     use_analytics, use_analytics_filters, AnalyticsInterval, DashboardSummaryFilters,
     DashboardSummaryRequest, PageViewsFilters, PageViewsRequest, PublishingTrendsFilters,

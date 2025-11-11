@@ -1,7 +1,7 @@
 //! MediaPickerDialog - A modal dialog for browsing and selecting media files
 //! or uploading new ones. Used by the RichTextEditor and other components.
 
-use crate::components::MediaUploadZone;
+use crate::containers::MediaUploadZone;
 use crate::store::{use_media, media::Media, media::MediaListQuery, media::MediaReference};
 use crate::ui::custom::AppPortal;
 use crate::ui::shadcn::{Badge, Button, ButtonVariant, Checkbox};

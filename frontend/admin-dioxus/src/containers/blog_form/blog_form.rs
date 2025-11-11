@@ -3,9 +3,9 @@ use futures_util::StreamExt;
 
 use super::form::{use_blog_form, BlogForm};
 // use crate::components::editor::RichTextEditor; // Moved to legacy - using TypeScript editor instead
-use crate::components::{
-    AppInput, ConfirmDialog, EditorJsHost, ImageEditorModal, MediaUploadItem, MediaUploadZone,
-    PostSuccessDialog,
+use crate::components::{ConfirmDialog, EditorJsHost};
+use crate::containers::{
+    AppInput, ImageEditorModal, MediaUploadItem, MediaUploadZone, PostSuccessDialog,
 };
 use crate::hooks::use_previous;
 use crate::router::Route;

@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::icons::ld_icons::LdSearch;
 use hmziq_dioxus_free_icons::Icon;
 
-use super::SimpleInput;
+use crate::containers::SimpleInput;
 use crate::ui::shadcn::{Select, SelectGroup};
 
 #[derive(Props, PartialEq, Clone)]

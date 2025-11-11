@@ -1,7 +1,8 @@
 use dioxus::prelude::*;
 
 use super::form::{use_tag_form, TagForm};
-use crate::components::{AppInput, ColorPicker, TagBadge, TagSize};
+use crate::components::{ColorPicker, TagBadge, TagSize};
+use crate::containers::AppInput;
 use crate::hooks::OxForm;
 use crate::router::Route;
 use crate::store::tags::Tag;

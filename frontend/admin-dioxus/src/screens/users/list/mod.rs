@@ -2,9 +2,10 @@ use dioxus::prelude::*;
 
 use crate::components::sonner::{use_sonner, ToastOptions};
 use crate::components::{
-    DataTableScreen, HeaderColumn, ListEmptyState, ListToolbarProps, PageHeaderProps,
-    SkeletonCellConfig, SkeletonTableRows, UserAvatar, UserDetailsDialog,
+    HeaderColumn, ListEmptyState, ListToolbarProps, SkeletonCellConfig, SkeletonTableRows,
+    UserAvatar, UICellType,
 };
+use crate::containers::{DataTableScreen, PageHeaderProps, UserDetailsDialog};
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
 use crate::router::Route;
 use crate::store::{use_user, User, UserRole, UsersEditPayload, UsersListQuery};
@@ -203,15 +204,15 @@ pub fn UsersListScreen() -> Element {
                         row_count: 6,
                         cells: vec![
                             // Selection checkbox placeholder
-                            SkeletonCellConfig::custom(crate::components::UICellType::Default, "w-12 py-2 px-3"),
-                            SkeletonCellConfig::custom(crate::components::UICellType::Default, "py-2 px-3"),
-                            SkeletonCellConfig::custom(crate::components::UICellType::Default, "py-2 px-3"),
-                            SkeletonCellConfig::custom(crate::components::UICellType::Badge, "py-2 px-3"),
-                            SkeletonCellConfig::custom(crate::components::UICellType::Badge, "py-2 px-3"),
-                            SkeletonCellConfig::custom(crate::components::UICellType::Badge, "py-2 px-3"),
-                            SkeletonCellConfig::custom(crate::components::UICellType::Default, "py-2 px-3"),
-                            SkeletonCellConfig::custom(crate::components::UICellType::Default, "py-2 px-3"),
-                            SkeletonCellConfig::custom(crate::components::UICellType::Action, "py-2 px-3"),
+                            SkeletonCellConfig::custom(UICellType::Default, "w-12 py-2 px-3"),
+                            SkeletonCellConfig::custom(UICellType::Default, "py-2 px-3"),
+                            SkeletonCellConfig::custom(UICellType::Default, "py-2 px-3"),
+                            SkeletonCellConfig::custom(UICellType::Badge, "py-2 px-3"),
+                            SkeletonCellConfig::custom(UICellType::Badge, "py-2 px-3"),
+                            SkeletonCellConfig::custom(UICellType::Badge, "py-2 px-3"),
+                            SkeletonCellConfig::custom(UICellType::Default, "py-2 px-3"),
+                            SkeletonCellConfig::custom(UICellType::Default, "py-2 px-3"),
+                            SkeletonCellConfig::custom(UICellType::Action, "py-2 px-3"),
                         ],
                     }
                 } else {

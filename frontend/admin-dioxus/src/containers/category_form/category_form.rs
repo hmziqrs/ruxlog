@@ -1,8 +1,9 @@
 use dioxus::prelude::*;
 
 use super::form::{use_categories_form, CategoryForm};
-use crate::components::{
-    AppInput, ColorPicker, ConfirmDialog, ImageEditorModal, MediaUploadItem, MediaUploadZone,
+use crate::components::{ColorPicker, ConfirmDialog};
+use crate::containers::{
+    AppInput, ImageEditorModal, MediaUploadItem, MediaUploadZone,
 };
 use crate::hooks::OxForm;
 use crate::router::Route;

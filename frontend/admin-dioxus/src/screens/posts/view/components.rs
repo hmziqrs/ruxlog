@@ -1,4 +1,4 @@
-use crate::components::PageHeader;
+use crate::containers::PageHeader;
 use crate::router::Route;
 use crate::store::{use_post, EditorJsBlock, PostContent};
 use crate::ui::shadcn::{Button, ButtonVariant};
