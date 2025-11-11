@@ -37,7 +37,7 @@ This project is a comprehensive web application built using the Rust programming
 - CSRF Protection
 - Redis Integration for Session Management
 - SMTP Integration for Email Notifications
-- Database Migrations using Diesel
+- Database Migrations
 
 ## Project Structure
 
@@ -65,10 +65,11 @@ To set up the project locally, follow these steps:
 2. **Install Rust and Cargo:**
    Follow the instructions on the [official Rust website](https://www.rust-lang.org/tools/install) to install Rust and Cargo.
 
-3. **Install Diesel CLI:**
+3. **Install Just command runner:**
 
    ```sh
-   cargo install diesel_cli --no-default-features --features postgres
+   # Install Just command runner for running project scripts
+   cargo binstall just
    ```
 
 4. **Set up the PostgreSQL database:**
@@ -92,13 +93,29 @@ To set up the project locally, follow these steps:
 6. **Run database migrations:**
 
    ```sh
-   diesel migration run
+   just migrate
    ```
 
 7. **Build and run the project:**
+
    ```sh
+   # Using Just (recommended)
+   just dev
+
+   # Or directly with Cargo
    cargo run
    ```
+
+   Available commands:
+   - `just dev` - Run development server
+   - `just dev-w` - Run with file watching
+   - `just debug` - Run with debug logging
+   - `just prod` - Run production build
+   - `just migrate` - Run database migrations
+   - `just kill` - Stop cargo processes
+   - `just archive` - Archive git changes
+   - `just restore <zip>` - Restore from archive
+   - `just logs` - Follow log files
 
 ## Configuration
 
@@ -193,10 +210,10 @@ Once the project is set up and running, you can interact with the API using tool
 
 ## Database Migrations
 
-The project uses Diesel for database migrations. The migrations are located in the `migrations` directory. To run the migrations, use the following command:
+The project uses database migrations located in the `migrations` directory. To run the migrations, use the following command:
 
 ```sh
-diesel migration run
+just migrate
 ```
 
 ## Middlewares

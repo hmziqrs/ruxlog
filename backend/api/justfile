@@ -82,12 +82,16 @@ logs-prod:
 clean-logs:
     rm -rf logs/*.log
 
-# Archive and restore (using existing TypeScript scripts)
+# Archive and restore (using Rust scripts)
 archive:
-    bun ./scripts/archive_changes.ts
+    cargo run --bin archive_changes
 
 restore zip_file:
-    bun ./scripts/restore_changes.ts {{zip_file}}
+    cargo run --bin restore_changes -- {{zip_file}}
+
+# Database migrations
+migrate:
+    cargo run --bin migration
 
 # Utility commands
 lsof:
