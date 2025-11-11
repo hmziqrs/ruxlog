@@ -9,9 +9,15 @@ use oxstore::{
     StateFrame,
 };
 use std::collections::HashMap;
+
+#[cfg(target_arch = "wasm32")]
 use web_sys::{Blob, FormData, Url};
 
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::Path as Url;
+
 impl MediaState {
+    #[cfg(target_arch = "wasm32")]
     /// Hybrid upload: returns blob URL immediately, uploads in background
     pub async fn upload(&self, payload: MediaUploadPayload) -> Result<String, String> {
         gloo_console::log!("[MediaState::upload] Starting upload");
@@ -242,6 +248,12 @@ impl MediaState {
         Ok(blob_url)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    /// Native upload: not supported for native target
+    pub async fn upload(&self, _payload: MediaUploadPayload) -> Result<String, String> {
+        Err("File upload is only supported in WASM environment".to_string())
+    }
+
     pub async fn remove(&self, id: i32) {
         let _ = remove_state_abstraction(
             &self.remove,
@@ -361,6 +373,7 @@ impl MediaState {
         (*self.blob_file_info)().get(blob_url).cloned()
     }
 
+    #[cfg(target_arch = "wasm32")]
     /// Clean up tracking data for a blob URL (call after use)
     pub fn cleanup_blob(&self, blob_url: &str) {
         self.upload_progress.write().remove(blob_url);
@@ -370,5 +383,15 @@ impl MediaState {
 
         // Revoke the blob URL to free memory
         Url::revoke_object_url(blob_url).ok();
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    /// Clean up tracking data for a blob URL (call after use)
+    pub fn cleanup_blob(&self, blob_url: &str) {
+        self.upload_progress.write().remove(blob_url);
+        self.upload_status.write().remove(blob_url);
+        self.blob_to_media.write().remove(blob_url);
+        self.blob_file_info.write().remove(blob_url);
+        // No blob URL cleanup needed for native
     }
 }
