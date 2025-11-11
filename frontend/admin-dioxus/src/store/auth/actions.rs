@@ -86,7 +86,8 @@ impl AuthState {
         match result {
             Ok(response) => {
                 if (200..300).contains(&response.status()) {
-                    match response.json::<AuthUser>().await {
+                    let raw = response.body_text();
+                    match serde_json::from_str::<AuthUser>(&raw) {
                         Ok(user) => {
                             if !user.is_verified || !user.is_admin() {
                                 self.init_status.write().set_failed(
@@ -98,7 +99,6 @@ impl AuthState {
                             self.init_status.write().set_success(None);
                         }
                         Err(e) => {
-                            let raw = response.text().await.unwrap_or_default();
                             tracing::error!("Failed to parse user data: {}\nResponse: {}", e, raw);
                             self.init_status.write().set_decode_error(
                                 "user",
@@ -132,7 +132,8 @@ impl AuthState {
         match result {
             Ok(response) => {
                 if (200..300).contains(&response.status()) {
-                    match response.json::<AuthUser>().await {
+                    let raw = response.body_text();
+                    match serde_json::from_str::<AuthUser>(&raw) {
                         Ok(user) => {
                             if !user.is_verified || !user.is_admin() {
                                 self.login_status.write().set_failed(
@@ -144,7 +145,6 @@ impl AuthState {
                             self.login_status.write().set_success(None);
                         }
                         Err(e) => {
-                            let raw = response.text().await.unwrap_or_default();
                             eprintln!("Failed to parse user data: {}\nResponse: {}", e, raw);
                             self.login_status.write().set_decode_error(
                                 "user",

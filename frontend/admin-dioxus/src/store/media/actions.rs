@@ -144,14 +144,15 @@ impl MediaState {
                     match request.send().await {
                         Ok(response) => {
                             let status = response.status();
+                            let is_ok = (200..300).contains(&status);
                             gloo_console::log!(
                                 "[MediaState::upload background] Response received - Status: ",
                                 status.to_string(),
                                 " OK: ",
-                                response.ok().to_string()
+                                is_ok.to_string()
                             );
 
-                            if response.ok() {
+                            if is_ok {
                                 gloo_console::log!(
                                     "[MediaState::upload background] Parsing JSON response"
                                 );
@@ -256,18 +257,18 @@ impl MediaState {
     }
 
     pub async fn list(&self) {
-        let _ = list_state_abstraction::<PaginatedList<Media>>(
+        let _ = list_state_abstraction(
             &self.list,
-            http::post("/media/v1/list/query", &serde_json::json!({})),
+            http::post("/media/v1/list/query", &serde_json::json!({})).send(),
             "media",
         )
         .await;
     }
 
     pub async fn list_with_query(&self, query: MediaListQuery) {
-        let _ = list_state_abstraction::<PaginatedList<Media>>(
+        let _ = list_state_abstraction(
             &self.list,
-            http::post("/media/v1/list/query", &query),
+            http::post("/media/v1/list/query", &query).send(),
             "media",
         )
         .await;

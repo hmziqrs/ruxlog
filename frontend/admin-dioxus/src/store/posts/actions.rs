@@ -69,9 +69,9 @@ impl PostState {
 
     /// List posts with default query
     pub async fn list(&self) {
-        let _ = list_state_abstraction::<PaginatedList<Post>>(
+        let _ = list_state_abstraction(
             &self.list,
-            http::post("/post/v1/query", &serde_json::json!({})),
+            http::post("/post/v1/query", &serde_json::json!({})).send(),
             "posts",
         )
         .await;
@@ -79,9 +79,9 @@ impl PostState {
 
     /// List posts with custom query parameters
     pub async fn list_with_query(&self, query: PostListQuery) {
-        let _ = list_state_abstraction::<PaginatedList<Post>>(
+        let _ = list_state_abstraction(
             &self.list,
-            http::post("/post/v1/query", &query),
+            http::post("/post/v1/query", &query).send(),
             "posts",
         )
         .await;
@@ -139,9 +139,9 @@ impl PostState {
 
     /// List published posts (public endpoint)
     pub async fn list_published(&self) {
-        let _ = list_state_abstraction::<PaginatedList<Post>>(
+        let _ = list_state_abstraction(
             &self.list,
-            http::post("/post/v1/list/published", &serde_json::json!({})),
+            http::post("/post/v1/list/published", &serde_json::json!({})).send(),
             "published posts",
         )
         .await;
@@ -161,9 +161,7 @@ impl PostState {
             .set_loading();
         drop(schedule_map);
 
-        let result = http::post("/post/v1/schedule", &payload)
-            .send()
-            .await;
+        let result = http::post("/post/v1/schedule", &payload).send().await;
 
         let mut schedule_map = self.schedule.write();
         match result {
@@ -221,7 +219,8 @@ impl PostState {
         match result {
             Ok(response) => {
                 if (200..300).contains(&response.status()) {
-                    match response.json::<Vec<PostRevision>>().await {
+                    let raw = response.body_text();
+                    match serde_json::from_str::<Vec<PostRevision>>(&raw) {
                         Ok(revisions) => {
                             revisions_map
                                 .entry(post_id)
@@ -229,7 +228,6 @@ impl PostState {
                                 .set_success(Some(revisions));
                         }
                         Err(e) => {
-                            let raw = response.text().await.unwrap_or_default();
                             revisions_map
                                 .entry(post_id)
                                 .or_insert_with(StateFrame::new)
@@ -403,9 +401,9 @@ impl PostState {
 
     /// List all series
     pub async fn series_list(&self) {
-        let _ = list_state_abstraction::<PaginatedList<Series>>(
+        let _ = list_state_abstraction(
             &self.series_list,
-            http::post("/post/v1/series/list", &serde_json::json!({})),
+            http::post("/post/v1/series/list", &serde_json::json!({})).send(),
             "series",
         )
         .await;
@@ -413,9 +411,9 @@ impl PostState {
 
     /// List series with query parameters
     pub async fn series_list_with_query(&self, query: SeriesListQuery) {
-        let _ = list_state_abstraction::<PaginatedList<Series>>(
+        let _ = list_state_abstraction(
             &self.series_list,
-            http::post("/post/v1/series/list", &query),
+            http::post("/post/v1/series/list", &query).send(),
             "series",
         )
         .await;
