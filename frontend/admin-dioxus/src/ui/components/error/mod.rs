@@ -1,6 +1,6 @@
-use crate::ui::shadcn::button::{
-    Button, ButtonSize, ButtonVariant, Dialog, DialogContent, DialogTrigger,
-};
+use crate::ui::shadcn::button::{Button, ButtonSize, ButtonVariant};
+use crate::ui::shadcn::dialog::{Dialog, DialogContent, DialogTrigger};
+
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::{
     icons::ld_icons::{LdChevronDown, LdChevronUp, LdInfo, LdTriangleAlert},

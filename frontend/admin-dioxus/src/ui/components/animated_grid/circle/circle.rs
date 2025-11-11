@@ -2,8 +2,8 @@ use dioxus::prelude::*;
 use dioxus_time::sleep;
 use std::time::Duration;
 
+use super::super::provider::use_grid_context;
 use super::*;
-use crate::components::animated_grid::provider::use_grid_context;
 
 #[component]
 pub fn AnimatedGridCircle(circle: CircleSignal) -> Element {
@@ -18,14 +18,14 @@ pub fn AnimatedGridCircle(circle: CircleSignal) -> Element {
         if *spawn_triggered.read() {
             return; // Already triggered
         }
-        
+
         let is_respawning = circle.read().respawning;
         if !is_respawning {
             return;
         }
-        
+
         spawn_triggered.set(true);
-        
+
         spawn({
             let circle_sig = circle;
             let grid_ctx = grid_ctx_clone.clone();

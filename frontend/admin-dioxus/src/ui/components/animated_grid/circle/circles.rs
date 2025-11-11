@@ -2,10 +2,9 @@ use std::sync::atomic::Ordering;
 
 use dioxus::prelude::*;
 
+use super::super::provider::use_grid_context;
 use super::circle::AnimatedGridCircle;
 use super::*;
-use crate::components::animated_grid::provider::use_grid_context;
-
 
 #[component]
 pub fn AnimatedGridCircles(#[props(optional)] count: Option<usize>) -> Element {
@@ -32,7 +31,12 @@ pub fn AnimatedGridCircles(#[props(optional)] count: Option<usize>) -> Element {
                 let edge_index = (i % 4) as u8;
                 // Position index within the edge group (0, 1, 2, 3 for 16 circles)
                 let position_index = (i / 4) as u8;
-                Signal::new(spawn_circle_state_with_edge_and_position(id, &grid, edge_index, position_index))
+                Signal::new(spawn_circle_state_with_edge_and_position(
+                    id,
+                    &grid,
+                    edge_index,
+                    position_index,
+                ))
             })
             .collect::<Vec<_>>();
 
