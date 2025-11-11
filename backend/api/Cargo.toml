@@ -71,6 +71,7 @@ sha2 = "0.10.8"
 axum_csrf = { version = "0.11.0", features = ["layer"] }
 base64 = "0.22.1"
 rand = "0.9.0"
+clap = { version = "4.5", features = ["derive"] }
 fred = { version = "10.1.0", features = ["sha-1", "i-scripts"] }
 axum-client-ip = "1.0.0"
 lettre = { version = "0.11.9", features = ["default", "tokio1-native-tls"] }
@@ -103,3 +104,11 @@ path = "scripts/generate_hash.rs"
 [[bin]]
 name = "generate_csrf"
 path = "scripts/generate_csrf.rs"
+
+[[bin]]
+name = "archive_changes"
+path = "scripts/archive_changes.rs"
+
+[[bin]]
+name = "restore_changes"
+path = "scripts/restore_changes.rs"
