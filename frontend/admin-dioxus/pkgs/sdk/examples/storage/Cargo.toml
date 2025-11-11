@@ -1,0 +1,15 @@
+[package]
+name = "storage-example"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dioxus = { workspace = true, features = ["router"] }
+dioxus_storage = { workspace = true }
+
+[features]
+default = ["desktop"]
+web = ["dioxus/web"]
+desktop = ["dioxus/desktop"]
+fullstack = ["dioxus/fullstack"]
+server = ["dioxus/server"]

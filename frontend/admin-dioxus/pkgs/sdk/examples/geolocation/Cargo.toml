@@ -1,0 +1,14 @@
+[package]
+name = "geolocation-example"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dioxus = { workspace = true } 
+dioxus-geolocation = { workspace = true }
+
+[features]
+default = ["desktop"]
+web = ["dioxus/web"]
+desktop = ["dioxus/desktop"]
+

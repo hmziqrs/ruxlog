@@ -1,0 +1,46 @@
+name: Rust
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - packages/**
+      - examples/**
+      
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches:
+      - main
+    paths:
+      - packages/**
+      - examples/**
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Rust fmt
+  fmt:
+      if: github.event.pull_request.draft == false
+      name: Rustfmt
+      runs-on: ubuntu-latest
+      steps:
+        - uses: dtolnay/rust-toolchain@stable
+        - uses: Swatinem/rust-cache@v2
+        - run: rustup component add rustfmt
+        - uses: actions/checkout@v3
+        - run: cargo fmt --all -- --check
+  # Clippy
+  clippy:
+    if: github.event.pull_request.draft == false
+    name: Clippy
+    runs-on: windows-latest
+    steps:
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: rustup target add wasm32-unknown-unknown
+      - run: rustup component add clippy
+      - uses: actions/checkout@v3
+      - run: cargo clippy --workspace --all-targets --exclude *-example --target wasm32-unknown-unknown --tests --all-features -- -D warnings
+      - run: cargo clippy --workspace --all-targets --tests --all-features -- -D warnings

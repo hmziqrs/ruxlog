@@ -1,0 +1,30 @@
+{
+    "servers": {
+        "Context7": {
+            "type": "stdio",
+            "command": "bunx",
+            "args": [
+                "-y",
+                "@upstash/context7-mcp@latest"
+            ]
+        },
+        "SequentialThinking": {
+            "type": "stdio",
+            "command": "bunx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-sequential-thinking"
+            ]
+        },
+        "Convex": {
+            "type": "stdio",
+            "command": "bunx",
+            "args": [
+                "-y",
+                "convex@latest",
+                "mcp",
+                "start"
+            ]
+        }
+    }
+}

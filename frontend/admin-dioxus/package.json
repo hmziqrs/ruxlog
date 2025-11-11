@@ -1,0 +1,42 @@
+{
+  "scripts": {
+    "tailwind": "bunx --bun @tailwindcss/cli -i tailwind.css -o assets/tailwind.css --watch",
+    "tailwind:build": "bunx --bun @tailwindcss/cli -i input.css -o assets/tailwind.css",
+    "rpxy": "rpxy -c exp/rpxy.toml -w",
+    "editor:build": "bun build assets/editor/index.ts --outfile assets/editor.bundle.js --minify --format=esm",
+    "editor:watch": "bun build assets/editor/index.ts --outfile assets/editor.bundle.js --format=esm --watch"
+  },
+  "dependencies": {
+    "@tailwindcss/cli": "^4.0.17",
+    "@tailwindcss/typography": "^0.5.19",
+    "tailwindcss": "4.1.4",
+    "tailwindcss-animate": "^1.0.7",
+    "tw-animate-css": "^1.2.7"
+  },
+  "devDependencies": {
+    "@editorjs/attaches": "^1.3.2",
+    "@editorjs/checklist": "^1.6.0",
+    "@editorjs/code": "^2.9.3",
+    "@editorjs/delimiter": "^1.4.2",
+    "@editorjs/editorjs": "2.30.7",
+    "@editorjs/embed": "^2.7.6",
+    "@editorjs/header": "^2.8.8",
+    "@editorjs/image": "^2.10.3",
+    "@editorjs/inline-code": "^1.5.2",
+    "@editorjs/link": "^2.6.2",
+    "@editorjs/list": "^2.0.8",
+    "@editorjs/marker": "^1.4.0",
+    "@editorjs/nested-list": "^1.4.3",
+    "@editorjs/quote": "^2.7.6",
+    "@editorjs/raw": "^2.5.1",
+    "@editorjs/table": "^2.4.5",
+    "@editorjs/text-variant-tune": "^1.0.3",
+    "@editorjs/underline": "^1.2.1",
+    "@editorjs/warning": "^1.4.1",
+    "editorjs-alert": "^1.1.4",
+    "editorjs-button": "^3.0.3",
+    "editorjs-drag-drop": "^1.1.16",
+    "editorjs-hyperlink": "^1.0.6",
+    "editorjs-undo": "^2.0.28"
+  }
+}

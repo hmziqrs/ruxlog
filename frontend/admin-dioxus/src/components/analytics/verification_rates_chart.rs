@@ -1,0 +1,259 @@
+use dioxus::prelude::*;
+
+use super::interval_selector::IntervalSelector;
+use crate::store::{
+    AnalyticsEnvelopeResponse, AnalyticsInterval, StateFrame, StateFrameStatus,
+    VerificationRatePoint, VerificationRatesRequest,
+};
+
+/// Props for `VerificationRatesChart`.
+///
+/// This component stays focused on rendering and light interaction:
+/// - It accepts data + status as props so screens can wire it to `use_analytics()`
+/// - It exposes an `on_interval_change` callback for simple interval controls
+#[derive(Props, PartialEq, Clone)]
+pub struct VerificationRatesChartProps {
+    /// Current state frame for verification rates.
+    pub frame:
+        StateFrame<AnalyticsEnvelopeResponse<Vec<VerificationRatePoint>>, VerificationRatesRequest>,
+
+    /// Title shown in the card header.
+    #[props(default = "Verification Rates".to_string())]
+    pub title: String,
+
+    /// Optional fixed height for the chart container (e.g. "260px" or "18rem").
+    #[props(default = "260px".to_string())]
+    pub height: String,
+
+    /// If true, render the success rate line overlay.
+    #[props(default = true)]
+    pub show_success_rate: bool,
+
+    /// Callback when the user changes the interval (Hour/Day/Week/Month).
+    /// Screen is responsible for triggering the appropriate fetch.
+    #[props(default)]
+    pub on_interval_change: Option<EventHandler<AnalyticsInterval>>,
+}
+
+/// Card-style chart component for verification rates.
+///
+/// Expected usage:
+/// - Call `use_analytics()` in your screen.
+/// - Pass `(*analytics.verification_rates.read()).clone()` into `frame`.
+/// - Listen to `on_interval_change` to call `fetch_verification_rates` with the chosen interval.
+#[component]
+pub fn VerificationRatesChart(props: VerificationRatesChartProps) -> Element {
+    let VerificationRatesChartProps {
+        frame,
+        title,
+        height,
+        show_success_rate,
+        on_interval_change,
+    } = props;
+
+    let status = frame.status;
+    let data = frame
+        .data
+        .as_ref()
+        .map(|env| env.data.clone())
+        .unwrap_or_default();
+
+    // Try to read current interval from request if present; fall back to Day.
+    let current_interval = frame
+        .meta
+        .as_ref()
+        .map(|req| req.filters.group_by.clone())
+        .unwrap_or(AnalyticsInterval::Day);
+
+    // Derived max values for basic relative bar/line scaling.
+    let max_requested = data.iter().map(|p| p.requested).max().unwrap_or(0).max(1);
+    let max_verified = data.iter().map(|p| p.verified).max().unwrap_or(0).max(1);
+    let max_success_rate = data
+        .iter()
+        .map(|p| p.success_rate)
+        .fold(0.0_f64, |a, b| if b > a { b } else { a })
+        .max(1.0);
+
+    // Helper to map enum to label.
+    fn _interval_label(interval: &AnalyticsInterval) -> &'static str {
+        match interval {
+            AnalyticsInterval::Hour => "Hourly",
+            AnalyticsInterval::Day => "Daily",
+            AnalyticsInterval::Week => "Weekly",
+            AnalyticsInterval::Month => "Monthly",
+        }
+    }
+
+    // Render loading, error, and empty states.
+    let content: Element = match status {
+        StateFrameStatus::Loading => {
+            rsx! {
+                div {
+                    class: "flex items-center justify-center h-full text-xs text-zinc-500",
+                    span { class: "animate-pulse", "Loading verification rates..." }
+                }
+            }
+        }
+        StateFrameStatus::Failed => {
+            // Render a compact error state inside the card.
+            let err = frame
+                .error
+                .as_ref()
+                .map(|e| e.message())
+                .unwrap_or_else(|| "Unknown error".to_string());
+            rsx! {
+                div {
+                    class: "flex flex-col items-start justify-center h-full gap-1 text-xs",
+                    span { class: "text-rose-500 font-medium", "Failed to load verification rates" }
+                    span { class: "text-zinc-500 line-clamp-2", "{err}" }
+                }
+            }
+        }
+        StateFrameStatus::Init | StateFrameStatus::Success => {
+            if data.is_empty() {
+                rsx! {
+                    div {
+                        class: "flex items-center justify-center h-full text-xs text-zinc-500",
+                        "No verification data available for the selected interval."
+                    }
+                }
+            } else {
+                // Simple grouped bars + optional line using flex-based visualization.
+                // This avoids pulling a heavy chart dependency while keeping the layout ready.
+                rsx! {
+                    div {
+                        class: "relative w-full h-full",
+                        // Axes labels
+                        div {
+                            class: "absolute left-0 top-0 bottom-6 w-10 flex flex-col justify-between items-start text-[9px] text-zinc-500",
+                            span { "Max" }
+                            span { "0" }
+                        }
+                        // Chart area
+                        div {
+                            class: "absolute left-10 right-0 top-0 bottom-16 flex items-end gap-2 overflow-x-auto",
+                            for point in data.iter() {
+                                {
+                                    let requested_height = (point.requested as f64 / max_requested as f64) * 100.0;
+                                    let verified_height = (point.verified as f64 / max_verified as f64) * 100.0;
+                                    let rate_y = if show_success_rate {
+                                        (point.success_rate / max_success_rate) * 100.0
+                                    } else {
+                                        0.0
+                                    };
+
+                                    rsx! {
+                                    div {
+                                        class: "flex flex-col items-center gap-1 min-w-[40px]",
+                                        // Bars wrapper
+                                        div {
+                                            class: "flex items-end gap-1 h-[140px] w-full",
+                                            // Requested bar
+                                            div {
+                                                class: "w-1/2 bg-sky-500/70 hover:bg-sky-500 transition-colors rounded-t-md",
+                                                style: "height: {requested_height.max(4.0)}%;",
+                                            }
+                                            // Verified bar
+                                            div {
+                                                class: "w-1/2 bg-emerald-500/70 hover:bg-emerald-500 transition-colors rounded-t-md",
+                                                style: "height: {verified_height.max(4.0)}%;",
+                                            }
+
+                                            // Optional success rate marker (small dot + line anchor)
+                                            if show_success_rate {
+                                                div {
+                                                    class: "absolute",
+                                                    style: "transform: translateY(-{rate_y}%);",
+                                                    span {
+                                                        class: "block w-1.5 h-1.5 rounded-full bg-amber-400 shadow-none",
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        // Bucket label
+                                        div {
+                                            class: "w-full text-center text-[9px] text-zinc-500 truncate",
+                                            "{point.bucket}"
+                                        }
+                                        // Numeric summary
+                                        div {
+                                            class: "flex flex-col items-center gap-0.5 text-[8px] text-zinc-500",
+                                            span { "Req: {point.requested}" }
+                                            span { "Ver: {point.verified}" }
+                                            if show_success_rate {
+                                                {
+                                                    let rate_pct = format!("{:.0}%", point.success_rate * 100.0);
+                                                    rsx! { span { "Rate: {rate_pct}" } }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }}
+                            }
+                        }
+
+                        // Legend
+                        div {
+                            class: "absolute left-10 right-0 bottom-0 flex items-center justify-between text-[9px] text-zinc-500 gap-4",
+                            div {
+                                class: "flex items-center gap-2",
+                                span { class: "w-2 h-2 rounded-sm bg-sky-500" }
+                                span { "Requested" }
+                                span { class: "w-2 h-2 rounded-sm bg-emerald-500 ml-3" }
+                                span { "Verified" }
+                                if show_success_rate {
+                                    span { class: "w-2 h-0.5 rounded-sm bg-amber-400 ml-3" }
+                                    span { "Success rate" }
+                                }
+                            }
+                            // Interval selector (TODO: implement interval controls)
+                            div {
+                                class: "flex items-center gap-1 text-[9px] text-zinc-400",
+                                span { "Day/Week/Month" }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    rsx! {
+        div {
+            class: "\
+                rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 \
+                bg-zinc-50/70 dark:bg-zinc-950/40 \
+                backdrop-blur-sm shadow-none \
+                flex flex-col gap-2 p-4 h-full\
+            ",
+            // Header
+            div {
+                class: "flex items-center justify-between gap-2",
+                div {
+                    class: "flex flex-col",
+                    span { class: "text-xs font-semibold text-zinc-900 dark:text-zinc-100", "{title}" }
+                    span {
+                        class: "text-[10px] text-zinc-500",
+                        "Verification requests vs. verified accounts over time."
+                    }
+                }
+
+                // Interval selector (if callback provided)
+                if let Some(handler) = on_interval_change {
+                    IntervalSelector {
+                        current: current_interval,
+                        on_change: handler,
+                        label: "".to_string(),
+                    }
+                }
+            }
+
+            // Chart region
+            div {
+                class: "mt-1 w-full",
+                style: "height: {height};",
+                {content}
+            }
+        }
+    }
+}

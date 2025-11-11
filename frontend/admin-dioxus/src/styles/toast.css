@@ -1,0 +1,77 @@
+/* Non-replaceable toast styles: keyframes and parent-not interaction selectors */
+
+@keyframes toast-slide-up-even {
+  from {
+    transform: translateY(0.5rem)
+      scale(
+        calc(1 - 0.05 * var(--toast-index)),
+        calc(1 - 0.02 * var(--toast-index))
+      );
+  }
+  to {
+    transform: translateY(0)
+      scale(
+        calc(1 - 0.05 * var(--toast-index)),
+        calc(1 - 0.02 * var(--toast-index))
+      );
+  }
+}
+
+@keyframes toast-slide-up-odd {
+  from {
+    transform: translateY(0.5rem)
+      scale(
+        calc(1 - 0.05 * var(--toast-index)),
+        calc(1 - 0.02 * var(--toast-index))
+      );
+  }
+  to {
+    transform: translateY(0)
+      scale(
+        calc(1 - 0.05 * var(--toast-index)),
+        calc(1 - 0.02 * var(--toast-index))
+      );
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(100%)
+      scale(
+        calc(1.1 - 0.05 * var(--toast-index)),
+        calc(1.1 - 0.02 * var(--toast-index))
+      );
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0)
+      scale(
+        calc(1 - 0.05 * var(--toast-index)),
+        calc(1 - 0.02 * var(--toast-index))
+      );
+  }
+}
+
+/* Default animations when the container is not interacted with */
+.toast-container:not(:hover, :focus-within) .toast[data-toast-even]:not([data-top]) {
+  animation: toast-slide-up-even 0.2s ease-out;
+}
+
+.toast-container:not(:hover, :focus-within) .toast[data-toast-odd]:not([data-top]) {
+  animation: toast-slide-up-odd 0.2s ease-out;
+}
+
+/* Top-most toast enter */
+.toast[data-top] {
+  animation: toast-in 0.2s ease-out;
+}
+
+/* When interacted, cancel stacking transforms and reveal all */
+.toast-container:hover .toast,
+.toast-container:focus-within .toast {
+  margin-top: var(--toast-padding, 0);
+  filter: brightness(1);
+  opacity: 1;
+  transform: scale(1);
+}

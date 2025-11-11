@@ -1,0 +1,110 @@
+// Native (non-wasm32) implementation
+#[cfg(not(target_arch = "wasm32"))]
+mod native {
+    use gloo_storage::{LocalStorage, Storage};
+    use once_cell::sync::Lazy;
+    use reqwest::{header, Client, RequestBuilder};
+    use serde::{de::DeserializeOwned, Serialize};
+    use std::sync::Mutex;
+    use crate::env::{APP_API_URL, APP_CSRF_TOKEN};
+    const AUTH_TOKEN_KEY: &str = "auth_token";
+    static CLIENT: Lazy<Mutex<Client>> = Lazy::new(|| Mutex::new(create_client()));
+    fn create_client() -> Client {
+        Client::builder().build().expect("Failed to create HTTP client")
+    }
+    pub fn get_base_url() -> String {
+        format!("http://{}", APP_API_URL)
+    }
+    pub fn get_auth_token() -> Option<String> {
+        LocalStorage::get(AUTH_TOKEN_KEY).ok()
+    }
+    fn create_headers() -> header::HeaderMap {
+        let mut headers = header::HeaderMap::new();
+        headers.insert(header::CONTENT_TYPE, header::HeaderValue::from_static("application/json"));
+        if let Some(token) = get_auth_token() {
+            if let Ok(auth_value) = header::HeaderValue::from_str(&format!("Bearer {}", token)) {
+                headers.insert(header::AUTHORIZATION, auth_value);
+            }
+        }
+        if let Ok(csrf_value) = header::HeaderValue::from_str(APP_CSRF_TOKEN) {
+            headers.insert("csrf-token", csrf_value);
+        }
+        headers
+    }
+    pub fn get_client() -> Client {
+        CLIENT.lock().unwrap().clone()
+    }
+    pub fn get<T>(endpoint: &str) -> RequestBuilder where T: DeserializeOwned {
+        let url = format!("{}{}", get_base_url(), endpoint);
+        let headers = create_headers();
+        get_client().get(&url).headers(headers)
+    }
+    pub fn post<T>(endpoint: &str, body: &T) -> RequestBuilder where T: Serialize {
+        let url = format!("{}{}", get_base_url(), endpoint);
+        let headers = create_headers();
+        get_client().post(&url).headers(headers).json(body)
+    }
+    pub fn put<T>(endpoint: &str, body: &T) -> RequestBuilder where T: Serialize {
+        let url = format!("{}{}", get_base_url(), endpoint);
+        let headers = create_headers();
+        get_client().put(&url).headers(headers).json(body)
+    }
+    pub fn delete(endpoint: &str) -> RequestBuilder {
+        let url = format!("{}{}", get_base_url(), endpoint);
+        let headers = create_headers();
+        get_client().delete(&url).headers(headers)
+    }
+}
+
+// WASM (wasm32) implementation
+#[cfg(target_arch = "wasm32")]
+mod wasm {
+    use dioxus::logger::tracing;
+    use gloo_net::http::{Request, RequestBuilder, Response};
+    use gloo_storage::{LocalStorage, Storage};
+    use serde::{de::DeserializeOwned, Serialize};
+    use crate::env::{APP_API_URL, APP_CSRF_TOKEN};
+    const AUTH_TOKEN_KEY: &str = "auth_token";
+    pub fn get_base_url() -> String {
+        format!("http://{}", APP_API_URL)
+    }
+    pub fn get_auth_token() -> Option<String> {
+        LocalStorage::get(AUTH_TOKEN_KEY).ok()
+    }
+    fn create_headers(req: RequestBuilder) -> RequestBuilder {
+        let mut req = req;
+        req = req.header("Content-Type", "application/json");
+        if let Some(token) = get_auth_token() {
+            req = req.header("Authorization", &format!("Bearer {}", token));
+        }
+        req = req.header("csrf-token", APP_CSRF_TOKEN);
+        req
+    }
+    pub fn get(endpoint: &str) -> Request {
+        let url = format!("{}{}", get_base_url(), endpoint);
+        let req = Request::get(&url);
+        create_headers(req)
+    }
+    pub fn post<T: Serialize>(endpoint: &str, body: &T) -> Request {
+        tracing::info!("POST request gloo_net: {}", endpoint);
+        let url = format!("{}{}", get_base_url(), endpoint);
+        let req = Request::post(&url).json(body).unwrap();
+        create_headers(req)
+    }
+    pub fn put<T: Serialize>(endpoint: &str, body: &T) -> Request {
+        let url = format!("{}{}", get_base_url(), endpoint);
+        let req = Request::put(&url).json(body).unwrap();
+        create_headers(req)
+    }
+    pub fn delete(endpoint: &str) -> Request {
+        let url = format!("{}{}", get_base_url(), endpoint);
+        let req = Request::delete(&url);
+        create_headers(req)
+    }
+}
+
+// Re-export appropriate module
+#[cfg(not(target_arch = "wasm32"))]
+pub use native::*;
+#[cfg(target_arch = "wasm32")]
+pub use wasm::*;
