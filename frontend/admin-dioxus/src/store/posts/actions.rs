@@ -175,15 +175,16 @@ impl PostState {
                     self.view_by_id(post_id).await;
                     self.list().await;
                 } else {
+                    let status = response.status();
+                    let body = response.text().await.unwrap_or_default();
                     schedule_map
                         .entry(post_id)
                         .or_insert_with(StateFrame::new)
-                        .set_api_error(&response)
-                        .await;
+                        .set_api_error(status, body);
                 }
             }
             Err(e) => {
-                let (kind, msg) = crate::store::classify_transport_error(&e);
+                let (kind, msg) = crate::store::lib::classify_transport_error(&e);
                 schedule_map
                     .entry(post_id)
                     .or_insert_with(StateFrame::new)
@@ -232,15 +233,16 @@ impl PostState {
                         }
                     }
                 } else {
+                    let status = response.status();
+                    let body = response.text().await.unwrap_or_default();
                     revisions_map
                         .entry(post_id)
                         .or_insert_with(StateFrame::new)
-                        .set_api_error(&response)
-                        .await;
+                        .set_api_error(status, body);
                 }
             }
             Err(e) => {
-                let (kind, msg) = crate::store::classify_transport_error(&e);
+                let (kind, msg) = crate::store::lib::classify_transport_error(&e);
                 revisions_map
                     .entry(post_id)
                     .or_insert_with(StateFrame::new)
@@ -280,15 +282,16 @@ impl PostState {
                     self.view_by_id(post_id).await;
                     self.list().await;
                 } else {
+                    let status = response.status();
+                    let body = response.text().await.unwrap_or_default();
                     restore_map
                         .entry(key)
                         .or_insert_with(StateFrame::new)
-                        .set_api_error(&response)
-                        .await;
+                        .set_api_error(status, body);
                 }
             }
             Err(e) => {
-                let (kind, msg) = crate::store::classify_transport_error(&e);
+                let (kind, msg) = crate::store::lib::classify_transport_error(&e);
                 restore_map
                     .entry(key)
                     .or_insert_with(StateFrame::new)
@@ -323,15 +326,16 @@ impl PostState {
                         .or_insert_with(StateFrame::new)
                         .set_success(None);
                 } else {
+                    let status = response.status();
+                    let body = response.text().await.unwrap_or_default();
                     track_map
                         .entry(post_id)
                         .or_insert_with(StateFrame::new)
-                        .set_api_error(&response)
-                        .await;
+                        .set_api_error(status, body);
                 }
             }
             Err(e) => {
-                let (kind, msg) = crate::store::classify_transport_error(&e);
+                let (kind, msg) = crate::store::lib::classify_transport_error(&e);
                 track_map
                     .entry(post_id)
                     .or_insert_with(StateFrame::new)
@@ -443,15 +447,16 @@ impl PostState {
                     drop(add_map);
                     self.view_by_id(post_id).await;
                 } else {
+                    let status = response.status();
+                    let body = response.text().await.unwrap_or_default();
                     add_map
                         .entry(key)
                         .or_insert_with(StateFrame::new)
-                        .set_api_error(&response)
-                        .await;
+                        .set_api_error(status, body);
                 }
             }
             Err(e) => {
-                let (kind, msg) = crate::store::classify_transport_error(&e);
+                let (kind, msg) = crate::store::lib::classify_transport_error(&e);
                 add_map
                     .entry(key)
                     .or_insert_with(StateFrame::new)
@@ -490,15 +495,16 @@ impl PostState {
                     drop(remove_map);
                     self.view_by_id(post_id).await;
                 } else {
+                    let status = response.status();
+                    let body = response.text().await.unwrap_or_default();
                     remove_map
                         .entry(key)
                         .or_insert_with(StateFrame::new)
-                        .set_api_error(&response)
-                        .await;
+                        .set_api_error(status, body);
                 }
             }
             Err(e) => {
-                let (kind, msg) = crate::store::classify_transport_error(&e);
+                let (kind, msg) = crate::store::lib::classify_transport_error(&e);
                 remove_map
                     .entry(key)
                     .or_insert_with(StateFrame::new)

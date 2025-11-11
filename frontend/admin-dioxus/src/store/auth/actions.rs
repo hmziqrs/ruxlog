@@ -48,12 +48,14 @@ impl AuthState {
                     *self.user.write() = None;
                     self.reset_all_stores();
                 } else {
-                    self.logout_status.write().set_api_error(&response).await;
+                    let status = response.status();
+                    let body = response.text().await.unwrap_or_default();
+                    self.logout_status.write().set_api_error(status, body);
                     *self.user.write() = None;
                 }
             }
             Err(e) => {
-                let (kind, msg) = crate::store::classify_transport_error(&e);
+                let (kind, msg) = crate::store::lib::classify_transport_error(&e);
                 self.logout_status
                     .write()
                     .set_transport_error(kind, Some(msg));
@@ -110,11 +112,13 @@ impl AuthState {
                     // Unauthorized, no user logged in
                     self.init_status.write().set_success(None);
                 } else {
-                    self.init_status.write().set_api_error(&response).await;
+                    let status = response.status();
+                    let body = response.text().await.unwrap_or_default();
+                    self.init_status.write().set_api_error(status, body);
                 }
             }
             Err(e) => {
-                let (kind, msg) = crate::store::classify_transport_error(&e);
+                let (kind, msg) = crate::store::lib::classify_transport_error(&e);
                 self.init_status
                     .write()
                     .set_transport_error(kind, Some(msg));
@@ -151,11 +155,13 @@ impl AuthState {
                         }
                     }
                 } else {
-                    self.login_status.write().set_api_error(&response).await;
+                    let status = response.status();
+                    let body = response.text().await.unwrap_or_default();
+                    self.login_status.write().set_api_error(status, body);
                 }
             }
             Err(e) => {
-                let (kind, msg) = crate::store::classify_transport_error(&e);
+                let (kind, msg) = crate::store::lib::classify_transport_error(&e);
                 self.login_status
                     .write()
                     .set_transport_error(kind, Some(msg));

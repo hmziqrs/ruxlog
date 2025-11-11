@@ -48,6 +48,7 @@ dependencies = [
  "lazy_static",
  "log",
  "once_cell",
+ "oxstore",
  "photon-rs",
  "regex",
  "reqwest",
@@ -3993,6 +3994,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05e6affeb1632d6ff6a23d2cd40ffed138e82f1532571a26f527c8a284bb2fbb"
 dependencies = [
  "ttf-parser",
+]
+
+[[package]]
+name = "oxstore"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "dioxus 0.7.1",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

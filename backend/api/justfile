@@ -1,0 +1,94 @@
+# Ruxlog Backend Commands
+
+# Default recipe
+default:
+    echo "Ruxlog Backend Commands"
+    echo ""
+    echo "Development:"
+    echo "  just dev          Run development server"
+    echo "  just dev-w        Run with file watching"
+    echo "  just debug        Run with debug logging"
+    echo ""
+    echo "Production:"
+    echo "  just prod         Run production build"
+    echo "  just prod-build   Build production version"
+    echo ""
+    echo "Process Management:"
+    echo "  just kill         Stop cargo processes"
+    echo "  just kill-port    Kill process on port 8888"
+    echo ""
+    echo "Utilities:"
+    echo "  just archive      Archive git changes"
+    echo "  just restore <zip> Restore from archive"
+    echo "  just logs         Follow log files"
+
+
+# Development commands
+dev:
+    cargo run
+
+watch:
+    cargo watch -x run
+
+dev-nohup:
+    mkdir -p logs && nohup cargo watch -x run > logs/dev.log 2>&1 & echo $! > .cargo-watch.pid
+
+# Debug commands
+debug:
+    RUST_LOG=debug cargo run 2>&1 | tee logs/debug.log
+
+debug-w:
+    mkdir -p logs && RUST_LOG=debug cargo watch -x 'run' 2>&1 | tee logs/debug.log
+
+debug-nohup:
+    mkdir -p logs && nohup sh -c 'RUST_LOG=debug cargo watch -x run' > logs/debug-nohup.log 2>&1 & echo $! > .cargo-watch.pid
+
+# Production commands
+prod:
+    cargo run --release
+
+prod-build:
+    cargo build --release
+
+prod-nohup:
+    mkdir -p logs && nohup cargo run --release > logs/production.log 2>&1 & echo $! > .cargo.pid
+
+# Process management
+kill:
+    pkill -f 'cargo watch' || pkill -f 'cargo run' || echo 'No cargo processes found'
+
+kill-nohup:
+    ([ -f .cargo-watch.pid ] && kill $(cat .cargo-watch.pid) && rm .cargo-watch.pid) || ([ -f .cargo.pid ] && kill $(cat .cargo.pid) && rm .cargo.pid) || echo 'No PID file found'
+
+kill-all:
+    pkill -f cargo || echo 'No cargo processes found'
+
+kill-port:
+    lsof -ti:8888 | xargs kill -9 2>/dev/null || echo 'No process found on port 8888'
+
+# Log management
+logs:
+    tail -f logs/*.log
+
+logs-debug:
+    tail -f logs/debug*.log
+
+logs-dev:
+    tail -f logs/dev.log
+
+logs-prod:
+    tail -f logs/production.log
+
+clean-logs:
+    rm -rf logs/*.log
+
+# Archive and restore (using existing TypeScript scripts)
+archive:
+    bun ./scripts/archive_changes.ts
+
+restore zip_file:
+    bun ./scripts/restore_changes.ts {{zip_file}}
+
+# Utility commands
+lsof:
+    lsof -i :8888

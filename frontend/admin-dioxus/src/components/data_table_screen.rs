@@ -4,9 +4,9 @@ use crate::components::{
     ErrorDetails, ErrorDetailsVariant, ListToolbar, ListToolbarProps, LoadingOverlay, PageHeader,
     PageHeaderProps, Pagination,
 };
-use crate::store::{AppError, PaginatedList, StateFrame};
 use crate::ui::shadcn::{Button, ButtonVariant};
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdArrowUpDown, Icon};
+use oxstore::{AppError, PaginatedList, StateFrame};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct HeaderColumn {

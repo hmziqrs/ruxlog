@@ -13,7 +13,6 @@ mod users;
 pub use analytics::*;
 pub use auth::*;
 pub use categories::*;
-pub use error::*;
 pub use image_editor::*;
 pub use lib::*;
 pub use media::*;
@@ -21,3 +20,5 @@ pub use posts::*;
 pub use tags::*;
 pub use traits::*;
 pub use users::*;
+// Re-export specific types from error module, avoiding classify_transport_error conflict
+pub use error::is_offline;

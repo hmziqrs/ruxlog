@@ -4372,6 +4372,7 @@ dependencies = [
  "base64 0.22.1",
  "bytes",
  "chrono",
+ "clap",
  "data-encoding",
  "dotenv",
  "envy",
