@@ -1,7 +1,8 @@
 use dioxus::prelude::*;
 
 use crate::router::Route;
-use oxstore::{use_post, ListStore, Post, PostStatus};
+use crate::store::{use_post, Post, PostStatus};
+use crate::store::ListStore;
 use crate::ui::shadcn::{
     Avatar, AvatarFallback, AvatarImage, Badge, BadgeVariant, Button, ButtonVariant, Card,
     CardContent, CardFooter, CardHeader, Checkbox, DropdownMenu, DropdownMenuContent,

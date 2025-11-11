@@ -1,6 +1,5 @@
-use oxstore::{PaginatedList, StateFrame};
+use crate::{PaginatedList, StateFrame, ListQuery};
 use dioxus::prelude::*;
-use oxstore::ListQuery;
 
 pub trait ListStore<T, Q>
 where

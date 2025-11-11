@@ -1,5 +1,5 @@
 use crate::services::http_client;
-use oxstore::analytics::*;
+use crate::store::analytics::*;
 use oxstore::{state_request_abstraction, StateFrame};
 
 impl AnalyticsState {

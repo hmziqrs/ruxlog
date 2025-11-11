@@ -82,19 +82,19 @@ pub fn UserDetailsDialog(mut props: UserDetailsDialogProps) -> Element {
                         p { class: "text-sm text-muted-foreground truncate mt-1", "{user.email}" }
                         div { class: "flex flex-wrap gap-2 mt-3",
                             {match user.role {
-                                oxstore::UserRole::SuperAdmin => rsx! {
+                                crate::store::UserRole::SuperAdmin => rsx! {
                                     Badge { class: "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400", "Super Admin" }
                                 },
-                                oxstore::UserRole::Admin => rsx! {
+                                crate::store::UserRole::Admin => rsx! {
                                     Badge { class: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-400", "Admin" }
                                 },
-                                oxstore::UserRole::Moderator => rsx! {
+                                crate::store::UserRole::Moderator => rsx! {
                                     Badge { class: "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400", "Moderator" }
                                 },
-                                oxstore::UserRole::Author => rsx! {
+                                crate::store::UserRole::Author => rsx! {
                                     Badge { class: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400", "Author" }
                                 },
-                                oxstore::UserRole::User => rsx! {
+                                crate::store::UserRole::User => rsx! {
                                     Badge { variant: BadgeVariant::Secondary, class: "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/20 dark:text-gray-400", "User" }
                                 },
                             }}

@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use oxstore::{use_categories, use_tag, use_user};
+use crate::store::{use_categories, use_tag, use_user};
 use crate::ui::shadcn::{
     Badge, BadgeVariant, Button, ButtonSize, ButtonVariant, Checkbox, Popover, PopoverContent,
     PopoverTrigger,

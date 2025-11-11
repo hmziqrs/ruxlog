@@ -5,6 +5,7 @@ pub use http::*;
 pub use pagination::*;
 pub use query::*;
 pub use state::*;
+pub use traits::*;
 
 // Module declarations
 pub mod abstractions;
@@ -13,3 +14,4 @@ pub mod http;
 mod pagination;
 mod query;
 mod state;
+pub mod traits;

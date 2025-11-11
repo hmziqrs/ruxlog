@@ -1,6 +1,6 @@
 use crate::components::PageHeader;
 use crate::router::Route;
-use oxstore::{use_post, EditorJsBlock, PostContent};
+use crate::store::{use_post, EditorJsBlock, PostContent};
 use crate::ui::shadcn::{Button, ButtonVariant};
 use dioxus::prelude::*;
 

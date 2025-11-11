@@ -5,7 +5,7 @@ use crate::components::PageHeader;
 use crate::containers::{UserForm, UserFormContainer};
 use crate::hooks::{use_state_frame_toast, StateFrameToastConfig};
 use crate::router::Route;
-use oxstore::use_user;
+use crate::store::use_user;
 use crate::ui::shadcn::{Button, ButtonVariant};
 
 #[component]

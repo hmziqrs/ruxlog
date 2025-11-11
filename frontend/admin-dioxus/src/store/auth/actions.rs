@@ -1,6 +1,12 @@
 use super::{AuthState, AuthUser, LoginPayload, UserRole};
-use crate::{services::http_client, store::StateFrame};
+use crate::{
+    services::http_client,
+    store::{
+        use_analytics, use_categories, use_image_editor, use_media, use_post, use_tag, use_user,
+    },
+};
 use dioxus::{logger::tracing, prelude::*};
+use oxstore::StateFrame;
 
 impl AuthUser {
     pub fn new(id: i32, name: String, email: String, role: UserRole, is_verified: bool) -> Self {
@@ -55,7 +61,7 @@ impl AuthState {
                 }
             }
             Err(e) => {
-                let (kind, msg) = oxstore::lib::classify_transport_error(&e);
+                let (kind, msg) = oxstore::error::classify_transport_error(&e);
                 self.logout_status
                     .write()
                     .set_transport_error(kind, Some(msg));
@@ -65,11 +71,6 @@ impl AuthState {
     }
 
     fn reset_all_stores(&self) {
-        use oxstore::{
-            analytics::use_analytics, categories::use_categories, image_editor::use_image_editor,
-            media::use_media, posts::use_post, tags::use_tag, users::use_user,
-        };
-
         use_categories().reset();
         use_tag().reset();
         use_user().reset();
@@ -118,7 +119,7 @@ impl AuthState {
                 }
             }
             Err(e) => {
-                let (kind, msg) = oxstore::lib::classify_transport_error(&e);
+                let (kind, msg) = oxstore::error::classify_transport_error(&e);
                 self.init_status
                     .write()
                     .set_transport_error(kind, Some(msg));
@@ -161,7 +162,7 @@ impl AuthState {
                 }
             }
             Err(e) => {
-                let (kind, msg) = oxstore::lib::classify_transport_error(&e);
+                let (kind, msg) = oxstore::error::classify_transport_error(&e);
                 self.login_status
                     .write()
                     .set_transport_error(kind, Some(msg));

@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use crate::components::{ErrorDetails, ErrorDetailsVariant, LoadingOverlay};
-use oxstore::{
+use crate::store::{
     use_analytics, AnalyticsEnvelope, AnalyticsEnvelopeResponse, AnalyticsInterval,
     NewsletterGrowthFilters, NewsletterGrowthPoint, NewsletterGrowthRequest, StateFrameStatus,
 };

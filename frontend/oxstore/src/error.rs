@@ -121,8 +121,31 @@ impl AppError {
     }
 }
 
-/// This function should be implemented by consuming libraries
+/// Best-effort offline detection (wasm only). Returns false on non-wasm targets.
+pub fn is_offline() -> bool {
+    #[cfg(target_arch = "wasm32")]
+    {
+        web_sys::window()
+            .map(|w| w.navigator())
+            .map(|n| !n.on_line())
+            .unwrap_or(false)
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        false
+    }
+}
+
+/// Heuristically classify a transport error and produce a user-facing message.
+/// This is a generic implementation - consuming libraries can provide their own specific implementations.
 pub fn classify_transport_error<E: std::fmt::Debug>(e: &E) -> (TransportErrorKind, String) {
-    // Default implementation - consuming libraries should override this
+    if is_offline() {
+        return (
+            TransportErrorKind::Offline,
+            "You appear to be offline".to_string(),
+        );
+    }
+
+    // Default to unknown error for generic implementations
     (TransportErrorKind::Unknown, format!("{:?}", e))
 }

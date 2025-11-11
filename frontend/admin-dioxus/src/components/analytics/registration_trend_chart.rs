@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use oxstore::{AnalyticsEnvelopeResponse, RegistrationTrendPoint, StateFrame};
+use crate::store::{AnalyticsEnvelopeResponse, RegistrationTrendPoint, StateFrame};
 
 /// Props for `RegistrationTrendChart`.
 ///
@@ -13,7 +13,7 @@ pub struct RegistrationTrendChartProps {
     /// State frame containing analytics envelope response for registration trends.
     pub frame: StateFrame<
         AnalyticsEnvelopeResponse<Vec<RegistrationTrendPoint>>,
-        oxstore::RegistrationTrendsRequest,
+        crate::store::RegistrationTrendsRequest,
     >,
     /// Optional title for the chart card.
     #[props(default = "New user registrations".to_string())]

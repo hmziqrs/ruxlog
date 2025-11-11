@@ -9,7 +9,7 @@ use crate::hooks::{
     StateFrameToastConfig,
 };
 use crate::router::Route;
-use oxstore::{use_media, ListQuery, ListStore, Media, MediaListQuery, MediaReference};
+use crate::store::{use_media, ListQuery, ListStore, Media, MediaListQuery, MediaReference};
 use crate::types::Order;
 use crate::ui::shadcn::{
     Badge, Button, ButtonVariant, Checkbox, DropdownMenu, DropdownMenuContent, DropdownMenuItem,

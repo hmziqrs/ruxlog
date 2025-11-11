@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
-use oxstore::analytics::{AnalyticsEnvelopeResponse, PublishingTrendPoint};
-use oxstore::StateFrame;
+use crate::store::analytics::{AnalyticsEnvelopeResponse, PublishingTrendPoint};
+use crate::store::StateFrame;
 
 /// Props for `PublishingTrendsChart`.
 ///
@@ -14,7 +14,7 @@ pub struct PublishingTrendsChartProps {
     /// State frame containing publishing trend points.
     pub frame: StateFrame<
         AnalyticsEnvelopeResponse<Vec<PublishingTrendPoint>>,
-        oxstore::PublishingTrendsRequest,
+        crate::store::PublishingTrendsRequest,
     >,
 
     /// Chart title shown in the card header.
@@ -284,7 +284,7 @@ fn from_state_frame(
     title: String,
     frame: &StateFrame<
         AnalyticsEnvelopeResponse<Vec<PublishingTrendPoint>>,
-        oxstore::PublishingTrendsRequest,
+        crate::store::PublishingTrendsRequest,
     >,
 ) -> PublishingTrendsChartProps {
     PublishingTrendsChartProps {

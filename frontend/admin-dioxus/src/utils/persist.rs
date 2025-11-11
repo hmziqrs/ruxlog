@@ -16,13 +16,12 @@ pub fn get_theme() -> Option<String> {
 }
 
 pub fn set_theme(theme: &str) {
-    // Best-effort; ignore errors to avoid breaking UI interactions.
     if let Ok(mut store) = PKV.lock() {
         let _ = store.set_string(THEME_KEY, theme);
     }
-    // Mirror the value into window.localStorage so we can apply theme pre-hydration in index.html
-    #[cfg(target_arch = "wasm32")]
-    {
-        let _ = LocalStorage::set(THEME_KEY, theme);
-    }
+    // // Mirror the value into window.localStorage so we can apply theme pre-hydration in index.html
+    // #[cfg(target_arch = "wasm32")]
+    // {
+    //     let _ = LocalStorage::set(THEME_KEY, theme);
+    // }
 }

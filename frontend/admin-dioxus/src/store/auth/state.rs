@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::sync::OnceLock;
 
+use crate::store::Media;
 use oxstore::StateFrame;
 
 pub struct AuthState {

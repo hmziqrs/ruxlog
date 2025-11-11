@@ -5,7 +5,7 @@ use crate::components::{FormTwoColumnSkeleton, PageHeader};
 use crate::containers::{TagForm, TagFormContainer};
 use crate::hooks::{use_state_frame_map_toast, use_tag_view, StateFrameToastConfig};
 use crate::router::Route;
-use oxstore::use_tag;
+use crate::store::use_tag;
 use crate::ui::shadcn::{Button, ButtonVariant};
 
 #[component]

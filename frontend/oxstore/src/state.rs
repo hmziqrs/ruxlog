@@ -135,7 +135,10 @@ impl<D: Clone, Q: Clone> StateFrame<D, Q> {
 
     pub fn set_transport_error(&mut self, kind: TransportErrorKind, message: Option<String>) {
         self.status = StateFrameStatus::Failed;
-        self.error = Some(AppError::Transport(crate::error::TransportErrorInfo { kind, message }));
+        self.error = Some(AppError::Transport(crate::error::TransportErrorInfo {
+            kind,
+            message,
+        }));
     }
 
     pub fn set_decode_error(

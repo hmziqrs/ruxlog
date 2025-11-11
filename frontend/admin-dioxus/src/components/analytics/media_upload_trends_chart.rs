@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use oxstore::{AnalyticsEnvelopeResponse, MediaUploadPoint, StateFrame, StateFrameStatus};
+use crate::store::{AnalyticsEnvelopeResponse, MediaUploadPoint, StateFrame, StateFrameStatus};
 
 /// Props for `MediaUploadTrendsChart`.
 ///
@@ -13,7 +13,7 @@ pub struct MediaUploadTrendsChartProps {
     /// Frame containing media upload trend points.
     pub frame: StateFrame<
         AnalyticsEnvelopeResponse<Vec<MediaUploadPoint>>,
-        oxstore::MediaUploadRequest,
+        crate::store::MediaUploadRequest,
     >,
     /// Optional title for the chart card.
     #[props(default = "Media Upload Trends".to_string())]

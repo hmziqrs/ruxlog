@@ -1,9 +1,11 @@
 use dioxus::prelude::*;
 
 use super::interval_selector::IntervalSelector;
+use crate::store::analytics::{
+    AnalyticsEnvelopeResponse, AnalyticsInterval, VerificationRatePoint, VerificationRatesRequest,
+};
 use oxstore::{
-    AnalyticsEnvelopeResponse, AnalyticsInterval, StateFrame, StateFrameStatus,
-    VerificationRatePoint, VerificationRatesRequest,
+    StateFrame, StateFrameStatus,
 };
 
 /// Props for `VerificationRatesChart`.
