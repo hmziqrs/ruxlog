@@ -48,6 +48,7 @@ dependencies = [
  "lazy_static",
  "log",
  "once_cell",
+ "oxcore",
  "oxstore",
  "photon-rs",
  "regex",
@@ -3997,12 +3998,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "oxcore"
+version = "0.1.0"
+dependencies = [
+ "gloo-net",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "web-sys",
+]
+
+[[package]]
 name = "oxstore"
 version = "0.1.0"
 dependencies = [
  "chrono",
  "dioxus 0.7.1",
- "gloo-net",
+ "oxcore",
  "serde",
  "serde_json",
  "web-sys",
@@ -5838,6 +5851,7 @@ dependencies = [
  "io-uring",
  "libc",
  "mio",
+ "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "slab",

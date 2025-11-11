@@ -5,7 +5,8 @@ use super::{
 
 use dioxus::prelude::GlobalSignal;
 
-use crate::services::http_client;
+use oxcore::http;
+
 use oxstore::{
     edit_state_abstraction, list_state_abstraction, remove_state_abstraction,
     state_request_abstraction, view_state_abstraction, ListStore, PaginatedList, StateFrame,
@@ -20,7 +21,7 @@ impl PostState {
     /// Create a new post
     pub async fn add(&self, payload: PostCreatePayload) {
         let meta_payload = payload.clone();
-        let request = http_client::post("/post/v1/create", &payload);
+        let request = http::post("/post/v1/create", &payload);
         let created = state_request_abstraction(
             &self.add,
             Some(meta_payload),
@@ -41,7 +42,7 @@ impl PostState {
             &self.edit,
             post_id,
             payload.clone(),
-            http_client::post(&format!("/post/v1/update/{}", post_id), &payload).send(),
+            http::post(&format!("/post/v1/update/{}", post_id), &payload).send(),
             "post",
             Some(&self.list),
             Some(&self.view),
@@ -56,7 +57,7 @@ impl PostState {
         let _ = remove_state_abstraction(
             &self.remove,
             post_id,
-            http_client::post(&format!("/post/v1/delete/{}", post_id), &()).send(),
+            http::post(&format!("/post/v1/delete/{}", post_id), &()).send(),
             "post",
             Some(&self.list),
             Some(&self.view),
@@ -70,7 +71,7 @@ impl PostState {
     pub async fn list(&self) {
         let _ = list_state_abstraction::<PaginatedList<Post>>(
             &self.list,
-            http_client::post("/post/v1/query", &serde_json::json!({})),
+            http::post("/post/v1/query", &serde_json::json!({})),
             "posts",
         )
         .await;
@@ -80,7 +81,7 @@ impl PostState {
     pub async fn list_with_query(&self, query: PostListQuery) {
         let _ = list_state_abstraction::<PaginatedList<Post>>(
             &self.list,
-            http_client::post("/post/v1/query", &query),
+            http::post("/post/v1/query", &query),
             "posts",
         )
         .await;
@@ -90,7 +91,7 @@ impl PostState {
     /// Note: This method fetches by id_or_slug but caches by post.id
     pub async fn view(&self, id_or_slug: &str) {
         // We need to handle this manually since the key might be a slug but we cache by id
-        let result = http_client::post(&format!("/post/v1/view/{}", id_or_slug), &())
+        let result = http::post(&format!("/post/v1/view/{}", id_or_slug), &())
             .send()
             .await;
 
@@ -129,7 +130,7 @@ impl PostState {
         let _ = view_state_abstraction(
             &self.view,
             post_id,
-            http_client::post(&format!("/post/v1/view/{}", post_id), &()).send(),
+            http::post(&format!("/post/v1/view/{}", post_id), &()).send(),
             "post",
             |post: &Post| post.clone(),
         )
@@ -140,7 +141,7 @@ impl PostState {
     pub async fn list_published(&self) {
         let _ = list_state_abstraction::<PaginatedList<Post>>(
             &self.list,
-            http_client::post("/post/v1/list/published", &serde_json::json!({})),
+            http::post("/post/v1/list/published", &serde_json::json!({})),
             "published posts",
         )
         .await;
@@ -160,7 +161,7 @@ impl PostState {
             .set_loading();
         drop(schedule_map);
 
-        let result = http_client::post("/post/v1/schedule", &payload)
+        let result = http::post("/post/v1/schedule", &payload)
             .send()
             .await;
 
@@ -209,7 +210,7 @@ impl PostState {
             .set_loading();
         drop(revisions_map);
 
-        let result = http_client::post(
+        let result = http::post(
             &format!("/post/v1/revisions/{}/list", post_id),
             &serde_json::json!({}),
         )
@@ -264,7 +265,7 @@ impl PostState {
             .set_loading();
         drop(restore_map);
 
-        let result = http_client::post(
+        let result = http::post(
             &format!("/post/v1/revisions/{}/restore/{}", post_id, revision_id),
             &serde_json::json!({}),
         )
@@ -316,7 +317,7 @@ impl PostState {
             .set_loading();
         drop(track_map);
 
-        let result = http_client::post(&format!("/post/v1/track_view/{}", post_id), &())
+        let result = http::post(&format!("/post/v1/track_view/{}", post_id), &())
             .send()
             .await;
 
@@ -354,7 +355,7 @@ impl PostState {
     /// Create a new series
     pub async fn series_create(&self, payload: SeriesCreatePayload) {
         let meta_payload = payload.clone();
-        let request = http_client::post("/post/v1/series/create", &payload);
+        let request = http::post("/post/v1/series/create", &payload);
         let created = state_request_abstraction(
             &self.series_add,
             Some(meta_payload),
@@ -375,7 +376,7 @@ impl PostState {
             &self.series_edit,
             series_id,
             payload.clone(),
-            http_client::post(&format!("/post/v1/series/update/{}", series_id), &payload).send(),
+            http::post(&format!("/post/v1/series/update/{}", series_id), &payload).send(),
             "series",
             Some(&self.series_list),
             Some(&self.series_view),
@@ -390,7 +391,7 @@ impl PostState {
         let _ = remove_state_abstraction(
             &self.series_remove,
             series_id,
-            http_client::post(&format!("/post/v1/series/delete/{}", series_id), &()).send(),
+            http::post(&format!("/post/v1/series/delete/{}", series_id), &()).send(),
             "series",
             Some(&self.series_list),
             Some(&self.series_view),
@@ -404,7 +405,7 @@ impl PostState {
     pub async fn series_list(&self) {
         let _ = list_state_abstraction::<PaginatedList<Series>>(
             &self.series_list,
-            http_client::post("/post/v1/series/list", &serde_json::json!({})),
+            http::post("/post/v1/series/list", &serde_json::json!({})),
             "series",
         )
         .await;
@@ -414,7 +415,7 @@ impl PostState {
     pub async fn series_list_with_query(&self, query: SeriesListQuery) {
         let _ = list_state_abstraction::<PaginatedList<Series>>(
             &self.series_list,
-            http_client::post("/post/v1/series/list", &query),
+            http::post("/post/v1/series/list", &query),
             "series",
         )
         .await;
@@ -430,7 +431,7 @@ impl PostState {
             .set_loading();
         drop(add_map);
 
-        let result = http_client::post(
+        let result = http::post(
             &format!("/post/v1/series/add/{}/{}", post_id, series_id),
             &serde_json::json!({}),
         )
@@ -478,7 +479,7 @@ impl PostState {
             .set_loading();
         drop(remove_map);
 
-        let result = http_client::post(
+        let result = http::post(
             &format!("/post/v1/series/remove/{}/{}", post_id, series_id),
             &serde_json::json!({}),
         )
@@ -522,7 +523,7 @@ impl PostState {
 
     /// Get sitemap data for published posts
     pub async fn sitemap(&self) -> Option<Vec<Post>> {
-        let result = http_client::post("/post/v1/sitemap", &serde_json::json!({}))
+        let result = http::post("/post/v1/sitemap", &serde_json::json!({}))
             .send()
             .await;
 

@@ -1,10 +1,10 @@
-use crate::services::http_client;
 use crate::store::analytics::*;
+use oxcore::http;
 use oxstore::{state_request_abstraction, StateFrame};
 
 impl AnalyticsState {
     pub async fn fetch_registration_trends(&self, request: RegistrationTrendsRequest) {
-        let req = http_client::post("/analytics/v1/user/registration-trends", &request);
+        let req = http::post("/analytics/v1/user/registration-trends", &request);
 
         state_request_abstraction(
             &self.registration_trends,
@@ -19,7 +19,7 @@ impl AnalyticsState {
     }
 
     pub async fn fetch_verification_rates(&self, request: VerificationRatesRequest) {
-        let req = http_client::post("/analytics/v1/user/verification-rates", &request);
+        let req = http::post("/analytics/v1/user/verification-rates", &request);
 
         state_request_abstraction(
             &self.verification_rates,
@@ -34,7 +34,7 @@ impl AnalyticsState {
     }
 
     pub async fn fetch_publishing_trends(&self, request: PublishingTrendsRequest) {
-        let req = http_client::post("/analytics/v1/content/publishing-trends", &request);
+        let req = http::post("/analytics/v1/content/publishing-trends", &request);
 
         state_request_abstraction(
             &self.publishing_trends,
@@ -49,7 +49,7 @@ impl AnalyticsState {
     }
 
     pub async fn fetch_page_views(&self, request: PageViewsRequest) {
-        let req = http_client::post("/analytics/v1/engagement/page-views", &request);
+        let req = http::post("/analytics/v1/engagement/page-views", &request);
 
         state_request_abstraction(
             &self.page_views,
@@ -64,7 +64,7 @@ impl AnalyticsState {
     }
 
     pub async fn fetch_comment_rate(&self, request: CommentRateRequest) {
-        let req = http_client::post("/analytics/v1/engagement/comment-rate", &request);
+        let req = http::post("/analytics/v1/engagement/comment-rate", &request);
 
         state_request_abstraction(
             &self.comment_rate,
@@ -79,7 +79,7 @@ impl AnalyticsState {
     }
 
     pub async fn fetch_newsletter_growth(&self, request: NewsletterGrowthRequest) {
-        let req = http_client::post("/analytics/v1/engagement/newsletter-growth", &request);
+        let req = http::post("/analytics/v1/engagement/newsletter-growth", &request);
 
         state_request_abstraction(
             &self.newsletter_growth,
@@ -94,7 +94,7 @@ impl AnalyticsState {
     }
 
     pub async fn fetch_media_upload(&self, request: MediaUploadRequest) {
-        let req = http_client::post("/analytics/v1/media/upload-trends", &request);
+        let req = http::post("/analytics/v1/media/upload-trends", &request);
 
         state_request_abstraction(
             &self.media_upload,
@@ -109,7 +109,7 @@ impl AnalyticsState {
     }
 
     pub async fn fetch_dashboard_summary(&self, request: DashboardSummaryRequest) {
-        let req = http_client::post("/analytics/v1/dashboard/summary", &request);
+        let req = http::post("/analytics/v1/dashboard/summary", &request);
 
         state_request_abstraction(
             &self.dashboard_summary,

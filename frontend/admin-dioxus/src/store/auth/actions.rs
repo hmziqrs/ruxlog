@@ -1,11 +1,9 @@
 use super::{AuthState, AuthUser, LoginPayload, UserRole};
-use crate::{
-    services::http_client,
-    store::{
-        use_analytics, use_categories, use_image_editor, use_media, use_post, use_tag, use_user,
-    },
+use crate::store::{
+    use_analytics, use_categories, use_image_editor, use_media, use_post, use_tag, use_user,
 };
 use dioxus::{logger::tracing, prelude::*};
+use oxcore::http;
 use oxstore::StateFrame;
 
 impl AuthUser {
@@ -44,7 +42,7 @@ impl AuthState {
     pub async fn logout(&self) {
         self.logout_status.write().set_loading();
         let empty_body = {};
-        let result = http_client::post("/auth/v1/log_out", &empty_body)
+        let result = http::post("/auth/v1/log_out", &empty_body)
             .send()
             .await;
         match result {
@@ -84,7 +82,7 @@ impl AuthState {
         // self.init_status.write().set_success(None, None);
         // *self.user.write() = Some(User::dev());
         self.init_status.write().set_loading();
-        let result = http_client::get("/user/v1/get").send().await;
+        let result = http::get("/user/v1/get").send().await;
         match result {
             Ok(response) => {
                 if (200..300).contains(&response.status()) {
@@ -130,7 +128,7 @@ impl AuthState {
     pub async fn login(&self, email: String, password: String) {
         self.login_status.write().set_loading();
         let payload = LoginPayload { email, password };
-        let result = http_client::post("/auth/v1/log_in", &payload).send().await;
+        let result = http::post("/auth/v1/log_in", &payload).send().await;
         match result {
             Ok(response) => {
                 if (200..300).contains(&response.status()) {

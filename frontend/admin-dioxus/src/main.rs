@@ -19,6 +19,10 @@ pub mod utils;
 use utils::js_bridge;
 
 fn main() {
+    // Configure HTTP client
+    let base_url = format!("http://{}", env::APP_API_URL);
+    oxcore::http::configure(base_url, env::APP_CSRF_TOKEN);
+
     dioxus::launch(App);
 }
 

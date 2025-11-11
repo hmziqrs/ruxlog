@@ -1,5 +1,6 @@
 use super::{Tag, TagsAddPayload, TagsEditPayload, TagsListQuery, TagsState};
-use crate::services::http_client;
+use oxcore::http;
+
 use oxstore::{
     edit_state_abstraction, list_state_abstraction, remove_state_abstraction,
     state_request_abstraction, view_state_abstraction, PaginatedList, StateFrame,
@@ -9,7 +10,7 @@ use std::collections::HashMap;
 impl TagsState {
     pub async fn add(&self, payload: TagsAddPayload) {
         let meta_payload = payload.clone();
-        let request = http_client::post("/tag/v1/create", &payload);
+        let request = http::post("/tag/v1/create", &payload);
         let created = state_request_abstraction(
             &self.add,
             Some(meta_payload),
@@ -29,7 +30,7 @@ impl TagsState {
             &self.edit,
             id,
             payload.clone(),
-            http_client::post(&format!("/tag/v1/update/{}", id), &payload).send(),
+            http::post(&format!("/tag/v1/update/{}", id), &payload).send(),
             "tag",
             Some(&self.list),
             Some(&self.view),
@@ -43,7 +44,7 @@ impl TagsState {
         let _ = remove_state_abstraction(
             &self.remove,
             id,
-            http_client::post(&format!("/tag/v1/delete/{}", id), &()).send(),
+            http::post(&format!("/tag/v1/delete/{}", id), &()).send(),
             "tag",
             Some(&self.list),
             Some(&self.view),
@@ -54,18 +55,18 @@ impl TagsState {
     }
 
     pub async fn list(&self) {
-        let _ = list_state_abstraction::<PaginatedList<Tag>>(
+        let _ = list_state_abstraction(
             &self.list,
-            http_client::post("/tag/v1/list/query", &serde_json::json!({})),
+            http::post("/tag/v1/list/query", &serde_json::json!({})).send(),
             "tags",
         )
         .await;
     }
 
     pub async fn list_with_query(&self, query: TagsListQuery) {
-        let _ = list_state_abstraction::<PaginatedList<Tag>>(
+        let _ = list_state_abstraction(
             &self.list,
-            http_client::post("/tag/v1/list/query", &query),
+            http::post("/tag/v1/list/query", &query).send(),
             "tags",
         )
         .await;
@@ -75,7 +76,7 @@ impl TagsState {
         let _ = view_state_abstraction(
             &self.view,
             id,
-            http_client::post(&format!("/tag/v1/view/{}", id), &()).send(),
+            http::post(&format!("/tag/v1/view/{}", id), &()).send(),
             "tag",
             |tag: &Tag| tag.clone(),
         )

@@ -1,7 +1,8 @@
 use super::{
     CategoriesAddPayload, CategoriesEditPayload, CategoriesListQuery, CategoriesState, Category,
 };
-use crate::services::http_client;
+use oxcore::http;
+
 use oxstore::{
     edit_state_abstraction, list_state_abstraction, remove_state_abstraction,
     state_request_abstraction, view_state_abstraction, PaginatedList, StateFrame,
@@ -11,7 +12,7 @@ use std::collections::HashMap;
 impl CategoriesState {
     pub async fn add(&self, payload: CategoriesAddPayload) {
         let meta_payload = payload.clone();
-        let request = http_client::post("/category/v1/create", &payload);
+        let request = http::post("/category/v1/create", &payload);
         let created = state_request_abstraction(
             &self.add,
             Some(meta_payload),
@@ -31,7 +32,7 @@ impl CategoriesState {
             &self.edit,
             id,
             payload.clone(),
-            http_client::post(&format!("/category/v1/update/{}", id), &payload).send(),
+            http::post(&format!("/category/v1/update/{}", id), &payload).send(),
             "category",
             Some(&self.list),
             Some(&self.view),
@@ -45,7 +46,7 @@ impl CategoriesState {
         let _ = remove_state_abstraction(
             &self.remove,
             id,
-            http_client::post(&format!("/category/v1/delete/{}", id), &()).send(),
+            http::post(&format!("/category/v1/delete/{}", id), &()).send(),
             "category",
             Some(&self.list),
             Some(&self.view),
@@ -56,18 +57,18 @@ impl CategoriesState {
     }
 
     pub async fn list(&self) {
-        let _ = list_state_abstraction::<PaginatedList<Category>>(
+        let _ = list_state_abstraction(
             &self.list,
-            http_client::post("/category/v1/list/query", &serde_json::json!({})),
+            http::post("/category/v1/list/query", &serde_json::json!({})).send(),
             "categories",
         )
         .await;
     }
 
     pub async fn list_with_query(&self, query: CategoriesListQuery) {
-        let _ = list_state_abstraction::<PaginatedList<Category>>(
+        let _ = list_state_abstraction(
             &self.list,
-            http_client::post("/category/v1/list/query", &query),
+            http::post("/category/v1/list/query", &query).send(),
             "categories",
         )
         .await;
@@ -77,7 +78,7 @@ impl CategoriesState {
         let _ = view_state_abstraction(
             &self.view,
             id,
-            http_client::get(&format!("/category/v1/view/{}", id)).send(),
+            http::get(&format!("/category/v1/view/{}", id)).send(),
             "category",
             |category: &Category| category.clone(),
         )

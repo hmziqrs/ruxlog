@@ -2,7 +2,8 @@ use super::{
     Media, MediaListQuery, MediaState, MediaUploadPayload, MediaUsageDetails,
     MediaUsageDetailsRequest, MediaUsageDetailsResponse, UploadStatus,
 };
-use crate::services::http_client;
+use oxcore::http;
+
 use oxstore::{
     list_state_abstraction, remove_state_abstraction, view_state_abstraction, PaginatedList,
     StateFrame,
@@ -134,7 +135,7 @@ impl MediaState {
 
             gloo_console::log!("[MediaState::upload background] Creating HTTP request");
 
-            match http_client::post_multipart("/media/v1/create", &form_data) {
+            match http::post_multipart("/media/v1/create", &form_data) {
                 Ok(request) => {
                     gloo_console::log!(
                         "[MediaState::upload background] Request created, sending..."
@@ -244,7 +245,7 @@ impl MediaState {
         let _ = remove_state_abstraction(
             &self.remove,
             id,
-            http_client::post(&format!("/media/v1/delete/{}", id), &()).send(),
+            http::post(&format!("/media/v1/delete/{}", id), &()).send(),
             "media",
             Some(&self.list),
             Some(&self.view),
@@ -257,7 +258,7 @@ impl MediaState {
     pub async fn list(&self) {
         let _ = list_state_abstraction::<PaginatedList<Media>>(
             &self.list,
-            http_client::post("/media/v1/list/query", &serde_json::json!({})),
+            http::post("/media/v1/list/query", &serde_json::json!({})),
             "media",
         )
         .await;
@@ -266,7 +267,7 @@ impl MediaState {
     pub async fn list_with_query(&self, query: MediaListQuery) {
         let _ = list_state_abstraction::<PaginatedList<Media>>(
             &self.list,
-            http_client::post("/media/v1/list/query", &query),
+            http::post("/media/v1/list/query", &query),
             "media",
         )
         .await;
@@ -276,7 +277,7 @@ impl MediaState {
         let _ = view_state_abstraction(
             &self.view,
             id,
-            http_client::get(&format!("/media/v1/view/{}", id)).send(),
+            http::get(&format!("/media/v1/view/{}", id)).send(),
             "media",
             |media: &Media| media.clone(),
         )
@@ -287,7 +288,7 @@ impl MediaState {
         let _ = view_state_abstraction(
             &self.usage_details,
             id,
-            http_client::post(
+            http::post(
                 "/media/v1/usage/details",
                 &MediaUsageDetailsRequest {
                     media_ids: vec![id],
