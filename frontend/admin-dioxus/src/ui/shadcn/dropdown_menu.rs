@@ -8,7 +8,7 @@ use hmziq_dioxus_free_icons::{
 use wasm_bindgen::JsCast;
 use web_sys::{window, DomRect, Element as WebElement, HtmlElement};
 
-use crate::ui::custom::AppPortal;
+use crate::ui::custom::portal::AppPortal;
 
 /// Signal for managing dropdown menu open/close state and positioning metadata
 #[derive(Clone, Debug, PartialEq, Default)]

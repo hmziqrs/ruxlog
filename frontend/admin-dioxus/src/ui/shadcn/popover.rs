@@ -1,7 +1,7 @@
 use dioxus::{logger::tracing, prelude::*};
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdX, Icon};
 
-use crate::ui::custom::AppPortal;
+use crate::ui::custom::portal::AppPortal;
 
 /// Signal for managing popover open/close state
 #[derive(PartialEq)]
