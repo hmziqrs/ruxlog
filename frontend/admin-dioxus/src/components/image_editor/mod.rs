@@ -14,7 +14,7 @@ pub use toolbar::*;
 
 use crate::store::{image_editor::EditorTool, use_image_editor};
 use crate::ui::custom::portal::AppPortal;
-use crate::ui::shadcn::{Button, ButtonVariant};
+use crate::ui::shadcn::button::{Button, ButtonVariant};
 use dioxus::prelude::*;
 
 #[derive(Props, PartialEq, Clone)]

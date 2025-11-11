@@ -1,7 +1,7 @@
 use crate::containers::PageHeader;
 use crate::router::Route;
 use crate::store::{use_post, EditorJsBlock, PostContent};
-use crate::ui::shadcn::{Button, ButtonVariant};
+use crate::ui::shadcn::button::{Button, ButtonVariant};
 use dioxus::prelude::*;
 
 // ============================================================================

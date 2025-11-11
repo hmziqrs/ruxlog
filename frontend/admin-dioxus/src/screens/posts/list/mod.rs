@@ -7,14 +7,14 @@ use context::{PostListContext, ViewMode};
 
 use dioxus::prelude::*;
 
-use crate::containers::{DataTableScreen, PageHeaderProps};
 use crate::components::ListToolbarProps;
 use crate::containers::HeaderColumn;
+use crate::containers::{DataTableScreen, PageHeaderProps};
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
 use crate::router::Route;
 use crate::store::{use_categories, use_post, use_tag, use_user, Post, PostListQuery};
+use crate::ui::shadcn::button::{Button, ButtonSize, ButtonVariant};
 use oxstore::{ListQuery, ListStore, Order};
-use crate::ui::shadcn::{Button, ButtonSize, ButtonVariant};
 
 use hmziq_dioxus_free_icons::{
     icons::ld_icons::{LdGrid3x3, LdLayoutList},
@@ -80,7 +80,7 @@ pub fn PostsListScreen() -> Element {
 
     let has_data = !posts.is_empty();
 
-  // Calculate active filter count from the query filters
+    // Calculate active filter count from the query filters
     let active_filter_count = ctx.active_filter_count(&filters);
 
     // Custom view mode switcher for the header actions

@@ -1,10 +1,12 @@
-use oxstore::AppError;
-use crate::ui::shadcn::{Button, ButtonSize, ButtonVariant, Dialog, DialogContent, DialogTrigger};
+use crate::ui::shadcn::button::{
+    Button, ButtonSize, ButtonVariant, Dialog, DialogContent, DialogTrigger,
+};
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::{
     icons::ld_icons::{LdChevronDown, LdChevronUp, LdInfo, LdTriangleAlert},
     Icon,
 };
+use oxstore::AppError;
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum ErrorDetailsVariant {

@@ -5,8 +5,8 @@ use crate::containers::PageHeader;
 use crate::containers::{CategoryForm, CategoryFormContainer};
 use crate::hooks::{use_state_frame_toast, StateFrameToastConfig};
 use crate::router::Route;
-use crate::store::{use_categories, Category, CategoriesAddPayload};
-use crate::ui::shadcn::{Button, ButtonVariant};
+use crate::store::{use_categories, CategoriesAddPayload, Category};
+use crate::ui::shadcn::button::{Button, ButtonVariant};
 
 #[component]
 pub fn CategoriesAddScreen() -> Element {

@@ -7,7 +7,7 @@ use crate::hooks::OxForm;
 use crate::router::Route;
 use crate::store::tags::Tag;
 use crate::ui::custom::portal::AppPortal;
-use crate::ui::shadcn::{Button, ButtonSize, ButtonVariant, Checkbox};
+use crate::ui::shadcn::button::{Button, ButtonSize, ButtonVariant, Checkbox};
 use crate::utils::colors::get_contrast_yiq;
 
 #[derive(Props, PartialEq, Clone)]

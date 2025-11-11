@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use crate::containers::{MediaUploadList, MediaUploadZone, PageHeader};
 use crate::router::Route;
 use crate::store::use_media;
-use crate::ui::shadcn::{Button, ButtonVariant};
+use crate::ui::shadcn::button::{Button, ButtonVariant};
 use oxstore::{ListQuery, Order};
 
 #[component]

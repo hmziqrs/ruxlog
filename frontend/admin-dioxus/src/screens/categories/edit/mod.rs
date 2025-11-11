@@ -1,12 +1,13 @@
 use dioxus::prelude::*;
 
 use crate::components::sonner::{Action, ToastOptions};
-use crate::components::FormTwoColumnSkeleton; use crate::containers::PageHeader;
+use crate::components::FormTwoColumnSkeleton;
+use crate::containers::PageHeader;
 use crate::containers::{CategoryForm, CategoryFormContainer};
 use crate::hooks::{use_category_view, use_state_frame_map_toast, StateFrameToastConfig};
 use crate::router::Route;
-use crate::store::{use_categories, Category, CategoriesEditPayload};
-use crate::ui::shadcn::{Button, ButtonVariant};
+use crate::store::{use_categories, CategoriesEditPayload, Category};
+use crate::ui::shadcn::button::{Button, ButtonVariant};
 
 #[component]
 pub fn CategoriesEditScreen(id: i32) -> Element {

@@ -1,4 +1,4 @@
-use crate::ui::shadcn::{Button, ButtonSize, ButtonVariant};
+use crate::ui::shadcn::button::{Button, ButtonSize, ButtonVariant};
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::{
     icons::ld_icons::{LdPlus, LdX},
