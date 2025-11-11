@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-validator = "0.19"
+validator = "0.20"
 dioxus = { version = "0.7.1" }
 
 [lib]
