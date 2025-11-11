@@ -24,7 +24,7 @@ async fn accept_multipart(mut multipart: Multipart) -> StatusCode {
             Err(_) => return StatusCode::PAYLOAD_TOO_LARGE,
         };
 
-        let Some(mut field) = next_field else {
+        let Some(field) = next_field else {
             break StatusCode::OK;
         };
 

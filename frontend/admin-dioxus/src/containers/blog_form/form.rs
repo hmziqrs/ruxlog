@@ -55,6 +55,7 @@ impl BlogForm {
     }
 
     // Check if any images are still uploading
+    #[allow(dead_code)]
     pub fn is_uploading(&self) -> bool {
         // If we have a blob URL but no media ID yet, upload is in progress
         self.featured_image_blob_url.is_some() && self.featured_image_media_id.is_none()

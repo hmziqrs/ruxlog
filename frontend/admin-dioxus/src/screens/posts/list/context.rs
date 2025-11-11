@@ -1,4 +1,4 @@
-use crate::store::{PostListQuery, PostStatus};
+use crate::store::PostListQuery;
 use dioxus::prelude::*;
 use oxstore::ListQuery;
 
@@ -73,13 +73,6 @@ impl PostListContext {
     pub fn clear_status_filter(&mut self, filters: &mut Signal<PostListQuery>) {
         let mut q = filters.peek().clone();
         q.status = None;
-        filters.set(q);
-    }
-
-    pub fn set_status_filter(&mut self, filters: &mut Signal<PostListQuery>, status: Option<PostStatus>) {
-        let mut q = filters.peek().clone();
-        q.set_page(1);
-        q.status = status;
         filters.set(q);
     }
 

@@ -5,16 +5,12 @@ use super::{
 use oxcore::http;
 
 use oxstore::{
-    list_state_abstraction, remove_state_abstraction, view_state_abstraction, PaginatedList,
-    StateFrame,
+    list_state_abstraction, remove_state_abstraction, view_state_abstraction, StateFrame,
 };
 use std::collections::HashMap;
 
 #[cfg(target_arch = "wasm32")]
 use web_sys::{Blob, FormData, Url};
-
-#[cfg(not(target_arch = "wasm32"))]
-use std::path::Path as Url;
 
 impl MediaState {
     #[cfg(target_arch = "wasm32")]

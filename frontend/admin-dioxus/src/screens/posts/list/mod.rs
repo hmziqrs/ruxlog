@@ -33,7 +33,7 @@ pub fn PostsListScreen() -> Element {
     let filters = use_signal(|| PostListQuery::new());
 
     // Initialize context for UI-specific state (view mode, selections)
-    let mut ctx = PostListContext::new();
+    let ctx = PostListContext::new();
     use_context_provider(|| ctx.clone());
 
     let (list_state, handlers) = use_list_screen_with_handlers(

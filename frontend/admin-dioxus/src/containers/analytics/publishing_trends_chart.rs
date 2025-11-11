@@ -280,6 +280,7 @@ fn LegendDot(class_name: &'static str) -> Element {
 ///     PublishingTrendsChart { frame: frame.clone(), title: "Publishing Trends".into() }
 /// }
 /// ```
+#[allow(dead_code)]
 fn from_state_frame(
     title: String,
     frame: &StateFrame<

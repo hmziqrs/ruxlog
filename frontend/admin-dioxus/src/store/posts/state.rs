@@ -225,10 +225,18 @@ pub struct ImageBlock {
     pub file: ImageFile,
     pub caption: Option<String>,
     pub stretched: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub withBackground: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub withBorder: Option<bool>,
+    #[serde(
+        rename = "withBackground",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub with_background: Option<bool>,
+    #[serde(
+        rename = "withBorder",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub with_border: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

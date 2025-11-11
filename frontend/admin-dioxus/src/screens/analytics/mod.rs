@@ -1,5 +1,4 @@
 use dioxus::prelude::*;
-use oxstore::ListQuery;
 
 use crate::containers::analytics::{
     comment_rate_chart::CommentRateChartFromStore, dashboard_summary_cards::DashboardSummaryCards,
@@ -11,12 +10,11 @@ use crate::containers::analytics::{
 };
 use crate::containers::page_header::PageHeader;
 use crate::store::analytics::{
-    use_analytics, use_analytics_filters, use_analytics_query, AnalyticsInterval,
-    CommentRateFilters, CommentRateRequest, DashboardSummaryFilters, DashboardSummaryRequest,
-    MediaUploadFilters, MediaUploadRequest, NewsletterGrowthFilters, NewsletterGrowthRequest,
-    PageViewsFilters, PageViewsRequest, PublishingTrendsFilters, PublishingTrendsRequest,
-    RegistrationTrendsFilters, RegistrationTrendsRequest, VerificationRatesFilters,
-    VerificationRatesRequest,
+    use_analytics, use_analytics_filters, AnalyticsInterval, CommentRateFilters,
+    CommentRateRequest, DashboardSummaryFilters, DashboardSummaryRequest, MediaUploadFilters,
+    MediaUploadRequest, NewsletterGrowthFilters, NewsletterGrowthRequest, PageViewsFilters,
+    PageViewsRequest, PublishingTrendsFilters, PublishingTrendsRequest, RegistrationTrendsFilters,
+    RegistrationTrendsRequest, VerificationRatesFilters, VerificationRatesRequest,
 };
 
 /// Full analytics screen:
@@ -29,7 +27,6 @@ use crate::store::analytics::{
 pub fn AnalyticsScreen() -> Element {
     let analytics = use_analytics();
     let filters = use_analytics_filters();
-    let query = use_analytics_query();
 
     //
     // Local UI state for per-chart filters.
