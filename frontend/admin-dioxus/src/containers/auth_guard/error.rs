@@ -1,9 +1,9 @@
 use dioxus::prelude::*;
 
+use crate::ui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use crate::{
-    components::{ErrorDetails, ErrorDetailsVariant},
     store::use_auth,
-    ui::shadcn::{Button, ButtonVariant},
+    ui::shadcn::button::{Button, ButtonVariant},
 };
 
 #[component]

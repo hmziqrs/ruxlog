@@ -1,12 +1,12 @@
 use dioxus::prelude::*;
 
-use crate::components::{ErrorDetails, ErrorDetailsVariant};
-use crate::containers::LoadingOverlay;
-use oxstore::StateFrameStatus;
 use crate::store::{
     use_analytics, AnalyticsEnvelope, AnalyticsEnvelopeResponse, AnalyticsInterval,
     NewsletterGrowthFilters, NewsletterGrowthPoint, NewsletterGrowthRequest,
 };
+use crate::ui::components::error::{ErrorDetails, ErrorDetailsVariant};
+use crate::ui::components::loading_overlay::LoadingOverlay;
+use oxstore::StateFrameStatus;
 
 /// Props for `NewsletterGrowthChart`.
 /// Minimal: takes a title and height override if you want to embed it differently.
