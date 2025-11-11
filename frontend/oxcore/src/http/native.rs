@@ -1,8 +1,7 @@
 use super::config::{get_base_url, get_csrf_token};
+use super::FormData;
 use reqwest::{Client, RequestBuilder as ReqwestRequestBuilder};
 use serde::{de::DeserializeOwned, Serialize};
-use std::future::Future;
-use std::pin::Pin;
 
 /// Unified error type for HTTP operations
 #[derive(Debug)]
@@ -129,7 +128,38 @@ pub fn delete(endpoint: &str) -> Request {
     })
 }
 
-pub fn post_multipart(endpoint: &str, _form_data: &()) -> Result<Request, String> {
-    // Multipart not implemented for native yet
-    Err("Multipart not supported in native mode".to_string())
+pub fn post_multipart(endpoint: &str, form_data: &FormData) -> Result<Request, String> {
+    let url = format!("{}{}", get_base_url(), endpoint);
+
+    CLIENT.with(|client| {
+        let mut form = reqwest::multipart::Form::new();
+
+        if let Some(obj) = form_data.as_object() {
+            for (key, value) in obj {
+                match value {
+                    serde_json::Value::String(s) => {
+                        form = form.text(key.clone(), s.clone());
+                    }
+                    serde_json::Value::Number(n) => {
+                        form = form.text(key.clone(), n.to_string());
+                    }
+                    serde_json::Value::Bool(b) => {
+                        form = form.text(key.clone(), b.to_string());
+                    }
+                    serde_json::Value::Null => {
+                        form = form.text(key.clone(), "");
+                    }
+                    _ => {
+                        return Err(format!("Unsupported value type for key '{}'", key));
+                    }
+                }
+            }
+        }
+
+        let req = client.post(&url);
+        Ok(Request {
+            inner: req.header("csrf-token", get_csrf_token()).multipart(form),
+        })
+    })
 }
+
