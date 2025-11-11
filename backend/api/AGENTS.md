@@ -6,9 +6,9 @@
 - Operational docs are in `docs/`, shell smoke suites in `tests/`, and Docker assets under `docker/` plus `traefik/` for edge proxy configs (see `docs/TRAEFIK_SETUP.md`).
 
 ## Build, Test, and Development Commands
-- `cargo run` (or `npm run dev`) loads the API using `.env`; use `cargo run --release` or `npm run prod` for optimized binaries.
-- `cargo watch -x run` (`npm run dev:w`) provides live reload; `docker-compose.dev.yml` bootstraps Postgres and Redis dependencies.
-- Run `diesel migration run` before tests to sync the schema; `diesel migration revert` safely undoes the previous batch.
+- `just dev` (or `cargo run`) loads the API using `.env`; use `just prod` (or `cargo run --release`) for optimized binaries.
+- `just dev-w` (or `cargo watch -x run`) provides live reload; `docker-compose.dev.yml` bootstraps Postgres and Redis dependencies.
+- Run `just migrate` before tests to sync the schema.
 
 ## Coding Style & Naming Conventions
 - Always run `cargo fmt` and `cargo clippy --all-targets --all-features`; resolve warnings or justify `#[allow]` blocks during review.
