@@ -13,7 +13,6 @@ RUN cargo fetch --locked
 COPY src ./src
 COPY scripts ./scripts
 COPY migration ./migration
-COPY diesel.toml ./
 ENV RUSTFLAGS="-C strip=symbols"
 RUN cargo build --release --locked
 
