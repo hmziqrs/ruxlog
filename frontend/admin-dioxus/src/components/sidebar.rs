@@ -4,7 +4,7 @@ use hmziq_dioxus_free_icons::icons::ld_icons::{
 };
 use hmziq_dioxus_free_icons::Icon;
 
-use crate::{components::ConfirmDialog, router::Route, store::use_auth};
+use crate::{router::Route, store::use_auth};
 
 #[derive(Props, PartialEq, Clone)]
 pub struct SidebarModuleLinkProps {

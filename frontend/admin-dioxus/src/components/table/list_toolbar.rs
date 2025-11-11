@@ -2,8 +2,8 @@ use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::icons::ld_icons::LdSearch;
 use hmziq_dioxus_free_icons::Icon;
 
-use crate::containers::SimpleInput;
-use crate::ui::shadcn::{Select, SelectGroup};
+use crate::ui::components::form::input::SimpleInput;
+use crate::ui::shadcn::select::{Select, SelectGroup};
 
 #[derive(Props, PartialEq, Clone)]
 pub struct ListToolbarProps {

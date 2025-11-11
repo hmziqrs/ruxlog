@@ -1,8 +1,10 @@
 use dioxus::prelude::*;
 
-use crate::components::LoadingOverlay;
-use crate::components::{ErrorDetails, ErrorDetailsVariant, ListToolbar, ListToolbarProps};
-use crate::containers::{PageHeader, PageHeaderProps, Pagination};
+use crate::containers::{PageHeader, PageHeaderProps};
+use crate::ui::components::error::{
+    ErrorDetails, ErrorDetailsVariant, ListToolbar, ListToolbarProps,
+};
+use crate::ui::components::loading_overlay::LoadingOverlay;
 use crate::ui::shadcn::button::{Button, ButtonVariant};
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdArrowUpDown, Icon};
 use oxstore::{AppError, PaginatedList, StateFrame};
