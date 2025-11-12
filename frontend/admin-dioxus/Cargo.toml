@@ -84,7 +84,7 @@ ruxlog-shared = { path = "../ruxlog-shared" }
 
 [patch.crates-io]
 # dioxus-time = { git = "https://github.com/DioxusLabs/sdk", branch = "main", version = "0.1.0-alpha.1" }
-dioxus-time = { path = "./pkgs/sdk/packages/time", version = "0.7.1" }
+dioxus-time = { path = "../dioxus_pkgs/sdk/packages/time", version = "0.7.1" }
 
 [features]
 default = ["web"]
