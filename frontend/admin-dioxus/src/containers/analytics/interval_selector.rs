@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::store::analytics::AnalyticsInterval;
+use ruxlog_shared::store::analytics::AnalyticsInterval;
 
 /// Interval selector for analytics charts.
 ///

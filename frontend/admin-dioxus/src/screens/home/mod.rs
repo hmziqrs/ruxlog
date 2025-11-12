@@ -7,7 +7,7 @@ use crate::containers::analytics::{
     verification_rates_chart::VerificationRatesChart,
 };
 use crate::containers::page_header::PageHeader;
-use crate::store::analytics::{
+use ruxlog_shared::store::analytics::{
     use_analytics, use_analytics_filters, AnalyticsInterval, DashboardSummaryFilters,
     DashboardSummaryRequest, PageViewsFilters, PageViewsRequest, PublishingTrendsFilters,
     PublishingTrendsRequest, RegistrationTrendsFilters, RegistrationTrendsRequest,

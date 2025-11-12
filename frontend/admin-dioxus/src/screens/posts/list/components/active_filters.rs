@@ -1,8 +1,8 @@
 use dioxus::prelude::*;
 
-use crate::store::{use_categories, use_tag, use_user, PostListQuery};
-use crate::ui::shadcn::badge::{Badge, BadgeVariant};
-use crate::ui::shadcn::button::{Button, ButtonSize, ButtonVariant};
+use ruxlog_shared::store::{use_categories, use_tag, use_user, PostListQuery};
+use oxui::shadcn::badge::{Badge, BadgeVariant};
+use oxui::shadcn::button::{Button, ButtonSize, ButtonVariant};
 
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdX, Icon};
 

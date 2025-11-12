@@ -4,7 +4,7 @@
 
 use super::{commands::*, selection_in_code};
 use crate::containers::MediaPickerDialog;
-use crate::store::media::{Media, MediaReference};
+use ruxlog_shared::store::media::{Media, MediaReference};
 use dioxus::prelude::*;
 
 /// Props for the Toolbar component.

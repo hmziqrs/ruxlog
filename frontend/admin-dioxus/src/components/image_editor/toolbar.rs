@@ -1,5 +1,5 @@
-use crate::store::{image_editor::EditorTool, use_image_editor};
-use crate::ui::shadcn::button::{Button, ButtonSize, ButtonVariant};
+use ruxlog_shared::store::{image_editor::EditorTool, use_image_editor};
+use oxui::shadcn::button::{Button, ButtonSize, ButtonVariant};
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::{
     icons::ld_icons::{LdCrop, LdMaximize, LdRotateCw, LdSettings},

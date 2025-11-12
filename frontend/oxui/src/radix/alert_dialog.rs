@@ -1,5 +1,5 @@
-use crate::ui::custom::portal::AppPortal;
-use crate::ui::shadcn::button::Button;
+use crate::custom::portal::AppPortal;
+use crate::shadcn::button::Button;
 use dioxus::prelude::*;
 
 /// Props for AlertDialog root component

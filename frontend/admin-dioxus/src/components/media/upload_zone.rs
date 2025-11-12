@@ -1,5 +1,5 @@
-use crate::store::{media::MediaReference, media::MediaUploadPayload, use_media};
-use crate::ui::shadcn::button::{Button, ButtonVariant};
+use ruxlog_shared::store::{media::MediaReference, media::MediaUploadPayload, use_media};
+use oxui::shadcn::button::{Button, ButtonVariant};
 use crate::utils::file_helpers::validate_file_type;
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdUpload, Icon};

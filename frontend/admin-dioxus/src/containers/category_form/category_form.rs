@@ -6,16 +6,16 @@ use crate::components::image_editor::ImageEditorModal;
 use crate::components::media::{upload_item::MediaUploadItem, upload_zone::MediaUploadZone};
 use crate::hooks::OxForm;
 use crate::router::Route;
-use crate::store::{
+use ruxlog_shared::store::{
     media::MediaReference, media::MediaUploadPayload, use_categories, use_image_editor, use_media,
 };
-use crate::ui::components::confirm_dialog::ConfirmDialog;
-use crate::ui::components::form::input::AppInput;
-use crate::ui::custom::portal::AppPortal;
-use crate::ui::shadcn::button::{Button, ButtonSize, ButtonVariant};
-use crate::ui::shadcn::checkbox::Checkbox;
-use crate::ui::shadcn::combobox::{Combobox, ComboboxItem};
-use crate::ui::shadcn::skeleton::Skeleton;
+use oxui::components::confirm_dialog::ConfirmDialog;
+use oxui::components::form::input::AppInput;
+use oxui::custom::portal::AppPortal;
+use oxui::shadcn::button::{Button, ButtonSize, ButtonVariant};
+use oxui::shadcn::checkbox::Checkbox;
+use oxui::shadcn::combobox::{Combobox, ComboboxItem};
+use oxui::shadcn::skeleton::Skeleton;
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdLoader, Icon};
 use web_sys::{Blob, Url};
 

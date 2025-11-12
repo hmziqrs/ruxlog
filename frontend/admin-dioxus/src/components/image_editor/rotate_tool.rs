@@ -1,5 +1,5 @@
-use crate::store::use_image_editor;
-use crate::ui::shadcn::button::{Button, ButtonSize, ButtonVariant};
+use ruxlog_shared::store::use_image_editor;
+use oxui::shadcn::button::{Button, ButtonSize, ButtonVariant};
 use dioxus::prelude::*;
 
 /// Rotate tool controls

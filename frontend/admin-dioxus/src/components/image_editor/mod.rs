@@ -12,9 +12,9 @@ pub use resize_tool::*;
 pub use rotate_tool::*;
 pub use toolbar::*;
 
-use crate::store::{image_editor::EditorTool, use_image_editor};
-use crate::ui::custom::portal::AppPortal;
-use crate::ui::shadcn::button::{Button, ButtonVariant};
+use ruxlog_shared::store::{image_editor::EditorTool, use_image_editor};
+use oxui::custom::portal::AppPortal;
+use oxui::shadcn::button::{Button, ButtonVariant};
 use dioxus::prelude::*;
 
 #[derive(Props, PartialEq, Clone)]

@@ -1,5 +1,5 @@
-use crate::ui::custom::portal::AppPortal;
-use crate::ui::shadcn::button::{Button, ButtonVariant};
+use crate::custom::portal::AppPortal;
+use crate::shadcn::button::{Button, ButtonVariant};
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdX, Icon};
 

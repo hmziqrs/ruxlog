@@ -12,8 +12,8 @@ use crate::components::table::list_toolbar::ListToolbarProps;
 use crate::containers::page_header::PageHeaderProps;
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
 use crate::router::Route;
-use crate::store::{use_categories, use_post, use_tag, use_user, Post, PostListQuery};
-use crate::ui::shadcn::button::{Button, ButtonSize, ButtonVariant};
+use ruxlog_shared::store::{use_categories, use_post, use_tag, use_user, Post, PostListQuery};
+use oxui::shadcn::button::{Button, ButtonSize, ButtonVariant};
 use oxstore::{ListQuery, ListStore, Order};
 
 use hmziq_dioxus_free_icons::{
@@ -223,9 +223,9 @@ pub fn PostsListScreen() -> Element {
                 disabled: list_loading,
                 on_search_input: handlers.handle_search.clone(),
                 status_selected: match filters.read().status {
-                    Some(crate::store::PostStatus::Published) => "Published".to_string(),
-                    Some(crate::store::PostStatus::Draft) => "Draft".to_string(),
-                    Some(crate::store::PostStatus::Archived) => "Archived".to_string(),
+                    Some(ruxlog_shared::store::PostStatus::Published) => "Published".to_string(),
+                    Some(ruxlog_shared::store::PostStatus::Draft) => "Draft".to_string(),
+                    Some(ruxlog_shared::store::PostStatus::Archived) => "Archived".to_string(),
                     None => "All Status".to_string(),
                 },
                 on_status_select: EventHandler::new({
@@ -234,9 +234,9 @@ pub fn PostsListScreen() -> Element {
                         let mut q = filters.peek().clone();
                         q.set_page(1);
                         q.status = match value.as_str() {
-                            "Published" => Some(crate::store::PostStatus::Published),
-                            "Draft" => Some(crate::store::PostStatus::Draft),
-                            "Archived" => Some(crate::store::PostStatus::Archived),
+                            "Published" => Some(ruxlog_shared::store::PostStatus::Published),
+                            "Draft" => Some(ruxlog_shared::store::PostStatus::Draft),
+                            "Archived" => Some(ruxlog_shared::store::PostStatus::Archived),
                             _ => None,
                         };
                         filters.set(q);

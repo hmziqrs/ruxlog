@@ -4,8 +4,9 @@ use hmziq_dioxus_free_icons::Icon;
 
 use crate::components::sidebar::Sidebar;
 use crate::config::DarkMode;
-use crate::ui::components::user_avatar::UserAvatar;
-use crate::{router::Route, store::use_auth, utils::persist};
+use crate::{router::Route, utils::persist};
+use ruxlog_shared::components::user_avatar::UserAvatar;
+use ruxlog_shared::use_auth;
 
 #[component]
 pub fn NavBarContainer() -> Element {

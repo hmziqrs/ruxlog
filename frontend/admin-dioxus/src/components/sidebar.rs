@@ -4,8 +4,9 @@ use hmziq_dioxus_free_icons::icons::ld_icons::{
 };
 use hmziq_dioxus_free_icons::Icon;
 
-use crate::ui::components::confirm_dialog::ConfirmDialog;
-use crate::{router::Route, store::use_auth};
+use crate::router::Route;
+use oxui::components::confirm_dialog::ConfirmDialog;
+use ruxlog_shared::use_auth;
 
 #[derive(Props, PartialEq, Clone)]
 pub struct SidebarModuleLinkProps {

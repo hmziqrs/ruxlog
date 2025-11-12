@@ -12,12 +12,12 @@ use crate::components::user_details_dialog::UserDetailsDialog;
 use crate::containers::page_header::PageHeaderProps;
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
 use crate::router::Route;
-use crate::store::{use_user, User, UserRole, UsersEditPayload, UsersListQuery};
-use crate::ui::components::user_avatar::UserAvatar;
-use crate::ui::shadcn::badge::{Badge, BadgeVariant};
-use crate::ui::shadcn::button::{Button, ButtonVariant};
-use crate::ui::shadcn::checkbox::Checkbox;
-use crate::ui::shadcn::dropdown_menu::{
+use ruxlog_shared::store::{use_user, User, UserRole, UsersEditPayload, UsersListQuery};
+use ruxlog_shared::components::user_avatar::UserAvatar;
+use oxui::shadcn::badge::{Badge, BadgeVariant};
+use oxui::shadcn::button::{Button, ButtonVariant};
+use oxui::shadcn::checkbox::Checkbox;
+use oxui::shadcn::dropdown_menu::{
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 };
 use crate::utils::dates::format_short_date_dt;

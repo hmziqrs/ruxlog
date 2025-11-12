@@ -1,7 +1,7 @@
-use crate::hooks::{OxForm, OxFormModel};
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::icons::ld_icons::{LdEye, LdEyeOff};
 use hmziq_dioxus_free_icons::Icon;
+use oxform::{OxForm, OxFormModel};
 
 const BASE_INPUT_CLASS: &str = "w-full rounded-md border border-border/70 bg-transparent px-4 py-2.5 pr-11 text-foreground placeholder:text-muted-foreground transition-colors duration-200 focus:border-ring focus:ring-2 focus:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-60";
 

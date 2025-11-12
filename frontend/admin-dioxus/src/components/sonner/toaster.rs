@@ -1,6 +1,6 @@
 //! Sonner Toaster Provider — Phase 2 (basic render, no animations)
 
-use crate::ui::components::portal_v2::{use_portal, PortalIn, PortalOut};
+use oxui::components::portal_v2::{use_portal, PortalIn, PortalOut};
 use dioxus::prelude::*;
 // use dioxus::logger::tracing;
 use dioxus_time::sleep;

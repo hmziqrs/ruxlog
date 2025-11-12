@@ -2,11 +2,11 @@
 //! or uploading new ones. Used by the RichTextEditor and other components.
 
 use super::upload_zone::MediaUploadZone;
-use crate::store::{media::Media, media::MediaListQuery, media::MediaReference, use_media};
-use crate::ui::custom::portal::AppPortal;
-use crate::ui::shadcn::badge::Badge;
-use crate::ui::shadcn::button::{Button, ButtonVariant};
-use crate::ui::shadcn::checkbox::Checkbox;
+use ruxlog_shared::store::{media::Media, media::MediaListQuery, media::MediaReference, use_media};
+use oxui::custom::portal::AppPortal;
+use oxui::shadcn::badge::Badge;
+use oxui::shadcn::button::{Button, ButtonVariant};
+use oxui::shadcn::checkbox::Checkbox;
 use crate::utils::dates::format_short_date_dt;
 use crate::utils::file_helpers::{format_file_size, is_image};
 use dioxus::prelude::*;

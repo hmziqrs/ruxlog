@@ -1,10 +1,8 @@
 use dioxus::prelude::*;
 
-use crate::ui::components::error::{ErrorDetails, ErrorDetailsVariant};
-use crate::{
-    store::use_auth,
-    ui::shadcn::button::{Button, ButtonVariant},
-};
+use crate::router::Route;
+use oxui::shadcn::button::{Button, ButtonVariant};
+use ruxlog_shared::use_auth;
 
 #[component]
 pub fn AuthGuardError(on_retry: EventHandler<()>) -> Element {

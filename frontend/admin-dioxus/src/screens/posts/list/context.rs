@@ -1,4 +1,4 @@
-use crate::store::PostListQuery;
+use ruxlog_shared::store::PostListQuery;
 use dioxus::prelude::*;
 use oxstore::ListQuery;
 

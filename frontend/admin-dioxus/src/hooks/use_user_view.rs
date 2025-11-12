@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::store::{use_user, users::User};
+use ruxlog_shared::store::{use_user, users::User};
 
 #[derive(Clone)]
 pub struct UserViewState {

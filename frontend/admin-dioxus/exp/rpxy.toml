@@ -3,5 +3,6 @@ listen_port = 9999
 [apps.app1]
 server_name = 'localhost'
 # reverse_proxy = [{ upstream = [{ location = '127.0.0.1:8888' }] }]
-reverse_proxy = [{ upstream = [{ location = '192.168.0.23:8888' }] }]
+# reverse_proxy = [{ upstream = [{ location = '192.168.0.23:8888' }] }]
+reverse_proxy = [{ upstream = [{ location = 'pi.tail787980.ts.net:8888' }] }]
 # reverse_proxy = [{ upstream = [{ location = '192.168.1.101:8888' }] }]

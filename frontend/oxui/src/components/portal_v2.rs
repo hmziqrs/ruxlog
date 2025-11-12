@@ -1,4 +1,4 @@
-use crate::{dioxus_core::provide_root_context, hooks::use_effect_cleanup};
+use dioxus::dioxus_core::provide_root_context;
 use dioxus::prelude::*;
 use std::collections::HashMap;
 
@@ -34,14 +34,27 @@ pub fn use_portal() -> PortalId {
         (sig, PortalId(id))
     });
 
-    // Cleanup the portal.
-    use_effect_cleanup(move || {
-        let mut ctx = consume_context::<PortalCtx>();
-        ctx.portals.write().remove(&id.0);
-        sig.manually_drop();
+    // Cleanup the portal on drop
+    use_hook(move || {
+        let ctx = consume_context::<PortalCtx>();
+        PortalCleanup { ctx, id: id.0, sig }
     });
 
     id
+}
+
+#[derive(Clone)]
+struct PortalCleanup {
+    ctx: PortalCtx,
+    id: usize,
+    sig: Signal<Element>,
+}
+
+impl Drop for PortalCleanup {
+    fn drop(&mut self) {
+        self.ctx.portals.write().remove(&self.id);
+        self.sig.manually_drop();
+    }
 }
 
 #[component]

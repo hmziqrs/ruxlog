@@ -1,6 +1,6 @@
 use crate::router::Route;
-use crate::ui::custom::portal::AppPortal;
-use crate::ui::shadcn::button::{Button, ButtonVariant};
+use oxui::custom::portal::AppPortal;
+use oxui::shadcn::button::{Button, ButtonVariant};
 use dioxus::logger::tracing;
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdX, Icon};

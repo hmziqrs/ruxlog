@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use oxstore::StateFrame;
 
-use crate::store::analytics::{AnalyticsEnvelopeResponse, PublishingTrendPoint};
+use ruxlog_shared::store::analytics::{AnalyticsEnvelopeResponse, PublishingTrendPoint};
 
 /// Props for `PublishingTrendsChart`.
 ///
@@ -14,7 +14,7 @@ pub struct PublishingTrendsChartProps {
     /// State frame containing publishing trend points.
     pub frame: StateFrame<
         AnalyticsEnvelopeResponse<Vec<PublishingTrendPoint>>,
-        crate::store::PublishingTrendsRequest,
+        ruxlog_shared::store::PublishingTrendsRequest,
     >,
 
     /// Chart title shown in the card header.
@@ -285,7 +285,7 @@ fn from_state_frame(
     title: String,
     frame: &StateFrame<
         AnalyticsEnvelopeResponse<Vec<PublishingTrendPoint>>,
-        crate::store::PublishingTrendsRequest,
+        ruxlog_shared::store::PublishingTrendsRequest,
     >,
 ) -> PublishingTrendsChartProps {
     PublishingTrendsChartProps {

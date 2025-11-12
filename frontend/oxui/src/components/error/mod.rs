@@ -1,5 +1,5 @@
-use crate::ui::shadcn::button::{Button, ButtonSize, ButtonVariant};
-use crate::ui::shadcn::dialog::{Dialog, DialogContent, DialogTrigger};
+use crate::shadcn::button::{Button, ButtonSize, ButtonVariant};
+use crate::shadcn::dialog::{Dialog, DialogContent, DialogTrigger};
 
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::{

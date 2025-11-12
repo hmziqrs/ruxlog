@@ -1,11 +1,11 @@
 use dioxus::prelude::*;
 
 use crate::router::Route;
-use crate::store::users::User;
-use crate::ui::components::user_avatar::UserAvatar;
-use crate::ui::custom::portal::AppPortal;
-use crate::ui::shadcn::badge::{Badge, BadgeVariant};
-use crate::ui::shadcn::button::{Button, ButtonVariant};
+use ruxlog_shared::store::users::User;
+use ruxlog_shared::components::user_avatar::UserAvatar;
+use oxui::custom::portal::AppPortal;
+use oxui::shadcn::badge::{Badge, BadgeVariant};
+use oxui::shadcn::button::{Button, ButtonVariant};
 use crate::utils::dates::format_short_date_dt;
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdX, Icon};
 
@@ -83,19 +83,19 @@ pub fn UserDetailsDialog(mut props: UserDetailsDialogProps) -> Element {
                         p { class: "text-sm text-muted-foreground truncate mt-1", "{user.email}" }
                         div { class: "flex flex-wrap gap-2 mt-3",
                             {match user.role {
-                                crate::store::UserRole::SuperAdmin => rsx! {
+                                ruxlog_shared::store::UserRole::SuperAdmin => rsx! {
                                     Badge { class: "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400", "Super Admin" }
                                 },
-                                crate::store::UserRole::Admin => rsx! {
+                                ruxlog_shared::store::UserRole::Admin => rsx! {
                                     Badge { class: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-400", "Admin" }
                                 },
-                                crate::store::UserRole::Moderator => rsx! {
+                                ruxlog_shared::store::UserRole::Moderator => rsx! {
                                     Badge { class: "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400", "Moderator" }
                                 },
-                                crate::store::UserRole::Author => rsx! {
+                                ruxlog_shared::store::UserRole::Author => rsx! {
                                     Badge { class: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400", "Author" }
                                 },
-                                crate::store::UserRole::User => rsx! {
+                                ruxlog_shared::store::UserRole::User => rsx! {
                                     Badge { variant: BadgeVariant::Secondary, class: "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/20 dark:text-gray-400", "User" }
                                 },
                             }}

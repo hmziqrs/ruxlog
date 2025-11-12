@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use oxstore::{StateFrame, StateFrameStatus};
 
-use crate::store::analytics::{AnalyticsEnvelopeResponse, DashboardSummaryData, DashboardSummaryRequest};
+use ruxlog_shared::store::analytics::{AnalyticsEnvelopeResponse, DashboardSummaryData, DashboardSummaryRequest};
 
 /// Props:
 /// - `frame`: state frame for the dashboard summary analytics request

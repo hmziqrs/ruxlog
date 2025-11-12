@@ -9,11 +9,11 @@ use crate::components::table::skeleton_table_rows::{
 use crate::containers::page_header::PageHeaderProps;
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
 use crate::router::Route;
-use crate::store::{use_tag, Tag, TagsListQuery};
-use crate::ui::shadcn::badge::{Badge, BadgeVariant};
-use crate::ui::shadcn::button::{Button, ButtonVariant};
-use crate::ui::shadcn::checkbox::Checkbox;
-use crate::ui::shadcn::dropdown_menu::{
+use ruxlog_shared::store::{use_tag, Tag, TagsListQuery};
+use oxui::shadcn::badge::{Badge, BadgeVariant};
+use oxui::shadcn::button::{Button, ButtonVariant};
+use oxui::shadcn::checkbox::Checkbox;
+use oxui::shadcn::dropdown_menu::{
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 };
 use crate::utils::dates::format_short_date_dt;

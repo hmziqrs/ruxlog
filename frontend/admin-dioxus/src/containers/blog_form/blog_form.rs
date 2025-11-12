@@ -9,18 +9,18 @@ use crate::components::media::{upload_item::MediaUploadItem, upload_zone::MediaU
 use crate::components::post_success_dialog::PostSuccessDialog;
 use crate::hooks::use_previous;
 use crate::router::Route;
-use crate::store::{
+use ruxlog_shared::store::{
     media::MediaReference, media::MediaUploadPayload, posts::PostContent, posts::PostCreatePayload,
     posts::PostEditPayload, posts::PostStatus, use_categories, use_image_editor, use_media,
     use_post, use_tag,
 };
-use crate::ui::components::confirm_dialog::ConfirmDialog;
-use crate::ui::components::form::input::AppInput;
-use crate::ui::shadcn::badge::{Badge, BadgeVariant};
-use crate::ui::shadcn::button::{Button, ButtonVariant};
-use crate::ui::shadcn::checkbox::Checkbox;
-use crate::ui::shadcn::combobox::{Combobox, ComboboxItem};
-use crate::ui::shadcn::skeleton::Skeleton;
+use oxui::components::confirm_dialog::ConfirmDialog;
+use oxui::components::form::input::AppInput;
+use oxui::shadcn::badge::{Badge, BadgeVariant};
+use oxui::shadcn::button::{Button, ButtonVariant};
+use oxui::shadcn::checkbox::Checkbox;
+use oxui::shadcn::combobox::{Combobox, ComboboxItem};
+use oxui::shadcn::skeleton::Skeleton;
 use serde_json;
 use wasm_bindgen::{closure::Closure, JsCast};
 use web_sys::{Blob, Url};

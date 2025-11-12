@@ -6,8 +6,8 @@ use crate::containers::page_header::PageHeader;
 use crate::containers::tag_form::{TagForm, TagFormContainer};
 use crate::hooks::{use_state_frame_map_toast, use_tag_view, StateFrameToastConfig};
 use crate::router::Route;
-use crate::store::use_tag;
-use crate::ui::shadcn::button::{Button, ButtonVariant};
+use ruxlog_shared::store::use_tag;
+use oxui::shadcn::button::{Button, ButtonVariant};
 
 #[component]
 pub fn TagsEditScreen(id: i32) -> Element {

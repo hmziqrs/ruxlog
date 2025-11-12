@@ -79,6 +79,8 @@ futures-util = "0.3.31"
 oxcore = { path = "../oxcore" }
 oxstore = { path = "../oxstore" }
 oxform = { path = "../oxform" }
+oxui = { path = "../oxui" }
+ruxlog-shared = { path = "../ruxlog-shared" }
 # dioxus-primitives = { git = "https://github.com/DioxusLabs/components", branch = "main" }
 
 [patch.crates-io]

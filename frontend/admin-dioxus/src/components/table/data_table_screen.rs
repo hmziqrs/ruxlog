@@ -3,9 +3,9 @@ use dioxus::prelude::*;
 use crate::components::table::list_toolbar::{ListToolbar, ListToolbarProps};
 use crate::components::table::pagination::Pagination;
 use crate::containers::page_header::{PageHeader, PageHeaderProps};
-use crate::ui::components::error::{ErrorDetails, ErrorDetailsVariant};
-use crate::ui::components::loading_overlay::LoadingOverlay;
-use crate::ui::shadcn::button::{Button, ButtonVariant};
+use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
+use oxui::components::loading_overlay::LoadingOverlay;
+use oxui::shadcn::button::{Button, ButtonVariant};
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdArrowUpDown, Icon};
 use oxstore::{AppError, PaginatedList, StateFrame};
 

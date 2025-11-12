@@ -4,12 +4,12 @@ use super::form::{use_tag_form, TagForm};
 use crate::components::color_picker::ColorPicker;
 use crate::hooks::OxForm;
 use crate::router::Route;
-use crate::store::tags::Tag;
-use crate::ui::components::form::input::AppInput;
-use crate::ui::components::tag::{TagBadge, TagSize};
-use crate::ui::custom::portal::AppPortal;
-use crate::ui::shadcn::button::{Button, ButtonSize, ButtonVariant};
-use crate::ui::shadcn::checkbox::Checkbox;
+use ruxlog_shared::store::tags::Tag;
+use oxui::components::form::input::AppInput;
+use ruxlog_shared::components::tag::{TagBadge, TagSize};
+use oxui::custom::portal::AppPortal;
+use oxui::shadcn::button::{Button, ButtonSize, ButtonVariant};
+use oxui::shadcn::checkbox::Checkbox;
 use crate::utils::colors::get_contrast_yiq;
 
 #[derive(Props, PartialEq, Clone)]

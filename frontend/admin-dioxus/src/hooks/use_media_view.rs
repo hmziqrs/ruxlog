@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::store::{use_media, media::Media};
+use ruxlog_shared::store::{use_media, media::Media};
 
 #[derive(Clone)]
 pub struct MediaViewState {

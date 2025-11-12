@@ -5,8 +5,8 @@ use crate::containers::blog_form::BlogFormContainer;
 use crate::containers::page_header::PageHeader;
 use crate::hooks::{use_state_frame_toast, StateFrameToastConfig};
 use crate::router::Route;
-use crate::store::use_post;
-use crate::ui::shadcn::button::{Button, ButtonVariant};
+use ruxlog_shared::store::use_post;
+use oxui::shadcn::button::{Button, ButtonVariant};
 
 #[component]
 pub fn PostsAddScreen() -> Element {

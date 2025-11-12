@@ -10,12 +10,12 @@ use crate::components::media::{
 };
 use crate::hooks::OxForm;
 use crate::router::Route;
-use crate::store::{media::MediaReference, media::MediaUploadPayload, use_image_editor, use_media};
-use crate::ui::components::confirm_dialog::ConfirmDialog;
-use crate::ui::components::form::{input::AppInput, password_input::PasswordInput};
-use crate::ui::custom::portal::AppPortal;
-use crate::ui::shadcn::button::{Button, ButtonVariant};
-use crate::ui::shadcn::checkbox::Checkbox;
+use ruxlog_shared::store::{media::MediaReference, media::MediaUploadPayload, use_image_editor, use_media};
+use oxui::components::confirm_dialog::ConfirmDialog;
+use oxui::components::form::{input::AppInput, password_input::PasswordInput};
+use oxui::custom::portal::AppPortal;
+use oxui::shadcn::button::{Button, ButtonVariant};
+use oxui::shadcn::checkbox::Checkbox;
 
 #[derive(Props, PartialEq, Clone)]
 pub struct UserFormContainerProps {

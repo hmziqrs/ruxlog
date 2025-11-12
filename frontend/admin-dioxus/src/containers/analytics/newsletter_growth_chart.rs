@@ -1,11 +1,11 @@
 use dioxus::prelude::*;
 
-use crate::store::{
+use ruxlog_shared::store::{
     use_analytics, AnalyticsEnvelope, AnalyticsEnvelopeResponse, AnalyticsInterval,
     NewsletterGrowthFilters, NewsletterGrowthPoint, NewsletterGrowthRequest,
 };
-use crate::ui::components::error::{ErrorDetails, ErrorDetailsVariant};
-use crate::ui::components::loading_overlay::LoadingOverlay;
+use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
+use oxui::components::loading_overlay::LoadingOverlay;
 use oxstore::StateFrameStatus;
 
 /// Props for `NewsletterGrowthChart`.

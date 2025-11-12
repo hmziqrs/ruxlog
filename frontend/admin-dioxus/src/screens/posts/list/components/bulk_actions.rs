@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::ui::shadcn::button::{Button, ButtonSize, ButtonVariant};
+use oxui::shadcn::button::{Button, ButtonSize, ButtonVariant};
 
 use super::super::context::use_post_list_context;
 

@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use super::interval_selector::IntervalSelector;
-use crate::store::analytics::{
+use ruxlog_shared::store::analytics::{
     AnalyticsEnvelopeResponse, AnalyticsInterval, VerificationRatePoint, VerificationRatesRequest,
 };
 use oxstore::{

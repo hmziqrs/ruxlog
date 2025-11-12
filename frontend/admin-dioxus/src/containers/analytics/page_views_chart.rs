@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use super::interval_selector::IntervalSelector;
-use crate::store::analytics::{
+use ruxlog_shared::store::analytics::{
     AnalyticsEnvelopeResponse, AnalyticsInterval, PageViewPoint,
 };
 use oxstore::{
@@ -20,7 +20,7 @@ use oxstore::{
 pub struct PageViewsChartProps {
     /// State frame wrapping `AnalyticsEnvelopeResponse<Vec<PageViewPoint>>`.
     pub frame:
-        StateFrame<AnalyticsEnvelopeResponse<Vec<PageViewPoint>>, crate::store::PageViewsRequest>,
+        StateFrame<AnalyticsEnvelopeResponse<Vec<PageViewPoint>>, ruxlog_shared::store::PageViewsRequest>,
     /// Optional chart title.
     #[props(default = "Page views".to_string())]
     pub title: String,

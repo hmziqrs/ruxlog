@@ -1,9 +1,7 @@
 use dioxus::prelude::*;
 
-use crate::{
-    components::media::upload_item::MediaUploadItem,
-    store::{use_media, UploadStatus},
-};
+use crate::components::media::upload_item::MediaUploadItem;
+use ruxlog_shared::store::{use_media, UploadStatus};
 
 #[derive(Props, Clone, PartialEq)]
 pub struct MediaUploadListProps {

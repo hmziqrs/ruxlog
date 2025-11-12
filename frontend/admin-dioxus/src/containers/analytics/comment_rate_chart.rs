@@ -1,8 +1,8 @@
 use dioxus::prelude::*;
 
-use crate::store::{analytics::CommentRatePoint, use_analytics};
-use crate::ui::components::error::{ErrorDetails, ErrorDetailsVariant};
-use crate::ui::components::loading_overlay::LoadingOverlay;
+use ruxlog_shared::store::{analytics::CommentRatePoint, use_analytics};
+use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
+use oxui::components::loading_overlay::LoadingOverlay;
 use oxstore::StateFrameStatus;
 
 /// Props for `CommentRateChart`.
