@@ -342,12 +342,12 @@ pub fn Toolbar(props: ToolbarProps) -> Element {
                 TableDialog {
                     on_close: move |_| show_table_dialog.set(false),
                     on_insert: move |(rows, cols)| {
-                        gloo_console::log!("[Toolbar] TableDialog on_insert called: rows=", rows, "cols=", cols);
+                        tracing::debug!("[Toolbar] TableDialog on_insert called: rows=", rows, "cols=", cols);
                         props.on_command.call(Box::new(super::commands::InsertTable {
                             rows,
                             cols,
                         }));
-                        gloo_console::log!("[Toolbar] Closing table dialog");
+                        tracing::debug!("[Toolbar] Closing table dialog");
                         show_table_dialog.set(false);
                     },
                 }
@@ -689,7 +689,7 @@ pub fn TableDialog(
                             onclick: move |_| {
                                 let rows_val = rows.read().parse::<usize>().unwrap_or(3).clamp(1, 20);
                                 let cols_val = cols.read().parse::<usize>().unwrap_or(3).clamp(1, 10);
-                                gloo_console::log!("[TableDialog] Insert clicked: rows=", rows_val, "cols=", cols_val);
+                                tracing::debug!("[TableDialog] Insert clicked: rows=", rows_val, "cols=", cols_val);
                                 on_insert.call((rows_val, cols_val));
                             },
                             "Insert"

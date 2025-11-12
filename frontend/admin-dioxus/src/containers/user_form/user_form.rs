@@ -1,5 +1,4 @@
-use dioxus::prelude::*;
-use gloo_console;
+use dioxus::{logger::tracing, prelude::*};
 
 use web_sys::{Blob, Url};
 
@@ -49,7 +48,7 @@ pub fn UserFormContainer(props: UserFormContainerProps) -> Element {
     // Handle file selected from MediaUploadZone
     let handle_file_selected = move |files: Vec<web_sys::File>| {
         if let Some(file) = files.first() {
-            gloo_console::log!("[UserForm] File selected:", file.name());
+            tracing::debug!("[UserForm] File selected: {}", file.name());
             pending_file.set(Some(file.clone()));
             confirm_dialog_open.set(true);
         }
@@ -59,7 +58,7 @@ pub fn UserFormContainer(props: UserFormContainerProps) -> Element {
     let handle_edit_confirm = move |_| {
         let file = pending_file();
         if let Some(f) = file {
-            gloo_console::log!("[UserForm] Opening editor for file:", f.name());
+            tracing::debug!("[UserForm] Opening editor for file: {}", f.name());
             let blob: &Blob = f.as_ref();
             if let Ok(blob_url) = Url::create_object_url_with_blob(blob) {
                 spawn(async move {
@@ -73,7 +72,7 @@ pub fn UserFormContainer(props: UserFormContainerProps) -> Element {
     let handle_edit_skip = move |_| {
         let file = pending_file();
         if let Some(f) = file {
-            gloo_console::log!("[UserForm] Skipping edit, uploading directly:", f.name());
+            tracing::debug!("[UserForm] Skipping edit, uploading directly: {}", f.name());
 
             spawn(async move {
                 let payload = MediaUploadPayload {
@@ -85,11 +84,11 @@ pub fn UserFormContainer(props: UserFormContainerProps) -> Element {
 
                 match media_state.upload(payload).await {
                     Ok(blob_url) => {
-                        gloo_console::log!("[UserForm] Upload successful:", &blob_url);
+                        tracing::debug!("[UserForm] Upload successful: {}", &blob_url);
                         form.write().data.avatar_blob_url = Some(blob_url);
                     }
                     Err(e) => {
-                        gloo_console::error!("[UserForm] Upload failed:", e);
+                        tracing::error!("[UserForm] Upload failed: {}", e);
                     }
                 }
             });
@@ -98,10 +97,7 @@ pub fn UserFormContainer(props: UserFormContainerProps) -> Element {
 
     // Handle image editor save - upload edited file
     let handle_editor_save = move |edited_file: web_sys::File| {
-        gloo_console::log!(
-            "[UserForm] Editor saved, uploading edited file:",
-            edited_file.name()
-        );
+        tracing::debug!("[UserForm] Editor saved, uploading edited file: {}", edited_file.name());
 
         spawn(async move {
             let payload = MediaUploadPayload {
@@ -113,11 +109,11 @@ pub fn UserFormContainer(props: UserFormContainerProps) -> Element {
 
             match media_state.upload(payload).await {
                 Ok(blob_url) => {
-                    gloo_console::log!("[UserForm] Edited upload successful:", &blob_url);
+                    tracing::debug!("[UserForm] Edited upload successful: {}", &blob_url);
                     form.write().data.avatar_blob_url = Some(blob_url);
                 }
                 Err(e) => {
-                    gloo_console::error!("[UserForm] Edited upload failed:", e);
+                    tracing::error!("[UserForm] Edited upload failed: {}", e);
                 }
             }
         });
@@ -125,7 +121,7 @@ pub fn UserFormContainer(props: UserFormContainerProps) -> Element {
 
     // Handle edit uploaded avatar
     let handle_edit_uploaded = move |blob_url: String| {
-        gloo_console::log!("[UserForm] Editing uploaded avatar");
+        tracing::debug!("[UserForm] Editing uploaded avatar");
         spawn(async move {
             let _ = editor_state.open_editor(None, blob_url).await;
         });
@@ -140,10 +136,7 @@ pub fn UserFormContainer(props: UserFormContainerProps) -> Element {
             if form_data.avatar_id.is_none() {
                 // Check if upload completed
                 if let Some(media) = media_state.get_uploaded_media(avatar_blob) {
-                    gloo_console::log!(
-                        "[UserForm] Avatar upload complete, media ID:",
-                        media.id.to_string()
-                    );
+                    tracing::debug!("[UserForm] Avatar upload complete, media ID: {}", media.id);
                     let mut form_mut = form.write();
                     form_mut.data.avatar_id = Some(media.id);
                 }

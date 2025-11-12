@@ -15,7 +15,7 @@ pub use toolbar::*;
 use ruxlog_shared::store::{image_editor::EditorTool, use_image_editor};
 use oxui::custom::portal::AppPortal;
 use oxui::shadcn::button::{Button, ButtonVariant};
-use dioxus::prelude::*;
+use dioxus::{logger::tracing, prelude::*};
 
 #[derive(Props, PartialEq, Clone)]
 pub struct ImageEditorModalProps {
@@ -52,7 +52,7 @@ pub fn ImageEditorModal(props: ImageEditorModalProps) -> Element {
                     editor.close_editor();
                 }
                 Err(e) => {
-                    gloo_console::error!("[ImageEditor] Failed to export:", &e);
+                    tracing::error!("[ImageEditor] Failed to export: {}", &e);
                 }
             }
         });

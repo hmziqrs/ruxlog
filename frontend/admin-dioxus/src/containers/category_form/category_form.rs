@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use dioxus::{logger::tracing, prelude::*};
 
 use super::form::{use_categories_form, CategoryForm};
 use crate::components::color_picker::ColorPicker;
@@ -64,10 +64,7 @@ pub fn CategoryFormContainer(props: CategoryFormContainerProps) -> Element {
             if form_data.logo_media_id.is_none() {
                 // Check if upload completed
                 if let Some(media) = media_state.get_uploaded_media(logo_blob) {
-                    gloo_console::log!(
-                        "[CategoryForm] Logo upload complete, media ID:",
-                        media.id.to_string()
-                    );
+                    tracing::debug!("[CategoryForm] Logo upload complete, media ID: {}", media.id);
                     let mut form_mut = form.write();
                     form_mut.data.logo_media_id = Some(media.id);
                 }
@@ -79,10 +76,7 @@ pub fn CategoryFormContainer(props: CategoryFormContainerProps) -> Element {
             if form_data.cover_media_id.is_none() {
                 // Check if upload completed
                 if let Some(media) = media_state.get_uploaded_media(cover_blob) {
-                    gloo_console::log!(
-                        "[CategoryForm] Cover upload complete, media ID:",
-                        media.id.to_string()
-                    );
+                    tracing::debug!("[CategoryForm] Cover upload complete, media ID: {}", media.id);
                     let mut form_mut = form.write();
                     form_mut.data.cover_media_id = Some(media.id);
                 }
@@ -94,7 +88,7 @@ pub fn CategoryFormContainer(props: CategoryFormContainerProps) -> Element {
     let handle_file_selected = move |field: String| {
         move |files: Vec<web_sys::File>| {
             if let Some(file) = files.first() {
-                gloo_console::log!("[CategoryForm] File selected for", &field, ":", file.name());
+                tracing::debug!("[CategoryForm] File selected for {}: {}", &field, file.name());
                 pending_file.set(Some(file.clone()));
                 pending_field.set(Some(field.clone()));
                 edit_confirm_open.set(true);
@@ -106,7 +100,7 @@ pub fn CategoryFormContainer(props: CategoryFormContainerProps) -> Element {
     let handle_edit_confirm = move |_| {
         let file = pending_file();
         if let Some(f) = file {
-            gloo_console::log!("[CategoryForm] Opening editor for file:", f.name());
+            tracing::debug!("[CategoryForm] Opening editor for file: {}", f.name());
             // Create blob URL for the file
             let blob: &Blob = f.as_ref();
             if let Ok(blob_url) = Url::create_object_url_with_blob(blob) {
@@ -123,10 +117,7 @@ pub fn CategoryFormContainer(props: CategoryFormContainerProps) -> Element {
         let field = pending_field();
 
         if let (Some(f), Some(field_name)) = (file, field) {
-            gloo_console::log!(
-                "[CategoryForm] Skipping edit, uploading directly:",
-                f.name()
-            );
+            tracing::debug!("[CategoryForm] Skipping edit, uploading directly: {}", f.name());
 
             // Upload the file
             spawn(async move {
@@ -139,7 +130,7 @@ pub fn CategoryFormContainer(props: CategoryFormContainerProps) -> Element {
 
                 match media_state.upload(payload).await {
                     Ok(blob_url) => {
-                        gloo_console::log!("[CategoryForm] Upload successful:", &blob_url);
+                        tracing::debug!("[CategoryForm] Upload successful: {}", &blob_url);
                         let mut form_mut = form.write();
                         if field_name == "logo" {
                             form_mut.data.logo_blob_url = Some(blob_url);
@@ -154,7 +145,7 @@ pub fn CategoryFormContainer(props: CategoryFormContainerProps) -> Element {
                         }
                     }
                     Err(e) => {
-                        gloo_console::error!("[CategoryForm] Upload failed:", e);
+                        tracing::error!("[CategoryForm] Upload failed: {}", e);
                     }
                 }
             });
@@ -166,10 +157,7 @@ pub fn CategoryFormContainer(props: CategoryFormContainerProps) -> Element {
         let field = pending_field();
 
         if let Some(field_name) = field {
-            gloo_console::log!(
-                "[CategoryForm] Editor saved, uploading edited file:",
-                edited_file.name()
-            );
+            tracing::debug!("[CategoryForm] Editor saved, uploading edited file: {}", edited_file.name());
 
             // Upload the edited file
             spawn(async move {
@@ -182,7 +170,7 @@ pub fn CategoryFormContainer(props: CategoryFormContainerProps) -> Element {
 
                 match media_state.upload(payload).await {
                     Ok(blob_url) => {
-                        gloo_console::log!("[CategoryForm] Edited upload successful:", &blob_url);
+                        tracing::debug!("[CategoryForm] Edited upload successful: {}", &blob_url);
                         let mut form_mut = form.write();
                         if field_name == "logo" {
                             form_mut.data.logo_blob_url = Some(blob_url);
@@ -197,7 +185,7 @@ pub fn CategoryFormContainer(props: CategoryFormContainerProps) -> Element {
                         }
                     }
                     Err(e) => {
-                        gloo_console::error!("[CategoryForm] Edited upload failed:", e);
+                        tracing::error!("[CategoryForm] Edited upload failed: {}", e);
                     }
                 }
             });
@@ -207,12 +195,7 @@ pub fn CategoryFormContainer(props: CategoryFormContainerProps) -> Element {
     // Handle re-edit of already uploaded image
     let handle_edit_uploaded = move |field: String| {
         move |blob_url: String| {
-            gloo_console::log!(
-                "[CategoryForm] Re-editing uploaded image for",
-                &field,
-                ":",
-                &blob_url
-            );
+            tracing::debug!("[CategoryForm] Re-editing uploaded image for {}: {}", &field, &blob_url);
             pending_field.set(Some(field.clone()));
             // Open editor directly with the blob URL
             spawn(async move {

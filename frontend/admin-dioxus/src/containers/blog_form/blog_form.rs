@@ -181,10 +181,7 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
             if form_data.featured_image_media_id.is_none() {
                 // Check if upload completed
                 if let Some(media) = media_state.get_uploaded_media(featured_blob) {
-                    gloo_console::log!(
-                        "[BlogForm] Featured image upload complete, media ID:",
-                        media.id.to_string()
-                    );
+                    tracing::debug!("[BlogForm] Featured image upload complete, media ID: {}", media.id);
                     let mut form_mut = form.write();
                     form_mut.data.featured_image_media_id = Some(media.id);
                 }
@@ -207,7 +204,7 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
     let handle_edit_confirm = move |_| {
         let file = pending_file();
         if let Some(f) = file {
-            gloo_console::log!("[BlogForm] Opening editor for file:", f.name());
+            tracing::debug!("[BlogForm] Opening editor for file: {}", f.name());
             // Create blob URL for the file
             let blob: &Blob = f.as_ref();
             if let Ok(blob_url) = Url::create_object_url_with_blob(blob) {
@@ -224,7 +221,7 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
         let field = pending_field();
 
         if let (Some(f), Some(_field_name)) = (file, field) {
-            gloo_console::log!("[BlogForm] Skipping edit, uploading directly:", f.name());
+            tracing::debug!("[BlogForm] Skipping edit, uploading directly: {}", f.name());
 
             // Upload the file
             spawn(async move {
@@ -237,12 +234,12 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
 
                 match media_state.upload(payload).await {
                     Ok(blob_url) => {
-                        gloo_console::log!("[BlogForm] Upload successful:", &blob_url);
+                        tracing::debug!("[BlogForm] Upload successful: {}", &blob_url);
                         let mut form_mut = form.write();
                         form_mut.data.featured_image_blob_url = Some(blob_url);
                     }
                     Err(e) => {
-                        gloo_console::error!("[BlogForm] Upload failed:", e);
+                        tracing::error!("[BlogForm] Upload failed: {}", e);
                     }
                 }
             });
@@ -254,10 +251,7 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
         let field = pending_field();
 
         if let Some(_field_name) = field {
-            gloo_console::log!(
-                "[BlogForm] Editor saved, uploading edited file:",
-                edited_file.name()
-            );
+            tracing::debug!("[BlogForm] Editor saved, uploading edited file: {}", edited_file.name());
 
             // Upload the edited file
             spawn(async move {
@@ -270,12 +264,12 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
 
                 match media_state.upload(payload).await {
                     Ok(blob_url) => {
-                        gloo_console::log!("[BlogForm] Edited upload successful:", &blob_url);
+                        tracing::debug!("[BlogForm] Edited upload successful: {}", &blob_url);
                         let mut form_mut = form.write();
                         form_mut.data.featured_image_blob_url = Some(blob_url);
                     }
                     Err(e) => {
-                        gloo_console::error!("[BlogForm] Edited upload failed:", e);
+                        tracing::error!("[BlogForm] Edited upload failed: {}", e);
                     }
                 }
             });
@@ -285,7 +279,7 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
     // Handle re-edit of already uploaded image
     let handle_edit_uploaded = move |_field: String| {
         move |blob_url: String| {
-            gloo_console::log!("[BlogForm] Re-editing uploaded image:", &blob_url);
+            tracing::debug!("[BlogForm] Re-editing uploaded image: {}", &blob_url);
             pending_field.set(Some(_field.clone()));
             // Open editor directly with the blob URL
             spawn(async move {

@@ -37,7 +37,6 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "getrandom 0.3.4",
- "gloo-console",
  "gloo-net",
  "gloo-storage",
  "gloo-timers",

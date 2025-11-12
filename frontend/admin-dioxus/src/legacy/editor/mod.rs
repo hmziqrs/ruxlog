@@ -25,7 +25,7 @@ pub use slash_commands::{SlashCommand, SlashCommands};
 pub use toolbar::LinkDialog;
 
 use commands::{InsertBlock, InsertLink, SetBlockType};
-use dioxus::prelude::*;
+use dioxus::{logger::tracing, prelude::*};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use wasm_bindgen::JsCast;
 use crate::containers::image_editor::ImageEditorModal;
@@ -152,11 +152,11 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
         }
 
         if let Some(insert_table) = cmd.as_any().downcast_ref::<commands::InsertTable>() {
-            gloo_console::log!("[Editor] InsertTable command received: rows=", insert_table.rows, "cols=", insert_table.cols);
+            tracing::debug!("[Editor] InsertTable command received: rows=", insert_table.rows, "cols=", insert_table.cols);
             let headers = vec![vec![Inline::text("")]; insert_table.cols];
             let rows = vec![vec![vec![Inline::text("")]; insert_table.cols]; insert_table.rows];
             let column_align = vec![ast::TableAlign::default(); insert_table.cols];
-            gloo_console::log!("[Editor] Calling handle_insert_block with table");
+            tracing::debug!("[Editor] Calling handle_insert_block with table");
             handle_insert_block(
                 &document,
                 &BlockKind::Table {
@@ -165,7 +165,7 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
                     column_align,
                 },
             );
-            gloo_console::log!("[Editor] Table inserted successfully");
+            tracing::debug!("[Editor] Table inserted successfully");
             return;
         }
     };
@@ -234,7 +234,7 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
                 let js_check_pending = "window._pendingImageEdit || null";
                 if let Ok(pending_val) = js_sys::eval(js_check_pending) {
                     if let Some(src) = pending_val.as_string() {
-                        gloo_console::log!("[RichTextEditor] Opening image editor for:", &src);
+                        tracing::debug!("[RichTextEditor] Opening image editor for:", &src);
 
                         // Clear the pending flag
                         let _ = js_sys::eval("window._pendingImageEdit = null");
@@ -251,23 +251,23 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
                                                 Ok(blob) => {
                                                     if let Ok(blob) = blob.dyn_into::<web_sys::Blob>() {
                                                         if let Ok(blob_url) = web_sys::Url::create_object_url_with_blob(&blob) {
-                                                            gloo_console::log!("[RichTextEditor] Opening image editor with blob URL:", &blob_url);
+                                                            tracing::debug!("[RichTextEditor] Opening image editor with blob URL:", &blob_url);
 
                                                             if let Err(e) = image_editor.open_editor(None, blob_url).await {
-                                                                gloo_console::error!("[RichTextEditor] Failed to open image editor:", &e);
+                                                                tracing::error!("[RichTextEditor] Failed to open image editor:", &e);
                                                             }
                                                         }
                                                     }
                                                 }
                                                 Err(e) => {
-                                                    gloo_console::error!("[RichTextEditor] Failed to get blob:", format!("{:?}", e));
+                                                    tracing::error!("[RichTextEditor] Failed to get blob:", format!("{:?}", e));
                                                 }
                                             }
                                         }
                                     }
                                 }
                                 Err(e) => {
-                                    gloo_console::error!("[RichTextEditor] Failed to fetch image:", format!("{:?}", e));
+                                    tracing::error!("[RichTextEditor] Failed to fetch image:", format!("{:?}", e));
                                 }
                             }
                         }
@@ -388,7 +388,7 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
 
                         is_undoing.set(false);
                         sr_announcement.set("Undo applied".to_string());
-                        gloo_console::log!("[RichTextEditor] Undo applied");
+                        tracing::debug!("[RichTextEditor] Undo applied");
                     } else {
                         sr_announcement.set("Nothing to undo".to_string());
                     }
@@ -412,18 +412,18 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
 
                         is_undoing.set(false);
                         sr_announcement.set("Redo applied".to_string());
-                        gloo_console::log!("[RichTextEditor] Redo applied");
+                        tracing::debug!("[RichTextEditor] Redo applied");
                     } else {
                         sr_announcement.set("Nothing to redo".to_string());
                     }
                 }
                 ShortcutAction::Save => {
                     // Trigger save event - parent component can handle this
-                    gloo_console::log!("Save shortcut triggered");
+                    tracing::debug!("Save shortcut triggered");
                 }
                 ShortcutAction::Find => {
                     // Could trigger find dialog in the future
-                    gloo_console::log!("Find shortcut triggered");
+                    tracing::debug!("Find shortcut triggered");
                 }
                 ShortcutAction::MoveBlockUp => {
                     // Move the current block up in the DOM
@@ -449,7 +449,7 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
                                                 }
 
                                                 sr_announcement.set("Block moved up".to_string());
-                                                gloo_console::log!("[RichTextEditor] Moved block up");
+                                                tracing::debug!("[RichTextEditor] Moved block up");
                                             }
                                         } else {
                                             sr_announcement.set("Cannot move block up, already at top".to_string());
@@ -489,7 +489,7 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
                                                 }
 
                                                 sr_announcement.set("Block moved down".to_string());
-                                                gloo_console::log!("[RichTextEditor] Moved block down");
+                                                tracing::debug!("[RichTextEditor] Moved block down");
                                             }
                                         } else {
                                             sr_announcement.set("Cannot move block down, already at bottom".to_string());
@@ -693,7 +693,7 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
 
         let files_result = js_sys::eval(js_get_files);
         if files_result.is_err() {
-            gloo_console::error!("[RichTextEditor] Failed to access dropped files");
+            tracing::error!("[RichTextEditor] Failed to access dropped files");
             return;
         }
 
@@ -701,11 +701,11 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
         let files_array = js_sys::Array::from(&files_val);
 
         if files_array.length() == 0 {
-            gloo_console::warn!("[RichTextEditor] No files in drop event");
+            tracing::warn!("[RichTextEditor] No files in drop event");
             return;
         }
 
-        gloo_console::log!("[RichTextEditor] Processing", files_array.length().to_string(), "dropped files");
+        tracing::debug!("[RichTextEditor] Processing", files_array.length().to_string(), "dropped files");
 
         // Process each file
         for i in 0..files_array.length() {
@@ -725,7 +725,7 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
 
             // Only process image files
             if !file_type.starts_with("image/") {
-                gloo_console::warn!("[RichTextEditor] Skipping non-image file:", &file_type);
+                tracing::warn!("[RichTextEditor] Skipping non-image file:", &file_type);
                 continue;
             }
 
@@ -735,7 +735,7 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
                 .and_then(|v| v.dyn_into::<web_sys::File>().ok());
 
             if native_file.is_none() {
-                gloo_console::error!("[RichTextEditor] Could not extract File object");
+                tracing::error!("[RichTextEditor] Could not extract File object");
                 continue;
             }
 
@@ -773,7 +773,7 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
 
                 match media_state_ref.upload(payload).await {
                     Ok(upload_blob_url) => {
-                        gloo_console::log!("[RichTextEditor] Upload successful:", &upload_blob_url);
+                        tracing::debug!("[RichTextEditor] Upload successful:", &upload_blob_url);
 
                         // Poll for the actual media URL (the upload is async)
                         // We need to wait a bit for the server to process
@@ -810,7 +810,7 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
                         uploading_images_clone.set(current);
                     }
                     Err(err) => {
-                        gloo_console::error!("[RichTextEditor] Upload failed:", &err);
+                        tracing::error!("[RichTextEditor] Upload failed:", &err);
 
                         // Remove placeholder on error
                         if let Some(window) = web_sys::window() {
@@ -834,7 +834,7 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
 
     // Image editor: Handle save callback
     let handle_image_editor_save = move |edited_file: web_sys::File| {
-        gloo_console::log!("[RichTextEditor] Image editor saved, uploading edited image...");
+        tracing::debug!("[RichTextEditor] Image editor saved, uploading edited image...");
 
         let media_state_ref = media_state;
         let mut editing_image_src_clone = editing_image_src.clone();
@@ -850,7 +850,7 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
 
             match media_state_ref.upload(payload).await {
                 Ok(_upload_blob_url) => {
-                    gloo_console::log!("[RichTextEditor] Edited image uploaded, refreshing media list...");
+                    tracing::debug!("[RichTextEditor] Edited image uploaded, refreshing media list...");
 
                     // Wait a bit for server processing
                     gloo_timers::future::sleep(std::time::Duration::from_millis(500)).await;
@@ -867,7 +867,7 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
                     };
 
                     if let Some(new_url) = media_url {
-                        gloo_console::log!("[RichTextEditor] Replacing image with:", &new_url);
+                        tracing::debug!("[RichTextEditor] Replacing image with:", &new_url);
 
                         // Replace the image in the editor using the stored element reference
                         let js_replace = format!(
@@ -888,11 +888,11 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
                         // Clear the editing state
                         editing_image_src_clone.set(None);
                     } else {
-                        gloo_console::error!("[RichTextEditor] Failed to get media URL after upload");
+                        tracing::error!("[RichTextEditor] Failed to get media URL after upload");
                     }
                 }
                 Err(e) => {
-                    gloo_console::error!("[RichTextEditor] Failed to upload edited image:", &e.to_string());
+                    tracing::error!("[RichTextEditor] Failed to upload edited image:", &e.to_string());
                 }
             }
         });
@@ -985,12 +985,12 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
 
                             // Process based on type
                             let sanitized_content = if clip_type == "html" {
-                                gloo_console::log!("[RichTextEditor] Pasting HTML content (preserving formatting)");
+                                tracing::debug!("[RichTextEditor] Pasting HTML content (preserving formatting)");
                                 // Sanitize the HTML to remove unwanted tags/attributes
                                 // This preserves formatting from Word/Google Docs while removing unsafe content
                                 sanitize_html(&clip_content)
                             } else {
-                                gloo_console::log!("[RichTextEditor] Pasting plain text");
+                                tracing::debug!("[RichTextEditor] Pasting plain text");
                                 // Escape HTML entities in plain text and preserve line breaks
                                 clip_content.replace('&', "&amp;")
                                     .replace('<', "&lt;")
@@ -1017,7 +1017,7 @@ pub fn RichTextEditor(props: RichTextEditorProps) -> Element {
                             }
                         }
                         Err(e) => {
-                            gloo_console::error!("[RichTextEditor] Failed to access clipboard:", format!("{:?}", e));
+                            tracing::error!("[RichTextEditor] Failed to access clipboard:", format!("{:?}", e));
                         }
                     }
                 },
@@ -1656,11 +1656,11 @@ fn handle_insert_block(document: &web_sys::Document, block_kind: &BlockKind) {
             rows,
             column_align,
         } => {
-            gloo_console::log!("[handle_insert_block] Building table HTML");
+            tracing::debug!("[handle_insert_block] Building table HTML");
             let html = build_table_html(headers, rows, column_align);
-            gloo_console::log!("[handle_insert_block] Table HTML:", &html);
+            tracing::debug!("[handle_insert_block] Table HTML:", &html);
             insert_html(document, &html);
-            gloo_console::log!("[handle_insert_block] Table HTML inserted");
+            tracing::debug!("[handle_insert_block] Table HTML inserted");
         }
         BlockKind::Paragraph
         | BlockKind::Heading { .. }

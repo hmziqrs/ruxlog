@@ -69,7 +69,6 @@ web-sys = { version = "0.3.69", features = [
 ] }
 lazy_static = "1.4.0"
 im = "15.1.0"
-gloo-console = "0.3.0"
 uuid = { version = "1.16.0", features = ["v4", "js"] }
 photon-rs = "0.3.2"
 futures-channel = "0.3"

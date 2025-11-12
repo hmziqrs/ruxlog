@@ -1,5 +1,4 @@
-use dioxus::prelude::*;
-use gloo_console::error;
+use dioxus::{logger::tracing, prelude::*};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
@@ -16,11 +15,11 @@ pub fn EditorJsHost(initial_json: Option<String>) -> Element {
                 let value = JsValue::from_str(&raw_json);
 
                 if let Err(err) = js_sys::Reflect::set(&window_js, &key, &value) {
-                    error!("[EditorJsHost] Failed setting initial data", err);
+                    tracing::error!("[EditorJsHost] Failed setting initial data: {:?}", err);
                 }
             } else {
                 if let Err(err) = js_sys::Reflect::set(&window_js, &key, &JsValue::UNDEFINED) {
-                    error!("[EditorJsHost] Failed clearing initial data", err);
+                    tracing::error!("[EditorJsHost] Failed clearing initial data: {:?}", err);
                 }
             }
 
@@ -34,7 +33,7 @@ pub fn EditorJsHost(initial_json: Option<String>) -> Element {
 
             let key = JsValue::from_str("editorjs_upload_file");
             if let Err(err) = js_sys::Reflect::set(&window_js, &key, upload_fn.as_ref()) {
-                error!("[EditorJsHost] Failed exposing upload function", err);
+                tracing::error!("[EditorJsHost] Failed exposing upload function: {:?}", err);
             }
             upload_fn.forget();
         }

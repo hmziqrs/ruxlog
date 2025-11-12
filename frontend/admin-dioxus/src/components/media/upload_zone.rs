@@ -1,7 +1,7 @@
 use ruxlog_shared::store::{media::MediaReference, media::MediaUploadPayload, use_media};
 use oxui::shadcn::button::{Button, ButtonVariant};
 use crate::utils::file_helpers::validate_file_type;
-use dioxus::prelude::*;
+use dioxus::{logger::tracing, prelude::*};
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdUpload, Icon};
 
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -61,7 +61,7 @@ pub fn MediaUploadZone(props: MediaUploadZoneProps) -> Element {
     let open_picker = {
         let id = input_id();
         move |_| {
-            gloo_console::log!("[MediaUploadZone] Opening file picker");
+            tracing::debug!("[MediaUploadZone] Opening file picker");
             if let Some(window) = web_sys::window() {
                 if let Some(doc) = window.document() {
                     if let Some(el) = doc.get_element_by_id(&id) {
@@ -76,7 +76,7 @@ pub fn MediaUploadZone(props: MediaUploadZoneProps) -> Element {
 
     // Handle file selection
     let handle_file_change = move |_evt: Event<FormData>| {
-        gloo_console::log!("[MediaUploadZone] File change event triggered");
+        tracing::debug!("[MediaUploadZone] File change event triggered");
 
         let id = input_id();
         let reference_type_clone = reference_type.clone();
@@ -92,26 +92,16 @@ pub fn MediaUploadZone(props: MediaUploadZoneProps) -> Element {
                         if let Ok(target) = el.dyn_into::<HtmlInputElement>() {
                             if let Some(files) = target.files() {
                                 let file_count = files.length();
-                                gloo_console::log!(
-                                    "[MediaUploadZone] Files selected: ",
-                                    file_count.to_string()
-                                );
+                                tracing::debug!("[MediaUploadZone] Files selected: {}", file_count);
 
                                 if file_count > 0 {
                                     let allowed_refs: Vec<&str> =
                                         allowed_types_clone.iter().map(|s| s.as_str()).collect();
-                                    gloo_console::log!(
-                                        "[MediaUploadZone] Processing ",
-                                        file_count.to_string(),
-                                        " files with max: ",
-                                        max_files.to_string()
-                                    );
+                                    tracing::debug!("[MediaUploadZone] Processing {} files with max: {}", file_count, max_files);
 
                                     // If on_file_selected is provided, extract Files and pass them
                                     if let Some(on_file_selected) = on_file_selected_clone {
-                                        gloo_console::log!(
-                                            "[MediaUploadZone] Using on_file_selected callback"
-                                        );
+                                        tracing::debug!("[MediaUploadZone] Using on_file_selected callback");
                                         let mut file_vec = Vec::new();
                                         let limit = if max_files > 0 {
                                             max_files.min(files.length() as usize)
@@ -125,10 +115,7 @@ pub fn MediaUploadZone(props: MediaUploadZoneProps) -> Element {
                                                 if validate_file_type(&file, &allowed_refs) {
                                                     file_vec.push(file);
                                                 } else {
-                                                    gloo_console::warn!(
-                                                        "[MediaUploadZone] File type not allowed:",
-                                                        file.type_()
-                                                    );
+                                                    tracing::warn!("[MediaUploadZone] File type not allowed: {}", file.type_());
                                                 }
                                             }
                                         }
@@ -146,10 +133,7 @@ pub fn MediaUploadZone(props: MediaUploadZoneProps) -> Element {
                                         )
                                         .await;
 
-                                        gloo_console::log!(
-                                            "[MediaUploadZone] Processing complete, blob URLs: ",
-                                            blob_urls.len().to_string()
-                                        );
+                                        tracing::debug!("[MediaUploadZone] Processing complete, blob URLs: {}", blob_urls.len());
 
                                         if !blob_urls.is_empty() {
                                             on_upload_clone.call(blob_urls);
@@ -160,7 +144,7 @@ pub fn MediaUploadZone(props: MediaUploadZoneProps) -> Element {
                                     target.set_value("");
                                 }
                             } else {
-                                gloo_console::warn!("[MediaUploadZone] No files found in input");
+                                tracing::warn!("[MediaUploadZone] No files found in input");
                             }
                         }
                     }
@@ -237,7 +221,7 @@ async fn process_files_async(
     allowed_types: &[&str],
     reference_type: Option<MediaReference>,
 ) -> Vec<String> {
-    gloo_console::log!("[process_files_async] Starting file processing");
+    tracing::debug!("[process_files_async] Starting file processing");
 
     let media_state = use_media();
     let mut blob_urls = Vec::new();
@@ -247,11 +231,7 @@ async fn process_files_async(
         files.length() as usize
     };
 
-    gloo_console::log!(
-        "[process_files_async] Processing limit: ",
-        limit.to_string(),
-        " files"
-    );
+    tracing::debug!("[process_files_async] Processing limit: {} files", limit);
 
     for i in 0..limit {
         if let Some(file) = files.get(i as u32) {
@@ -259,29 +239,15 @@ async fn process_files_async(
             let file_type = file.type_();
             let file_size = file.size();
 
-            gloo_console::log!(
-                "[process_files_async] File ",
-                i.to_string(),
-                " - Name: ",
-                &filename,
-                " Type: ",
-                &file_type,
-                " Size: ",
-                file_size.to_string()
-            );
+            tracing::debug!("[process_files_async] File {} - Name: {}, Type: {}, Size: {}", i, &filename, &file_type, file_size);
 
             // Validate file type
             if !validate_file_type(&file, allowed_types) {
-                gloo_console::warn!(
-                    "[process_files_async] File type not allowed:",
-                    &file_type,
-                    "- Allowed:",
-                    format!("{:?}", allowed_types)
-                );
+                tracing::warn!("[process_files_async] File type not allowed: {} - Allowed: {:?}", &file_type, allowed_types);
                 continue;
             }
 
-            gloo_console::log!("[process_files_async] File type validated, creating payload");
+            tracing::debug!("[process_files_async] File type validated, creating payload");
 
             // Create payload
             let payload = MediaUploadPayload {
@@ -292,35 +258,21 @@ async fn process_files_async(
             };
 
             // Initiate upload (returns blob URL immediately)
-            gloo_console::log!("[process_files_async] Initiating upload for:", &filename);
+            tracing::debug!("[process_files_async] Initiating upload for: {}", &filename);
             match media_state.upload(payload).await {
                 Ok(blob_url) => {
-                    gloo_console::log!(
-                        "[process_files_async] Upload initiated successfully, blob URL:",
-                        &blob_url
-                    );
+                    tracing::debug!("[process_files_async] Upload initiated successfully, blob URL: {}", &blob_url);
                     blob_urls.push(blob_url);
                 }
                 Err(e) => {
-                    gloo_console::error!(
-                        "[process_files_async] Upload failed for",
-                        &filename,
-                        ":",
-                        e
-                    );
+                    tracing::error!("[process_files_async] Upload failed for {}: {}", &filename, e);
                 }
             }
         } else {
-            gloo_console::warn!(
-                "[process_files_async] Could not get file at index: ",
-                i.to_string()
-            );
+            tracing::warn!("[process_files_async] Could not get file at index: {}", i);
         }
     }
 
-    gloo_console::log!(
-        "[process_files_async] Processing complete, total blob URLs: ",
-        blob_urls.len().to_string()
-    );
+    tracing::debug!("[process_files_async] Processing complete, total blob URLs: {}", blob_urls.len());
     blob_urls
 }
