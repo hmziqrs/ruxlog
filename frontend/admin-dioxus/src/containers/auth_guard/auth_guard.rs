@@ -1,9 +1,7 @@
 use dioxus::prelude::*;
 
-use crate::{
-    router::{Route, OPEN_ROUTES},
-    store::use_auth,
-};
+use crate::router::{Route, OPEN_ROUTES};
+use ruxlog_shared::use_auth;
 
 use super::{AuthGuardError, AuthGuardLoader};
 

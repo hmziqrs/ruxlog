@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::router::Route;
+use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use oxui::shadcn::button::{Button, ButtonVariant};
 use ruxlog_shared::use_auth;
 
