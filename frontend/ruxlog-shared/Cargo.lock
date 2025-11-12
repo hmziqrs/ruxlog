@@ -2395,7 +2395,6 @@ version = "0.1.0"
 dependencies = [
  "dioxus",
  "dioxus-time",
- "gloo-utils",
  "hmziq-dioxus-free-icons",
  "im",
  "js-sys",
