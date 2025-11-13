@@ -1,5 +1,4 @@
-use dioxus::dioxus_core::provide_root_context;
-use dioxus::prelude::*;
+use dioxus::{core::provide_root_context, prelude::*};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -8,6 +7,10 @@ pub struct PortalId(usize);
 #[derive(Clone, Copy, PartialEq)]
 struct PortalCtx {
     portals: Signal<HashMap<usize, Signal<Element>>>,
+}
+
+pub fn use_effect_cleanup<F: FnOnce() + 'static>(#[allow(unused)] cleanup: F) {
+    client!(dioxus::core::use_drop(cleanup))
 }
 
 /// Create a portal.
@@ -34,27 +37,14 @@ pub fn use_portal() -> PortalId {
         (sig, PortalId(id))
     });
 
-    // Cleanup the portal on drop
-    use_hook(move || {
-        let ctx = consume_context::<PortalCtx>();
-        PortalCleanup { ctx, id: id.0, sig }
+    // Cleanup the portal.
+    use_effect_cleanup(move || {
+        let mut ctx = consume_context::<PortalCtx>();
+        ctx.portals.write().remove(&id.0);
+        sig.manually_drop();
     });
 
     id
-}
-
-#[derive(Clone)]
-struct PortalCleanup {
-    ctx: PortalCtx,
-    id: usize,
-    sig: Signal<Element>,
-}
-
-impl Drop for PortalCleanup {
-    fn drop(&mut self) {
-        self.ctx.portals.write().remove(&self.id);
-        self.sig.manually_drop();
-    }
 }
 
 #[component]

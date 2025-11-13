@@ -1,9 +1,6 @@
-//! Sonner Toaster Provider — Phase 2 (basic render, no animations)
-
-use oxui::components::portal_v2::{use_portal, PortalIn, PortalOut};
 use dioxus::prelude::*;
-// use dioxus::logger::tracing;
 use dioxus_time::sleep;
+use oxui::components::{use_portal, PortalIn, PortalOut};
 use std::collections::VecDeque;
 use std::time::Duration;
 
