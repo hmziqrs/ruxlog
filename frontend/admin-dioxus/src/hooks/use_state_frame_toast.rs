@@ -1,5 +1,4 @@
 use crate::components::sonner::{use_sonner, ToastOptions};
-use dioxus::logger::tracing;
 use dioxus::prelude::*;
 use oxstore::StateFrame;
 use std::collections::HashMap;
@@ -53,17 +52,8 @@ pub fn use_state_frame_toast<D: Clone + 'static, M: Clone + 'static>(
     use_effect(use_reactive!(|(loading, success, failed)| {
         let prev = prev_loading_memo();
 
-        tracing::info!(
-            "StateFrame toast effect: prev={}, loading={}, success={}, failed={}",
-            prev,
-            loading,
-            success,
-            failed
-        );
-
         // Entering loading
         if !prev && loading {
-            tracing::info!("Entering loading state - showing toast");
             match toast_id() {
                 Some(id) if sonner.exists(id) => {
                     sonner.update_loading(
@@ -81,21 +71,14 @@ pub fn use_state_frame_toast<D: Clone + 'static, M: Clone + 'static>(
 
         // Leaving loading: settle
         if prev && !loading {
-            tracing::info!(
-                "Leaving loading state - success={}, failed={}",
-                success,
-                failed
-            );
             if let Some(id) = toast_id() {
                 if success {
-                    tracing::info!("Updating toast to success");
                     let title = cfg
                         .success_title
                         .clone()
                         .unwrap_or_else(|| "Operation completed".to_string());
                     sonner.update_success(id, title, cfg.success_options.clone());
                 } else if failed {
-                    tracing::info!("Updating toast to error");
                     let title = cfg
                         .error_title
                         .clone()
@@ -138,17 +121,8 @@ pub fn use_state_frame_map_toast<K, D, M>(
     use_effect(use_reactive!(|(loading, success, failed)| {
         let prev = prev_loading_memo();
 
-        tracing::info!(
-            "StateFrame map toast effect: prev={}, loading={}, success={}, failed={}",
-            prev,
-            loading,
-            success,
-            failed
-        );
-
         // Entering loading
         if !prev && loading {
-            tracing::info!("Entering loading state (map) - showing toast");
             match toast_id() {
                 Some(id) if sonner.exists(id) => {
                     sonner.update_loading(
@@ -166,21 +140,14 @@ pub fn use_state_frame_map_toast<K, D, M>(
 
         // Leaving loading: settle
         if prev && !loading {
-            tracing::info!(
-                "Leaving loading state (map) - success={}, failed={}",
-                success,
-                failed
-            );
             if let Some(id) = toast_id() {
                 if success {
-                    tracing::info!("Updating toast to success (map)");
                     let title = cfg
                         .success_title
                         .clone()
                         .unwrap_or_else(|| "Operation completed".to_string());
                     sonner.update_success(id, title, cfg.success_options.clone());
                 } else if failed {
-                    tracing::info!("Updating toast to error (map)");
                     let title = cfg
                         .error_title
                         .clone()
