@@ -1,6 +1,7 @@
 use crate::components::sonner::{use_sonner, ToastOptions};
-use oxstore::StateFrame;
+use dioxus::logger::tracing;
 use dioxus::prelude::*;
+use oxstore::StateFrame;
 use std::collections::HashMap;
 use std::hash::Hash;
 
@@ -37,6 +38,7 @@ pub fn use_state_frame_toast<D: Clone + 'static, M: Clone + 'static>(
 ) {
     let sonner = use_sonner();
     let mut toast_id = use_signal::<Option<u64>>(|| None);
+    let mut prev_loading = use_signal(|| false);
 
     // Read current status flags once per render
     let state = frame.read();
@@ -45,49 +47,67 @@ pub fn use_state_frame_toast<D: Clone + 'static, M: Clone + 'static>(
     let failed = state.is_failed();
     let error_message = state.error_message();
 
-    // Track previous loading to detect edges
-    let prev_loading = crate::hooks::use_previous(loading);
+    // Store prev value in memo for the effect to access
+    let prev_loading_memo = use_memo(move || prev_loading());
 
     use_effect(use_reactive!(|(loading, success, failed)| {
-        if let Some(prev) = prev_loading {
-            // Entering loading
-            if !prev && loading {
-                match toast_id() {
-                    Some(id) if sonner.exists(id) => {
-                        sonner.update_loading(
-                            id,
-                            cfg.loading_title.clone(),
-                            cfg.loading_options.clone(),
-                        );
-                    }
-                    _ => {
-                        let id =
-                            sonner.loading(cfg.loading_title.clone(), cfg.loading_options.clone());
-                        toast_id.set(Some(id));
-                    }
-                }
-            }
+        let prev = prev_loading_memo();
 
-            // Leaving loading: settle
-            if prev && !loading {
-                if let Some(id) = toast_id() {
-                    if success {
-                        let title = cfg
-                            .success_title
-                            .clone()
-                            .unwrap_or_else(|| "Operation completed".to_string());
-                        sonner.update_success(id, title, cfg.success_options.clone());
-                    } else if failed {
-                        let title = cfg
-                            .error_title
-                            .clone()
-                            .or_else(|| error_message.clone())
-                            .unwrap_or_else(|| "Operation failed".to_string());
-                        sonner.update_error(id, title, cfg.error_options.clone());
-                    }
+        tracing::info!(
+            "StateFrame toast effect: prev={}, loading={}, success={}, failed={}",
+            prev,
+            loading,
+            success,
+            failed
+        );
+
+        // Entering loading
+        if !prev && loading {
+            tracing::info!("Entering loading state - showing toast");
+            match toast_id() {
+                Some(id) if sonner.exists(id) => {
+                    sonner.update_loading(
+                        id,
+                        cfg.loading_title.clone(),
+                        cfg.loading_options.clone(),
+                    );
+                }
+                _ => {
+                    let id = sonner.loading(cfg.loading_title.clone(), cfg.loading_options.clone());
+                    toast_id.set(Some(id));
                 }
             }
         }
+
+        // Leaving loading: settle
+        if prev && !loading {
+            tracing::info!(
+                "Leaving loading state - success={}, failed={}",
+                success,
+                failed
+            );
+            if let Some(id) = toast_id() {
+                if success {
+                    tracing::info!("Updating toast to success");
+                    let title = cfg
+                        .success_title
+                        .clone()
+                        .unwrap_or_else(|| "Operation completed".to_string());
+                    sonner.update_success(id, title, cfg.success_options.clone());
+                } else if failed {
+                    tracing::info!("Updating toast to error");
+                    let title = cfg
+                        .error_title
+                        .clone()
+                        .or_else(|| error_message.clone())
+                        .unwrap_or_else(|| "Operation failed".to_string());
+                    sonner.update_error(id, title, cfg.error_options.clone());
+                }
+            }
+        }
+
+        // Update previous loading state after checking transitions
+        prev_loading.set(loading);
     }));
 }
 
@@ -104,6 +124,7 @@ pub fn use_state_frame_map_toast<K, D, M>(
 {
     let sonner = use_sonner();
     let mut toast_id = use_signal::<Option<u64>>(|| None);
+    let mut prev_loading = use_signal(|| false);
 
     let frame = map.read().get(&id).cloned().unwrap_or_else(StateFrame::new);
     let loading = frame.is_loading();
@@ -111,45 +132,66 @@ pub fn use_state_frame_map_toast<K, D, M>(
     let failed = frame.is_failed();
     let error_message = frame.error_message();
 
-    let prev_loading = crate::hooks::use_previous(loading);
+    // Store prev value in memo for the effect to access
+    let prev_loading_memo = use_memo(move || prev_loading());
 
     use_effect(use_reactive!(|(loading, success, failed)| {
-        if let Some(prev) = prev_loading {
-            if !prev && loading {
-                match toast_id() {
-                    Some(id) if sonner.exists(id) => {
-                        sonner.update_loading(
-                            id,
-                            cfg.loading_title.clone(),
-                            cfg.loading_options.clone(),
-                        );
-                    }
-                    _ => {
-                        let id =
-                            sonner.loading(cfg.loading_title.clone(), cfg.loading_options.clone());
-                        toast_id.set(Some(id));
-                    }
-                }
-            }
+        let prev = prev_loading_memo();
 
-            if prev && !loading {
-                if let Some(id) = toast_id() {
-                    if success {
-                        let title = cfg
-                            .success_title
-                            .clone()
-                            .unwrap_or_else(|| "Operation completed".to_string());
-                        sonner.update_success(id, title, cfg.success_options.clone());
-                    } else if failed {
-                        let title = cfg
-                            .error_title
-                            .clone()
-                            .or_else(|| error_message.clone())
-                            .unwrap_or_else(|| "Operation failed".to_string());
-                        sonner.update_error(id, title, cfg.error_options.clone());
-                    }
+        tracing::info!(
+            "StateFrame map toast effect: prev={}, loading={}, success={}, failed={}",
+            prev,
+            loading,
+            success,
+            failed
+        );
+
+        // Entering loading
+        if !prev && loading {
+            tracing::info!("Entering loading state (map) - showing toast");
+            match toast_id() {
+                Some(id) if sonner.exists(id) => {
+                    sonner.update_loading(
+                        id,
+                        cfg.loading_title.clone(),
+                        cfg.loading_options.clone(),
+                    );
+                }
+                _ => {
+                    let id = sonner.loading(cfg.loading_title.clone(), cfg.loading_options.clone());
+                    toast_id.set(Some(id));
                 }
             }
         }
+
+        // Leaving loading: settle
+        if prev && !loading {
+            tracing::info!(
+                "Leaving loading state (map) - success={}, failed={}",
+                success,
+                failed
+            );
+            if let Some(id) = toast_id() {
+                if success {
+                    tracing::info!("Updating toast to success (map)");
+                    let title = cfg
+                        .success_title
+                        .clone()
+                        .unwrap_or_else(|| "Operation completed".to_string());
+                    sonner.update_success(id, title, cfg.success_options.clone());
+                } else if failed {
+                    tracing::info!("Updating toast to error (map)");
+                    let title = cfg
+                        .error_title
+                        .clone()
+                        .or_else(|| error_message.clone())
+                        .unwrap_or_else(|| "Operation failed".to_string());
+                    sonner.update_error(id, title, cfg.error_options.clone());
+                }
+            }
+        }
+
+        // Update previous loading state after checking transitions
+        prev_loading.set(loading);
     }));
 }

@@ -6,8 +6,8 @@ use crate::containers::category_form::{CategoryForm, CategoryFormContainer};
 use crate::containers::page_header::PageHeader;
 use crate::hooks::{use_category_view, use_state_frame_map_toast, StateFrameToastConfig};
 use crate::router::Route;
-use ruxlog_shared::store::use_categories;
 use oxui::shadcn::button::{Button, ButtonVariant};
+use ruxlog_shared::store::use_categories;
 
 #[component]
 pub fn CategoriesEditScreen(id: i32) -> Element {

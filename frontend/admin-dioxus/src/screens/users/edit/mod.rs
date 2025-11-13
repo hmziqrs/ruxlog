@@ -6,8 +6,8 @@ use crate::containers::page_header::PageHeader;
 use crate::containers::user_form::{UserForm, UserFormContainer};
 use crate::hooks::{use_state_frame_map_toast, use_user_view, StateFrameToastConfig};
 use crate::router::Route;
-use ruxlog_shared::store::use_user;
 use oxui::shadcn::button::{Button, ButtonVariant};
+use ruxlog_shared::store::use_user;
 
 #[component]
 pub fn UsersEditScreen(id: i32) -> Element {

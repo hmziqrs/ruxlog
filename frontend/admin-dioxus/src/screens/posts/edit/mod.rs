@@ -5,8 +5,8 @@ use crate::containers::blog_form::BlogFormContainer;
 use crate::containers::page_header::PageHeader;
 use crate::hooks::{use_state_frame_map_toast, StateFrameToastConfig};
 use crate::router::Route;
-use ruxlog_shared::store::use_post;
 use oxui::shadcn::button::{Button, ButtonVariant};
+use ruxlog_shared::store::use_post;
 
 #[component]
 pub fn PostsEditScreen(id: i32) -> Element {
