@@ -2,7 +2,7 @@ use super::{
     CompressParams, CropRegion, EditSession, EditorTool, ImageEditorState, ResizeParams,
     RotateParams,
 };
-use gloo_console;
+use dioxus::logger::tracing;
 use photon_rs::native::open_image_from_bytes;
 use photon_rs::transform::{resize, rotate};
 use photon_rs::PhotonImage;
@@ -13,33 +13,28 @@ use web_sys::{Blob, File, HtmlCanvasElement, HtmlImageElement, Url};
 impl ImageEditorState {
     /// Open the editor with a File or blob URL
     pub async fn open_editor(&self, file: Option<File>, blob_url: String) -> Result<(), String> {
-        gloo_console::log!(
-            "[ImageEditor::open_editor] Opening editor with blob:",
+        tracing::debug!(
+            "[ImageEditor::open_editor] Opening editor with blob: {}",
             &blob_url
         );
 
         // Load the image to get dimensions
         let (width, height) = self.get_image_dimensions(&blob_url).await?;
 
-        gloo_console::log!(
-            "[ImageEditor::open_editor] Image dimensions:",
-            width.to_string(),
-            "x",
-            height.to_string()
+        tracing::debug!(
+            "[ImageEditor::open_editor] Image dimensions: {}x{}",
+            width,
+            height
         );
 
         // Get original file size
         let original_size = match self.get_blob_size(&blob_url).await {
             Ok(size) => {
-                gloo_console::log!(
-                    "[ImageEditor::open_editor] Original size:",
-                    size.to_string(),
-                    "bytes"
-                );
+                tracing::debug!("[ImageEditor::open_editor] Original size: {} bytes", size);
                 Some(size)
             }
             Err(e) => {
-                gloo_console::warn!("[ImageEditor::open_editor] Failed to get size:", &e);
+                tracing::warn!("[ImageEditor::open_editor] Failed to get size: {}", &e);
                 None
             }
         };
@@ -74,13 +69,13 @@ impl ImageEditorState {
         crop.width = width;
         crop.height = height;
 
-        gloo_console::log!("[ImageEditor::open_editor] Editor opened successfully");
+        tracing::debug!("[ImageEditor::open_editor] Editor opened successfully");
         Ok(())
     }
 
     /// Close the editor
     pub fn close_editor(&self) {
-        gloo_console::log!("[ImageEditor::close_editor] Closing editor");
+        tracing::debug!("[ImageEditor::close_editor] Closing editor");
 
         *self.is_open.write() = false;
         *self.current_session.write() = None;
@@ -88,18 +83,18 @@ impl ImageEditorState {
         *self.error_message.write() = None;
         *self.compression_savings.write() = None;
 
-        gloo_console::log!("[ImageEditor::close_editor] Editor closed");
+        tracing::debug!("[ImageEditor::close_editor] Editor closed");
     }
 
     /// Select a tool
     pub fn select_tool(&self, tool: EditorTool) {
-        gloo_console::log!("[ImageEditor::select_tool] Selecting tool");
+        tracing::debug!("[ImageEditor::select_tool] Selecting tool");
         *self.active_tool.write() = tool;
     }
 
     /// Apply crop operation
     pub async fn apply_crop(&self) -> Result<String, String> {
-        gloo_console::log!("[ImageEditor::apply_crop] Starting crop operation");
+        tracing::debug!("[ImageEditor::apply_crop] Starting crop operation");
 
         let session = (*self.current_session.write())
             .clone()
@@ -110,12 +105,12 @@ impl ImageEditorState {
 
         let result = self
             .process_image(&session.current_blob_url, |mut img| {
-                gloo_console::log!(
-                    "[ImageEditor::apply_crop] Cropping:",
-                    crop_region.x.to_string(),
-                    crop_region.y.to_string(),
-                    crop_region.width.to_string(),
-                    crop_region.height.to_string()
+                tracing::debug!(
+                    "[ImageEditor::apply_crop] Cropping: {} {} {} {}",
+                    crop_region.x,
+                    crop_region.y,
+                    crop_region.width,
+                    crop_region.height
                 );
 
                 // Use photon_rs crop
@@ -135,7 +130,7 @@ impl ImageEditorState {
 
         match result {
             Ok(new_blob_url) => {
-                gloo_console::log!("[ImageEditor::apply_crop] Crop applied successfully");
+                tracing::debug!("[ImageEditor::apply_crop] Crop applied successfully");
                 let mut session_mut = self.current_session.write();
                 if let Some(ref mut session) = *session_mut {
                     session.current_blob_url = new_blob_url.clone();
@@ -145,7 +140,7 @@ impl ImageEditorState {
                 Ok(new_blob_url)
             }
             Err(e) => {
-                gloo_console::error!("[ImageEditor::apply_crop] Failed:", &e);
+                tracing::error!("[ImageEditor::apply_crop] Failed: {}", &e);
                 *self.error_message.write() = Some(e.clone());
                 Err(e)
             }
@@ -154,7 +149,7 @@ impl ImageEditorState {
 
     /// Apply resize operation
     pub async fn apply_resize(&self) -> Result<String, String> {
-        gloo_console::log!("[ImageEditor::apply_resize] Starting resize operation");
+        tracing::debug!("[ImageEditor::apply_resize] Starting resize operation");
 
         let session = (*self.current_session.write())
             .clone()
@@ -165,11 +160,10 @@ impl ImageEditorState {
 
         let result = self
             .process_image(&session.current_blob_url, |mut img| {
-                gloo_console::log!(
-                    "[ImageEditor::apply_resize] Resizing to:",
-                    resize_params.width.to_string(),
-                    "x",
-                    resize_params.height.to_string()
+                tracing::debug!(
+                    "[ImageEditor::apply_resize] Resizing to: {}x{}",
+                    resize_params.width,
+                    resize_params.height
                 );
 
                 // Use photon_rs resize with SampleNearest algorithm
@@ -188,7 +182,7 @@ impl ImageEditorState {
 
         match result {
             Ok(new_blob_url) => {
-                gloo_console::log!("[ImageEditor::apply_resize] Resize applied successfully");
+                tracing::debug!("[ImageEditor::apply_resize] Resize applied successfully");
                 let mut session_mut = self.current_session.write();
                 if let Some(ref mut session) = *session_mut {
                     session.current_blob_url = new_blob_url.clone();
@@ -198,7 +192,7 @@ impl ImageEditorState {
                 Ok(new_blob_url)
             }
             Err(e) => {
-                gloo_console::error!("[ImageEditor::apply_resize] Failed:", &e);
+                tracing::error!("[ImageEditor::apply_resize] Failed: {}", &e);
                 *self.error_message.write() = Some(e.clone());
                 Err(e)
             }
@@ -207,7 +201,7 @@ impl ImageEditorState {
 
     /// Apply rotate operation
     pub async fn apply_rotate(&self) -> Result<String, String> {
-        gloo_console::log!("[ImageEditor::apply_rotate] Starting rotate operation");
+        tracing::debug!("[ImageEditor::apply_rotate] Starting rotate operation");
 
         let session = (*self.current_session.write())
             .clone()
@@ -218,10 +212,9 @@ impl ImageEditorState {
 
         let result = self
             .process_image(&session.current_blob_url, |mut img| {
-                gloo_console::log!(
-                    "[ImageEditor::apply_rotate] Rotating by:",
-                    rotate_params.angle.to_string(),
-                    "degrees"
+                tracing::debug!(
+                    "[ImageEditor::apply_rotate] Rotating by: {} degrees",
+                    rotate_params.angle
                 );
 
                 // Use photon_rs rotate
@@ -235,7 +228,7 @@ impl ImageEditorState {
 
         match result {
             Ok(new_blob_url) => {
-                gloo_console::log!("[ImageEditor::apply_rotate] Rotate applied successfully");
+                tracing::debug!("[ImageEditor::apply_rotate] Rotate applied successfully");
                 let mut session_mut = self.current_session.write();
                 if let Some(ref mut session) = *session_mut {
                     session.current_blob_url = new_blob_url.clone();
@@ -249,7 +242,7 @@ impl ImageEditorState {
                 Ok(new_blob_url)
             }
             Err(e) => {
-                gloo_console::error!("[ImageEditor::apply_rotate] Failed:", &e);
+                tracing::error!("[ImageEditor::apply_rotate] Failed: {}", &e);
                 *self.error_message.write() = Some(e.clone());
                 Err(e)
             }
@@ -258,7 +251,7 @@ impl ImageEditorState {
 
     /// Apply compression (re-encode with quality setting)
     pub async fn apply_compress(&self) -> Result<String, String> {
-        gloo_console::log!("[ImageEditor::apply_compress] Starting compress operation");
+        tracing::debug!("[ImageEditor::apply_compress] Starting compress operation");
 
         let session = (*self.current_session.write())
             .clone()
@@ -275,7 +268,7 @@ impl ImageEditorState {
 
         match result {
             Ok(new_blob_url) => {
-                gloo_console::log!("[ImageEditor::apply_compress] Compress applied successfully");
+                tracing::debug!("[ImageEditor::apply_compress] Compress applied successfully");
 
                 // Get the new size and calculate savings
                 if let Ok(new_size) = self.get_blob_size(&new_blob_url).await {
@@ -287,10 +280,9 @@ impl ImageEditorState {
                         // Update compression savings if we have original size
                         if let Some(orig_size) = session.original_size {
                             *self.compression_savings.write() = Some((orig_size, new_size));
-                            gloo_console::log!(
-                                "[ImageEditor::apply_compress] Size savings:",
-                                (orig_size as i64 - new_size as i64).to_string(),
-                                "bytes"
+                            tracing::debug!(
+                                "[ImageEditor::apply_compress] Size savings: {} bytes",
+                                orig_size as i64 - new_size as i64
                             );
                         }
                     }
@@ -304,7 +296,7 @@ impl ImageEditorState {
                 Ok(new_blob_url)
             }
             Err(e) => {
-                gloo_console::error!("[ImageEditor::apply_compress] Failed:", &e);
+                tracing::error!("[ImageEditor::apply_compress] Failed: {}", &e);
                 *self.error_message.write() = Some(e.clone());
                 Err(e)
             }
@@ -313,7 +305,7 @@ impl ImageEditorState {
 
     /// Reset to original image
     pub fn reset_to_original(&self) {
-        gloo_console::log!("[ImageEditor::reset_to_original] Resetting to original");
+        tracing::debug!("[ImageEditor::reset_to_original] Resetting to original");
 
         let mut session_mut = self.current_session.write();
         if let Some(ref mut session) = *session_mut {
@@ -323,8 +315,8 @@ impl ImageEditorState {
 
     /// Export the edited image as a File
     pub async fn export_as_file(&self, filename: String) -> Result<File, String> {
-        gloo_console::log!(
-            "[ImageEditor::export_as_file] Exporting as file:",
+        tracing::debug!(
+            "[ImageEditor::export_as_file] Exporting as file: {}",
             &filename
         );
 
@@ -346,7 +338,7 @@ impl ImageEditorState {
         )
         .map_err(|e| format!("Failed to create file: {:?}", e))?;
 
-        gloo_console::log!("[ImageEditor::export_as_file] File created successfully");
+        tracing::debug!("[ImageEditor::export_as_file] File created successfully");
         Ok(file)
     }
 

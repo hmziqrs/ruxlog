@@ -2,6 +2,7 @@ use super::{
     Media, MediaListQuery, MediaState, MediaUploadPayload, MediaUsageDetails,
     MediaUsageDetailsRequest, MediaUsageDetailsResponse, UploadStatus,
 };
+use dioxus::logger::tracing;
 use oxcore::http;
 
 use oxstore::{
@@ -16,15 +17,15 @@ impl MediaState {
     #[cfg(target_arch = "wasm32")]
     /// Hybrid upload: returns blob URL immediately, uploads in background
     pub async fn upload(&self, payload: MediaUploadPayload) -> Result<String, String> {
-        gloo_console::log!("[MediaState::upload] Starting upload");
+        tracing::debug!("[MediaState::upload] Starting upload");
 
         // 1. Create blob URL immediately for instant preview
         let blob: &Blob = payload.file.as_ref();
-        gloo_console::log!("[MediaState::upload] Creating blob URL for file");
+        tracing::debug!("[MediaState::upload] Creating blob URL for file");
 
         let blob_url = Url::create_object_url_with_blob(blob).map_err(|e| {
             let err_msg = format!("Failed to create blob URL: {:?}", e);
-            gloo_console::error!("[MediaState::upload]", &err_msg);
+            tracing::error!("[MediaState::upload] {}", &err_msg);
             err_msg
         })?;
 
@@ -33,19 +34,16 @@ impl MediaState {
         let size = payload.file.size() as i64;
         let mime_type = payload.file.type_();
 
-        gloo_console::log!(
-            "[MediaState::upload] Blob URL created: ",
+        tracing::debug!(
+            "[MediaState::upload] Blob URL created: {} | File: {} | Size: {} | Type: {}",
             &blob_url,
-            " | File: ",
             &filename,
-            " | Size: ",
-            size.to_string(),
-            " | Type: ",
+            size,
             &mime_type
         );
 
         // 2. Initialize tracking state
-        gloo_console::log!("[MediaState::upload] Initializing tracking state");
+        tracing::debug!("[MediaState::upload] Initializing tracking state");
         {
             let mut status_map = self.upload_status.write();
             status_map.insert(blob_url.clone(), UploadStatus::Uploading);
@@ -68,13 +66,13 @@ impl MediaState {
                 },
             );
         }
-        gloo_console::log!("[MediaState::upload] Tracking state initialized");
+        tracing::debug!("[MediaState::upload] Tracking state initialized");
 
         // 3. Prepare multipart form data
-        gloo_console::log!("[MediaState::upload] Preparing form data");
+        tracing::debug!("[MediaState::upload] Preparing form data");
         let form_data = FormData::new().map_err(|e| {
             let err_msg = format!("Failed to create FormData: {:?}", e);
-            gloo_console::error!("[MediaState::upload]", &err_msg);
+            tracing::error!("[MediaState::upload] {}", &err_msg);
             err_msg
         })?;
 
@@ -82,52 +80,52 @@ impl MediaState {
             .append_with_blob("file", &payload.file)
             .map_err(|e| {
                 let err_msg = format!("Failed to append file: {:?}", e);
-                gloo_console::error!("[MediaState::upload]", &err_msg);
+                tracing::error!("[MediaState::upload] {}", &err_msg);
                 err_msg
             })?;
 
         if let Some(ref_type) = &payload.reference_type {
-            gloo_console::log!(
-                "[MediaState::upload] Adding reference_type:",
+            tracing::debug!(
+                "[MediaState::upload] Adding reference_type: {}",
                 ref_type.to_string()
             );
             form_data
                 .append_with_str("reference_type", &ref_type.to_string())
                 .map_err(|e| {
                     let err_msg = format!("Failed to append reference_type: {:?}", e);
-                    gloo_console::error!("[MediaState::upload]", &err_msg);
+                    tracing::error!("[MediaState::upload] {}", &err_msg);
                     err_msg
                 })?;
         }
 
         if let Some(width) = payload.width {
-            gloo_console::log!("[MediaState::upload] Adding width: ", width.to_string());
+            tracing::debug!("[MediaState::upload] Adding width: {}", width);
             form_data
                 .append_with_str("width", &width.to_string())
                 .map_err(|e| {
                     let err_msg = format!("Failed to append width: {:?}", e);
-                    gloo_console::error!("[MediaState::upload]", &err_msg);
+                    tracing::error!("[MediaState::upload] {}", &err_msg);
                     err_msg
                 })?;
         }
 
         if let Some(height) = payload.height {
-            gloo_console::log!("[MediaState::upload] Adding height: ", height.to_string());
+            tracing::debug!("[MediaState::upload] Adding height: {}", height);
             form_data
                 .append_with_str("height", &height.to_string())
                 .map_err(|e| {
                     let err_msg = format!("Failed to append height: {:?}", e);
-                    gloo_console::error!("[MediaState::upload]", &err_msg);
+                    tracing::error!("[MediaState::upload] {}", &err_msg);
                     err_msg
                 })?;
         }
 
-        gloo_console::log!("[MediaState::upload] Form data prepared successfully");
+        tracing::debug!("[MediaState::upload] Form data prepared successfully");
 
         // 4. Upload in background
         let blob_url_clone = blob_url.clone();
-        gloo_console::log!(
-            "[MediaState::upload] Spawning background upload task for:",
+        tracing::debug!(
+            "[MediaState::upload] Spawning background upload task for: {}",
             &filename
         );
 
@@ -135,36 +133,32 @@ impl MediaState {
             use super::use_media;
             let media_state = use_media();
 
-            gloo_console::log!("[MediaState::upload background] Creating HTTP request");
+            tracing::debug!("[MediaState::upload background] Creating HTTP request");
 
             match http::post_multipart("/media/v1/create", &form_data) {
                 Ok(request) => {
-                    gloo_console::log!(
-                        "[MediaState::upload background] Request created, sending..."
-                    );
+                    tracing::debug!("[MediaState::upload background] Request created, sending...");
 
                     match request.send().await {
                         Ok(response) => {
                             let status = response.status();
                             let is_ok = (200..300).contains(&status);
-                            gloo_console::log!(
-                                "[MediaState::upload background] Response received - Status: ",
-                                status.to_string(),
-                                " OK: ",
-                                is_ok.to_string()
+                            tracing::debug!(
+                                "[MediaState::upload background] Response received - Status: {} OK: {}",
+                                status,
+                                is_ok
                             );
 
                             if is_ok {
-                                gloo_console::log!(
+                                tracing::debug!(
                                     "[MediaState::upload background] Parsing JSON response"
                                 );
 
                                 match response.json::<Media>().await {
                                     Ok(media) => {
-                                        gloo_console::log!(
-                                            "[MediaState::upload background] Upload successful! Media ID: ",
-                                            media.id.to_string(),
-                                            " URL: ",
+                                        tracing::debug!(
+                                            "[MediaState::upload background] Upload successful! Media ID: {} URL: {}",
+                                            media.id,
                                             &media.file_url
                                         );
 
@@ -186,18 +180,18 @@ impl MediaState {
                                             blob_map.insert(blob_url_clone.clone(), Some(media));
                                         }
 
-                                        gloo_console::log!("[MediaState::upload background] Status updated to Success");
+                                        tracing::debug!("[MediaState::upload background] Status updated to Success");
 
                                         // Refresh list
-                                        gloo_console::log!(
+                                        tracing::debug!(
                                             "[MediaState::upload background] Refreshing media list"
                                         );
                                         media_state.list().await;
                                     }
                                     Err(e) => {
                                         let err_msg = format!("Failed to parse response: {:?}", e);
-                                        gloo_console::error!(
-                                            "[MediaState::upload background]",
+                                        tracing::error!(
+                                            "[MediaState::upload background] {}",
                                             &err_msg
                                         );
 
@@ -207,9 +201,8 @@ impl MediaState {
                                     }
                                 }
                             } else {
-                                let err_msg =
-                                    format!("Upload failed with status: {}", status.to_string());
-                                gloo_console::error!("[MediaState::upload background] ", &err_msg);
+                                let err_msg = format!("Upload failed with status: {}", status);
+                                tracing::error!("[MediaState::upload background] {}", &err_msg);
 
                                 let mut status_map = media_state.upload_status.write();
                                 status_map.insert(blob_url_clone, UploadStatus::Error(err_msg));
@@ -217,7 +210,7 @@ impl MediaState {
                         }
                         Err(e) => {
                             let err_msg = format!("Request failed: {:?}", e);
-                            gloo_console::error!("[MediaState::upload background]", &err_msg);
+                            tracing::error!("[MediaState::upload background] {}", &err_msg);
 
                             let mut status_map = media_state.upload_status.write();
                             status_map.insert(blob_url_clone, UploadStatus::Error(err_msg));
@@ -225,8 +218,8 @@ impl MediaState {
                     }
                 }
                 Err(e) => {
-                    gloo_console::error!(
-                        "[MediaState::upload background] Failed to create request:",
+                    tracing::error!(
+                        "[MediaState::upload background] Failed to create request: {}",
                         &e
                     );
 
@@ -237,8 +230,8 @@ impl MediaState {
         });
 
         // 5. Return blob URL immediately
-        gloo_console::log!(
-            "[MediaState::upload] Upload function complete, returning blob URL:",
+        tracing::debug!(
+            "[MediaState::upload] Upload function complete, returning blob URL: {}",
             &blob_url
         );
         Ok(blob_url)
