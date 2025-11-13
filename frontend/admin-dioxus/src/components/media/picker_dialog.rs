@@ -2,19 +2,19 @@
 //! or uploading new ones. Used by the RichTextEditor and other components.
 
 use super::upload_zone::MediaUploadZone;
-use ruxlog_shared::store::{media::Media, media::MediaListQuery, media::MediaReference, use_media};
-use oxui::custom::portal::AppPortal;
-use oxui::shadcn::badge::Badge;
-use oxui::shadcn::button::{Button, ButtonVariant};
-use oxui::shadcn::checkbox::Checkbox;
 use crate::utils::dates::format_short_date_dt;
 use crate::utils::file_helpers::{format_file_size, is_image};
 use dioxus::prelude::*;
-use gloo_timers::future::sleep;
+use dioxus_time::sleep;
 use hmziq_dioxus_free_icons::{
     icons::ld_icons::{LdChevronLeft, LdChevronRight, LdUpload, LdX},
     Icon,
 };
+use oxui::custom::portal::AppPortal;
+use oxui::shadcn::badge::Badge;
+use oxui::shadcn::button::{Button, ButtonVariant};
+use oxui::shadcn::checkbox::Checkbox;
+use ruxlog_shared::store::{media::Media, media::MediaListQuery, media::MediaReference, use_media};
 use std::time::Duration;
 
 #[derive(Props, Clone, PartialEq)]

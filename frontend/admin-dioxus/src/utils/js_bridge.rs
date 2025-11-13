@@ -85,7 +85,7 @@ pub async fn editorjs_upload_file(file: File) -> Result<JsValue, JsValue> {
                 }
 
                 // Wait 500ms before checking again
-                gloo_timers::future::TimeoutFuture::new(500).await;
+                dioxus_time::sleep(std::time::Duration::from_millis(500)).await;
                 elapsed += 1;
             }
         }
