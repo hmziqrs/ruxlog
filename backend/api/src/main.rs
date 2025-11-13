@@ -116,14 +116,9 @@ fn env_u8(key: &str, default: u8) -> u8 {
     candidate.clamp(0, 100)
 }
 
-#[derive(serde::Deserialize)]
-struct IpConfig {
-    ip_source: ClientIpSource,
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    dotenv::dotenv().ok();
+    dotenvy::dotenv().ok();
 
     let _telemetry_guard = telemetry::init();
 
@@ -242,10 +237,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
-    let ip_config: IpConfig = envy::from_env().unwrap();
+    let ip_source: ClientIpSource = env::var("IP_SOURCE")
+        .unwrap_or_else(|_| "ConnectInfo".to_string())
+        .parse()
+        .expect("Invalid IP_SOURCE value");
 
     let app = router::router()
-        .layer(ip_config.ip_source.into_extension())
+        .layer(ip_source.into_extension())
         .layer(auth_layer)
         //     config: governor_conf,
         // })
