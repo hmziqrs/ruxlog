@@ -29,52 +29,42 @@ pub async fn verify(
     auth: AuthSession,
     payload: ValidatedJson<V1VerifyPayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let user_id = auth.user.unwrap().id;
+    let user = auth.user.unwrap();
     let code = payload.0.code;
 
-    let verification_result = email_verification::Entity::find_by_user_id_or_code(
-        &state.sea_db,
-        Some(user_id),
-        Some(code),
-    )
-    .await;
-
-    match verification_result {
-        Ok(verification) => {
-            if verification.is_expired() {
-                warn!(user_id, "Email verification code expired");
-                return Err(ErrorResponse::new(ErrorCode::InvalidInput)
-                    .with_message("The verification code has expired"));
+    // Verify OTP with Supabase
+    match state
+        .supabase
+        .verify_otp(&user.email, &code, "email")
+        .await
+    {
+        Ok(_) => {
+            // Mark user as verified in PostgreSQL
+            match user::Entity::verify(&state.sea_db, user.id).await {
+                Ok(_) => {
+                    info!(user_id = user.id, "Email verified successfully");
+                    Ok((
+                        StatusCode::OK,
+                        Json(json!({
+                            "message": "Email verified successfully",
+                        })),
+                    ))
+                }
+                Err(err) => {
+                    error!(
+                        user_id = user.id,
+                        "Failed to update user verification status: {}", err
+                    );
+                    Err(ErrorResponse::new(ErrorCode::InternalServerError)
+                        .with_message("Failed to update user verification status")
+                        .with_details(err.to_string()))
+                }
             }
         }
-        Err(err) => {
-            warn!(user_id, "Invalid email verification code");
-            return Err(ErrorResponse::new(ErrorCode::InvalidInput)
-                .with_message("The provided verification code is invalid")
-                .with_details(err.to_string()));
-        }
-    }
-
-    let update_user = user::Entity::verify(&state.sea_db, user_id).await;
-
-    match update_user {
-        Ok(_) => {
-            info!(user_id, "Email verified successfully");
-            Ok((
-                StatusCode::OK,
-                Json(json!({
-                    "message": "Email verified successfully",
-                })),
-            ))
-        }
-        Err(err) => {
-            error!(
-                user_id,
-                "Failed to update user verification status: {}", err
-            );
-            Err(ErrorResponse::new(ErrorCode::InternalServerError)
-                .with_message("Failed to update user verification status")
-                .with_details(err.to_string()))
+        Err(e) => {
+            warn!(user_id = user.id, "Supabase OTP verification failed: {}", e);
+            Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                .with_message("The provided verification code is invalid"))
         }
     }
 }
@@ -86,46 +76,60 @@ pub async fn resend(
     auth: AuthSession,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let pool = &state.sea_db;
-    let user_id = auth.user.unwrap().id;
+    let user = auth.user.unwrap();
 
-    match email_verification::Entity::find_by_user_id_or_code(pool, Some(user_id), None).await {
+    // Check 1-minute delay
+    match email_verification::Entity::find_by_user_id_or_code(pool, Some(user.id), None).await {
         Ok(verification) => {
             if verification.is_in_delay() {
-                warn!(user_id, "Email verification resend in delay period");
+                warn!(user_id = user.id, "Email verification resend in delay period");
                 return Err(ErrorResponse::new(ErrorCode::TooManyAttempts).with_message(
                     "Please wait 1 minute before requesting a new verification code",
                 ));
             }
         }
         Err(err) => {
-            error!(user_id, "Error checking verification delay: {}", err);
+            error!(user_id = user.id, "Error checking verification delay: {}", err);
             return Err(err.into());
         }
     }
 
-    let key_prefix = format!("email_verification:{}", user_id);
+    // Rate limiting
+    let key_prefix = format!("email_verification:{}", user.id);
     match abuse_limiter::limiter(&state.redis_pool, &key_prefix, ABUSE_LIMITER_CONFIG).await {
         Ok(_) => (),
         Err(err) => {
-            warn!(user_id, "Abuse limiter blocked verification resend");
+            warn!(user_id = user.id, "Abuse limiter blocked verification resend");
             return Err(err.into());
         }
     }
-    match email_verification::Entity::regenerate(pool, user_id).await {
+
+    // Resend via Supabase
+    match state.supabase.resend_verification(&user.email).await {
         Ok(_) => {
-            info!(user_id, "Verification code resent successfully");
-            Ok((
-                StatusCode::OK,
-                Json(json!({
-                    "message": "Verification code resent successfully",
-                })),
-            ))
+            // Update timestamp in PostgreSQL for rate limiting
+            match email_verification::Entity::regenerate(pool, user.id).await {
+                Ok(_) => {
+                    info!(user_id = user.id, "Verification email sent");
+                    Ok((
+                        StatusCode::OK,
+                        Json(json!({
+                            "message": "Verification email sent",
+                        })),
+                    ))
+                }
+                Err(err) => {
+                    error!(user_id = user.id, "Failed to update verification timestamp: {}", err);
+                    Err(ErrorResponse::new(ErrorCode::InternalServerError)
+                        .with_message("Failed to send verification email")
+                        .with_details(err.to_string()))
+                }
+            }
         }
-        Err(err) => {
-            error!(user_id, "Failed to regenerate verification code: {}", err);
+        Err(e) => {
+            error!(user_id = user.id, "Supabase resend failed: {}", e);
             Err(ErrorResponse::new(ErrorCode::InternalServerError)
-                .with_message("Failed to resend verification code")
-                .with_details(err.to_string()))
+                .with_message("Failed to send verification email"))
         }
     }
 }

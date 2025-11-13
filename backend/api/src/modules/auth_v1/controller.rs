@@ -119,11 +119,24 @@ pub async fn register(
 
     info!("User registration attempt");
 
+    let email = payload.email.clone();
+    let password = payload.password.clone();
+
     match user::Entity::create(&state.sea_db, payload.into_new_user()).await {
         Ok(user) => {
             info!(user_id = user.id, email = %user.email, "User registered successfully");
             tracing::Span::current().record("user_id", user.id);
             tracing::Span::current().record("result", "success");
+
+            // Create user in Supabase (non-blocking)
+            let supabase = state.supabase.clone();
+            tokio::spawn(async move {
+                match supabase.admin_create_user(&email, &password).await {
+                    Ok(_) => tracing::info!("Supabase user created for {}", email),
+                    Err(e) => tracing::error!("Failed to create Supabase user: {}", e),
+                }
+            });
+
             Ok((StatusCode::CREATED, Json(json!(user))))
         }
         Err(err) => {

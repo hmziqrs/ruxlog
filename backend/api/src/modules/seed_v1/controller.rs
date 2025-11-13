@@ -369,10 +369,12 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
 
     for _ in 0..50 {
         let user: FakeUser = Faker.fake_with_rng(&mut rng);
+        let email = user.email.clone();
+        let password = user.email.clone();
         let new_user = user::AdminCreateUser {
             name: user.name,
-            email: user.email.clone(),
-            password: user.email,
+            email: email.clone(),
+            password: password.clone(),
             role: if rng.random_bool(0.1) {
                 UserRole::Admin
             } else if rng.random_bool(0.5) {
@@ -385,7 +387,20 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
         };
 
         match user::Entity::admin_create(&state.sea_db, new_user).await {
-            Ok(user) => fake_users.push(user),
+            Ok(user) => {
+                // Create user in Supabase
+                let supabase = state.supabase.clone();
+                let email_clone = email.clone();
+                let password_clone = password.clone();
+                tokio::spawn(async move {
+                    match supabase.admin_create_user(&email_clone, &password_clone).await {
+                        Ok(_) => println!("Supabase user created for {}", email_clone),
+                        Err(e) => println!("Failed to create Supabase user: {}", e),
+                    }
+                });
+
+                fake_users.push(user);
+            }
             Err(err) => {
                 println!("Error creating user: {:?}", err);
             }
