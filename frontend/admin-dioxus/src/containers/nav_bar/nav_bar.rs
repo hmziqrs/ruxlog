@@ -3,7 +3,6 @@ use hmziq_dioxus_free_icons::icons::ld_icons::{LdBell, LdMenu, LdMoon, LdSun};
 use hmziq_dioxus_free_icons::Icon;
 
 use crate::components::sidebar::Sidebar;
-use crate::components::sonner::use_sonner;
 use crate::config::DarkMode;
 use crate::{router::Route, utils::persist};
 use ruxlog_shared::components::user_avatar::UserAvatar;
@@ -15,7 +14,6 @@ pub fn NavBarContainer() -> Element {
     let auth_user = auth_store.user.read();
     let mut sidebar_open = use_signal(|| false);
     let mut dark_theme = use_context_provider(|| Signal::new(DarkMode(true)));
-    let sonner = use_sonner();
 
     use_effect(move || {
         spawn(async move {
@@ -71,13 +69,6 @@ pub fn NavBarContainer() -> Element {
                 }
 
                 div { class: "flex items-center space-x-4",
-                    button {
-                        class: "px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors",
-                        onclick: move |_| {
-                            sonner.success("Test Toast".to_string(), Default::default());
-                        },
-                        "Test Toast"
-                    }
                     button { class: "rounded-full p-1 text-muted-foreground transition-colors duration-200 hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                         div { class: "w-4 h-4",
                             Icon { icon: LdBell }

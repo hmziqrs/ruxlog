@@ -62,10 +62,8 @@ pub fn PortalIn(portal: PortalId, children: Element) -> Element {
 #[component]
 pub fn PortalOut(portal: PortalId) -> Element {
     if let Some(ctx) = try_use_context::<PortalCtx>() {
-        if let Some(children) = ctx.portals.peek().get(&portal.0) {
-            return rsx! {
-                {children()}
-            };
+        if let Some(children) = ctx.portals.read().get(&portal.0) {
+            return children.read().clone();
         }
     }
 
