@@ -64,7 +64,7 @@ fn decide_next_move(circle: &GridCircle, grid: &GridData) -> Option<(i32, i32, b
     // 3. Circle is not at spawn position (first move must be straight)
     // 4. Random chance triggers
     let is_at_spawn = circle.is_at_spawn_position(grid);
-    
+
     if !circle.just_side_stepped
         && !is_at_goal_edge(circle, grid)
         && !is_at_spawn
@@ -134,7 +134,7 @@ pub fn schedule_post_respawn(mut circle_sig: CircleSignal, _grid_ctx: GridContex
                 circle.scaling_in = true;
                 // Keep scale at MAX_SCALE and opacity at 0.0 for this frame
             }
-            
+
             // Step 2: Wait for next frame so browser paints with transition CSS applied
             sleep(Duration::from_millis(500)).await; // 2 frames at 60fps for safety
             {
@@ -183,7 +183,7 @@ pub fn handle_transition_end(mut circle_sig: CircleSignal, grid_ctx: GridContext
             let mut circle = circle_sig.write();
             circle.scaling_in = false;
         }
-        
+
         // Add delay after spawn animation before first move
         spawn({
             async move {
@@ -219,7 +219,7 @@ pub fn spawn_circle_state_with_edge_and_position(id: u64, grid: &GridData, edge_
         _ => SpawnEdge::Bottom,
     };
     let travel_dir: Direction = edge.into();
-    
+
     // Distribute positions evenly along the edge instead of purely random
     let (col, row) = match edge {
         SpawnEdge::Left => {
@@ -320,7 +320,20 @@ pub fn random_u64() -> u64 {
             // Initialize with timestamp-based seed on first call
             let state = if prev == 0x9e3779b97f4a7c15 {
                 // Use current timestamp as seed
-                let now = js_sys::Date::now() as u64;
+                #[cfg(target_arch = "wasm32")]
+                let now = {
+                    #[allow(unused_imports)]
+                    use wasm_bindgen::prelude::*;
+                    js_sys::Date::now() as u64
+                };
+                #[cfg(not(target_arch = "wasm32"))]
+                let now = {
+                    use std::time::{SystemTime, UNIX_EPOCH};
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis() as u64
+                };
                 now.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407)
             } else {
                 prev.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407)

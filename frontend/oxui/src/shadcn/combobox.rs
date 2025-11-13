@@ -1,11 +1,18 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use dioxus::{events::MouseData, logger::tracing, prelude::*, web::WebEventExt};
+#[cfg(target_arch = "wasm32")]
+use dioxus::logger::tracing;
+use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::{
     icons::ld_icons::{LdCheck, LdChevronsUpDown},
     Icon,
 };
+
+#[cfg(target_arch = "wasm32")]
+use dioxus::{events::MouseData, web::WebEventExt};
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
+#[cfg(target_arch = "wasm32")]
 use web_sys::{window, DomRect, Element as WebElement, HtmlElement};
 
 use crate::custom::portal::AppPortal;
@@ -28,6 +35,7 @@ pub struct ComboboxRect {
 }
 
 impl ComboboxRect {
+    #[cfg(target_arch = "wasm32")]
     fn from_dom_rect(rect: &DomRect) -> Self {
         Self {
             x: rect.x(),
@@ -37,24 +45,34 @@ impl ComboboxRect {
         }
     }
 
+    #[cfg(target_arch = "wasm32")]
+    #[allow(dead_code)]
     fn right(&self) -> f64 {
         self.x + self.width
     }
 
+    #[cfg(target_arch = "wasm32")]
+    #[allow(dead_code)]
     fn bottom(&self) -> f64 {
         self.y + self.height
     }
 
+    #[cfg(target_arch = "wasm32")]
+    #[allow(dead_code)]
     fn left(&self) -> f64 {
         self.x
     }
 
+    #[cfg(target_arch = "wasm32")]
+    #[allow(dead_code)]
     fn top(&self) -> f64 {
         self.y
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg(target_arch = "wasm32")]
+#[allow(dead_code)]
 struct ComboboxPlacement {
     top: f64,
     left: f64,
@@ -108,6 +126,7 @@ pub fn Combobox(props: ComboboxProps) -> Element {
     let mut query = use_signal(|| String::new());
     let mut context_signal = use_signal(|| ComboboxContext::default());
     let content_id = use_signal(|| format!("combobox-content-{}", next_combobox_instance_id()));
+    #[cfg(target_arch = "wasm32")]
     let placement_state = use_signal(|| Option::<ComboboxPlacement>::None);
 
     // Handle incoming prop changes
@@ -118,6 +137,7 @@ pub fn Combobox(props: ComboboxProps) -> Element {
     });
 
     // Calculate placement when opened
+    #[cfg(target_arch = "wasm32")]
     {
         let element_id = content_id.read().clone();
         let mut placement_state = placement_state.clone();
@@ -222,7 +242,10 @@ pub fn Combobox(props: ComboboxProps) -> Element {
     let state_snapshot = context_signal.read().clone();
     let is_open = state_snapshot.open;
     let element_id = content_id.read().clone();
+    #[cfg(target_arch = "wasm32")]
     let placement_style = placement_state.read().clone();
+
+    #[cfg(target_arch = "wasm32")]
     let style = match (is_open, placement_style) {
         (false, _) => "display: none;".to_string(),
         (true, Some(placement)) => {
@@ -246,6 +269,14 @@ pub fn Combobox(props: ComboboxProps) -> Element {
         (true, None) => "display: block; visibility: hidden;".to_string(),
     };
 
+    // Simple fallback for non-web platforms - just show/hide
+    #[cfg(not(target_arch = "wasm32"))]
+    let style = if is_open {
+        "display: block;".to_string()
+    } else {
+        "display: none;".to_string()
+    };
+
     rsx! {
         div { class: class.join(" "), "data-slot": "combobox",
             button {
@@ -253,56 +284,73 @@ pub fn Combobox(props: ComboboxProps) -> Element {
                 role: "combobox",
                 "data-slot": "combobox-trigger",
                 "aria-expanded": if is_open { "true" } else { "false" },
-                onclick: move |e| {
+                onclick: move |
+                    #[cfg(target_arch = "wasm32")]
+                    e,
+                    #[cfg(not(target_arch = "wasm32"))]
+                    _e
+                | {
                     let next_open = !context_signal.peek().open;
                     if !next_open {
                         context_signal.set(ComboboxContext::default());
                         query.set(String::new());
                         return;
                     }
-                    let mouse_data: &MouseData = e.data.as_ref();
-                    let web_event = mouse_data.as_web_event();
-                    let target = web_event.target().and_then(|t| t.dyn_into::<WebElement>().ok());
-                    let Some(target_element) = target else {
+
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        let mouse_data: &MouseData = e.data.as_ref();
+                        let web_event = mouse_data.as_web_event();
+                        let target = web_event.target().and_then(|t| t.dyn_into::<WebElement>().ok());
+                        let Some(target_element) = target else {
+                            let mut context = ComboboxContext::default();
+                            context.open = true;
+                            context_signal.set(context);
+                            return;
+                        };
+                        let trigger_dom_rect = target_element.get_bounding_client_rect();
+                        let trigger_rect = ComboboxRect::from_dom_rect(&trigger_dom_rect);
+                        tracing::info!(
+                            "combobox_trigger_rect tag={} rect=({:.1},{:.1},{:.1},{:.1})",
+                            target_element.tag_name(), trigger_rect.x, trigger_rect.y, trigger_rect.width, trigger_rect.height
+                        );
+                        let parent_element = find_combobox_root(&target_element);
+                        let parent_rect = parent_element
+                            .as_ref()
+                            .map(|el| ComboboxRect::from_dom_rect(&el.get_bounding_client_rect()));
+                        tracing::info!("combobox_parent_rect found={} rect={:?}", parent_element.is_some(), parent_rect);
+                        let overflow_element = parent_element
+                            .as_ref()
+                            .and_then(|el| find_overflow_parent(el))
+                            .or_else(|| find_overflow_parent(&target_element));
+                        tracing::info!(
+                            "combobox_overflow_parent found={} tag={}",
+                            overflow_element.is_some(),
+                            overflow_element.as_ref().map(|el| el.tag_name()).unwrap_or_default()
+                        );
+                        let overflow_rect = overflow_element
+                            .as_ref()
+                            .map(|el| ComboboxRect::from_dom_rect(&el.get_bounding_client_rect()))
+                            .or_else(viewport_rect);
+                        tracing::info!("combobox_overflow_rect={:?}", overflow_rect);
+                        let mut next_state = ComboboxContext::default();
+                        next_state.open = true;
+                        next_state.trigger_rect = Some(trigger_rect);
+                        next_state.parent_rect = parent_rect.or_else(|| {
+                            tracing::debug!("Combobox parent rect missing, falling back to trigger rect.");
+                            Some(trigger_rect)
+                        });
+                        next_state.overflow_rect = overflow_rect;
+                        context_signal.set(next_state);
+                    }
+
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        // Simple fallback for non-web platforms
                         let mut context = ComboboxContext::default();
                         context.open = true;
                         context_signal.set(context);
-                        return;
-                    };
-                    let trigger_dom_rect = target_element.get_bounding_client_rect();
-                    let trigger_rect = ComboboxRect::from_dom_rect(&trigger_dom_rect);
-                    tracing::info!(
-                        "combobox_trigger_rect tag={} rect=({:.1},{:.1},{:.1},{:.1})",
-                        target_element.tag_name(), trigger_rect.x, trigger_rect.y, trigger_rect.width, trigger_rect.height
-                    );
-                    let parent_element = find_combobox_root(&target_element);
-                    let parent_rect = parent_element
-                        .as_ref()
-                        .map(|el| ComboboxRect::from_dom_rect(&el.get_bounding_client_rect()));
-                    tracing::info!("combobox_parent_rect found={} rect={:?}", parent_element.is_some(), parent_rect);
-                    let overflow_element = parent_element
-                        .as_ref()
-                        .and_then(|el| find_overflow_parent(el))
-                        .or_else(|| find_overflow_parent(&target_element));
-                    tracing::info!(
-                        "combobox_overflow_parent found={} tag={}",
-                        overflow_element.is_some(),
-                        overflow_element.as_ref().map(|el| el.tag_name()).unwrap_or_default()
-                    );
-                    let overflow_rect = overflow_element
-                        .as_ref()
-                        .map(|el| ComboboxRect::from_dom_rect(&el.get_bounding_client_rect()))
-                        .or_else(viewport_rect);
-                    tracing::info!("combobox_overflow_rect={:?}", overflow_rect);
-                    let mut next_state = ComboboxContext::default();
-                    next_state.open = true;
-                    next_state.trigger_rect = Some(trigger_rect);
-                    next_state.parent_rect = parent_rect.or_else(|| {
-                        tracing::debug!("Combobox parent rect missing, falling back to trigger rect.");
-                        Some(trigger_rect)
-                    });
-                    next_state.overflow_rect = overflow_rect;
-                    context_signal.set(next_state);
+                    }
                 },
                 span { class: "truncate", "{display_text}" }
                 Icon {
@@ -367,6 +415,7 @@ pub fn Combobox(props: ComboboxProps) -> Element {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
 fn find_combobox_root(element: &WebElement) -> Option<WebElement> {
     let mut current = element.parent_element();
     while let Some(node) = current {
@@ -380,6 +429,7 @@ fn find_combobox_root(element: &WebElement) -> Option<WebElement> {
     None
 }
 
+#[cfg(target_arch = "wasm32")]
 fn find_overflow_parent(element: &WebElement) -> Option<WebElement> {
     let window = window()?;
     let mut current = element.parent_element();
@@ -410,10 +460,12 @@ fn find_overflow_parent(element: &WebElement) -> Option<WebElement> {
     None
 }
 
+#[cfg(target_arch = "wasm32")]
 fn is_scrollable_value(value: &str) -> bool {
     matches!(value.trim(), "auto" | "scroll" | "hidden" | "clip")
 }
 
+#[cfg(target_arch = "wasm32")]
 fn viewport_rect() -> Option<ComboboxRect> {
     let window = window()?;
     let width = window
@@ -435,6 +487,7 @@ fn viewport_rect() -> Option<ComboboxRect> {
     })
 }
 
+#[cfg(target_arch = "wasm32")]
 fn normalize_dimension(value: f64) -> Option<f64> {
     if value.is_finite() && value > 0.0 {
         Some(value)
@@ -443,6 +496,7 @@ fn normalize_dimension(value: f64) -> Option<f64> {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
 fn calculate_combobox_placement(
     trigger: ComboboxRect,
     parent: ComboboxRect,
