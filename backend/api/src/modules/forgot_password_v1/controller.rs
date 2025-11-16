@@ -31,6 +31,7 @@ pub async fn generate(
     ClientIp(secure_ip): ClientIp,
     payload: ValidatedJson<V1GeneratePayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
+    // Rate limiting via abuse limiter (3 attempts per 6 minutes)
     let ip = secure_ip.to_string();
     let key_prefix = format!("forgot_password:{}", ip);
     match abuse_limiter::limiter(&state.redis_pool, &key_prefix, ABUSE_LIMITER_CONFIG).await {
@@ -41,10 +42,8 @@ pub async fn generate(
         }
     }
 
-    let pool = &state.sea_db;
-    let user = user::Entity::find_by_email(pool, payload.email.clone()).await;
-
-    match user {
+    // Verify user exists
+    match user::Entity::find_by_email(&state.sea_db, payload.email.clone()).await {
         Ok(Some(_)) => (),
         Ok(None) => {
             warn!("Forgot password requested for non-existent email");
@@ -57,47 +56,20 @@ pub async fn generate(
             return Err(err.into());
         }
     }
-    let user_id = user.unwrap().unwrap().id;
-
-    // Check 1-minute delay
-    match forgot_password::Entity::find_query(pool, Some(user_id), None, None).await {
-        Ok(verification) => {
-            if verification.is_in_delay() {
-                warn!(user_id, "Forgot password in delay period");
-                return Err(ErrorResponse::new(ErrorCode::TooManyAttempts)
-                    .with_message("You have already requested a verification code. Please try again after 1 minute"));
-            }
-        }
-        Err(err) => {
-            error!("Error checking forgot password delay: {}", err);
-            return Err(err.into());
-        }
-    }
 
     // Send recovery email via Supabase
     match state.supabase.send_recovery_email(&payload.email).await {
         Ok(_) => {
-            // Update PostgreSQL record for rate limiting
-            match forgot_password::Entity::regenerate(pool, user_id).await {
-                Ok(_) => {
-                    info!(user_id, "Recovery email sent");
-                    Ok((
-                        StatusCode::OK,
-                        Json(json!({
-                            "message": "Verification code sent to your email successfully",
-                        })),
-                    ))
-                }
-                Err(err) => {
-                    error!(user_id, "Failed to update forgot password timestamp: {}", err);
-                    Err(ErrorResponse::new(ErrorCode::InternalServerError)
-                        .with_message("Failed to send recovery email")
-                        .with_details(err.to_string()))
-                }
-            }
+            info!(email = %payload.email, "Recovery email sent");
+            Ok((
+                StatusCode::OK,
+                Json(json!({
+                    "message": "Verification code sent to your email successfully",
+                })),
+            ))
         }
         Err(e) => {
-            error!(user_id, "Supabase recovery email failed: {}", e);
+            error!(email = %payload.email, "Supabase recovery email failed: {}", e);
             Err(ErrorResponse::new(ErrorCode::ExternalServiceError)
                 .with_message("Failed to send recovery email"))
         }

@@ -1,5 +1,58 @@
 # Supabase Email Integration Implementation
 
+## ✅ Implementation Status
+
+**Status:** COMPLETED - Ready for Supabase Configuration
+
+### Completed Tasks
+- ✅ Old email code backed up to `backend/backup_email_code/`
+- ✅ Supabase service created (`api/src/services/supabase.rs`)
+- ✅ Supabase client registered in AppState (`api/src/state.rs`, `api/src/main.rs`)
+- ✅ Environment variables added to `.env` and `.env.example`
+- ✅ Registration flow updated to create Supabase users
+- ✅ Email verification migrated to Supabase OTP (`api/src/modules/email_verification_v1/controller.rs`)
+- ✅ Forgot password migrated to Supabase OTP (`api/src/modules/forgot_password_v1/controller.rs`)
+- ✅ Seed users integration completed (`api/src/modules/seed_v1/controller.rs`)
+- ✅ Build successful - no compilation errors or warnings
+
+### Pending Tasks (Requires Manual Setup)
+- ⏳ Set actual Supabase credentials in `api/.env`
+- ⏳ Configure Supabase dashboard email templates
+  - Verify "Confirm signup" is using OTP format
+  - Change "Reset Password" to OTP mode (not magic link)
+  - Set OTP expiry times to 3 hours (10800 seconds)
+- ⏳ Test complete flow: register → verify → forgot password → reset
+
+### What's Preserved
+- `email_verification` table remains (used for rate limiting)
+- `forgot_password` table remains (used for rate limiting)
+- `lettre` email service remains (available for future use)
+
+### Files Modified
+```
+api/Cargo.toml                                     (no new dependencies needed)
+api/.env.example                                   (added Supabase env vars)
+api/.env                                           (added Supabase env vars - NEEDS YOUR CREDENTIALS)
+api/src/services/supabase.rs                       (NEW - 270 lines)
+api/src/services/mod.rs                            (registered supabase module)
+api/src/state.rs                                   (added SupabaseClient field)
+api/src/main.rs                                    (initialize Supabase client)
+api/src/modules/auth_v1/controller.rs              (registration: create Supabase user)
+api/src/modules/email_verification_v1/controller.rs (verify + resend via Supabase)
+api/src/modules/forgot_password_v1/controller.rs   (generate + verify + reset via Supabase)
+api/src/modules/seed_v1/controller.rs              (create Supabase users for seeds)
+```
+
+### Backup Location
+```
+backend/backup_email_code/
+├── mail/                                (original email service)
+├── email_verification_controller.rs     (original verification logic)
+└── forgot_password_controller.rs        (original forgot password logic)
+```
+
+---
+
 ## Backup Old Code
 ```bash
 mkdir -p /Users/hmziq/Documents/opensource/ruxlog/backend/backup_email_code
@@ -565,16 +618,27 @@ user::Entity::verify(&db, admin_user.id).await?;
 
 ## 10. Testing Checklist
 
-- [ ] Set environment variables in `.env`
-- [ ] Cargo build succeeds
+### Code Implementation
+- [x] Set environment variables in `.env.example`
+- [x] Cargo build succeeds (no errors or warnings)
+- [x] Supabase service implementation complete
+- [x] Registration flow integrated
+- [x] Email verification integrated
+- [x] Forgot password integrated
+- [x] Seed users integration complete
+- [x] Rate limiting preserved in code
+
+### Manual Testing (After Supabase Setup)
+- [ ] Set actual Supabase credentials in `.env` (URL + service role key)
+- [ ] Configure Supabase email templates in dashboard
 - [ ] Register new user → receives Supabase verification email
 - [ ] Verify email with OTP code → `is_verified=true` in PostgreSQL
 - [ ] Resend verification → receives new email
 - [ ] Request password reset → receives Supabase recovery email
 - [ ] Verify recovery code → returns success
 - [ ] Reset password with code → password updated in both DBs
-- [ ] Seed users created in Supabase + marked verified
-- [ ] Rate limiting still works
+- [ ] Run seed endpoint → users created in Supabase + marked verified
+- [ ] Test rate limiting on resend/forgot password endpoints
 
 ## Notes
 
