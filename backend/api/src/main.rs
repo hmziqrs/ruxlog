@@ -1,23 +1,9 @@
-pub mod config;
-pub mod db;
-pub mod error;
-pub mod extractors;
-pub mod middlewares;
-pub mod modules;
-mod router;
-pub mod services;
-pub mod state;
-pub mod utils;
-
-use utils::telemetry;
-
 use axum::{
     http::{HeaderName, HeaderValue},
     middleware, routing,
 };
 use axum_client_ip::ClientIpSource;
 use axum_login::AuthManagerLayerBuilder;
-use modules::csrf_v1;
 use std::{env, net::SocketAddr, time::Duration};
 use tower_http::{
     compression::CompressionLayer,
@@ -26,9 +12,13 @@ use tower_http::{
 
 use axum_extra::extract::cookie::SameSite;
 
-use services::{auth::AuthBackend, redis::init_redis_store};
-pub use state::AppState;
-use state::OptimizerConfig;
+use ruxlog::{
+    modules,
+    services::{self, auth::AuthBackend, redis::init_redis_store},
+    state::{AppState, OptimizerConfig},
+    utils::{self, telemetry},
+};
+use modules::csrf_v1;
 use tower_sessions::{cookie::Key, Expiry, SessionManagerLayer};
 use tower_sessions_redis_store::RedisStore;
 

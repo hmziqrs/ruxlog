@@ -95,6 +95,8 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png",
 reqwest = { version = "0.12", features = ["json"] }
 oauth2 = "4.4"
 jsonwebtoken = { version = "10.2.0", features = ["aws_lc_rs"] }
+ratatui = "0.28"
+crossterm = "0.28"
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
@@ -114,3 +116,7 @@ path = "scripts/archive_changes.rs"
 [[bin]]
 name = "restore_changes"
 path = "scripts/restore_changes.rs"
+
+[[bin]]
+name = "ruxlog_tui"
+path = "src/bin/ruxlog_tui.rs"
