@@ -124,7 +124,7 @@ pub async fn view_state_abstraction<K, StoreData, Parsed, F, MapFn>(
     map_to_store: MapFn,
 ) -> Option<Parsed>
 where
-    K: Eq + Hash + Copy + 'static,
+    K: Eq + Hash + Clone + 'static,
     StoreData: Clone + 'static,
     Parsed: DeserializeOwned + Clone + 'static,
     F: Future<Output = Result<http::Response, http::Error>>,
@@ -132,7 +132,7 @@ where
 {
     {
         let mut map = state.write();
-        map.entry(id)
+        map.entry(id.clone())
             .or_insert_with(StateFrame::new)
             .set_loading();
     }
@@ -145,7 +145,7 @@ where
                     Ok(parsed) => {
                         let store_value = map_to_store(&parsed);
                         let mut map = state.write();
-                        map.entry(id)
+                        map.entry(id.clone())
                             .or_insert_with(StateFrame::new)
                             .set_success(Some(store_value));
                         Some(parsed)
@@ -158,7 +158,7 @@ where
                             body_text
                         );
                         let mut map = state.write();
-                        map.entry(id)
+                        map.entry(id.clone())
                             .or_insert_with(StateFrame::new)
                             .set_decode_error(parse_label, format!("{}", e), Some(body_text));
                         None
@@ -168,7 +168,7 @@ where
                 let status = response.status();
                 let body = response.text().await.unwrap_or_default();
                 let mut map = state.write();
-                map.entry(id)
+                map.entry(id.clone())
                     .or_insert_with(StateFrame::new)
                     .set_api_error(status, body);
                 None
@@ -198,7 +198,7 @@ pub async fn edit_state_abstraction<K, T, Payload, F, GetId, OnSuccess>(
     on_success: Option<OnSuccess>,
 ) -> Option<T>
 where
-    K: Eq + Hash + Copy + 'static,
+    K: Eq + Hash + Clone + 'static,
     T: DeserializeOwned + Clone + PartialEq + 'static,
     Payload: Clone + 'static,
     F: Future<Output = Result<http::Response, http::Error>>,
@@ -207,7 +207,7 @@ where
 {
     {
         let mut map = state.write();
-        map.entry(id)
+        map.entry(id.clone())
             .or_insert_with(StateFrame::new)
             .set_loading_meta(Some(payload));
     }
@@ -220,7 +220,7 @@ where
                     Ok(parsed) => {
                         {
                             let mut map = state.write();
-                            map.entry(id)
+                            map.entry(id.clone())
                                 .or_insert_with(StateFrame::new)
                                 .set_success(None);
                         }
@@ -228,7 +228,7 @@ where
                         if let Some(list_cache) = sync_list_cache {
                             let mut list_frame = list_cache.write();
                             if let Some(list) = &mut list_frame.data {
-                                let target_id = id;
+                                let target_id = id.clone();
                                 if let Some(item) =
                                     list.data.iter_mut().find(|i| get_id(i) == target_id)
                                 {
@@ -240,7 +240,7 @@ where
                         if let Some(view_cache) = sync_view_cache {
                             let mut view_map = view_cache.write();
                             view_map
-                                .entry(id)
+                                .entry(id.clone())
                                 .or_insert_with(StateFrame::new)
                                 .set_success(Some(parsed.clone()));
                         }
@@ -253,7 +253,7 @@ where
                     }
                     Err(e) => {
                         let mut map = state.write();
-                        map.entry(id)
+                        map.entry(id.clone())
                             .or_insert_with(StateFrame::new)
                             .set_decode_error(parse_label, format!("{}", e), Some(body_text));
                         None
@@ -263,7 +263,7 @@ where
                 let status = response.status();
                 let body = response.text().await.unwrap_or_default();
                 let mut map = state.write();
-                map.entry(id)
+                map.entry(id.clone())
                     .or_insert_with(StateFrame::new)
                     .set_api_error(status, body);
                 None
@@ -291,7 +291,7 @@ pub async fn remove_state_abstraction<K, T, F, GetId, OnSuccess>(
     on_success: Option<OnSuccess>,
 ) -> bool
 where
-    K: Eq + Hash + Copy + 'static,
+    K: Eq + Hash + Clone + 'static,
     T: Clone + PartialEq + 'static,
     F: Future<Output = Result<http::Response, http::Error>>,
     GetId: Fn(&T) -> K,
@@ -299,7 +299,7 @@ where
 {
     {
         let mut map = state.write();
-        map.entry(id)
+        map.entry(id.clone())
             .or_insert_with(StateFrame::new)
             .set_loading();
     }
@@ -309,7 +309,7 @@ where
             if (200..300).contains(&response.status()) {
                 {
                     let mut map = state.write();
-                    map.entry(id)
+                    map.entry(id.clone())
                         .or_insert_with(StateFrame::new)
                         .set_success(None);
                 }
@@ -317,7 +317,7 @@ where
                 if let Some(list_cache) = sync_list_cache {
                     let mut list_frame = list_cache.write();
                     if let Some(list) = &mut list_frame.data {
-                        let target_id = id;
+                        let target_id = id.clone();
                         list.data.retain(|item| get_id(item) != target_id);
                         if list.total > 0 {
                             list.total -= 1;
@@ -327,7 +327,7 @@ where
 
                 if let Some(view_cache) = sync_view_cache {
                     let mut view_map = view_cache.write();
-                    view_map.remove(&id);
+                    view_map.remove(&id.clone());
                 }
 
                 if let Some(callback) = on_success {
@@ -339,7 +339,7 @@ where
                 let status = response.status();
                 let body = response.text().await.unwrap_or_default();
                 let mut map = state.write();
-                map.entry(id)
+                map.entry(id.clone())
                     .or_insert_with(StateFrame::new)
                     .set_api_error(status, body);
                 false
@@ -367,7 +367,7 @@ pub async fn remove_state_abstraction_vec<K, T, F, GetId, OnSuccess>(
     on_success: Option<OnSuccess>,
 ) -> bool
 where
-    K: Eq + Hash + Copy + 'static,
+    K: Eq + Hash + Clone + 'static,
     T: Clone + PartialEq + 'static,
     F: Future<Output = Result<http::Response, http::Error>>,
     GetId: Fn(&T) -> K,
@@ -375,7 +375,7 @@ where
 {
     {
         let mut map = state.write();
-        map.entry(id)
+        map.entry(id.clone())
             .or_insert_with(StateFrame::new)
             .set_loading();
     }
@@ -385,7 +385,7 @@ where
             if (200..300).contains(&response.status()) {
                 {
                     let mut map = state.write();
-                    map.entry(id)
+                    map.entry(id.clone())
                         .or_insert_with(StateFrame::new)
                         .set_success(None);
                 }
@@ -393,14 +393,14 @@ where
                 if let Some(list_cache) = sync_list_cache {
                     let mut list_frame = list_cache.write();
                     if let Some(list) = &mut list_frame.data {
-                        let target_id = id;
+                        let target_id = id.clone();
                         list.retain(|item| get_id(item) != target_id);
                     }
                 }
 
                 if let Some(view_cache) = sync_view_cache {
                     let mut view_map = view_cache.write();
-                    view_map.remove(&id);
+                    view_map.remove(&id.clone());
                 }
 
                 if let Some(callback) = on_success {
@@ -412,7 +412,7 @@ where
                 let status = response.status();
                 let body = response.text().await.unwrap_or_default();
                 let mut map = state.write();
-                map.entry(id)
+                map.entry(id.clone())
                     .or_insert_with(StateFrame::new)
                     .set_api_error(status, body);
                 false

@@ -6,7 +6,7 @@ use ruxlog_shared::store::{
 #[component]
 pub fn ProfileSecurityScreen() -> Element {
     let auth = use_auth();
-    let mut code = use_signal(|| "".to_string());
+    let mut verification_code = use_signal(|| "".to_string());
     let mut disable_code = use_signal(|| "".to_string());
 
     // Fetch sessions on mount
@@ -30,7 +30,7 @@ pub fn ProfileSecurityScreen() -> Element {
     let verify = move |e: FormEvent| {
         e.prevent_default();
         let auth = auth;
-        let body = TwoFactorVerifyPayload { code: code() };
+        let body = TwoFactorVerifyPayload { code: verification_code() };
         spawn(async move { auth.verify_2fa(body).await; });
     };
 
@@ -74,13 +74,13 @@ pub fn ProfileSecurityScreen() -> Element {
                         div { class: "space-y-2",
                             p { class: "text-sm text-muted-foreground", "Scan QR code or use the secret below." }
                             img { class: "w-40 h-40 border rounded-md", src: setup_info.qr_code_url }
-                            div { class: "font-mono text-xs break-all border rounded-md px-3 py-2", setup_info.secret }
+                            div { class: "font-mono text-xs break-all border rounded-md px-3 py-2", "{setup_info.secret}" }
                             if !setup_info.backup_codes.is_empty() {
                                 div { class: "space-y-1",
                                     h4 { class: "text-sm font-semibold", "Backup Codes" }
                                     ul { class: "grid grid-cols-2 gap-1 text-xs font-mono",
                                         for code in setup_info.backup_codes {
-                                            li { class: "rounded border px-2 py-1", code }
+                                            li { class: "rounded border px-2 py-1", "{code}" }
                                         }
                                     }
                                 }
@@ -93,8 +93,8 @@ pub fn ProfileSecurityScreen() -> Element {
                         input {
                             class: "w-full rounded-md border px-3 py-2 text-sm",
                             placeholder: "123456",
-                            value: "{code}",
-                            oninput: move |e| code.set(e.value()),
+                            value: "{verification_code}",
+                            oninput: move |e| verification_code.set(e.value()),
                         }
                         button { class: "rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:opacity-90", r#type: "submit", "Verify" }
                     }
@@ -120,7 +120,7 @@ pub fn ProfileSecurityScreen() -> Element {
                     } else {
                         div { class: "space-y-2",
                             for session in sessions {
-                                SessionCard { session, auth }
+                                SessionCard { key: "{session.id}", session }
                             }
                         }
                     }
@@ -131,7 +131,8 @@ pub fn ProfileSecurityScreen() -> Element {
 }
 
 #[component]
-fn SessionCard(session: UserSession, auth: &'static ruxlog_shared::store::AuthState) -> Element {
+fn SessionCard(session: UserSession) -> Element {
+    let auth = use_auth();
     rsx! {
         div { class: "rounded-md border px-3 py-2 text-sm flex flex-col gap-1",
             div { class: "font-medium", "Session {session.id}" }

@@ -97,7 +97,7 @@ pub fn RoutesSettingsScreen() -> Element {
                             }
                         } else {
                             for route in rows {
-                                RouteRow { route, routes_state }
+                                RouteRow { key: "{route.pattern}", route }
                             }
                         }
                     }
@@ -108,33 +108,42 @@ pub fn RoutesSettingsScreen() -> Element {
 }
 
 #[component]
-fn RouteRow(route: RouteStatus, routes_state: &'static ruxlog_shared::store::AdminRoutesState) -> Element {
+fn RouteRow(route: RouteStatus) -> Element {
+    let routes_state = use_admin_routes();
     let status_label = if route.is_blocked { "Blocked" } else { "Allowed" };
     rsx! {
         tr { class: "border-t",
             td { class: "p-3 font-mono text-xs", "{route.pattern}" }
-            td { class: "p-3", status_label }
-            td { class: "p-3", route.reason.clone().unwrap_or_else(|| "-".to_string()) }
+            td { class: "p-3", "{status_label}" }
+            td { class: "p-3", "{route.reason.clone().unwrap_or_else(|| \"-\".to_string())}" }
             td { class: "p-3 space-x-2",
                 button {
                     class: "rounded-md border px-2 py-1 text-xs hover:bg-accent",
-                    onclick: move |_| {
+                    onclick: {
                         let routes_state = routes_state;
-                        let payload = UpdateRoutePayload {
-                            is_blocked: Some(!route.is_blocked),
-                            reason: route.reason.clone(),
-                        };
                         let pattern = route.pattern.clone();
-                        spawn(async move { routes_state.update(pattern, payload).await; });
+                        let reason = route.reason.clone();
+                        let is_blocked = route.is_blocked;
+                        move |_| {
+                            let payload = UpdateRoutePayload {
+                                is_blocked: Some(!is_blocked),
+                                reason: reason.clone(),
+                            };
+                            let pattern = pattern.clone();
+                            spawn(async move { routes_state.update(pattern, payload).await; });
+                        }
                     },
                     if route.is_blocked { "Unblock" } else { "Block" }
                 }
                 button {
                     class: "rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-red-50 border-red-200",
-                    onclick: move |_| {
+                    onclick: {
                         let routes_state = routes_state;
                         let pattern = route.pattern.clone();
-                        spawn(async move { routes_state.remove(pattern).await; });
+                        move |_| {
+                            let pattern = pattern.clone();
+                            spawn(async move { routes_state.remove(pattern).await; });
+                        }
                     },
                     "Delete"
                 }

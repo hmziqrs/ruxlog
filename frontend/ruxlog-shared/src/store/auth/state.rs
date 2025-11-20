@@ -18,6 +18,12 @@ pub struct AuthState {
     pub sessions: GlobalSignal<StateFrame<Vec<UserSession>>>,
 }
 
+impl PartialEq for AuthState {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum UserRole {

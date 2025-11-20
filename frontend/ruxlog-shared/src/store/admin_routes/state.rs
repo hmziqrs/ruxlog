@@ -35,6 +35,12 @@ pub struct AdminRoutesState {
     pub sync: GlobalSignal<StateFrame>,
 }
 
+impl PartialEq for AdminRoutesState {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
 impl AdminRoutesState {
     pub fn new() -> Self {
         Self {

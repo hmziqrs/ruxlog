@@ -114,8 +114,8 @@ pub fn CommentsListScreen() -> Element {
                             }
                         } else {
                             for comment in items {
-                                CommentRow { comment, comments }
-                            }
+                        CommentRow { key: "{comment.id}", comment }
+                    }
                         }
                     }
                 }
@@ -125,7 +125,8 @@ pub fn CommentsListScreen() -> Element {
 }
 
 #[component]
-fn CommentRow(comment: Comment, comments: &'static ruxlog_shared::store::CommentState) -> Element {
+fn CommentRow(comment: Comment) -> Element {
+    let comments = use_comments();
     let hidden_label = if comment.is_hidden { "Hidden" } else { "Visible" };
     rsx! {
         tr { class: "border-t",

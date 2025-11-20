@@ -1,9 +1,6 @@
 use super::{AdminRoutesState, BlockRoutePayload, RouteStatus, UpdateRoutePayload};
 use oxcore::http;
-use oxstore::{
-    edit_state_abstraction, list_state_abstraction, remove_state_abstraction,
-    state_request_abstraction,
-};
+use oxstore::{list_state_abstraction, state_request_abstraction};
 
 impl AdminRoutesState {
     pub async fn block(&self, payload: BlockRoutePayload) {
@@ -36,7 +33,7 @@ impl AdminRoutesState {
     }
 
     pub async fn update(&self, pattern: String, payload: UpdateRoutePayload) {
-        let updated_route = edit_state_abstraction(
+        let updated_route = oxstore::edit_state_abstraction(
             &self.update,
             pattern.clone(),
             payload.clone(),
@@ -55,7 +52,7 @@ impl AdminRoutesState {
     }
 
     pub async fn remove(&self, pattern: String) {
-        let removed = remove_state_abstraction(
+        let removed = oxstore::remove_state_abstraction(
             &self.remove,
             pattern.clone(),
             http::delete(&format!("/admin/route/v1/delete/{}", pattern)).send(),

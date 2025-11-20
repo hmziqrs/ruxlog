@@ -8,3 +8,5 @@ pub mod post_success_dialog;
 pub mod sidebar;
 pub mod table;
 pub mod user_details_dialog;
+
+pub use oxui::components::sonner;

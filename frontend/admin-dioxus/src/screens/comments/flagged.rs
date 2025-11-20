@@ -57,7 +57,7 @@ pub fn FlaggedCommentsScreen() -> Element {
                             }
                         } else {
                             for flag in flags {
-                                FlagRow { flag, comments }
+                                FlagRow { flag }
                             }
                         }
                     }
@@ -68,7 +68,8 @@ pub fn FlaggedCommentsScreen() -> Element {
 }
 
 #[component]
-fn FlagRow(flag: CommentFlag, comments: &'static ruxlog_shared::store::CommentState) -> Element {
+fn FlagRow(flag: CommentFlag) -> Element {
+    let comments = use_comments();
     rsx! {
         tr { class: "border-t",
             td { class: "p-3", "{flag.id}" }

@@ -79,6 +79,12 @@ pub struct CommentState {
     pub summaries: GlobalSignal<HashMap<i32, StateFrame<CommentFlagSummary>>>,
 }
 
+impl PartialEq for CommentState {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
 impl CommentState {
     pub fn new() -> Self {
         Self {

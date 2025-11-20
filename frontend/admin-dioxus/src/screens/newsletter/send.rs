@@ -70,9 +70,9 @@ pub fn NewsletterSendScreen() -> Element {
             if let Some(result) = last_result {
                 div { class: "rounded-md border px-3 py-2 text-sm",
                     if result.success {
-                        span { class: "text-green-600", result.message.unwrap_or_else(|| "Newsletter sent successfully".to_string()) }
+                        span { class: "text-green-600", "{result.message.clone().unwrap_or_else(|| \"Newsletter sent successfully\".to_string())}" }
                     } else {
-                        span { class: "text-red-600", result.message.unwrap_or_else(|| "Send failed".to_string()) }
+                        span { class: "text-red-600", "{result.message.clone().unwrap_or_else(|| \"Send failed\".to_string())}" }
                     }
                 }
             }
