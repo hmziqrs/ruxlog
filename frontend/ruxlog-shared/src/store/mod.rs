@@ -1,19 +1,27 @@
 pub mod analytics;
+pub mod admin_routes;
 pub mod comments;
 pub mod auth;
 pub mod categories;
+pub mod email_verification;
 pub mod image_editor;
 pub mod media;
+pub mod newsletter;
 pub mod posts;
+pub mod password_reset;
 pub mod tags;
 pub mod users;
 
 pub use analytics::*;
+pub use admin_routes::*;
 pub use comments::*;
 pub use auth::*;
 pub use categories::*;
+pub use email_verification::*;
 pub use image_editor::*;
 pub use media::*;
+pub use newsletter::*;
 pub use posts::*;
+pub use password_reset::*;
 pub use tags::*;
 pub use users::*;

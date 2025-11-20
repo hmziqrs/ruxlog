@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -13,6 +14,8 @@ pub struct AuthState {
     pub logout_status: GlobalSignal<StateFrame>,
 
     pub init_status: GlobalSignal<StateFrame>,
+    pub two_factor: GlobalSignal<StateFrame<Option<TwoFactorSetup>>>,
+    pub sessions: GlobalSignal<StateFrame<Vec<UserSession>>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -124,6 +127,28 @@ impl AuthUser {
 pub struct LoginPayload {
     pub email: String,
     pub password: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TwoFactorSetup {
+    pub secret: String,
+    pub qr_code_url: String,
+    pub backup_codes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TwoFactorVerifyPayload {
+    pub code: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct UserSession {
+    pub id: String,
+    pub user_id: i32,
+    pub ip: Option<String>,
+    pub user_agent: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub last_active: DateTime<Utc>,
 }
 
 static AUTH_STATE: OnceLock<AuthState> = OnceLock::new();

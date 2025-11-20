@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use oxstore::{ListQuery, ListStore, PaginatedList, SortParam, StateFrame};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct User {
@@ -52,6 +52,31 @@ pub struct UsersEditPayload {
     pub password: Option<String>,
     pub is_verified: Option<bool>,
     pub role: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct UpdateProfilePayload {
+    pub name: Option<String>,
+    pub bio: Option<String>,
+    pub avatar_id: Option<Option<i32>>,
+    pub social_links: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct UserProfile {
+    pub id: i32,
+    pub name: String,
+    pub email: String,
+    pub avatar: Option<Media>,
+    pub bio: Option<String>,
+    pub social_links: Option<serde_json::Value>,
+    pub role: UserRole,
+    pub is_verified: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub two_fa_enabled: bool,
+    #[serde(default)]
+    pub tags: Option<HashSet<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -138,6 +163,7 @@ pub struct UsersState {
     pub remove: GlobalSignal<HashMap<i32, StateFrame>>,
     pub list: GlobalSignal<StateFrame<PaginatedList<User>>>,
     pub view: GlobalSignal<HashMap<i32, StateFrame<User>>>,
+    pub profile: GlobalSignal<StateFrame<Option<UserProfile>>>,
 }
 
 impl UsersState {
@@ -148,6 +174,7 @@ impl UsersState {
             remove: GlobalSignal::new(|| HashMap::new()),
             list: GlobalSignal::new(|| StateFrame::new()),
             view: GlobalSignal::new(|| HashMap::new()),
+            profile: GlobalSignal::new(|| StateFrame::new()),
         }
     }
 }

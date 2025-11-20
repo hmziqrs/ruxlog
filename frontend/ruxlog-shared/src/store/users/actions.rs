@@ -1,4 +1,7 @@
-use super::{User, UsersAddPayload, UsersEditPayload, UsersListQuery, UsersState};
+use super::{
+    UpdateProfilePayload, User, UserProfile, UsersAddPayload, UsersEditPayload, UsersListQuery,
+    UsersState,
+};
 use oxcore::http;
 use oxstore::{
     edit_state_abstraction, list_state_abstraction, remove_state_abstraction,
@@ -82,11 +85,36 @@ impl UsersState {
         .await;
     }
 
+    pub async fn get_profile(&self) {
+        let _ = view_state_abstraction(
+            &self.profile,
+            0,
+            http::get("/user/v1/get").send(),
+            "profile",
+            |profile: &UserProfile| profile.clone(),
+        )
+        .await;
+    }
+
+    pub async fn update_profile(&self, payload: UpdateProfilePayload) {
+        let _ = state_request_abstraction(
+            &self.profile,
+            Some(payload.clone()),
+            http::post("/user/v1/update", &payload).send(),
+            "profile",
+            |profile: &UserProfile| (Some(profile.clone()), None),
+        )
+        .await;
+
+        self.get_profile().await;
+    }
+
     pub fn reset(&self) {
         *self.add.write() = StateFrame::new();
         *self.edit.write() = HashMap::new();
         *self.remove.write() = HashMap::new();
         *self.list.write() = StateFrame::new();
         *self.view.write() = HashMap::new();
+        *self.profile.write() = StateFrame::new();
     }
 }

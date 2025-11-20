@@ -65,6 +65,16 @@ impl CategoriesState {
         .await;
     }
 
+    /// Public list endpoint without filters
+    pub async fn list_all(&self) {
+        let _ = list_state_abstraction(
+            &self.list,
+            http::get("/category/v1/list").send(),
+            "categories",
+        )
+        .await;
+    }
+
     pub async fn list_with_query(&self, query: CategoriesListQuery) {
         let _ = list_state_abstraction(
             &self.list,

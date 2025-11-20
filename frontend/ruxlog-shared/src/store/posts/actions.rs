@@ -1,6 +1,6 @@
 use super::{
-    Post, PostCreatePayload, PostEditPayload, PostListQuery, PostRevision, PostSchedulePayload,
-    PostState, Series, SeriesCreatePayload, SeriesEditPayload, SeriesListQuery,
+    Post, PostAutosavePayload, PostCreatePayload, PostEditPayload, PostListQuery, PostRevision,
+    PostSchedulePayload, PostState, Series, SeriesCreatePayload, SeriesEditPayload, SeriesListQuery,
 };
 
 use dioxus::prelude::GlobalSignal;
@@ -87,6 +87,11 @@ impl PostState {
         .await;
     }
 
+    /// Alias for list_with_query to match API naming
+    pub async fn list_query(&self, query: PostListQuery) {
+        self.list_with_query(query).await;
+    }
+
     /// View a single post by ID or slug
     /// Note: This method fetches by id_or_slug but caches by post.id
     pub async fn view(&self, id_or_slug: &str) {
@@ -145,6 +150,42 @@ impl PostState {
             "published posts",
         )
         .await;
+    }
+
+    /// Autosave post content (creates revision + updates post)
+    pub async fn autosave(&self, payload: PostAutosavePayload) {
+        let key = payload.post_id;
+        {
+            let mut map = self.autosave.write();
+            map.entry(key)
+                .or_insert_with(StateFrame::new)
+                .set_loading();
+        }
+
+        let result = http::post("/post/v1/autosave", &payload).send().await;
+        let mut map = self.autosave.write();
+
+        match result {
+            Ok(response) => {
+                if (200..300).contains(&response.status()) {
+                    map.entry(key)
+                        .or_insert_with(StateFrame::new)
+                        .set_success(None);
+                } else {
+                    let status = response.status();
+                    let body = response.text().await.unwrap_or_default();
+                    map.entry(key)
+                        .or_insert_with(StateFrame::new)
+                        .set_api_error(status, body);
+                }
+            }
+            Err(e) => {
+                let (kind, msg) = oxstore::error::classify_transport_error(&e);
+                map.entry(key)
+                    .or_insert_with(StateFrame::new)
+                    .set_transport_error(kind, Some(msg));
+            }
+        }
     }
 
     // ============================================================================
@@ -537,6 +578,11 @@ impl PostState {
         }
     }
 
+    /// Alias for sitemap generation to align with plan naming
+    pub async fn generate_sitemap(&self) -> Option<Vec<Post>> {
+        self.sitemap().await
+    }
+
     // ============================================================================
     // State Reset
     // ============================================================================
@@ -548,6 +594,7 @@ impl PostState {
         *self.add.write() = StateFrame::new();
         *self.edit.write() = HashMap::new();
         *self.remove.write() = HashMap::new();
+        *self.autosave.write() = HashMap::new();
         *self.schedule.write() = HashMap::new();
         *self.revisions_list.write() = HashMap::new();
         *self.revisions_restore.write() = HashMap::new();

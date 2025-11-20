@@ -1,10 +1,14 @@
-use super::{AuthState, AuthUser, LoginPayload, UserRole};
+use super::{
+    AuthState, AuthUser, LoginPayload, TwoFactorSetup, TwoFactorVerifyPayload, UserRole,
+    UserSession,
+};
 use crate::store::{
-    use_analytics, use_categories, use_image_editor, use_media, use_post, use_tag, use_user,
+    use_admin_routes, use_analytics, use_categories, use_comments, use_email_verification,
+    use_image_editor, use_media, use_newsletter, use_password_reset, use_post, use_tag, use_user,
 };
 use dioxus::{logger::tracing, prelude::*};
 use oxcore::http;
-use oxstore::StateFrame;
+use oxstore::{state_request_abstraction, StateFrame};
 
 impl AuthUser {
     pub fn new(id: i32, name: String, email: String, role: UserRole, is_verified: bool) -> Self {
@@ -36,6 +40,8 @@ impl AuthState {
             login_status: GlobalSignal::new(|| StateFrame::new()),
             logout_status: GlobalSignal::new(|| StateFrame::new()),
             init_status: GlobalSignal::new(|| StateFrame::new()),
+            two_factor: GlobalSignal::new(|| StateFrame::new()),
+            sessions: GlobalSignal::new(|| StateFrame::new()),
         }
     }
 
@@ -76,6 +82,11 @@ impl AuthState {
         use_post().reset();
         use_analytics().reset();
         use_image_editor().reset();
+        use_comments().reset();
+        use_newsletter().reset();
+        use_email_verification().reset();
+        use_password_reset().reset();
+        use_admin_routes().reset();
     }
 
     pub async fn init(&self) {
@@ -173,5 +184,82 @@ impl AuthState {
         *self.login_status.write() = StateFrame::new();
         *self.logout_status.write() = StateFrame::new();
         *self.init_status.write() = StateFrame::new();
+        *self.two_factor.write() = StateFrame::new();
+        *self.sessions.write() = StateFrame::new();
+    }
+}
+
+// =============================================================================
+// Two-Factor Authentication
+// =============================================================================
+
+impl AuthState {
+    pub async fn setup_2fa(&self) {
+        let _ = state_request_abstraction(
+            &self.two_factor,
+            None::<()>,
+            http::post("/auth/v1/2fa/setup", &serde_json::json!({})).send(),
+            "two_factor_setup",
+            |payload: &TwoFactorSetup| (Some(Some(payload.clone())), None),
+        )
+        .await;
+    }
+
+    pub async fn verify_2fa(&self, payload: TwoFactorVerifyPayload) {
+        let meta = payload.clone();
+        let _ = state_request_abstraction(
+            &self.two_factor,
+            Some(meta),
+            http::post("/auth/v1/2fa/verify", &payload).send(),
+            "two_factor_verify",
+            |_resp: &serde_json::Value| (Some(None), None),
+        )
+        .await;
+    }
+
+    pub async fn disable_2fa(&self, payload: TwoFactorVerifyPayload) {
+        let meta = payload.clone();
+        let _ = state_request_abstraction(
+            &self.two_factor,
+            Some(meta),
+            http::post("/auth/v1/2fa/disable", &payload).send(),
+            "two_factor_disable",
+            |_resp: &serde_json::Value| (Some(None), None),
+        )
+        .await;
+    }
+}
+
+// =============================================================================
+// Session Management
+// =============================================================================
+
+impl AuthState {
+    pub async fn list_sessions(&self) {
+        let _ = state_request_abstraction(
+            &self.sessions,
+            None::<()>,
+            http::post("/auth/v1/sessions/list", &serde_json::json!({})).send(),
+            "user_sessions",
+            |sessions: &Vec<UserSession>| (Some(sessions.clone()), None),
+        )
+        .await;
+    }
+
+    pub async fn terminate_session(&self, session_id: String) {
+        let _ = state_request_abstraction(
+            &self.sessions,
+            None::<()>,
+            http::post(
+                &format!("/auth/v1/sessions/terminate/{}", session_id),
+                &serde_json::json!({}),
+            )
+            .send(),
+            "terminate_session",
+            |_resp: &serde_json::Value| (None, None),
+        )
+        .await;
+
+        self.list_sessions().await;
     }
 }
