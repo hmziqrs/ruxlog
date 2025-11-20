@@ -132,7 +132,9 @@ where
 {
     {
         let mut map = state.write();
-        map.entry(id).or_insert_with(StateFrame::new).set_loading();
+        map.entry(id)
+            .or_insert_with(StateFrame::new)
+            .set_loading();
     }
 
     match send_future.await {
@@ -226,7 +228,10 @@ where
                         if let Some(list_cache) = sync_list_cache {
                             let mut list_frame = list_cache.write();
                             if let Some(list) = &mut list_frame.data {
-                                if let Some(item) = list.data.iter_mut().find(|i| get_id(i) == id) {
+                                let target_id = id;
+                                if let Some(item) =
+                                    list.data.iter_mut().find(|i| get_id(i) == target_id)
+                                {
                                     *item = parsed.clone();
                                 }
                             }
@@ -294,7 +299,9 @@ where
 {
     {
         let mut map = state.write();
-        map.entry(id).or_insert_with(StateFrame::new).set_loading();
+        map.entry(id)
+            .or_insert_with(StateFrame::new)
+            .set_loading();
     }
 
     match send_future.await {
@@ -310,7 +317,8 @@ where
                 if let Some(list_cache) = sync_list_cache {
                     let mut list_frame = list_cache.write();
                     if let Some(list) = &mut list_frame.data {
-                        list.data.retain(|item| get_id(item) != id);
+                        let target_id = id;
+                        list.data.retain(|item| get_id(item) != target_id);
                         if list.total > 0 {
                             list.total -= 1;
                         }
@@ -367,7 +375,9 @@ where
 {
     {
         let mut map = state.write();
-        map.entry(id).or_insert_with(StateFrame::new).set_loading();
+        map.entry(id)
+            .or_insert_with(StateFrame::new)
+            .set_loading();
     }
 
     match send_future.await {
@@ -383,7 +393,8 @@ where
                 if let Some(list_cache) = sync_list_cache {
                     let mut list_frame = list_cache.write();
                     if let Some(list) = &mut list_frame.data {
-                        list.retain(|item| get_id(item) != id);
+                        let target_id = id;
+                        list.retain(|item| get_id(item) != target_id);
                     }
                 }
 
