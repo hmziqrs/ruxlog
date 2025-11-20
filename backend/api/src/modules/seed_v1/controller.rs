@@ -14,14 +14,13 @@ use serde_json::json;
 #[derive(Debug, Dummy)]
 struct FakeWord(#[dummy(faker = "Word()")] String);
 
-use crate::db::sea_models::user::{self, AdminUserQuery};
 use crate::db::sea_models::scheduled_post::ScheduledPostStatus;
+use crate::db::sea_models::user::{self, AdminUserQuery};
 use crate::{
     db::sea_models::{
         category, comment_flag, email_verification, forgot_password, media, media_usage,
         media_variant, newsletter_subscriber, post, post_comment, post_revision, post_series,
-        post_view, route_status, scheduled_post, tag, user_session,
-        user::UserRole,
+        post_view, route_status, scheduled_post, tag, user::UserRole, user_session,
     },
     services::auth::AuthSession,
     AppState,
@@ -370,7 +369,10 @@ pub async fn seed_post_comments(
 
 // Authentication related seeds
 #[debug_handler]
-pub async fn seed_user_sessions(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
+pub async fn seed_user_sessions(
+    State(state): State<AppState>,
+    _auth: AuthSession,
+) -> impl IntoResponse {
     let users = match user::Entity::find().all(&state.sea_db).await {
         Ok(u) => u,
         Err(_) => {
@@ -384,14 +386,20 @@ pub async fn seed_user_sessions(State(state): State<AppState>, _auth: AuthSessio
         }
     };
 
-    let devices = vec!["MacOS · Chrome 126", "Windows · Edge 125", "iPhone · Safari 17", "Android · Chrome 125"];
+    let devices = vec![
+        "MacOS · Chrome 126",
+        "Windows · Edge 125",
+        "iPhone · Safari 17",
+        "Android · Chrome 125",
+    ];
     let ip_addresses = vec!["192.168.1.100", "10.0.0.50", "172.16.0.25", "203.0.113.1"];
     let mut rng = StdRng::seed_from_u64(999);
 
     for user in users {
         let session_count = rng.random_range(1..4);
         for _ in 0..session_count {
-            let last_seen = chrono::Utc::now().fixed_offset() - chrono::Duration::hours(rng.random_range(1..720));
+            let last_seen = chrono::Utc::now().fixed_offset()
+                - chrono::Duration::hours(rng.random_range(1..720));
             let new_session = user_session::Model {
                 id: 0, // Auto-increment
                 user_id: user.id,
@@ -431,7 +439,10 @@ pub async fn seed_user_sessions(State(state): State<AppState>, _auth: AuthSessio
 }
 
 #[debug_handler]
-pub async fn seed_email_verifications(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
+pub async fn seed_email_verifications(
+    State(state): State<AppState>,
+    _auth: AuthSession,
+) -> impl IntoResponse {
     let users = match user::Entity::find().all(&state.sea_db).await {
         Ok(u) => u,
         Err(_) => {
@@ -479,7 +490,10 @@ pub async fn seed_email_verifications(State(state): State<AppState>, _auth: Auth
 }
 
 #[debug_handler]
-pub async fn seed_forgot_passwords(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
+pub async fn seed_forgot_passwords(
+    State(state): State<AppState>,
+    _auth: AuthSession,
+) -> impl IntoResponse {
     let users = match user::Entity::find().all(&state.sea_db).await {
         Ok(u) => u,
         Err(_) => {
@@ -528,7 +542,10 @@ pub async fn seed_forgot_passwords(State(state): State<AppState>, _auth: AuthSes
 
 // Post-related seeds
 #[debug_handler]
-pub async fn seed_post_revisions(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
+pub async fn seed_post_revisions(
+    State(state): State<AppState>,
+    _auth: AuthSession,
+) -> impl IntoResponse {
     let posts = match post::Entity::find().all(&state.sea_db).await {
         Ok(p) => p,
         Err(_) => {
@@ -563,7 +580,8 @@ pub async fn seed_post_revisions(State(state): State<AppState>, _auth: AuthSessi
                 metadata: Some(serde_json::json!({
                     "title": format!("{} (Revision {})", post.title, i + 1)
                 })),
-                created_at: chrono::Utc::now().fixed_offset() - chrono::Duration::hours(i as i64 * 24),
+                created_at: chrono::Utc::now().fixed_offset()
+                    - chrono::Duration::hours(i as i64 * 24),
             };
 
             let active_model = post_revision::ActiveModel {
@@ -590,7 +608,10 @@ pub async fn seed_post_revisions(State(state): State<AppState>, _auth: AuthSessi
 }
 
 #[debug_handler]
-pub async fn seed_post_series(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
+pub async fn seed_post_series(
+    State(state): State<AppState>,
+    _auth: AuthSession,
+) -> impl IntoResponse {
     let mut series_list: Vec<post_series::Model> = vec![];
     let series_names = vec![
         "Getting Started with Rust",
@@ -636,7 +657,10 @@ pub async fn seed_post_series(State(state): State<AppState>, _auth: AuthSession)
 }
 
 #[debug_handler]
-pub async fn seed_post_views(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
+pub async fn seed_post_views(
+    State(state): State<AppState>,
+    _auth: AuthSession,
+) -> impl IntoResponse {
     let posts = match post::Entity::find().all(&state.sea_db).await {
         Ok(p) => p,
         Err(_) => {
@@ -681,7 +705,8 @@ pub async fn seed_post_views(State(state): State<AppState>, _auth: AuthSession) 
                 user_id,
                 ip_address: Some(ip_addresses.choose(&mut rng).unwrap().to_string()),
                 user_agent: Some("Mozilla/5.0 (compatible; RuxlogBot/1.0)".to_string()),
-                created_at: chrono::Utc::now().fixed_offset() - chrono::Duration::minutes(rng.random_range(1..4320)),
+                created_at: chrono::Utc::now().fixed_offset()
+                    - chrono::Duration::minutes(rng.random_range(1..4320)),
             };
 
             let active_model = post_view::ActiveModel {
@@ -709,7 +734,10 @@ pub async fn seed_post_views(State(state): State<AppState>, _auth: AuthSession) 
 }
 
 #[debug_handler]
-pub async fn seed_scheduled_posts(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
+pub async fn seed_scheduled_posts(
+    State(state): State<AppState>,
+    _auth: AuthSession,
+) -> impl IntoResponse {
     let posts = match post::Entity::find().all(&state.sea_db).await {
         Ok(p) => p,
         Err(_) => {
@@ -729,7 +757,8 @@ pub async fn seed_scheduled_posts(State(state): State<AppState>, _auth: AuthSess
         let scheduled_post = scheduled_post::Model {
             id: 0, // Auto-increment
             post_id: post.id,
-            publish_at: chrono::Utc::now().fixed_offset() + chrono::Duration::days(rng.random_range(1..30)),
+            publish_at: chrono::Utc::now().fixed_offset()
+                + chrono::Duration::days(rng.random_range(1..30)),
             status: ScheduledPostStatus::Pending,
             created_at: chrono::Utc::now().fixed_offset(),
             updated_at: chrono::Utc::now().fixed_offset(),
@@ -776,11 +805,35 @@ pub async fn seed_media(State(state): State<AppState>, _auth: AuthSession) -> im
 
     let mut media_list: Vec<media::Model> = vec![];
     let fake_files = vec![
-        ("blog-image-1.jpg", "image/jpeg", Some(1920), Some(1080), 245760),
-        ("profile-pic-1.png", "image/png", Some(400), Some(400), 65536),
-        ("thumbnail-1.webp", "image/webp", Some(300), Some(200), 12288),
+        (
+            "blog-image-1.jpg",
+            "image/jpeg",
+            Some(1920),
+            Some(1080),
+            245760,
+        ),
+        (
+            "profile-pic-1.png",
+            "image/png",
+            Some(400),
+            Some(400),
+            65536,
+        ),
+        (
+            "thumbnail-1.webp",
+            "image/webp",
+            Some(300),
+            Some(200),
+            12288,
+        ),
         ("document-1.pdf", "application/pdf", None, None, 102400),
-        ("video-thumbnail-1.jpg", "image/jpeg", Some(1280), Some(720), 512000),
+        (
+            "video-thumbnail-1.jpg",
+            "image/jpeg",
+            Some(1280),
+            Some(720),
+            512000,
+        ),
     ];
 
     let mut rng = StdRng::seed_from_u64(7777);
@@ -796,8 +849,16 @@ pub async fn seed_media(State(state): State<AppState>, _auth: AuthSession) -> im
             size: *size,
             extension: Some(filename.split('.').last().unwrap().to_string()),
             uploader_id: Some(users.choose(&mut rng).map(|u| u.id).unwrap()),
-            reference_type: Some([media::MediaReference::Post, media::MediaReference::User, media::MediaReference::Category]
-                .choose(&mut rng).unwrap().clone()),
+            reference_type: Some(
+                [
+                    media::MediaReference::Post,
+                    media::MediaReference::User,
+                    media::MediaReference::Category,
+                ]
+                .choose(&mut rng)
+                .unwrap()
+                .clone(),
+            ),
             content_hash: Some(format!("hash_{}", i)),
             is_optimized: rng.random_bool(0.6),
             optimized_at: if rng.random_bool(0.6) {
@@ -844,7 +905,10 @@ pub async fn seed_media(State(state): State<AppState>, _auth: AuthSession) -> im
 }
 
 #[debug_handler]
-pub async fn seed_media_variants(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
+pub async fn seed_media_variants(
+    State(state): State<AppState>,
+    _auth: AuthSession,
+) -> impl IntoResponse {
     let media_files = match media::Entity::find().all(&state.sea_db).await {
         Ok(m) => m,
         Err(_) => {
@@ -868,7 +932,10 @@ pub async fn seed_media_variants(State(state): State<AppState>, _auth: AuthSessi
                     &"thumbnail" => (150, 150),
                     &"medium" => (800, 600),
                     &"large" => (1200, 900),
-                    &"webp" => (media_item.width.unwrap_or(800), media_item.height.unwrap_or(600)),
+                    &"webp" => (
+                        media_item.width.unwrap_or(800),
+                        media_item.height.unwrap_or(600),
+                    ),
                     _ => (400, 300),
                 };
 
@@ -879,8 +946,17 @@ pub async fn seed_media_variants(State(state): State<AppState>, _auth: AuthSessi
                     width: Some(width),
                     height: Some(height),
                     size: media_item.size / 2, // Assume compressed
-                    object_key: format!("variants/{}/{}_{}", media_item.object_key, variant_type, media_item.extension.as_ref().unwrap_or(&"jpg".to_string())),
-                    mime_type: if *variant_type == "webp" { "image/webp".to_string() } else { media_item.mime_type.clone() },
+                    object_key: format!(
+                        "variants/{}/{}_{}",
+                        media_item.object_key,
+                        variant_type,
+                        media_item.extension.as_ref().unwrap_or(&"jpg".to_string())
+                    ),
+                    mime_type: if *variant_type == "webp" {
+                        "image/webp".to_string()
+                    } else {
+                        media_item.mime_type.clone()
+                    },
                     extension: media_item.extension.clone(),
                     quality: Some(80),
                     created_at: chrono::Utc::now().fixed_offset(),
@@ -919,7 +995,10 @@ pub async fn seed_media_variants(State(state): State<AppState>, _auth: AuthSessi
 }
 
 #[debug_handler]
-pub async fn seed_media_usage(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
+pub async fn seed_media_usage(
+    State(state): State<AppState>,
+    _auth: AuthSession,
+) -> impl IntoResponse {
     let media_files = match media::Entity::find().all(&state.sea_db).await {
         Ok(m) => m,
         Err(_) => {
@@ -978,9 +1057,18 @@ pub async fn seed_media_usage(State(state): State<AppState>, _auth: AuthSession)
         let usage_count = rng.random_range(1..4);
         for _ in 0..usage_count {
             let (entity_type, entity_id) = match rng.random_range(0..3) {
-                0 => (media_usage::EntityType::Post, posts.choose(&mut rng).map(|p| p.id).unwrap()),
-                1 => (media_usage::EntityType::User, users.choose(&mut rng).map(|u| u.id).unwrap()),
-                _ => (media_usage::EntityType::Category, categories.choose(&mut rng).map(|c| c.id).unwrap()),
+                0 => (
+                    media_usage::EntityType::Post,
+                    posts.choose(&mut rng).map(|p| p.id).unwrap(),
+                ),
+                1 => (
+                    media_usage::EntityType::User,
+                    users.choose(&mut rng).map(|u| u.id).unwrap(),
+                ),
+                _ => (
+                    media_usage::EntityType::Category,
+                    categories.choose(&mut rng).map(|c| c.id).unwrap(),
+                ),
             };
 
             let usage = media_usage::Model {
@@ -1018,7 +1106,10 @@ pub async fn seed_media_usage(State(state): State<AppState>, _auth: AuthSession)
 
 // Community and system seeds
 #[debug_handler]
-pub async fn seed_comment_flags(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
+pub async fn seed_comment_flags(
+    State(state): State<AppState>,
+    _auth: AuthSession,
+) -> impl IntoResponse {
     let comments = match post_comment::Entity::find().all(&state.sea_db).await {
         Ok(c) => c,
         Err(_) => {
@@ -1085,7 +1176,10 @@ pub async fn seed_comment_flags(State(state): State<AppState>, _auth: AuthSessio
 }
 
 #[debug_handler]
-pub async fn seed_newsletter_subscribers(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
+pub async fn seed_newsletter_subscribers(
+    State(state): State<AppState>,
+    _auth: AuthSession,
+) -> impl IntoResponse {
     let mut subscribers: Vec<newsletter_subscriber::Model> = vec![];
     let mut emails_set: HashSet<String> = HashSet::new();
     let mut rng = StdRng::seed_from_u64(2222);
@@ -1137,7 +1231,10 @@ pub async fn seed_newsletter_subscribers(State(state): State<AppState>, _auth: A
 }
 
 #[debug_handler]
-pub async fn seed_route_status(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
+pub async fn seed_route_status(
+    State(state): State<AppState>,
+    _auth: AuthSession,
+) -> impl IntoResponse {
     let protected_routes = vec![
         "/admin",
         "/admin/users",
@@ -1215,7 +1312,10 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
                 let email_clone = email.clone();
                 let password_clone = password.clone();
                 tokio::spawn(async move {
-                    match supabase.admin_create_user(&email_clone, &password_clone).await {
+                    match supabase
+                        .admin_create_user(&email_clone, &password_clone)
+                        .await
+                    {
                         Ok(_) => println!("Supabase user created for {}", email_clone),
                         Err(e) => println!("Failed to create Supabase user: {}", e),
                     }

@@ -45,6 +45,7 @@ fn hex_to_512bit_key(hex: &str) -> [u8; 64] {
 
 fn get_allowed_origins() -> Vec<HeaderValue> {
     let mut default_origins: Vec<String> = vec![
+        "http://localhost:8081",
         "http://localhost:8080",
         "http://127.0.0.1:8080",
         "http://127.0.0.1:8000",
@@ -153,7 +154,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             None,
             "S3Compatible",
         ))
-        .region(aws_sdk_s3::config::Region::new(object_storage.region.clone()))
+        .region(aws_sdk_s3::config::Region::new(
+            object_storage.region.clone(),
+        ))
         .load()
         .await;
 

@@ -136,8 +136,9 @@ pub async fn reset(
         Ok(Some(user)) => user,
         Ok(None) => {
             warn!(email = %payload.email, "User not found");
-            return Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                .with_message("User not found"));
+            return Err(
+                ErrorResponse::new(ErrorCode::RecordNotFound).with_message("User not found")
+            );
         }
         Err(err) => {
             error!(email = %payload.email, "Database error: {}", err);

@@ -1,8 +1,8 @@
+use crate::services::supabase::SupabaseClient;
 use lettre;
 use opentelemetry::metrics::Meter;
 use sea_orm::DatabaseConnection;
 use tower_sessions_redis_store::fred::prelude::Pool as RedisPool;
-use crate::services::supabase::SupabaseClient;
 
 #[derive(Clone, Debug)]
 pub struct ObjectStorageConfig {

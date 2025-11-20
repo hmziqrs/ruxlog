@@ -33,11 +33,7 @@ pub async fn verify(
     let code = payload.0.code;
 
     // Verify OTP with Supabase
-    match state
-        .supabase
-        .verify_otp(&user.email, &code, "email")
-        .await
-    {
+    match state.supabase.verify_otp(&user.email, &code, "email").await {
         Ok(_) => {
             // Mark user as verified in PostgreSQL
             match user::Entity::verify(&state.sea_db, user.id).await {
@@ -82,7 +78,10 @@ pub async fn resend(
     match abuse_limiter::limiter(&state.redis_pool, &key_prefix, ABUSE_LIMITER_CONFIG).await {
         Ok(_) => (),
         Err(err) => {
-            warn!(user_id = user.id, "Abuse limiter blocked verification resend");
+            warn!(
+                user_id = user.id,
+                "Abuse limiter blocked verification resend"
+            );
             return Err(err.into());
         }
     }

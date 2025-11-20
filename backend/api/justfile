@@ -1,5 +1,3 @@
-# Ruxlog Backend Commands
-
 # Default recipe
 default:
     echo "Ruxlog Backend Commands"
