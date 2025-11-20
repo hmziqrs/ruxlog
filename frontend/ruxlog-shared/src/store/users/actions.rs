@@ -86,12 +86,12 @@ impl UsersState {
     }
 
     pub async fn get_profile(&self) {
-        let _ = view_state_abstraction(
+        let _ = state_request_abstraction(
             &self.profile,
-            0,
+            None::<()>,
             http::get("/user/v1/get").send(),
             "profile",
-            |profile: &UserProfile| profile.clone(),
+            |profile: &UserProfile| (Some(Some(profile.clone())), None),
         )
         .await;
     }
@@ -99,10 +99,10 @@ impl UsersState {
     pub async fn update_profile(&self, payload: UpdateProfilePayload) {
         let _ = state_request_abstraction(
             &self.profile,
-            Some(payload.clone()),
+            None::<()>,
             http::post("/user/v1/update", &payload).send(),
             "profile",
-            |profile: &UserProfile| (Some(profile.clone()), None),
+            |profile: &UserProfile| (Some(Some(profile.clone())), None),
         )
         .await;
 

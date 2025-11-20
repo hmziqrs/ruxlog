@@ -12,7 +12,7 @@ impl EmailVerificationState {
             Some(meta),
             http::post("/email_verification/v1/verify", &payload).send(),
             "email_verification",
-            |resp: &VerificationResult| (Some(resp.clone()), None),
+            |resp: &VerificationResult| (Some(Some(resp.clone())), None),
         )
         .await;
     }
@@ -24,7 +24,7 @@ impl EmailVerificationState {
             Some(meta),
             http::post("/email_verification/v1/resend", &payload).send(),
             "email_verification_resend",
-            |_resp: &serde_json::Value| (Some(()), None),
+            |_resp: &serde_json::Value| (Some(Some(())), None),
         )
         .await;
     }

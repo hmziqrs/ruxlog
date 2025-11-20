@@ -29,7 +29,7 @@ impl NewsletterState {
             Some(meta),
             http::post("/newsletter/v1/unsubscribe", &payload).send(),
             "unsubscribe",
-            |_res: &serde_json::Value| (Some(()), None),
+            |_res: &serde_json::Value| (Some(Some(())), None),
         )
         .await;
 
@@ -43,7 +43,7 @@ impl NewsletterState {
             Some(meta),
             http::post("/newsletter/v1/confirm", &payload).send(),
             "confirm",
-            |_res: &serde_json::Value| (Some(()), None),
+            |_res: &serde_json::Value| (Some(Some(())), None),
         )
         .await;
     }
@@ -64,7 +64,7 @@ impl NewsletterState {
             Some(meta),
             http::post("/newsletter/v1/send", &payload).send(),
             "send_newsletter",
-            |res: &SendResult| (Some(res.clone()), None),
+            |res: &SendResult| (Some(Some(res.clone())), None),
         )
         .await;
     }

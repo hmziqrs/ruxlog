@@ -12,7 +12,7 @@ impl PasswordResetState {
             Some(meta),
             http::post("/forgot_password/v1/request", &payload).send(),
             "password_reset_request",
-            |_resp: &serde_json::Value| (Some(()), None),
+            |_resp: &serde_json::Value| (Some(Some(())), None),
         )
         .await;
     }
@@ -24,19 +24,19 @@ impl PasswordResetState {
             Some(meta),
             http::post("/forgot_password/v1/verify", &payload).send(),
             "password_reset_verify",
-            |resp: &ResetResult| (Some(resp.clone()), None),
+            |resp: &ResetResult| (Some(Some(resp.clone())), None),
         )
         .await;
     }
 
-    pub async fn reset(&self, payload: ResetPasswordPayload) {
+    pub async fn reset_password(&self, payload: ResetPasswordPayload) {
         let meta = payload.clone();
         let _ = state_request_abstraction(
             &self.reset,
             Some(meta),
             http::post("/forgot_password/v1/reset", &payload).send(),
             "password_reset",
-            |resp: &ResetResult| (Some(resp.clone()), None),
+            |resp: &ResetResult| (Some(Some(resp.clone())), None),
         )
         .await;
     }

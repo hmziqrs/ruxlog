@@ -3,7 +3,7 @@ use super::{
     UserSession,
 };
 use crate::store::{
-    use_admin_routes, use_analytics, use_categories, use_comments, use_email_verification,
+    /* use_admin_routes, */ use_analytics, use_categories, use_comments, use_email_verification,
     use_image_editor, use_media, use_newsletter, use_password_reset, use_post, use_tag, use_user,
 };
 use dioxus::{logger::tracing, prelude::*};
@@ -86,7 +86,7 @@ impl AuthState {
         use_newsletter().reset();
         use_email_verification().reset();
         use_password_reset().reset();
-        use_admin_routes().reset();
+        // use_admin_routes().reset(); // TODO: Fix admin_routes compilation errors
     }
 
     pub async fn init(&self) {
@@ -206,10 +206,9 @@ impl AuthState {
     }
 
     pub async fn verify_2fa(&self, payload: TwoFactorVerifyPayload) {
-        let meta = payload.clone();
         let _ = state_request_abstraction(
             &self.two_factor,
-            Some(meta),
+            None::<()>,
             http::post("/auth/v1/2fa/verify", &payload).send(),
             "two_factor_verify",
             |_resp: &serde_json::Value| (Some(None), None),
@@ -218,10 +217,9 @@ impl AuthState {
     }
 
     pub async fn disable_2fa(&self, payload: TwoFactorVerifyPayload) {
-        let meta = payload.clone();
         let _ = state_request_abstraction(
             &self.two_factor,
-            Some(meta),
+            None::<()>,
             http::post("/auth/v1/2fa/disable", &payload).send(),
             "two_factor_disable",
             |_resp: &serde_json::Value| (Some(None), None),
@@ -241,7 +239,7 @@ impl AuthState {
             None::<()>,
             http::post("/auth/v1/sessions/list", &serde_json::json!({})).send(),
             "user_sessions",
-            |sessions: &Vec<UserSession>| (Some(sessions.clone()), None),
+            |sessions: &Vec<UserSession>| (Some(Some(sessions.clone())), None),
         )
         .await;
     }
