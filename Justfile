@@ -117,10 +117,10 @@ api-lsof env='dev':
 # Frontend Admin (Dioxus) ---------------------------------------------------
 
 admin-dev env='dev':
-    cd {{admin_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- dx serve
+    cd {{admin_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- bash -c 'dx serve --port $ADMIN_PORT'
 
 admin-desktop env='dev':
-    cd {{admin_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- dx serve --platform desktop
+    cd {{admin_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- bash -c 'dx serve --platform desktop --port $ADMIN_PORT'
 
 admin-build env='dev':
     cd {{admin_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- dx build --platform web --release
@@ -155,10 +155,10 @@ admin-clean env='dev':
 # Frontend Consumer (Dioxus) ------------------------------------------------
 
 consumer-dev env='dev':
-    cd {{consumer_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- dx serve
+    cd {{consumer_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- bash -c 'dx serve --port $CONSUMER_PORT'
 
 consumer-desktop env='dev':
-    cd {{consumer_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- dx serve --platform desktop
+    cd {{consumer_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- bash -c 'dx serve --platform desktop --port $CONSUMER_PORT'
 
 consumer-build env='dev':
     cd {{consumer_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- dx build --platform web --release

@@ -26,12 +26,16 @@ This document defines the standardized port allocation strategy for the ruxlog p
 | Garage Admin | 1104 | 3901 | Garage admin API |
 | Garage S3 | 1105 | 3902 | S3 API endpoint |
 | Garage Web | 1106 | 3903 | Web interface |
+| Admin Frontend | 1107 | 8080 | Dioxus admin frontend |
+| Consumer Frontend | 1108 | 8080 | Dioxus consumer frontend |
 
 **Access URLs**:
 - API: `http://localhost:1100`
 - PostgreSQL: `localhost:1101`
 - Redis: `localhost:1102`
 - S3: `http://127.0.0.1:1105`
+- Admin: `http://localhost:1107`
+- Consumer: `http://localhost:1108`
 
 ### Staging Environment (1200-1299)
 
@@ -44,6 +48,8 @@ This document defines the standardized port allocation strategy for the ruxlog p
 | Garage Admin | 1204 | 3901 | Garage admin API |
 | Garage S3 | 1205 | 3902 | S3 API endpoint |
 | Garage Web | 1206 | 3903 | Web interface |
+| Admin Frontend | 1207 | 8080 | Dioxus admin frontend |
+| Consumer Frontend | 1208 | 8080 | Dioxus consumer frontend |
 
 **Note**: Staging typically uses domain names with reverse proxy, so these ports are for direct local access to staging containers.
 
@@ -58,12 +64,16 @@ This document defines the standardized port allocation strategy for the ruxlog p
 | Garage Admin | 1304 | 3901 | Garage admin API |
 | Garage S3 | 1305 | 3902 | S3 API endpoint |
 | Garage Web | 1306 | 3903 | Web interface |
+| Admin Frontend | 1307 | 8080 | Dioxus admin frontend |
+| Consumer Frontend | 1308 | 8080 | Dioxus consumer frontend |
 
 **Access URLs**:
 - API: `http://localhost:1300`
 - PostgreSQL: `localhost:1301`
 - Redis: `localhost:1302`
 - S3: `http://127.0.0.1:1305`
+- Admin: `http://localhost:1307`
+- Consumer: `http://localhost:1308`
 
 ## Benefits
 

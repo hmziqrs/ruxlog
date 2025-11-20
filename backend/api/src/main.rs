@@ -73,6 +73,16 @@ fn get_allowed_origins() -> Vec<HeaderValue> {
     .map(|val| val.to_string())
     .collect();
 
+    if let Ok(admin_port) = env::var("ADMIN_PORT") {
+        default_origins.push(format!("http://localhost:{}", admin_port));
+        default_origins.push(format!("http://127.0.0.1:{}", admin_port));
+    }
+
+    if let Ok(consumer_port) = env::var("CONSUMER_PORT") {
+        default_origins.push(format!("http://localhost:{}", consumer_port));
+        default_origins.push(format!("http://127.0.0.1:{}", consumer_port));
+    }
+
     if let Ok(env_allowed_origin) = env::var("ALLOWED_ORIGINS") {
         let env_origins: Vec<String> = env_allowed_origin
             .split(',')
