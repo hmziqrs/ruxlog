@@ -1,7 +1,6 @@
 use dioxus::prelude::*;
+use oxui::components::form::input::SimpleInput;
 use oxui::shadcn::button::{Button, ButtonVariant};
-use oxui::shadcn::input::Input;
-use oxui::shadcn::label::Label;
 use ruxlog_shared::use_auth;
 
 #[component]
@@ -14,13 +13,14 @@ pub fn LoginScreen() -> Element {
     let login_status = auth_store.login_status.read();
     let is_loading = (*login_status).is_loading();
 
-    let handle_submit = move |_| {
+    let handle_submit = move |evt: FormEvent| {
+        evt.prevent_default();
         let email_val = email();
         let password_val = password();
         
         spawn(async move {
-            let success = auth_store.login(email_val, password_val).await;
-            if success {
+            auth_store.login(email_val, password_val).await;
+            if auth_store.login_status.read().is_success() {
                 nav.push(crate::router::Route::HomeScreen {});
             }
         });
@@ -39,33 +39,30 @@ pub fn LoginScreen() -> Element {
                 div { class: "bg-card border border-border rounded-lg p-8 shadow-lg",
                     form {
                         onsubmit: handle_submit,
-                        prevent_default: "onsubmit",
                         
                         div { class: "space-y-4",
                             // Email field
                             div { class: "space-y-2",
-                                Label { r#for: "email", "Email" }
-                                Input {
-                                    id: "email",
-                                    r#type: "email",
-                                    placeholder: "you@example.com",
-                                    value: "{email}",
-                                    oninput: move |evt| email.set(evt.value().clone()),
-                                    required: true,
+                                label { class: "text-sm font-medium", r#for: "email", "Email" }
+                                SimpleInput {
+                                    id: Some("email".to_string()),
+                                    r#type: "email".to_string(),
+                                    placeholder: Some("you@example.com".to_string()),
+                                    value: email(),
+                                    oninput: move |value| email.set(value),
                                     disabled: is_loading,
                                 }
                             }
 
                             // Password field
                             div { class: "space-y-2",
-                                Label { r#for: "password", "Password" }
-                                Input {
-                                    id: "password",
-                                    r#type: "password",
-                                    placeholder: "••••••••",
-                                    value: "{password}",
-                                    oninput: move |evt| password.set(evt.value().clone()),
-                                    required: true,
+                                label { class: "text-sm font-medium", r#for: "password", "Password" }
+                                SimpleInput {
+                                    id: Some("password".to_string()),
+                                    r#type: "password".to_string(),
+                                    placeholder: Some("••••••••".to_string()),
+                                    value: password(),
+                                    oninput: move |value| password.set(value),
                                     disabled: is_loading,
                                 }
                             }

@@ -1,8 +1,8 @@
 use dioxus::prelude::*;
-use ruxlog_shared::use_auth;
-use oxui::shadcn::button::{Button, ButtonVariant};
-use hmziq_dioxus_free_icons::icons::ld_icons::{LdMail, LdUser, LdCalendar, LdEdit};
+use hmziq_dioxus_free_icons::icons::ld_icons::{LdMail, LdUser};
 use hmziq_dioxus_free_icons::Icon;
+use oxui::shadcn::button::{Button, ButtonVariant};
+use ruxlog_shared::use_auth;
 
 #[component]
 pub fn ProfileScreen() -> Element {
@@ -11,7 +11,6 @@ pub fn ProfileScreen() -> Element {
     let user = auth_store.user.read();
 
     if let Some(user) = &*user {
-        let joined_date = user.created_at.format("%B %Y").to_string();
 
         rsx! {
             div { class: "min-h-screen bg-background text-foreground",
@@ -33,7 +32,7 @@ pub fn ProfileScreen() -> Element {
                                 div { class: "w-32 h-32 rounded-full bg-primary/20 border-4 border-card flex items-center justify-center",
                                     if let Some(avatar) = &user.avatar {
                                         img {
-                                            src: "{avatar}",
+                                            src: "{avatar.file_url}",
                                             alt: "{user.name}",
                                             class: "w-full h-full rounded-full object-cover"
                                         }
@@ -65,7 +64,7 @@ pub fn ProfileScreen() -> Element {
                                     div { class: "flex-1",
                                         p { class: "text-sm text-muted-foreground mb-1", "Email" }
                                         p { class: "text-lg font-medium", "{user.email}" }
-                                        if user.email_verified_at.is_some() {
+                                        if user.is_verified {
                                             span { class: "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400 mt-1",
                                                 "✓ Verified"
                                             }
@@ -77,17 +76,6 @@ pub fn ProfileScreen() -> Element {
                                     }
                                 }
 
-                                // Member since
-                                div { class: "flex items-start gap-4",
-                                    div { class: "w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0",
-                                        Icon { icon: LdCalendar, class: "w-6 h-6 text-primary" }
-                                    }
-                                    div { class: "flex-1",
-                                        p { class: "text-sm text-muted-foreground mb-1", "Member since" }
-                                        p { class: "text-lg font-medium", "{joined_date}" }
-                                    }
-                                }
-
                                 // Actions
                                 div { class: "pt-6 border-t border-border flex gap-3",
                                     Button {
@@ -95,7 +83,6 @@ pub fn ProfileScreen() -> Element {
                                             nav.push(crate::router::Route::ProfileEditScreen {});
                                         },
                                         class: "flex-1",
-                                        Icon { icon: LdEdit, class: "w-4 h-4 mr-2" }
                                         "Edit Profile"
                                     }
                                     Button {

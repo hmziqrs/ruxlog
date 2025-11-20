@@ -30,7 +30,7 @@ pub struct UpdateRoutePayload {
 pub struct AdminRoutesState {
     pub list: GlobalSignal<StateFrame<Vec<RouteStatus>>>,
     pub block: GlobalSignal<StateFrame<RouteStatus, BlockRoutePayload>>,
-    pub update: GlobalSignal<HashMap<String, StateFrame<RouteStatus, UpdateRoutePayload>>>,
+    pub update: GlobalSignal<HashMap<String, StateFrame<(), UpdateRoutePayload>>>,
     pub remove: GlobalSignal<HashMap<String, StateFrame>>,
     pub sync: GlobalSignal<StateFrame>,
 }

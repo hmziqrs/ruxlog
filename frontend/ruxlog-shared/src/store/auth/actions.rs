@@ -239,7 +239,7 @@ impl AuthState {
             None::<()>,
             http::post("/auth/v1/sessions/list", &serde_json::json!({})).send(),
             "user_sessions",
-            |sessions: &Vec<UserSession>| (Some(Some(sessions.clone())), None),
+            |sessions: &Vec<UserSession>| (Some(sessions.clone()), None),
         )
         .await;
     }

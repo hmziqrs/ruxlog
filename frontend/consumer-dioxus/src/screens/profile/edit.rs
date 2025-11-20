@@ -1,8 +1,7 @@
 use dioxus::prelude::*;
 use ruxlog_shared::use_auth;
+use oxui::components::form::input::SimpleInput;
 use oxui::shadcn::button::{Button, ButtonVariant};
-use oxui::shadcn::input::Input;
-use oxui::shadcn::label::Label;
 
 #[component]
 pub fn ProfileEditScreen() -> Element {
@@ -31,7 +30,8 @@ pub fn ProfileEditScreen() -> Element {
         };
     }
 
-    let handle_profile_update = move |_| {
+    let handle_profile_update = move |evt: FormEvent| {
+        evt.prevent_default();
         let name_val = name();
         let email_val = email();
 
@@ -54,7 +54,8 @@ pub fn ProfileEditScreen() -> Element {
         // });
     };
 
-    let handle_password_change = move |_| {
+    let handle_password_change = move |evt: FormEvent| {
+        evt.prevent_default();
         let current_pwd = current_password();
         let new_pwd = new_password();
         let confirm_pwd = confirm_password();
@@ -123,28 +124,24 @@ pub fn ProfileEditScreen() -> Element {
                         
                         form {
                             onsubmit: handle_profile_update,
-                            prevent_default: "onsubmit",
                             
                             div { class: "space-y-4",
                                 div { class: "space-y-2",
-                                    Label { r#for: "name", "Full Name" }
-                                    Input {
-                                        id: "name",
-                                        r#type: "text",
-                                        value: "{name}",
-                                        oninput: move |evt| name.set(evt.value().clone()),
-                                        required: true,
+                                    label { class: "text-sm font-medium", r#for: "name", "Full Name" }
+                                    SimpleInput {
+                                        id: Some("name".to_string()),
+                                        value: name(),
+                                        oninput: move |value| name.set(value),
                                     }
                                 }
 
                                 div { class: "space-y-2",
-                                    Label { r#for: "email", "Email" }
-                                    Input {
-                                        id: "email",
-                                        r#type: "email",
-                                        value: "{email}",
-                                        oninput: move |evt| email.set(evt.value().clone()),
-                                        required: true,
+                                    label { class: "text-sm font-medium", r#for: "email", "Email" }
+                                    SimpleInput {
+                                        id: Some("email".to_string()),
+                                        r#type: "email".to_string(),
+                                        value: email(),
+                                        oninput: move |value| email.set(value),
                                     }
                                 }
 
@@ -162,40 +159,39 @@ pub fn ProfileEditScreen() -> Element {
                         
                         form {
                             onsubmit: handle_password_change,
-                            prevent_default: "onsubmit",
                             
                             div { class: "space-y-4",
                                 div { class: "space-y-2",
-                                    Label { r#for: "current_password", "Current Password" }
-                                    Input {
-                                        id: "current_password",
-                                        r#type: "password",
-                                        value: "{current_password}",
-                                        oninput: move |evt| current_password.set(evt.value().clone()),
-                                        placeholder: "Enter current password",
+                                    label { class: "text-sm font-medium", r#for: "current_password", "Current Password" }
+                                    SimpleInput {
+                                        id: Some("current_password".to_string()),
+                                        r#type: "password".to_string(),
+                                        placeholder: Some("Enter current password".to_string()),
+                                        value: current_password(),
+                                        oninput: move |value| current_password.set(value),
                                     }
                                 }
 
                                 div { class: "space-y-2",
-                                    Label { r#for: "new_password", "New Password" }
-                                    Input {
-                                        id: "new_password",
-                                        r#type: "password",
-                                        value: "{new_password}",
-                                        oninput: move |evt| new_password.set(evt.value().clone()),
-                                        placeholder: "Enter new password",
+                                    label { class: "text-sm font-medium", r#for: "new_password", "New Password" }
+                                    SimpleInput {
+                                        id: Some("new_password".to_string()),
+                                        r#type: "password".to_string(),
+                                        placeholder: Some("Enter new password".to_string()),
+                                        value: new_password(),
+                                        oninput: move |value| new_password.set(value),
                                     }
                                     p { class: "text-xs text-muted-foreground", "Must be at least 8 characters" }
                                 }
 
                                 div { class: "space-y-2",
-                                    Label { r#for: "confirm_password", "Confirm New Password" }
-                                    Input {
-                                        id: "confirm_password",
-                                        r#type: "password",
-                                        value: "{confirm_password}",
-                                        oninput: move |evt| confirm_password.set(evt.value().clone()),
-                                        placeholder: "Confirm new password",
+                                    label { class: "text-sm font-medium", r#for: "confirm_password", "Confirm New Password" }
+                                    SimpleInput {
+                                        id: Some("confirm_password".to_string()),
+                                        r#type: "password".to_string(),
+                                        placeholder: Some("Confirm new password".to_string()),
+                                        value: confirm_password(),
+                                        oninput: move |value| confirm_password.set(value),
                                     }
                                 }
 

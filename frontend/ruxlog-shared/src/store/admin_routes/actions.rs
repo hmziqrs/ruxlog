@@ -36,32 +36,40 @@ impl AdminRoutesState {
     }
 
     pub async fn update(&self, pattern: String, payload: UpdateRoutePayload) {
-        let _route = edit_state_abstraction(
+        let updated_route = edit_state_abstraction(
             &self.update,
             pattern.clone(),
             payload.clone(),
             http::post(&format!("/admin/route/v1/update/{}", pattern), &payload).send(),
             "route_status",
-            Some(&self.list),
-            None::<fn(&AdminRoutesState)>,
+            None,
+            None,
             |route: &RouteStatus| route.pattern.clone(),
             None::<fn(&RouteStatus)>,
         )
         .await;
+
+        if updated_route.is_some() {
+            self.list().await;
+        }
     }
 
     pub async fn remove(&self, pattern: String) {
-        let _ = remove_state_abstraction(
+        let removed = remove_state_abstraction(
             &self.remove,
             pattern.clone(),
             http::delete(&format!("/admin/route/v1/delete/{}", pattern)).send(),
             "route_status",
-            Some(&self.list),
-            None::<fn(&AdminRoutesState)>,
+            None,
+            None,
             |route: &RouteStatus| route.pattern.clone(),
             None::<fn()>,
         )
         .await;
+
+        if removed {
+            self.list().await;
+        }
     }
 
     pub async fn list(&self) {
