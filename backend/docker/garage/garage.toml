@@ -1,0 +1,23 @@
+metadata_dir = "/meta"
+data_dir = "/data"
+db_engine = "sqlite"
+replication_factor = 1
+consistency_mode = "consistent"
+compression_level = 1
+
+# RPC configuration (secrets provided via CLI flags/env vars)
+rpc_bind_addr = "[::]:3900"
+rpc_public_addr = "127.0.0.1:3900"
+bootstrap_peers = []
+
+[s3_api]
+s3_region = "garage"
+api_bind_addr = "[::]:3902"
+root_domain = ".s3.local.ruxlog"
+
+[s3_web]
+bind_addr = "[::]:3903"
+root_domain = ".web.local.ruxlog"
+
+[admin]
+api_bind_addr = "[::]:3901"

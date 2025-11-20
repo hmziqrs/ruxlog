@@ -1,0 +1,129 @@
+name: ${PROJECT:-rux_local}
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  env_file:
+    - ${ENV_FILE:-.env.dev}
+  networks:
+    - ruxlog
+
+services:
+  api:
+    <<: *service-defaults
+    profiles: ["full"]
+    build:
+      context: ./backend
+      dockerfile: docker/Dockerfile.api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    ports:
+      - "${PORT:-8888}:8888"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:8888/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+
+  postgres:
+    <<: *service-defaults
+    profiles: ["services", "full"]
+    image: postgres:18.1-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/docker/init-scripts:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+
+  valkey:
+    <<: *service-defaults
+    profiles: ["services", "full"]
+    image: valkey/valkey:8.0-alpine
+    command:
+      - valkey-server
+      - "--requirepass"
+      - "${REDIS_PASSWORD}"
+      - "--acl-pubsub-default"
+      - allchannels
+      - "--aclfile"
+      - /etc/valkey/users.acl
+    volumes:
+      - valkey_data:/data
+      - ./backend/docker/redis/users.acl:/etc/valkey/users.acl:ro
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "valkey-cli",
+          "-u",
+          "redis://${REDIS_USER}:${REDIS_PASSWORD}@localhost:6379",
+          "PING",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+
+  garage:
+    <<: *service-defaults
+    profiles: ["storage"]
+    image: dxflrs/garage:v2.1.0
+    command:
+      [
+        "/garage",
+        "--config",
+        "/etc/garage/garage.toml",
+        "--rpc-secret",
+        "${GARAGE_RPC_SECRET}",
+        "--admin-token",
+        "${GARAGE_ADMIN_TOKEN}",
+        "--metrics-token",
+        "${GARAGE_METRICS_TOKEN}",
+        "server",
+      ]
+    ports:
+      - "${GARAGE_RPC_PORT:-3900}:3900"
+      - "${GARAGE_ADMIN_PORT:-3901}:3901"
+      - "${GARAGE_S3_PORT:-3902}:3902"
+      - "${GARAGE_WEB_PORT:-3903}:3903"
+    volumes:
+      - ./backend/docker/garage/garage.toml:/etc/garage/garage.toml:ro
+      - garage_meta:/meta
+      - garage_data:/data
+
+networks:
+  ruxlog:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  valkey_data:
+    driver: local
+  garage_meta:
+    driver: local
+  garage_data:
+    driver: local

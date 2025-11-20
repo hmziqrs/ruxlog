@@ -1,12 +1,12 @@
 #!/usr/bin/env cargo --bin archive_changes
 
 use clap::Parser;
+use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use sha2::{Digest, Sha256};
 
 const MAX_FILE_SIZE: u64 = 50 * 1024 * 1024; // 50MB
 
@@ -80,7 +80,12 @@ fn generate_hash(files: &[String]) -> String {
     hex::encode(hasher.finalize())[..8].to_string()
 }
 
-fn create_archive(files: Vec<String>, hash: &str, backups_dir: &Path, root_dir: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn create_archive(
+    files: Vec<String>,
+    hash: &str,
+    backups_dir: &Path,
+    root_dir: &Path,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
     if files.is_empty() {
         return Err("No files to archive".into());
     }
@@ -101,7 +106,11 @@ fn create_archive(files: Vec<String>, hash: &str, backups_dir: &Path, root_dir: 
     let status = Command::new("sh")
         .current_dir(root_dir)
         .arg("-c")
-        .arg(&format!("cat {} | zip -q -@ {}", temp_file_list.display(), zip_path.display()))
+        .arg(&format!(
+            "cat {} | zip -q -@ {}",
+            temp_file_list.display(),
+            zip_path.display()
+        ))
         .status()?;
 
     fs::remove_file(&temp_file_list)?;
@@ -122,7 +131,8 @@ fn create_archive(files: Vec<String>, hash: &str, backups_dir: &Path, root_dir: 
 }
 
 fn display_files(status: &GitStatus) {
-    let all_files: Vec<String> = status.staged
+    let all_files: Vec<String> = status
+        .staged
         .iter()
         .chain(&status.unstaged)
         .chain(&status.untracked)
@@ -167,11 +177,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("🔍 Checking for changed files...\n");
 
-    let root_dir = env::current_exe()?.parent().unwrap().parent().unwrap().to_path_buf();
+    let root_dir = env::current_exe()?
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_path_buf();
     let backups_dir = args.output.unwrap_or_else(|| root_dir.join("backups"));
 
     let status = get_git_status()?;
-    let all_files: Vec<String> = status.staged
+    let all_files: Vec<String> = status
+        .staged
         .iter()
         .chain(&status.unstaged)
         .chain(&status.untracked)
@@ -196,10 +212,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 valid_files.push(file_path.clone());
             } else {
                 let size_mb = metadata.len() as f64 / (1024.0 * 1024.0);
-                println!(
-                    "⚠️  Skipping large file: {} ({:.2} MB)",
-                    file_path, size_mb
-                );
+                println!("⚠️  Skipping large file: {} ({:.2} MB)", file_path, size_mb);
             }
         }
     }

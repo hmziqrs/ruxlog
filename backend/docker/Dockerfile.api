@@ -1,0 +1,30 @@
+FROM rust:1.89.0-slim-trixie AS base
+WORKDIR /workspace
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        pkg-config libssl-dev libpq-dev build-essential ca-certificates binutils \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM base AS deps
+COPY api/Cargo.toml api/Cargo.toml
+COPY api/Cargo.lock api/Cargo.lock
+COPY api/migration/Cargo.toml api/migration/Cargo.toml
+COPY api/migration/Cargo.lock api/migration/Cargo.lock
+RUN cd api && cargo fetch --locked
+
+FROM deps AS builder
+COPY api api
+WORKDIR /workspace/api
+ENV RUSTFLAGS="-C strip=symbols"
+RUN cargo build --release --locked
+
+FROM debian:trixie-slim AS runner
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libpq5 ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -r -u 10001 appuser
+COPY --from=builder /workspace/api/target/release/ruxlog /app/ruxlog
+USER appuser
+EXPOSE 8888
+CMD ["/app/ruxlog"]

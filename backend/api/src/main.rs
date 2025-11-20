@@ -141,12 +141,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         public_url: env::var("R2_PUBLIC_URL").expect("R2_PUBLIC_URL must be set"),
     };
 
-    let endpoint_url = format!("https://{}.r2.cloudflarestorage.com", &r2.account_id);
-
-    r2.public_url = "https://pub-63743cad4ace41b5903015b89d79fb27.r2.dev".to_string();
-    // r2.public_url = format!(
-    //     "https://{}.r2.cloudflarestorage.com/{}",
-    //     &r2.secret_key, &r2.bucket
+    let endpoint_url = env::var("OBJECT_STORAGE_ENDPOINT")
+        .unwrap_or_else(|_| format!("https://{}.r2.cloudflarestorage.com", &r2.account_id));
 
     println!("R2 Config: {:?}", r2);
 
@@ -159,7 +155,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             None,
             "R2",
         ))
-        .region("auto")
+        .region(r2.region.clone())
         .load()
         .await;
 
