@@ -12,9 +12,10 @@ pub fn NewsletterSubscribersScreen() -> Element {
             newsletter
                 .list_subscribers(SubscriberListQuery {
                     confirmed: None,
-                    page: Some(1),
+                    page: 1,
                     limit: Some(50),
                     search: None,
+                    ..Default::default()
                 })
                 .await;
         });
@@ -24,13 +25,14 @@ pub fn NewsletterSubscribersScreen() -> Element {
         let newsletter = newsletter;
         let q = SubscriberListQuery {
             confirmed: if confirmed_only() { Some(true) } else { None },
-            page: Some(1),
+            page: 1,
             limit: Some(50),
             search: if search().is_empty() {
                 None
             } else {
                 Some(search())
             },
+            ..Default::default()
         };
         spawn(async move {
             newsletter.list_subscribers(q).await;

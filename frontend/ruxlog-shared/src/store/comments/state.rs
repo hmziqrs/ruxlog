@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
-use oxstore::{PaginatedList, StateFrame};
+use oxstore::{ListQuery, ListStore, PaginatedList, SortParam, StateFrame};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -62,9 +62,50 @@ pub struct CommentFlagPayload {
 pub struct CommentListQuery {
     pub post_id: Option<i32>,
     pub user_id: Option<i32>,
-    pub page: Option<u64>,
+    pub page: u64,
     pub limit: Option<u64>,
     pub include_hidden: Option<bool>,
+    pub search: Option<String>,
+    pub sorts: Option<Vec<SortParam>>,
+}
+
+impl CommentListQuery {
+    pub fn new() -> Self {
+        Self {
+            page: 1,
+            ..Default::default()
+        }
+    }
+}
+
+impl ListQuery for CommentListQuery {
+    fn new() -> Self {
+        Self::new()
+    }
+
+    fn page(&self) -> u64 {
+        self.page
+    }
+
+    fn set_page(&mut self, page: u64) {
+        self.page = page;
+    }
+
+    fn search(&self) -> Option<String> {
+        self.search.clone()
+    }
+
+    fn set_search(&mut self, search: Option<String>) {
+        self.search = search;
+    }
+
+    fn sorts(&self) -> Option<Vec<SortParam>> {
+        self.sorts.clone()
+    }
+
+    fn set_sorts(&mut self, sorts: Option<Vec<SortParam>>) {
+        self.sorts = sorts;
+    }
 }
 
 pub struct CommentState {
@@ -79,9 +120,17 @@ pub struct CommentState {
     pub summaries: GlobalSignal<HashMap<i32, StateFrame<CommentFlagSummary>>>,
 }
 
-impl PartialEq for CommentState {
-    fn eq(&self, _other: &Self) -> bool {
-        true
+impl ListStore<Comment, CommentListQuery> for CommentState {
+    fn list_frame(&self) -> &GlobalSignal<StateFrame<PaginatedList<Comment>>> {
+        &self.list
+    }
+
+    async fn fetch_list(&self) {
+        self.admin_list(CommentListQuery::new()).await;
+    }
+
+    async fn fetch_list_with_query(&self, query: CommentListQuery) {
+        self.admin_list(query).await;
     }
 }
 

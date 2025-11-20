@@ -18,7 +18,7 @@ impl NewsletterState {
         .await;
 
         if created.is_some() {
-            self.list_subscribers(SubscriberListQuery::default()).await;
+            self.list_subscribers(SubscriberListQuery::new()).await;
         }
     }
 
@@ -33,7 +33,7 @@ impl NewsletterState {
         )
         .await;
 
-        self.list_subscribers(SubscriberListQuery::default()).await;
+        self.list_subscribers(SubscriberListQuery::new()).await;
     }
 
     pub async fn confirm(&self, payload: ConfirmPayload) {

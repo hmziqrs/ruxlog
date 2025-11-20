@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
-use oxstore::{PaginatedList, StateFrame};
+use oxstore::{ListQuery, ListStore, PaginatedList, SortParam, StateFrame};
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 
@@ -39,9 +39,31 @@ pub struct SendNewsletterPayload {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct SubscriberListQuery {
     pub confirmed: Option<bool>,
-    pub page: Option<u64>,
+    pub page: u64,
     pub limit: Option<u64>,
     pub search: Option<String>,
+    pub sorts: Option<Vec<SortParam>>,
+}
+
+impl SubscriberListQuery {
+    pub fn new() -> Self {
+        Self {
+            page: 1,
+            ..Default::default()
+        }
+    }
+}
+
+impl ListQuery for SubscriberListQuery {
+    fn new() -> Self {
+        Self::new()
+    }
+    fn page(&self) -> u64 { self.page }
+    fn set_page(&mut self, page: u64) { self.page = page; }
+    fn search(&self) -> Option<String> { self.search.clone() }
+    fn set_search(&mut self, search: Option<String>) { self.search = search; }
+    fn sorts(&self) -> Option<Vec<SortParam>> { self.sorts.clone() }
+    fn set_sorts(&mut self, sorts: Option<Vec<SortParam>>) { self.sorts = sorts; }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -56,6 +78,18 @@ pub struct NewsletterState {
     pub unsubscribe: GlobalSignal<StateFrame<Option<()>, UnsubscribePayload>>,
     pub confirm: GlobalSignal<StateFrame<Option<()>, ConfirmPayload>>,
     pub send_status: GlobalSignal<StateFrame<Option<SendResult>, SendNewsletterPayload>>,
+}
+
+impl ListStore<NewsletterSubscriber, SubscriberListQuery> for NewsletterState {
+    fn list_frame(&self) -> &GlobalSignal<StateFrame<PaginatedList<NewsletterSubscriber>>> {
+        &self.subscribers
+    }
+    async fn fetch_list(&self) {
+        self.list_subscribers(SubscriberListQuery::new()).await;
+    }
+    async fn fetch_list_with_query(&self, query: SubscriberListQuery) {
+        self.list_subscribers(query).await;
+    }
 }
 
 impl NewsletterState {

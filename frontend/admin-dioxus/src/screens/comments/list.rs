@@ -17,9 +17,10 @@ pub fn CommentsListScreen() -> Element {
                     .admin_list(CommentListQuery {
                         post_id: None,
                         user_id: None,
-                        page: Some(1),
+                        page: 1,
                         limit: Some(50),
                         include_hidden: Some(true),
+                        ..Default::default()
                     })
                     .await;
             }
@@ -36,9 +37,10 @@ pub fn CommentsListScreen() -> Element {
                 .admin_list(CommentListQuery {
                     post_id: post_filter,
                     user_id: user_filter,
-                    page: Some(1),
+                    page: 1,
                     limit: Some(50),
                     include_hidden: Some(include_hidden),
+                    ..Default::default()
                 })
                 .await;
         });
