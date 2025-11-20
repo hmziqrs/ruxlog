@@ -65,8 +65,6 @@ fn App() -> Element {
             rel: "stylesheet",
             href: "https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400..600&family=Geist:wght@400..600&display=swap",
         }
-        SonnerToaster {
-            Router::<crate::router::Route> {}
-        }
+        SonnerToaster { Router::<crate::router::Route> {} }
     }
 }

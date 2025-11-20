@@ -1,4 +1,4 @@
-pub mod auth_guard;
+pub mod auth_guard_wrapper;
 pub mod blog_form;
 pub mod category_form;
 pub mod nav_bar;
@@ -14,7 +14,7 @@ pub mod page_header;
 
 // Complex UI systems with state
 
-pub use auth_guard::*;
+pub use auth_guard_wrapper::*;
 pub use blog_form::*;
 pub use category_form::*;
 pub use nav_bar::*;

@@ -43,4 +43,4 @@ inherits = "dev"
 opt-level = 1
 
 [patch.crates-io]
-dioxus-time = { path = "../admin-dioxus/pkgs/sdk/packages/time", version = "0.7.1" }
+dioxus-time = { path = "../dioxus_pkgs/sdk/packages/time", version = "0.7.1" }

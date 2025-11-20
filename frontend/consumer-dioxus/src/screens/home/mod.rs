@@ -7,7 +7,7 @@ pub fn HomeScreen() -> Element {
 
     // Fetch posts on mount
     use_effect(move || {
-        let posts = posts_store;c
+        let posts = posts_store;
         spawn(async move {
             posts.list().await;
         });
