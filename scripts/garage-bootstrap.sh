@@ -49,19 +49,19 @@ if [[ "${CURRENT_VERSION}" == "0" ]]; then
 else
   echo "[garage-bootstrap] Layout already applied (version ${CURRENT_VERSION})" >&2
 fi
-if ! "${GARAGE_BASE[@]}" bucket info "${R2_BUCKET}" >/dev/null 2>&1; then
-  echo "[garage-bootstrap] Creating bucket ${R2_BUCKET}" >&2
-  "${GARAGE_BASE[@]}" bucket create "${R2_BUCKET}" >/dev/null
+if ! "${GARAGE_BASE[@]}" bucket info "${S3_BUCKET}" >/dev/null 2>&1; then
+  echo "[garage-bootstrap] Creating bucket ${S3_BUCKET}" >&2
+  "${GARAGE_BASE[@]}" bucket create "${S3_BUCKET}" >/dev/null
 else
-  echo "[garage-bootstrap] Bucket ${R2_BUCKET} already exists" >&2
+  echo "[garage-bootstrap] Bucket ${S3_BUCKET} already exists" >&2
 fi
 if ! "${GARAGE_BASE[@]}" key info "${GARAGE_ACCESS_KEY_NAME}" >/dev/null 2>&1; then
   echo "[garage-bootstrap] Importing key ${GARAGE_ACCESS_KEY_NAME}" >&2
-  "${GARAGE_BASE[@]}" key import "${R2_ACCESS_KEY}" "${R2_SECRET_KEY}" --yes -n "${GARAGE_ACCESS_KEY_NAME}" >/dev/null
+  "${GARAGE_BASE[@]}" key import "${S3_ACCESS_KEY}" "${S3_SECRET_KEY}" --yes -n "${GARAGE_ACCESS_KEY_NAME}" >/dev/null
 else
   echo "[garage-bootstrap] Key ${GARAGE_ACCESS_KEY_NAME} already exists" >&2
 fi
 set +e
-"${GARAGE_BASE[@]}" bucket allow --read --write --owner "${R2_BUCKET}" --key "${GARAGE_ACCESS_KEY_NAME}" >/dev/null 2>&1 || true
+"${GARAGE_BASE[@]}" bucket allow --read --write --owner "${S3_BUCKET}" --key "${GARAGE_ACCESS_KEY_NAME}" >/dev/null 2>&1 || true
 set -e
 echo "[garage-bootstrap] Garage bucket + key ready" >&2

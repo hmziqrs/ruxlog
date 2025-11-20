@@ -335,7 +335,7 @@ pub async fn create(
     state
         .s3_client
         .put_object()
-        .bucket(&state.r2.bucket)
+        .bucket(&state.object_storage.bucket)
         .key(&object_key)
         .body(byte_stream)
         .content_type(&content_type)
@@ -388,7 +388,7 @@ pub async fn create(
         if let Err(err) = state
             .s3_client
             .put_object()
-            .bucket(&state.r2.bucket)
+            .bucket(&state.object_storage.bucket)
             .key(&variant_key)
             .body(ByteStream::from(variant.bytes.to_vec()))
             .content_type(&variant.mime_type)
@@ -404,7 +404,7 @@ pub async fn create(
 
     let public_url = format!(
         "{}/{}",
-        state.r2.public_url.trim_end_matches('/'),
+        state.object_storage.public_url.trim_end_matches('/'),
         &object_key
     );
 
@@ -654,7 +654,7 @@ pub async fn delete(
     state
         .s3_client
         .delete_object()
-        .bucket(&state.r2.bucket)
+        .bucket(&state.object_storage.bucket)
         .key(&media.object_key)
         .send()
         .await

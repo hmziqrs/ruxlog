@@ -132,34 +132,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (redis_pool, redis_connection) = init_redis_store().await?;
     let mailer = services::mail::smtp::create_connection().await;
 
-    let mut r2 = state::R2Config {
-        region: env::var("R2_REGION").unwrap_or_else(|_| "auto".to_string()),
-        account_id: env::var("R2_ACCOUNT_ID").expect("R2_ACCOUNT_ID must be set"),
-        bucket: env::var("R2_BUCKET").expect("R2_BUCKET must be set"),
-        access_key: env::var("R2_ACCESS_KEY").expect("R2_ACCESS_KEY must be set"),
-        secret_key: env::var("R2_SECRET_KEY").expect("R2_SECRET_KEY must be set"),
-        public_url: env::var("R2_PUBLIC_URL").expect("R2_PUBLIC_URL must be set"),
+    let object_storage = state::ObjectStorageConfig {
+        region: env::var("S3_REGION").unwrap_or_else(|_| "auto".to_string()),
+        account_id: env::var("S3_ACCOUNT_ID").unwrap_or_else(|_| "local".to_string()),
+        bucket: env::var("S3_BUCKET").expect("S3_BUCKET must be set"),
+        access_key: env::var("S3_ACCESS_KEY").expect("S3_ACCESS_KEY must be set"),
+        secret_key: env::var("S3_SECRET_KEY").expect("S3_SECRET_KEY must be set"),
+        public_url: env::var("S3_PUBLIC_URL").expect("S3_PUBLIC_URL must be set"),
+        endpoint: env::var("S3_ENDPOINT").expect("S3_ENDPOINT must be set"),
     };
 
-    let endpoint_url = env::var("OBJECT_STORAGE_ENDPOINT")
-        .unwrap_or_else(|_| format!("https://{}.r2.cloudflarestorage.com", &r2.account_id));
+    println!("Object Storage Config: {:?}", object_storage);
 
-    println!("R2 Config: {:?}", r2);
-
-    let r2_config = aws_config::from_env()
-        .endpoint_url(endpoint_url)
+    let s3_config = aws_config::from_env()
+        .endpoint_url(&object_storage.endpoint)
         .credentials_provider(aws_sdk_s3::config::Credentials::new(
-            &r2.access_key,
-            &r2.secret_key,
+            &object_storage.access_key,
+            &object_storage.secret_key,
             None,
             None,
-            "R2",
+            "S3Compatible",
         ))
-        .region(r2.region.clone())
+        .region(aws_sdk_s3::config::Region::new(object_storage.region.clone()))
         .load()
         .await;
 
-    let s3_client = aws_sdk_s3::Client::new(&r2_config);
+    let s3_client = aws_sdk_s3::Client::new(&s3_config);
 
     let list_buckets_output = s3_client.list_buckets().send().await?;
 
@@ -193,7 +191,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         sea_db,
         redis_pool: redis_pool.clone(),
         mailer,
-        r2,
+        object_storage,
         s3_client,
         optimizer,
         meter: telemetry::global_meter(),

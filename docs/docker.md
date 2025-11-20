@@ -60,7 +60,7 @@ Pass a different env file to any recipe via `just dev env_file=.env.stage`.
 
 - `.env.example` is the source of truth—copy it to `.env.dev`, `.env.stage`, etc.
 - Variables are shared between backend + frontend (e.g. `SITE_URL`, `ADMIN_APP_API_HOST`).
-- `OBJECT_STORAGE_ENDPOINT` defaults to the Garage S3 endpoint (3902) so the
+- `S3_ENDPOINT` defaults to the Garage S3 endpoint (3902) so the
   backend can toggle between Garage and Cloudflare R2 by swapping env files.
 
 ## Garage bootstrap
@@ -75,7 +75,7 @@ just storage-init env_file=.env.stage
 The script will:
 1. Ensure the Garage container is up (storage profile).
 2. Assign the node to the cluster layout if needed.
-3. Create/import `R2_BUCKET` + `R2_ACCESS_KEY` from the env file.
+3. Create/import `S3_BUCKET` + `S3_ACCESS_KEY` from the env file.
 4. Grant the key read/write/owner permissions.
 
 ## Testing helper
