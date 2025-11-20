@@ -1,4 +1,5 @@
 pub mod analytics;
+pub mod comments;
 pub mod auth;
 pub mod categories;
 pub mod image_editor;
@@ -8,6 +9,7 @@ pub mod tags;
 pub mod users;
 
 pub use analytics::*;
+pub use comments::*;
 pub use auth::*;
 pub use categories::*;
 pub use image_editor::*;

@@ -174,3 +174,16 @@ consumer-install env='dev':
 
 consumer-clean env='dev':
     {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && cargo clean'
+
+# Tailwind watchers for both admin and consumer -------------------------------
+
+tailwind-watch env='dev':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && bun run tailwind' &
+    PID1=$!
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && bun run tailwind' &
+    PID2=$!
+    trap "kill $PID1 $PID2 2>/dev/null || true" EXIT
+    wait
+

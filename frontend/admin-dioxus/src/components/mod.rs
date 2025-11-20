@@ -6,6 +6,5 @@ pub mod image_upload;
 pub mod media;
 pub mod post_success_dialog;
 pub mod sidebar;
-pub mod sonner;
 pub mod table;
 pub mod user_details_dialog;

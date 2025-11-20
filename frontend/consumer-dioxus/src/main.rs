@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+
 use oxui::components::SonnerToaster;
 use crate::utils::persist;
 
@@ -12,7 +13,7 @@ pub mod screens;
 pub mod utils;
 
 #[allow(unused_imports)]
-use utils::js_bridge;
+// use utils::js_bridge;
 
 fn main() {
     // Configure HTTP client
@@ -26,8 +27,6 @@ const TAILWIND_CSS: Asset = asset!("/assets/tailwind.css");
 
 #[component]
 fn App() -> Element {
-    // let toast = use_context_provider(|| Signal::new(ToastManager::default()));
-
     // Initialize document theme from persistent storage on app mount.
     use_effect(|| {
         let stored = persist::get_theme();
@@ -57,11 +56,8 @@ fn App() -> Element {
             rel: "stylesheet",
             href: "https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400..600&family=Geist:wght@400..600&display=swap",
         }
-        // document::Link { rel: "stylesheet", href: asset!("/assets/tailwind.css") }
         SonnerToaster {
             Router::<crate::router::Route> {}
         }
     }
 }
-// ToastFrame component is temporarily commented out due to compatibility issues
-// dioxus_toast::ToastFrame { manager: toast, style: None }
