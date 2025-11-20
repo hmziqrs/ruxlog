@@ -117,16 +117,18 @@ api-lsof env='dev':
 # Frontend Admin (Dioxus) ---------------------------------------------------
 
 admin-dev env='dev':
-    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && dx serve'
+    cd {{admin_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- dx serve
 
 admin-desktop env='dev':
-    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && dx serve --platform desktop'
+    cd {{admin_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- dx serve --platform desktop
 
 admin-build env='dev':
-    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && dx build --platform web --release'
+    cd {{admin_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- dx build --platform web --release
 
 admin-bundle env='dev':
-    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && dx bundle --platform web --release'
+    cd {{admin_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- dx bundle --platform web --release
+
+
 
 admin-tailwind env='dev':
     {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && bun run tailwind'
