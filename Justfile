@@ -10,140 +10,140 @@ default:
 
 # Docker orchestration ------------------------------------------------------
 
-dev env_file='.env.dev':
-    docker compose --env-file {{env_file}} --profile services --profile storage up -d
+dev env='dev':
+    docker compose --env-file .env.{{env}} --profile services --profile storage up -d
 
-dev-full env_file='.env.dev':
-    docker compose --env-file {{env_file}} --profile full --profile storage up -d --build
+dev-full env='dev':
+    docker compose --env-file .env.{{env}} --profile full --profile storage up -d --build
 
 stage:
-    just dev-full env_file='.env.stage'
+    just dev-full env=stage
 
 prod:
-    just dev-full env_file='.env.prod'
+    just dev-full env=prod
 
-storage-init env_file='.env.dev':
-    scripts/garage-bootstrap.sh {{env_file}}
+storage-init env='dev':
+    scripts/garage-bootstrap.sh .env.{{env}}
 
-logs env_file='.env.dev':
-    docker compose --env-file {{env_file}} logs -f
+logs env='dev':
+    docker compose --env-file .env.{{env}} logs -f
 
-ps env_file='.env.dev':
-    docker compose --env-file {{env_file}} ps
+ps env='dev':
+    docker compose --env-file .env.{{env}} ps
 
-down env_file='.env.dev':
-    scripts/compose-down.sh {{env_file}}
+down env='dev':
+    scripts/compose-down.sh .env.{{env}}
 
-reset env_file='.env.dev':
-    scripts/compose-down.sh {{env_file}} --volumes
+reset env='dev':
+    scripts/compose-down.sh .env.{{env}} --volumes
 
 # Database / Garage helpers -------------------------------------------------
 
-test-db env_file='.env.test':
-    scripts/test-db-setup.sh {{env_file}}
+test-db env='test':
+    scripts/test-db-setup.sh .env.{{env}}
 
-frontend-env env_file='.env.dev':
-    scripts/sync-admin-env.sh {{env_file}}
+frontend-env env='dev':
+    scripts/sync-admin-env.sh .env.{{env}}
 
 # Backend API (Axum) --------------------------------------------------------
 
-api-dev env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} dev
+api-dev env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} dev
 
-api-watch env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} watch
+api-watch env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} watch
 
-api-dev-nohup env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} dev-nohup
+api-dev-nohup env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} dev-nohup
 
-api-debug env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} debug
+api-debug env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} debug
 
-api-debug-watch env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} debug-w
+api-debug-watch env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} debug-w
 
-api-debug-nohup env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} debug-nohup
+api-debug-nohup env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} debug-nohup
 
-api-prod env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} prod
+api-prod env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} prod
 
-api-prod-build env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} prod-build
+api-prod-build env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} prod-build
 
-api-prod-nohup env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} prod-nohup
+api-prod-nohup env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} prod-nohup
 
-api-kill env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} kill
+api-kill env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} kill
 
-api-kill-nohup env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} kill-nohup
+api-kill-nohup env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} kill-nohup
 
-api-kill-all env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} kill-all
+api-kill-all env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} kill-all
 
-api-kill-port env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} kill-port
+api-kill-port env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} kill-port
 
-api-logs env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} logs
+api-logs env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} logs
 
-api-logs-debug env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} logs-debug
+api-logs-debug env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} logs-debug
 
-api-logs-dev env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} logs-dev
+api-logs-dev env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} logs-dev
 
-api-logs-prod env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} logs-prod
+api-logs-prod env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} logs-prod
 
-api-clean-logs env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} clean-logs
+api-clean-logs env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} clean-logs
 
-api-archive env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} archive
+api-archive env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} archive
 
-api-restore zip_file env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} restore {{zip_file}}
+api-restore zip_file env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} restore {{zip_file}}
 
-api-migrate env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} migrate
+api-migrate env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} migrate
 
-api-lsof env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- just -f {{api_justfile}} lsof
+api-lsof env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} lsof
 
 # Frontend Admin (Dioxus) ---------------------------------------------------
 
-admin-dev env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- bash -lc 'cd {{admin_dir}} && dx serve'
+admin-dev env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && dx serve'
 
-admin-desktop env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- bash -lc 'cd {{admin_dir}} && dx serve --platform desktop'
+admin-desktop env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && dx serve --platform desktop'
 
-admin-build env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- bash -lc 'cd {{admin_dir}} && dx build --platform web --release'
+admin-build env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && dx build --platform web --release'
 
-admin-bundle env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- bash -lc 'cd {{admin_dir}} && dx bundle --platform web --release'
+admin-bundle env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && dx bundle --platform web --release'
 
-admin-tailwind env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- bash -lc 'cd {{admin_dir}} && bun run tailwind'
+admin-tailwind env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && bun run tailwind'
 
-admin-tailwind-build env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- bash -lc 'cd {{admin_dir}} && bun run tailwind:build'
+admin-tailwind-build env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && bun run tailwind:build'
 
-admin-editor-build env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- bash -lc 'cd {{admin_dir}} && bun run editor:build'
+admin-editor-build env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && bun run editor:build'
 
-admin-editor-watch env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- bash -lc 'cd {{admin_dir}} && bun run editor:watch'
+admin-editor-watch env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && bun run editor:watch'
 
-admin-rpxy env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- bash -lc 'cd {{admin_dir}} && bun run rpxy'
+admin-rpxy env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && bun run rpxy'
 
-admin-install env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- bash -lc 'cd {{admin_dir}} && bun install'
+admin-install env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && bun install'
 
-admin-clean env_file='.env.dev':
-    {{dotenv_bin}} -e {{env_file}} -- bash -lc 'cd {{admin_dir}} && cargo clean'
+admin-clean env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && cargo clean'
