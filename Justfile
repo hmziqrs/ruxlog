@@ -3,6 +3,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 api_dir := "backend/api"
 api_justfile := "backend/api/justfile"
 admin_dir := "frontend/admin-dioxus"
+consumer_dir := "frontend/consumer-dioxus"
 dotenv_bin := "dotenv"
 
 default:
@@ -147,3 +148,29 @@ admin-install env='dev':
 
 admin-clean env='dev':
     {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && cargo clean'
+
+# Frontend Consumer (Dioxus) ------------------------------------------------
+
+consumer-dev env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && dx serve'
+
+consumer-desktop env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && dx serve --platform desktop'
+
+consumer-build env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && dx build --platform web --release'
+
+consumer-bundle env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && dx bundle --platform web --release'
+
+consumer-tailwind env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && bun run tailwind'
+
+consumer-tailwind-build env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && bun run tailwind:build'
+
+consumer-install env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && bun install'
+
+consumer-clean env='dev':
+    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && cargo clean'

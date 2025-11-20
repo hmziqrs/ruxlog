@@ -1,7 +1,7 @@
 {
   "scripts": {
-    "tailwind": "bunx --bun @tailwindcss/cli -i tailwind.css -o assets/tailwind.css --watch",
-    "tailwind:build": "bunx --bun @tailwindcss/cli -i input.css -o assets/tailwind.css",
+    "tailwind": "bunx --bun @tailwindcss/cli -i ../ruxlog-shared/tailwind.css -o assets/tailwind.css --watch",
+    "tailwind:build": "bunx --bun @tailwindcss/cli -i ../ruxlog-shared/tailwind.css -o assets/tailwind.css",
     "rpxy": "rpxy -c exp/rpxy.toml -w",
     "editor:build": "bun build assets/editor/index.ts --outfile assets/editor.bundle.js --minify --format=esm",
     "editor:watch": "bun build assets/editor/index.ts --outfile assets/editor.bundle.js --format=esm --watch"
