@@ -20,7 +20,7 @@ services:
       valkey:
         condition: service_healthy
     ports:
-      - "${PORT:-8888}:8888"
+      - "${PORT:-1100}:8888"
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --silent http://localhost:8888/healthz || exit 1"]
       interval: 30s
@@ -42,7 +42,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/docker/init-scripts:/docker-entrypoint-initdb.d:ro
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-1101}:5432"
     healthcheck:
       test:
         [
@@ -71,7 +71,7 @@ services:
       - valkey_data:/data
       - ./backend/docker/redis/users.acl:/etc/valkey/users.acl:ro
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_PORT:-1102}:6379"
     healthcheck:
       test:
         [
@@ -105,10 +105,10 @@ services:
         "server",
       ]
     ports:
-      - "${GARAGE_RPC_PORT:-3900}:3900"
-      - "${GARAGE_ADMIN_PORT:-3901}:3901"
-      - "${GARAGE_S3_PORT:-3902}:3902"
-      - "${GARAGE_WEB_PORT:-3903}:3903"
+      - "${GARAGE_RPC_PORT:-1103}:3900"
+      - "${GARAGE_ADMIN_PORT:-1104}:3901"
+      - "${GARAGE_S3_PORT:-1105}:3902"
+      - "${GARAGE_WEB_PORT:-1106}:3903"
     volumes:
       - ./backend/docker/garage/garage.toml:/etc/garage/garage.toml:ro
       - garage_meta:/meta
