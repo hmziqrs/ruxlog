@@ -1,8 +1,8 @@
-FROM rust:1.89.0-slim-trixie AS base
+FROM rust:1.91.1-slim-trixie AS base
 WORKDIR /workspace
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        pkg-config libssl-dev libpq-dev build-essential ca-certificates binutils \
+        pkg-config libssl-dev libpq-dev build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 FROM base AS deps
@@ -10,6 +10,8 @@ COPY api/Cargo.toml api/Cargo.toml
 COPY api/Cargo.lock api/Cargo.lock
 COPY api/migration/Cargo.toml api/migration/Cargo.toml
 COPY api/migration/Cargo.lock api/migration/Cargo.lock
+# Create dummy main.rs to satisfy cargo fetch with default-run
+RUN mkdir -p api/src && echo "fn main() {}" > api/src/main.rs
 RUN cd api && cargo fetch --locked
 
 FROM deps AS builder
