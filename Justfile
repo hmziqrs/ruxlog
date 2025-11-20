@@ -154,16 +154,17 @@ admin-clean env='dev':
 # Frontend Consumer (Dioxus) ------------------------------------------------
 
 consumer-dev env='dev':
-    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && dx serve'
+    cd {{consumer_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- dx serve
 
 consumer-desktop env='dev':
-    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && dx serve --platform desktop'
+    cd {{consumer_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- dx serve --platform desktop
 
 consumer-build env='dev':
-    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && dx build --platform web --release'
+    cd {{consumer_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- dx build --platform web --release
 
 consumer-bundle env='dev':
-    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && dx bundle --platform web --release'
+    cd {{consumer_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- dx bundle --platform web --release
+
 
 consumer-tailwind env='dev':
     {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && bun run tailwind'

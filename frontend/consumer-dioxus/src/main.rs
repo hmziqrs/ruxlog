@@ -17,7 +17,16 @@ pub mod utils;
 
 fn main() {
     // Configure HTTP client
-    let base_url = format!("http://{}", env::APP_API_URL);
+    println!("APP_API_URL: {}", env::APP_API_URL);
+    println!("APP_CSRF_TOKEN: {}", env::APP_CSRF_TOKEN);
+
+    // Ensure URL has protocol
+    let base_url = if env::APP_API_URL.starts_with("http") {
+        env::APP_API_URL.to_string()
+    } else {
+        format!("http://{}", env::APP_API_URL)
+    };
+
     oxcore::http::configure(base_url, env::APP_CSRF_TOKEN);
 
     dioxus::launch(App);
