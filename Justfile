@@ -130,11 +130,12 @@ admin-bundle env='dev':
 
 
 
-admin-tailwind env='dev':
-    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && bun run tailwind'
+admin-tailwind:
+    cd {{admin_dir}} && bun run tailwind
 
-admin-tailwind-build env='dev':
-    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && bun run tailwind:build'
+admin-tailwind-build:
+    cd {{admin_dir}} && bun run tailwind:build
+
 
 admin-editor-build env='dev':
     {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && bun run editor:build'
@@ -166,11 +167,12 @@ consumer-bundle env='dev':
     cd {{consumer_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- dx bundle --platform web --release
 
 
-consumer-tailwind env='dev':
-    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && bun run tailwind'
+consumer-tailwind:
+    cd {{consumer_dir}} && bun run tailwind
 
-consumer-tailwind-build env='dev':
-    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && bun run tailwind:build'
+consumer-tailwind-build:
+    cd {{consumer_dir}} && bun run tailwind:build
+
 
 consumer-install env='dev':
     {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && bun install'
@@ -178,15 +180,5 @@ consumer-install env='dev':
 consumer-clean env='dev':
     {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && cargo clean'
 
-# Tailwind watchers for both admin and consumer -------------------------------
 
-tailwind-watch env='dev':
-    #!/usr/bin/env bash
-    set -euo pipefail
-    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{admin_dir}} && bun run tailwind' &
-    PID1=$!
-    {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && bun run tailwind' &
-    PID2=$!
-    trap "kill $PID1 $PID2 2>/dev/null || true" EXIT
-    wait
 
