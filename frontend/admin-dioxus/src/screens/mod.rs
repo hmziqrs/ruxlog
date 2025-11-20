@@ -1,19 +1,27 @@
 mod analytics;
+mod comments;
 mod categories;
 mod home;
 mod login;
 mod media;
+mod newsletter;
+mod profile;
 mod posts;
 mod sonner_demo;
+mod settings;
 mod tags;
 mod users;
 
 pub use analytics::*;
+pub use comments::*;
 pub use categories::*;
 pub use home::*;
 pub use login::*;
 pub use media::*;
+pub use newsletter::*;
+pub use profile::*;
 pub use posts::*;
 pub use sonner_demo::*;
+pub use settings::*;
 pub use tags::*;
 pub use users::*;

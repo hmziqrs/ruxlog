@@ -182,6 +182,34 @@ pub fn Sidebar(expanded: Signal<bool>, toggle: EventHandler<()>) -> Element {
                     is_active: is_active(Route::UsersListScreen {}),
                     on_close: move |_| toggle.call(()),
                 }
+                SidebarModuleLink {
+                    main_route: Route::CommentsListScreen {},
+                    icon: rsx! { Icon { icon: LdFileText } },
+                    label: "Comments",
+                    is_active: is_active(Route::CommentsListScreen {}),
+                    on_close: move |_| toggle.call(()),
+                }
+                SidebarModuleLink {
+                    main_route: Route::NewsletterSubscribersScreen {},
+                    icon: rsx! { Icon { icon: LdAreaChart } },
+                    label: "Newsletter",
+                    is_active: is_active(Route::NewsletterSubscribersScreen {}),
+                    on_close: move |_| toggle.call(()),
+                }
+                SidebarModuleLink {
+                    main_route: Route::RoutesSettingsScreen {},
+                    icon: rsx! { Icon { icon: LdFolder } },
+                    label: "Routes",
+                    is_active: is_active(Route::RoutesSettingsScreen {}),
+                    on_close: move |_| toggle.call(()),
+                }
+                SidebarModuleLink {
+                    main_route: Route::ProfileSecurityScreen {},
+                    icon: rsx! { Icon { icon: LdUser } },
+                    label: "Security",
+                    is_active: is_active(Route::ProfileSecurityScreen {}),
+                    on_close: move |_| toggle.call(()),
+                }
 
             }
 

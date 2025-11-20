@@ -8,14 +8,20 @@ use crate::screens::AnalyticsScreen;
 use crate::screens::CategoriesAddScreen;
 use crate::screens::CategoriesEditScreen;
 use crate::screens::CategoriesListScreen;
+use crate::screens::CommentsListScreen;
+use crate::screens::FlaggedCommentsScreen;
 use crate::screens::HomeScreen;
 use crate::screens::LoginScreen;
 use crate::screens::MediaListScreen;
 use crate::screens::MediaUploadScreen;
+use crate::screens::NewsletterSendScreen;
+use crate::screens::NewsletterSubscribersScreen;
 use crate::screens::PostsAddScreen;
 use crate::screens::PostsEditScreen;
 use crate::screens::PostsListScreen;
 use crate::screens::PostsViewScreen;
+use crate::screens::ProfileSecurityScreen;
+use crate::screens::RoutesSettingsScreen;
 use crate::screens::SonnerDemoScreen;
 use crate::screens::TagsAddScreen;
 use crate::screens::TagsEditScreen;
@@ -37,6 +43,22 @@ pub enum Route {
 
     #[route("/login")]
     LoginScreen {},
+
+    #[route("/comments")]
+    CommentsListScreen {},
+    #[route("/comments/flagged")]
+    FlaggedCommentsScreen {},
+
+    #[route("/newsletter/subscribers")]
+    NewsletterSubscribersScreen {},
+    #[route("/newsletter/send")]
+    NewsletterSendScreen {},
+
+    #[route("/settings/routes")]
+    RoutesSettingsScreen {},
+
+    #[route("/profile/security")]
+    ProfileSecurityScreen {},
 
     #[route("/posts/add")]
     PostsAddScreen {},
