@@ -1,23 +1,20 @@
 use std::error::Error;
-use std::io;
 use std::sync::Arc;
 use std::time::Duration;
 
 use clap::Parser;
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    event::{self, Event, KeyCode, KeyEvent},
 };
 use ratatui::{
-    backend::CrosstermBackend,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Paragraph},
-    Terminal,
 };
 use tokio::{sync::mpsc, time::sleep};
+use ratatui::Terminal;
+use tuirealm::terminal::{CrosstermTerminalAdapter, TerminalBridge};
 
 use ruxlog::core::{
     auth::AuthService,
@@ -357,22 +354,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn run_tui(core: Arc<CoreContext>) -> Result<(), Box<dyn Error>> {
-    let mut stdout = io::stdout();
-    enable_raw_mode()?;
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-
-    let res = run_app(&mut terminal, core).await;
-
-    disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
-    terminal.show_cursor()?;
-
+    let mut bridge =
+        TerminalBridge::init_crossterm().map_err(|e| format!("terminal init error: {e}"))?;
+    let res = run_app(bridge.raw_mut(), core).await;
+    bridge
+        .restore()
+        .map_err(|e| format!("terminal restore error: {e}"))?;
     res
 }
 
