@@ -62,11 +62,14 @@ src/
 #### B. Routing (`router.rs`)
 - Define `Route` enum with `#[derive(Routable)]`.
 - Implement `NavBarContainer` for common layout.
-- Define routes for:
+- **Public Routes** (No Auth Guard):
     - `/`: Home
-    - `/login`: Login (if applicable)
-    - `/register`: Signup (if applicable)
-    - Other consumer-facing pages.
+    - `/posts/:id`: View Post
+    - `/login`: Login
+    - `/register`: Signup
+- **Protected Routes** (Wrapped in `AuthGuardContainer`):
+    - `/profile`: User Profile & Settings
+    - `/profile/edit`: Edit Profile
 
 #### C. Theme & Styling
 - Copy `tailwind.css` setup.
