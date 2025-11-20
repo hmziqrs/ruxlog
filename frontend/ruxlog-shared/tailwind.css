@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@source "../oxui/src/**/*.{rs,html}";
+@source "./src/**/*.{rs,html}";
 @import "tw-animate-css";
 @plugin '@tailwindcss/typography';
 @import "./styles/toast.css";
