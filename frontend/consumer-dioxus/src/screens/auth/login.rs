@@ -1,108 +1,104 @@
 use dioxus::prelude::*;
-use oxui::components::form::input::SimpleInput;
-use oxui::shadcn::button::{Button, ButtonVariant};
-use ruxlog_shared::use_auth;
+
+use crate::screens::auth::{use_login_form, LoginForm};
+use crate::components::MouseTrackingCard;
+use ruxlog_shared::store::use_auth;
+use oxui::components::animated_grid::{
+    AnimatedGridBackground, AnimatedGridCircles, GridContext,
+};
+use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
+use oxui::components::form::input::AppInput;
+use oxui::shadcn::button::Button;
 
 #[component]
 pub fn LoginScreen() -> Element {
+    let mut ox_form = use_login_form(LoginForm::dev());
     let auth_store = use_auth();
-    let mut email = use_signal(|| String::new());
-    let mut password = use_signal(|| String::new());
+    let login_status = auth_store.login_status.read();
     let nav = use_navigator();
 
-    let login_status = auth_store.login_status.read();
-    let is_loading = (*login_status).is_loading();
-
-    let handle_submit = move |evt: FormEvent| {
-        evt.prevent_default();
-        let email_val = email();
-        let password_val = password();
-        
-        spawn(async move {
-            auth_store.login(email_val, password_val).await;
-            if auth_store.login_status.read().is_success() {
-                nav.push(crate::router::Route::HomeScreen {});
-            }
-        });
-    };
+    use_context_provider(|| GridContext::new());
 
     rsx! {
-        div { class: "min-h-screen bg-background text-foreground flex items-center justify-center p-4",
-            div { class: "w-full max-w-md",
-                // Header
-                div { class: "text-center mb-8",
-                    h1 { class: "text-3xl font-bold mb-2", "Welcome back" }
-                    p { class: "text-muted-foreground", "Sign in to your account to continue" }
-                }
-
-                // Login form
-                div { class: "bg-card border border-border rounded-lg p-8 shadow-lg",
-                    form {
-                        onsubmit: handle_submit,
-                        
-                        div { class: "space-y-4",
-                            // Email field
-                            div { class: "space-y-2",
-                                label { class: "text-sm font-medium", r#for: "email", "Email" }
-                                SimpleInput {
-                                    id: Some("email".to_string()),
-                                    r#type: "email".to_string(),
-                                    placeholder: Some("you@example.com".to_string()),
-                                    value: email(),
-                                    oninput: move |value| email.set(value),
-                                    disabled: is_loading,
-                                }
-                            }
-
-                            // Password field
-                            div { class: "space-y-2",
-                                label { class: "text-sm font-medium", r#for: "password", "Password" }
-                                SimpleInput {
-                                    id: Some("password".to_string()),
-                                    r#type: "password".to_string(),
-                                    placeholder: Some("••••••••".to_string()),
-                                    value: password(),
-                                    oninput: move |value| password.set(value),
-                                    disabled: is_loading,
-                                }
-                            }
-
-                            // Error message
-                            if let Some(error) = (*login_status).error_message() {
-                                div { class: "p-3 rounded-lg bg-destructive/10 border border-destructive/50 text-destructive text-sm",
-                                    "{error}"
-                                }
-                            }
-
-                            // Submit button
-                            Button {
-                                r#type: "submit",
-                                variant: ButtonVariant::Default,
-                                disabled: is_loading,
-                                class: "w-full",
-                                if is_loading {
-                                    "Signing in..."
-                                } else {
-                                    "Sign in"
-                                }
-                            }
+        div { class: "relative flex items-center justify-center min-h-screen overflow-hidden transition-colors duration-300",
+            AnimatedGridBackground {}
+            AnimatedGridCircles {}
+            div { class: "relative z-10 flex w-full justify-center",
+                MouseTrackingCard {
+                    // Logo or icon placeholder
+                    div { class: "flex justify-center mb-2",
+                        img {
+                            class: "h-26 w-26",
+                            src: asset!("/assets/logo.png"),
+                            alt: "Logo",
                         }
                     }
-
-                    // Links
-                    div { class: "mt-6 text-center text-sm",
-                        span { class: "text-muted-foreground", "Don't have an account? " }
+                    h1 { class: "text-3xl font-extrabold text-center text-zinc-800 dark:text-zinc-100 tracking-tight transition-colors duration-300",
+                        "Consumer Login"
+                    }
+                    form { class: "space-y-5",
+                        onsubmit: |e: Event<FormData>| {
+                            e.prevent_default();
+                        },
+                        AppInput {
+                            name: "email",
+                            form: ox_form,
+                            label: "Email",
+                            placeholder: "Enter your email",
+                        }
+                        AppInput {
+                            name: "password",
+                            form: ox_form,
+                            label: "Password",
+                            placeholder: "Enter your password",
+                            r#type: "password",
+                        }
+                        if login_status.is_failed() {
+                            ErrorDetails {
+                                error: login_status.error.clone(),
+                                variant: ErrorDetailsVariant::Minimum,
+                                class: "mb-2",
+                            }
+                        }
+                        div { class: "flex justify-end text-xs text-zinc-600 dark:text-zinc-400 transition-colors duration-300",
+                            a {
+                                class: "hover:underline text-zinc-700 dark:text-zinc-300 font-medium hover:text-zinc-900 dark:hover:text-white transition-colors duration-150",
+                                href: "#",
+                                "Forgot password?"
+                            }
+                        }
+                        Button {
+                            class: "w-full",
+                            disabled: login_status.is_loading(),
+                            onclick: move |e: Event<MouseData>| {
+                                e.prevent_default();
+                                ox_form
+                                    .write()
+                                    .on_submit(move |val| {
+                                        spawn(async move {
+                                            let email = val.email.clone();
+                                            let password = val.password.clone();
+                                            auth_store.login(email, password).await;
+                                            if auth_store.login_status.read().is_success() {
+                                                nav.push(crate::router::Route::HomeScreen {});
+                                            }
+                                        });
+                                    });
+                            },
+                            if login_status.is_loading() {
+                                div { class: "loading loading-spinner loading-xs" }
+                            }
+                            span { "Login" }
+                        }
+                    }
+                    p { class: "text-sm text-center text-zinc-600 dark:text-zinc-400 mt-4 transition-colors duration-300",
+                        "Don't have an account? "
                         a {
+                            class: "text-zinc-700 dark:text-zinc-300 font-semibold hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors duration-150",
                             href: "/register",
-                            class: "text-primary hover:underline font-medium",
                             "Sign up"
                         }
                     }
-                }
-
-                // Footer
-                div { class: "mt-8 text-center text-sm text-muted-foreground",
-                    "By continuing, you agree to our Terms of Service and Privacy Policy"
                 }
             }
         }

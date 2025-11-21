@@ -7,7 +7,6 @@ use crate::config::DarkMode;
 #[component]
 pub fn MouseTrackingCard(children: Element) -> Element {
     let mut mouse_pos = use_signal(|| (0.0, 0.0));
-    // let mut card_rect: Signal<Rect<f64, Pixels>> = use_signal(|| Rect::default());
     let mut card_ref = use_signal(|| None as Option<std::rc::Rc<MountedData>>);
     let mut debounce_timer = use_signal(|| 0u64);
 
