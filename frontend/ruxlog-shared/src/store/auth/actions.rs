@@ -3,9 +3,24 @@ use super::{
     UserSession,
 };
 use crate::store::{
-    /* use_admin_routes, */ use_analytics, use_categories, use_comments, use_email_verification,
-    use_image_editor, use_media, use_newsletter, use_password_reset, use_post, use_tag, use_user,
+    use_categories, use_comments, use_email_verification,
+    use_media, use_password_reset, use_post, use_tag,
 };
+
+#[cfg(feature = "analytics-store")]
+use crate::store::use_analytics;
+
+#[cfg(feature = "admin-routes-store")]
+use crate::store::use_admin_routes;
+
+#[cfg(feature = "newsletter-store")]
+use crate::store::use_newsletter;
+
+#[cfg(feature = "users-store")]
+use crate::store::use_user;
+
+#[cfg(feature = "image-editor")]
+use crate::store::use_image_editor;
 use dioxus::{logger::tracing, prelude::*};
 use oxcore::http;
 use oxstore::{state_request_abstraction, StateFrame};
@@ -75,18 +90,30 @@ impl AuthState {
     }
 
     fn reset_all_stores(&self) {
+        // Always available stores
         use_categories().reset();
         use_tag().reset();
-        use_user().reset();
         use_media().reset();
         use_post().reset();
-        use_analytics().reset();
-        use_image_editor().reset();
         use_comments().reset();
-        use_newsletter().reset();
         use_email_verification().reset();
         use_password_reset().reset();
-        // use_admin_routes().reset(); // TODO: Fix admin_routes compilation errors
+
+        // Feature-gated stores
+        #[cfg(feature = "image-editor")]
+        use_image_editor().reset();
+
+        #[cfg(feature = "analytics-store")]
+        use_analytics().reset();
+
+        #[cfg(feature = "admin-routes-store")]
+        use_admin_routes().reset();
+
+        #[cfg(feature = "newsletter-store")]
+        use_newsletter().reset();
+
+        #[cfg(feature = "users-store")]
+        use_user().reset();
     }
 
     pub async fn init(&self) {

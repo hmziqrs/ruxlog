@@ -80,7 +80,7 @@ oxcore = { path = "../oxcore" }
 oxstore = { path = "../oxstore" }
 oxform = { path = "../oxform" }
 oxui = { path = "../oxui" }
-ruxlog-shared = { path = "../ruxlog-shared", features = ["image-editor"] }
+ruxlog-shared = { path = "../ruxlog-shared", features = ["image-editor", "admin-stores"] }
 # dioxus-primitives = { git = "https://github.com/DioxusLabs/components", branch = "main" }
 
 [patch.crates-io]

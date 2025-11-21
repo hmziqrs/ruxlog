@@ -1,4 +1,6 @@
+#[cfg(feature = "analytics-store")]
 pub mod analytics;
+#[cfg(feature = "admin-routes-store")]
 pub mod admin_routes;
 pub mod comments;
 pub mod auth;
@@ -7,13 +9,17 @@ pub mod email_verification;
 #[cfg(feature = "image-editor")]
 pub mod image_editor;
 pub mod media;
+#[cfg(feature = "newsletter-store")]
 pub mod newsletter;
 pub mod posts;
 pub mod password_reset;
 pub mod tags;
+#[cfg(feature = "users-store")]
 pub mod users;
 
+#[cfg(feature = "analytics-store")]
 pub use analytics::*;
+#[cfg(feature = "admin-routes-store")]
 pub use admin_routes::*;
 pub use comments::*;
 pub use auth::*;
@@ -22,8 +28,10 @@ pub use email_verification::*;
 #[cfg(feature = "image-editor")]
 pub use image_editor::*;
 pub use media::*;
+#[cfg(feature = "newsletter-store")]
 pub use newsletter::*;
 pub use posts::*;
 pub use password_reset::*;
 pub use tags::*;
+#[cfg(feature = "users-store")]
 pub use users::*;

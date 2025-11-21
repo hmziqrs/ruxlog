@@ -39,6 +39,11 @@ oxui = { path = "../oxui" }
 default = []
 web = []
 image-editor = ["photon-rs", "futures-channel"]
+admin-stores = ["analytics-store", "admin-routes-store", "newsletter-store", "users-store"]
+analytics-store = []
+admin-routes-store = []
+newsletter-store = []
+users-store = []
 
 [profile.wasm-dev]
 inherits = "dev"
