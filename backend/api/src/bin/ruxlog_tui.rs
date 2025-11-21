@@ -911,13 +911,13 @@ fn draw_tags(
 fn draw_logs(f: &mut ratatui::Frame, area: Rect, logs: &[String], palette: &ThemePalette) {
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(palette.footer_fg))
+        .border_style(Style::default().fg(palette.header_border))
         .style(Style::default().bg(palette.panel_bg))
         .title(Span::styled(
             " logs ",
             Style::default()
-                .fg(palette.logs_title_fg)
-                .add_modifier(Modifier::DIM),
+                .fg(palette.header_border)
+                .add_modifier(Modifier::BOLD),
         ));
 
     let mut lines: Vec<Line> = Vec::new();
