@@ -18,7 +18,7 @@ pub fn AnimatedGridBackground() -> Element {
 
     rsx! {
         div {
-            class: "pointer-events-none absolute inset-0 -z-10 bg-transparent",
+            class: "pointer-events-none absolute inset-0 bg-transparent",
             aria_hidden: "true",
             onmount: move |event| {
                 mount_ctx.handle_mount(event.data());
@@ -28,28 +28,40 @@ pub fn AnimatedGridBackground() -> Element {
             },
 
             // Vertical lines
-            {ctx.grid_data.read().vertical_lines.iter().map(|pos| {
-                let offset = format!("{pos:.2}px");
-                rsx! {
-                    div {
-                        key: "v-{pos}",
-                        class: "absolute inset-y-0 border-l border-border transition-[left] duration-200",
-                        style: format!("left: {offset}; opacity: 1.0;"),
-                    }
-                }
-            })},
+            {
+                ctx.grid_data
+                    .read()
+                    .vertical_lines
+                    .iter()
+                    .map(|pos| {
+                        let offset = format!("{pos:.2}px");
+                        rsx! {
+                            div {
+                                key: "v-{pos}",
+                                class: "absolute inset-y-0 border-l border-border transition-[left] duration-200",
+                                style: format!("left: {offset}; opacity: 1.0;"),
+                            }
+                        }
+                    })
+            }
 
             // Horizontal lines
-            {ctx.grid_data.read().horizontal_lines.iter().map(|pos| {
-                let offset = format!("{pos:.2}px");
-                rsx! {
-                    div {
-                        key: "h-{pos}",
-                        class: "absolute inset-x-0 border-t border-border transition-[top] duration-200",
-                        style: format!("top: {offset}; opacity: 1.0;"),
-                    }
-                }
-            })},
+            {
+                ctx.grid_data
+                    .read()
+                    .horizontal_lines
+                    .iter()
+                    .map(|pos| {
+                        let offset = format!("{pos:.2}px");
+                        rsx! {
+                            div {
+                                key: "h-{pos}",
+                                class: "absolute inset-x-0 border-t border-border transition-[top] duration-200",
+                                style: format!("top: {offset}; opacity: 1.0;"),
+                            }
+                        }
+                    })
+            }
         }
     }
 }
