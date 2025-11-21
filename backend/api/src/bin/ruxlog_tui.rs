@@ -119,87 +119,105 @@ struct ThemePalette {
 
 fn theme_palette(theme: ThemeKind) -> ThemePalette {
     match theme {
-        ThemeKind::Dracula => ThemePalette {
-            bg: Color::Rgb(5, 10, 20),
-            panel_bg: Color::Rgb(3, 8, 18),
-            text: Color::Gray,
-            text_muted: Color::DarkGray,
-            accent: Color::Magenta,
-            accent_alt: Color::Blue,
-            border: Color::DarkGray,
-            header_fg: Color::Cyan,
-            header_border: Color::Blue,
-            input_label: Color::Gray,
-            input_label_focus: Color::Yellow,
-            submit_fg: Color::Green,
-            submit_fg_focus: Color::Green,
-            error_fg: Color::Red,
-            error_border: Color::Red,
-            table_header_bg: Color::Rgb(10, 20, 40),
-            table_header_fg: Color::White,
-            table_slug_fg: Color::LightBlue,
-            table_row_even_bg: Color::Rgb(5, 12, 26),
-            table_row_odd_bg: Color::Rgb(8, 16, 32),
-            highlight_bg: Color::Blue,
-            highlight_fg: Color::White,
-            logs_title_fg: Color::Yellow,
-            logs_border: Color::DarkGray,
-            footer_fg: Color::DarkGray,
-        },
-        ThemeKind::OneDark => ThemePalette {
-            bg: Color::Rgb(12, 16, 22),
-            panel_bg: Color::Rgb(18, 22, 30),
-            text: Color::Rgb(171, 178, 191),
-            text_muted: Color::Rgb(92, 99, 112),
-            accent: Color::Rgb(198, 120, 221), // purple
-            accent_alt: Color::Rgb(97, 175, 239), // blue
-            border: Color::Rgb(40, 44, 52),
-            header_fg: Color::Rgb(97, 175, 239),
-            header_border: Color::Rgb(80, 120, 200),
-            input_label: Color::Rgb(171, 178, 191),
-            input_label_focus: Color::Rgb(229, 192, 123), // yellow
-            submit_fg: Color::Rgb(152, 195, 121),         // green
-            submit_fg_focus: Color::Rgb(152, 195, 121),
-            error_fg: Color::Rgb(224, 108, 117),
-            error_border: Color::Rgb(224, 108, 117),
-            table_header_bg: Color::Rgb(33, 37, 43),
-            table_header_fg: Color::Rgb(171, 178, 191),
-            table_slug_fg: Color::Rgb(97, 175, 239),
-            table_row_even_bg: Color::Rgb(33, 37, 43),
-            table_row_odd_bg: Color::Rgb(40, 44, 52),
-            highlight_bg: Color::Rgb(97, 175, 239),
-            highlight_fg: Color::Black,
-            logs_title_fg: Color::Rgb(229, 192, 123),
-            logs_border: Color::Rgb(40, 44, 52),
-            footer_fg: Color::Rgb(92, 99, 112),
-        },
-        ThemeKind::Material => ThemePalette {
-            bg: Color::Rgb(18, 18, 18),
-            panel_bg: Color::Rgb(30, 30, 30),
-            text: Color::Rgb(224, 224, 224),
-            text_muted: Color::Rgb(158, 158, 158),
-            accent: Color::Rgb(255, 193, 7),    // amber
-            accent_alt: Color::Rgb(3, 169, 244), // light blue
-            border: Color::Rgb(66, 66, 66),
-            header_fg: Color::Rgb(3, 169, 244),
-            header_border: Color::Rgb(3, 155, 229),
-            input_label: Color::Rgb(189, 189, 189),
-            input_label_focus: Color::Rgb(255, 193, 7),
-            submit_fg: Color::Rgb(76, 175, 80), // green
-            submit_fg_focus: Color::Rgb(76, 175, 80),
-            error_fg: Color::Rgb(244, 67, 54),
-            error_border: Color::Rgb(244, 67, 54),
-            table_header_bg: Color::Rgb(38, 50, 56),
-            table_header_fg: Color::Rgb(224, 224, 224),
-            table_slug_fg: Color::Rgb(3, 169, 244),
-            table_row_even_bg: Color::Rgb(33, 33, 33),
-            table_row_odd_bg: Color::Rgb(48, 48, 48),
-            highlight_bg: Color::Rgb(3, 155, 229),
-            highlight_fg: Color::Black,
-            logs_title_fg: Color::Rgb(255, 193, 7),
-            logs_border: Color::Rgb(66, 66, 66),
-            footer_fg: Color::Rgb(158, 158, 158),
-        },
+        ThemeKind::Dracula => {
+            // Minimal Dracula-style: dark bg + single blue accent
+            let bg = Color::Rgb(5, 10, 20);
+            let panel = Color::Rgb(5, 10, 20);
+            let accent = Color::Blue;
+            ThemePalette {
+                bg,
+                panel_bg: panel,
+                text: Color::Gray,
+                text_muted: Color::DarkGray,
+                accent,
+                accent_alt: accent,
+                border: Color::DarkGray,
+                header_fg: accent,
+                header_border: accent,
+                input_label: Color::Gray,
+                input_label_focus: accent,
+                submit_fg: accent,
+                submit_fg_focus: accent,
+                error_fg: Color::Red,
+                error_border: Color::Red,
+                table_header_bg: panel,
+                table_header_fg: Color::Gray,
+                table_slug_fg: accent,
+                table_row_even_bg: panel,
+                table_row_odd_bg: panel,
+                highlight_bg: accent,
+                highlight_fg: Color::White,
+                logs_title_fg: accent,
+                logs_border: Color::DarkGray,
+                footer_fg: Color::DarkGray,
+            }
+        }
+        ThemeKind::OneDark => {
+            // Minimal OneDark: muted bg + single blue accent
+            let bg = Color::Rgb(12, 16, 22);
+            let panel = Color::Rgb(12, 16, 22);
+            let accent = Color::Rgb(97, 175, 239);
+            ThemePalette {
+                bg,
+                panel_bg: panel,
+                text: Color::Rgb(171, 178, 191),
+                text_muted: Color::Rgb(92, 99, 112),
+                accent,
+                accent_alt: accent,
+                border: Color::Rgb(40, 44, 52),
+                header_fg: accent,
+                header_border: accent,
+                input_label: Color::Rgb(171, 178, 191),
+                input_label_focus: accent,
+                submit_fg: accent,
+                submit_fg_focus: accent,
+                error_fg: Color::Rgb(224, 108, 117),
+                error_border: Color::Rgb(224, 108, 117),
+                table_header_bg: panel,
+                table_header_fg: Color::Rgb(171, 178, 191),
+                table_slug_fg: accent,
+                table_row_even_bg: panel,
+                table_row_odd_bg: panel,
+                highlight_bg: accent,
+                highlight_fg: Color::Black,
+                logs_title_fg: accent,
+                logs_border: Color::Rgb(40, 44, 52),
+                footer_fg: Color::Rgb(92, 99, 112),
+            }
+        }
+        ThemeKind::Material => {
+            // Minimal Material: charcoal bg + light blue accent
+            let bg = Color::Rgb(18, 18, 18);
+            let panel = Color::Rgb(18, 18, 18);
+            let accent = Color::Rgb(3, 169, 244);
+            ThemePalette {
+                bg,
+                panel_bg: panel,
+                text: Color::Rgb(224, 224, 224),
+                text_muted: Color::Rgb(158, 158, 158),
+                accent,
+                accent_alt: accent,
+                border: Color::Rgb(66, 66, 66),
+                header_fg: accent,
+                header_border: accent,
+                input_label: Color::Rgb(189, 189, 189),
+                input_label_focus: accent,
+                submit_fg: accent,
+                submit_fg_focus: accent,
+                error_fg: Color::Rgb(244, 67, 54),
+                error_border: Color::Rgb(244, 67, 54),
+                table_header_bg: panel,
+                table_header_fg: Color::Rgb(224, 224, 224),
+                table_slug_fg: accent,
+                table_row_even_bg: panel,
+                table_row_odd_bg: panel,
+                highlight_bg: accent,
+                highlight_fg: Color::Black,
+                logs_title_fg: accent,
+                logs_border: Color::Rgb(66, 66, 66),
+                footer_fg: Color::Rgb(158, 158, 158),
+            }
+        }
     }
 }
 
@@ -550,6 +568,10 @@ async fn run_app<B: ratatui::backend::Backend>(
         terminal.draw(|f| {
             let palette = theme_palette(app.theme);
             let root = f.area();
+            // Global background over entire terminal
+            let bg = Block::default().style(Style::default().bg(palette.bg));
+            f.render_widget(bg, root);
+
             let layout = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints(
@@ -595,16 +617,6 @@ fn draw_login(
     state: &LoginState,
     palette: &ThemePalette,
 ) {
-    // Subtle background panel
-    let bg = Block::default()
-        .style(
-            Style::default()
-                .bg(palette.bg)
-                .fg(palette.text),
-        )
-        .borders(Borders::NONE);
-    f.render_widget(bg, area);
-
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(2)
@@ -742,15 +754,6 @@ fn draw_tags(
     app: &App,
     palette: &ThemePalette,
 ) {
-    let bg = Block::default()
-        .style(
-            Style::default()
-                .bg(palette.panel_bg)
-                .fg(palette.text),
-        )
-        .borders(Borders::NONE);
-    f.render_widget(bg, area);
-
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
@@ -892,23 +895,23 @@ fn draw_tags(
 fn draw_logs(f: &mut ratatui::Frame, area: Rect, logs: &[String], palette: &ThemePalette) {
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(palette.logs_border))
+        .border_style(Style::default().fg(palette.footer_fg))
+        .style(Style::default().bg(palette.panel_bg))
         .title(Span::styled(
-            " Logs ",
+            " logs ",
             Style::default()
                 .fg(palette.logs_title_fg)
-                .add_modifier(Modifier::BOLD),
+                .add_modifier(Modifier::DIM),
         ));
 
-    let lines: Vec<Line> = logs
-        .iter()
-        .rev()
-        .take(3)
-        .rev()
-        .map(|l| Line::from(l.as_str()))
-        .collect();
+    let mut lines: Vec<Line> = Vec::new();
+    for l in logs.iter().rev().take(3).rev() {
+        lines.push(Line::from(format!("  {l}")));
+    }
 
-    let paragraph = Paragraph::new(lines).block(block);
+    let paragraph = Paragraph::new(lines)
+        .style(Style::default().fg(palette.text_muted))
+        .block(block);
 
     f.render_widget(paragraph, area);
 }
