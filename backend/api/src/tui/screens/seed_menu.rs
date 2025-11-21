@@ -6,16 +6,11 @@ use ratatui::{
     Frame,
 };
 
-use crate::tui::{
-    app::App,
-    components::layout::centered_rect,
-    theme::ThemePalette,
-};
+use crate::tui::theme::ThemePalette;
 
-pub fn draw_home(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalette) {
+pub fn draw_seed_menu(f: &mut Frame, area: Rect, palette: &ThemePalette) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .margin(0)
         .constraints(
             [
                 Constraint::Length(3),
@@ -26,7 +21,7 @@ pub fn draw_home(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalette) {
         )
         .split(area);
 
-    let header = Paragraph::new("Ruxlog TUI · Home")
+    let header = Paragraph::new("Seed menu")
         .style(
             Style::default()
                 .fg(palette.header_fg)
@@ -38,7 +33,7 @@ pub fn draw_home(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalette) {
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(palette.header_border))
                 .title(Span::styled(
-                    " Home ",
+                    " Seeding ",
                     Style::default()
                         .fg(palette.header_border)
                         .add_modifier(Modifier::BOLD),
@@ -47,21 +42,14 @@ pub fn draw_home(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalette) {
         );
     f.render_widget(header, chunks[0]);
 
-    let menu_labels = vec![
-        "View tags",
-        "View users",
-        "Seed data",
-        "Seed history / undo",
-    ];
-    let mut menu_items: Vec<ListItem> = Vec::new();
-    for label in menu_labels {
-        menu_items.push(ListItem::new(Line::from(vec![Span::styled(
-            label,
+    let menu_items = vec![ListItem::new(Line::from(vec![
+        Span::styled(
+            "1) Seed everything (local DB)",
             Style::default()
                 .fg(palette.table_header_fg)
                 .add_modifier(Modifier::BOLD),
-        )])));
-    }
+        ),
+    ]))];
 
     let list = List::new(menu_items)
         .block(
@@ -69,7 +57,7 @@ pub fn draw_home(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalette) {
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(palette.table_header_bg))
                 .title(Span::styled(
-                    " Menu ",
+                    " Actions ",
                     Style::default()
                         .fg(palette.table_header_fg)
                         .add_modifier(Modifier::BOLD),
@@ -83,38 +71,12 @@ pub fn draw_home(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalette) {
                 .add_modifier(Modifier::BOLD),
         );
 
-    let mut state = ratatui::widgets::ListState::default();
-    state.select(Some(app.selected_home_index));
-    f.render_stateful_widget(list, chunks[1], &mut state);
+    f.render_widget(list, chunks[1]);
 
-    let footer_text = "[Enter] open  [↑/↓ or j/k] navigate  [Q/Esc] quit";
+    let footer_text = "[Enter or 1] seed all  [Q/Esc] back";
     let footer = Paragraph::new(footer_text)
         .style(Style::default().fg(palette.footer_fg))
         .alignment(Alignment::Center);
     f.render_widget(footer, chunks[2]);
-
-    if app.tags.error.is_some() && app.route == crate::tui::app::AppRoute::Home {
-        // In case an async load error bubbled while on home
-        if let Some(err) = &app.tags.error {
-            let popup_area = centered_rect(60, 25, area);
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .title(Span::styled(
-                    "Error",
-                    Style::default()
-                        .fg(palette.error_fg)
-                        .add_modifier(Modifier::BOLD),
-                ))
-                .style(Style::default().bg(palette.panel_bg));
-            let lines = vec![
-                Line::from(err.as_str()),
-                Line::from(""),
-                Line::from("Press any key to dismiss"),
-            ];
-            let error = Paragraph::new(lines)
-                .block(block)
-                .alignment(Alignment::Center);
-            f.render_widget(error, popup_area);
-        }
-    }
 }
+

@@ -6,7 +6,7 @@ use ratatui::{
     style::Style,
     Terminal,
 };
-use sea_orm::DatabaseConnection;
+use sea_orm::{DatabaseConnection, EntityTrait, QueryOrder};
 use tokio::{sync::mpsc, time::sleep};
 use tower_sessions_redis_store::fred::prelude::Pool as RedisPool;
 use tuirealm::terminal::TerminalBridge;
@@ -14,14 +14,21 @@ use tuirealm::terminal::TerminalBridge;
 use crate::{
     db::{
         sea_connect::init_db,
-        sea_models::tag,
+        sea_models::{tag, user},
     },
-    services::redis::init_redis_pool_only,
+    services::{
+        redis::init_redis_pool_only,
+        seed::{self, SeedOutcome, SeedOutcomeRow, UndoOutcome},
+    },
 };
 
 use super::{
     components::logs::draw_logs,
-    screens::{home::draw_home, tags::draw_tags},
+    screens::{
+        home::draw_home, seed_history::draw_seed_history, seed_menu::draw_seed_menu,
+        seed_progress::draw_seed_progress, seed_summary::draw_seed_summary, seed_undo::draw_seed_undo,
+        tags::draw_tags, users::draw_users,
+    },
     theme::{theme_palette, ThemeKind},
 };
 
@@ -35,6 +42,12 @@ pub struct CoreState {
 pub enum AppRoute {
     Home,
     Tags,
+    Users,
+    SeedMenu,
+    SeedProgress,
+    SeedSummary,
+    SeedHistory,
+    SeedUndoConfirm,
 }
 
 #[derive(Debug, Clone)]
@@ -56,20 +69,112 @@ impl Default for TagsState {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct UsersState {
+    pub users: Vec<user::Model>,
+    pub selected_index: usize,
+    pub is_loading: bool,
+    pub error: Option<String>,
+}
+
+impl Default for UsersState {
+    fn default() -> Self {
+        Self {
+            users: Vec::new(),
+            selected_index: 0,
+            is_loading: false,
+            error: None,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum TagError {
     LoadFailed(String),
 }
 
 #[derive(Debug)]
+pub enum UserError {
+    LoadFailed(String),
+}
+
+#[derive(Debug)]
+pub enum SeedFlowError {
+    Failed(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct SeedSummaryState {
+    pub is_loading: bool,
+    pub outcome: Option<SeedOutcome>,
+    pub error: Option<String>,
+}
+
+impl Default for SeedSummaryState {
+    fn default() -> Self {
+        Self {
+            is_loading: false,
+            outcome: None,
+            error: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SeedHistoryState {
+    pub is_loading: bool,
+    pub runs: Vec<SeedOutcomeRow>,
+    pub selected_index: usize,
+    pub error: Option<String>,
+}
+
+impl Default for SeedHistoryState {
+    fn default() -> Self {
+        Self {
+            is_loading: false,
+            runs: Vec::new(),
+            selected_index: 0,
+            error: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SeedUndoState {
+    pub is_loading: bool,
+    pub selected_run: Option<SeedOutcomeRow>,
+    pub outcome: Option<UndoOutcome>,
+    pub error: Option<String>,
+}
+
+impl Default for SeedUndoState {
+    fn default() -> Self {
+        Self {
+            is_loading: false,
+            selected_run: None,
+            outcome: None,
+            error: None,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum AppEvent {
     TagsLoaded(Result<Vec<tag::Model>, TagError>),
+    UsersLoaded(Result<Vec<user::Model>, UserError>),
+    SeedCompleted(Result<SeedOutcome, SeedFlowError>),
+    SeedHistoryLoaded(Result<Vec<SeedOutcomeRow>, SeedFlowError>),
+    SeedUndoCompleted(Result<UndoOutcome, SeedFlowError>),
 }
 
 pub struct App {
     pub route: AppRoute,
     pub selected_home_index: usize,
     pub tags: TagsState,
+    pub users: UsersState,
+    pub seed_summary: SeedSummaryState,
+    pub seed_history: SeedHistoryState,
+    pub seed_undo: SeedUndoState,
     pub should_quit: bool,
     pub theme: ThemeKind,
     pub logs: Vec<String>,
@@ -82,6 +187,10 @@ impl App {
             route: AppRoute::Home,
             selected_home_index: 0,
             tags: TagsState::default(),
+            users: UsersState::default(),
+            seed_summary: SeedSummaryState::default(),
+            seed_history: SeedHistoryState::default(),
+            seed_undo: SeedUndoState::default(),
             should_quit: false,
             theme,
             logs: Vec::new(),
@@ -108,6 +217,12 @@ impl App {
         match self.route {
             AppRoute::Home => self.handle_key_home(key, tx),
             AppRoute::Tags => self.handle_key_tags(key, tx),
+            AppRoute::Users => self.handle_key_users(key, tx),
+            AppRoute::SeedMenu => self.handle_key_seed_menu(key, tx),
+            AppRoute::SeedProgress => {}
+            AppRoute::SeedSummary => self.handle_key_seed_summary(key),
+            AppRoute::SeedHistory => self.handle_key_seed_history(key, tx),
+            AppRoute::SeedUndoConfirm => self.handle_key_seed_undo(key, tx),
         }
     }
 
@@ -122,14 +237,19 @@ impl App {
                 }
             }
             KeyCode::Down | KeyCode::Char('j') => {
-                // Only one item today, but keep logic extensible
-                if self.selected_home_index < 0_usize.saturating_add(1) {
-                    self.selected_home_index = 0;
+                let max_index = 3; // tags, users, seed, history
+                if self.selected_home_index < max_index {
+                    self.selected_home_index += 1;
                 }
             }
             KeyCode::Enter => {
-                // Only menu item: Tags
-                self.open_tags(tx);
+                match self.selected_home_index {
+                    0 => self.open_tags(tx),
+                    1 => self.open_users(tx),
+                    2 => self.open_seed_menu(),
+                    3 => self.open_seed_history(tx),
+                    _ => self.open_tags(tx),
+                }
             }
             _ => {}
         }
@@ -181,10 +301,197 @@ impl App {
         }
     }
 
+    fn handle_key_users(&mut self, key: KeyEvent, tx: &mpsc::UnboundedSender<AppEvent>) {
+        if self.users.error.is_some() {
+            match key.code {
+                KeyCode::Char('r') | KeyCode::Char('R') => {
+                    self.load_users(tx);
+                }
+                KeyCode::Esc | KeyCode::Char('q') => {
+                    self.route = AppRoute::Home;
+                }
+                _ => {
+                    self.users.error = None;
+                }
+            }
+            return;
+        }
+
+        if self.users.is_loading {
+            if key.code == KeyCode::Esc || key.code == KeyCode::Char('q') {
+                self.route = AppRoute::Home;
+            }
+            return;
+        }
+
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('q') => {
+                self.route = AppRoute::Home;
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                if !self.users.users.is_empty() && self.users.selected_index > 0 {
+                    self.users.selected_index -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                if !self.users.users.is_empty()
+                    && self.users.selected_index + 1 < self.users.users.len()
+                {
+                    self.users.selected_index += 1;
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                self.load_users(tx);
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_key_seed_menu(&mut self, key: KeyEvent, tx: &mpsc::UnboundedSender<AppEvent>) {
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('q') => {
+                self.route = AppRoute::Home;
+            }
+            KeyCode::Char('1') | KeyCode::Enter => {
+                self.start_seed_all(tx);
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_key_seed_summary(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('h') => {
+                self.route = AppRoute::Home;
+            }
+            KeyCode::Char('t') => {
+                self.route = AppRoute::Tags;
+            }
+            KeyCode::Char('u') => {
+                self.route = AppRoute::Users;
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_key_seed_history(&mut self, key: KeyEvent, tx: &mpsc::UnboundedSender<AppEvent>) {
+        if self.seed_history.error.is_some() {
+            match key.code {
+                KeyCode::Char('r') | KeyCode::Char('R') => self.open_seed_history(tx),
+                _ => {
+                    self.seed_history.error = None;
+                }
+            }
+            return;
+        }
+
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('q') => {
+                self.route = AppRoute::Home;
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                if self.seed_history.selected_index > 0 {
+                    self.seed_history.selected_index -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                if !self.seed_history.runs.is_empty()
+                    && self.seed_history.selected_index + 1 < self.seed_history.runs.len()
+                {
+                    self.seed_history.selected_index += 1;
+                }
+            }
+            KeyCode::Enter => {
+                if let Some(run) = self
+                    .seed_history
+                    .runs
+                    .get(self.seed_history.selected_index)
+                    .cloned()
+                {
+                    self.seed_undo.selected_run = Some(run);
+                    self.seed_undo.outcome = None;
+                    self.seed_undo.error = None;
+                    self.route = AppRoute::SeedUndoConfirm;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_key_seed_undo(&mut self, key: KeyEvent, tx: &mpsc::UnboundedSender<AppEvent>) {
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('q') => {
+                self.route = AppRoute::SeedHistory;
+            }
+            KeyCode::Char('u') | KeyCode::Enter => {
+                if let Some(run) = self.seed_undo.selected_run.clone() {
+                    self.seed_undo.is_loading = true;
+                    let core = self.core.clone();
+                    let tx_clone = tx.clone();
+                    tokio::spawn(async move {
+                        let res = seed::undo_seed_run(&core.db, run.id)
+                            .await
+                            .map_err(|e| SeedFlowError::Failed(e.to_string()));
+                        let _ = tx_clone.send(AppEvent::SeedUndoCompleted(res));
+                    });
+                    self.route = AppRoute::SeedProgress;
+                }
+            }
+            _ => {}
+        }
+    }
+
     fn open_tags(&mut self, tx: &mpsc::UnboundedSender<AppEvent>) {
         self.route = AppRoute::Tags;
         self.tags = TagsState::default();
         self.load_tags(tx);
+    }
+
+    fn open_users(&mut self, tx: &mpsc::UnboundedSender<AppEvent>) {
+        self.route = AppRoute::Users;
+        self.users = UsersState::default();
+        self.load_users(tx);
+    }
+
+    fn open_seed_menu(&mut self) {
+        self.route = AppRoute::SeedMenu;
+    }
+
+    fn open_seed_history(&mut self, tx: &mpsc::UnboundedSender<AppEvent>) {
+        if self.seed_history.is_loading {
+            return;
+        }
+        self.seed_history.is_loading = true;
+        self.seed_history.error = None;
+        self.route = AppRoute::SeedHistory;
+
+        let core = self.core.clone();
+        let tx_clone = tx.clone();
+        tokio::spawn(async move {
+            let res = seed::list_seed_runs(&core.db)
+                .await
+                .map_err(|e| SeedFlowError::Failed(e.to_string()));
+            let _ = tx_clone.send(AppEvent::SeedHistoryLoaded(res));
+        });
+    }
+
+    fn start_seed_all(&mut self, tx: &mpsc::UnboundedSender<AppEvent>) {
+        if self.seed_summary.is_loading {
+            return;
+        }
+        self.seed_summary.is_loading = true;
+        self.seed_summary.error = None;
+        self.seed_summary.outcome = None;
+        self.route = AppRoute::SeedProgress;
+
+        let core = self.core.clone();
+        let tx_clone = tx.clone();
+        tokio::spawn(async move {
+            let res = seed::seed_all(&core.db)
+                .await
+                .map_err(|e| SeedFlowError::Failed(e.to_string()));
+            let _ = tx_clone.send(AppEvent::SeedCompleted(res));
+        });
     }
 
     fn load_tags(&mut self, tx: &mpsc::UnboundedSender<AppEvent>) {
@@ -201,6 +508,23 @@ impl App {
         tokio::spawn(async move {
             let result = fetch_tags(core).await;
             let _ = tx_clone.send(AppEvent::TagsLoaded(result));
+        });
+    }
+
+    fn load_users(&mut self, tx: &mpsc::UnboundedSender<AppEvent>) {
+        if self.users.is_loading {
+            return;
+        }
+
+        self.users.is_loading = true;
+        self.users.error = None;
+
+        let core = self.core.clone();
+        let tx_clone = tx.clone();
+
+        tokio::spawn(async move {
+            let result = fetch_users(core).await;
+            let _ = tx_clone.send(AppEvent::UsersLoaded(result));
         });
     }
 
@@ -222,6 +546,62 @@ impl App {
                     }
                 }
             }
+            AppEvent::UsersLoaded(result) => {
+                self.users.is_loading = false;
+                match result {
+                    Ok(users) => {
+                        self.push_log(format!("users loaded: {} items", users.len()));
+                        self.users.users = users;
+                        if !self.users.users.is_empty() {
+                            self.users.selected_index = 0;
+                        }
+                    }
+                    Err(err) => {
+                        self.push_log(format!("users load error: {:?}", err));
+                        self.users.error = Some(format!("{:?}", err));
+                    }
+                }
+            }
+            AppEvent::SeedCompleted(result) => {
+                self.seed_summary.is_loading = false;
+                match result {
+                    Ok(outcome) => {
+                        self.seed_summary.outcome = Some(outcome);
+                        self.route = AppRoute::SeedSummary;
+                        self.push_log("seed completed");
+                    }
+                    Err(err) => {
+                        self.seed_summary.error = Some(format!("{:?}", err));
+                        self.route = AppRoute::SeedSummary;
+                    }
+                }
+            }
+            AppEvent::SeedHistoryLoaded(result) => {
+                self.seed_history.is_loading = false;
+                match result {
+                    Ok(runs) => {
+                        self.seed_history.runs = runs;
+                        if !self.seed_history.runs.is_empty() {
+                            self.seed_history.selected_index = 0;
+                        }
+                    }
+                    Err(err) => {
+                        self.seed_history.error = Some(format!("{:?}", err));
+                    }
+                }
+            }
+            AppEvent::SeedUndoCompleted(result) => match result {
+                Ok(outcome) => {
+                    self.seed_undo.is_loading = false;
+                    self.seed_undo.outcome = Some(outcome);
+                    self.route = AppRoute::SeedSummary;
+                }
+                Err(err) => {
+                    self.seed_undo.is_loading = false;
+                    self.seed_undo.error = Some(format!("{:?}", err));
+                    self.route = AppRoute::SeedHistory;
+                }
+            },
         }
     }
 }
@@ -264,6 +644,12 @@ async fn run_app<B: ratatui::backend::Backend>(
             match app.route {
                 AppRoute::Home => draw_home(f, layout[0], &app, &palette),
                 AppRoute::Tags => draw_tags(f, layout[0], &app, &palette),
+                AppRoute::Users => draw_users(f, layout[0], &app, &palette),
+                AppRoute::SeedMenu => draw_seed_menu(f, layout[0], &palette),
+                AppRoute::SeedProgress => draw_seed_progress(f, layout[0], &app, &palette),
+                AppRoute::SeedSummary => draw_seed_summary(f, layout[0], &app, &palette),
+                AppRoute::SeedHistory => draw_seed_history(f, layout[0], &app, &palette),
+                AppRoute::SeedUndoConfirm => draw_seed_undo(f, layout[0], &app, &palette),
             }
 
             draw_logs(f, layout[1], &app.logs, &palette);
@@ -293,4 +679,12 @@ async fn fetch_tags(core: Arc<CoreState>) -> Result<Vec<tag::Model>, TagError> {
     tag::Entity::find_all(&core.db)
         .await
         .map_err(|e| TagError::LoadFailed(e.to_string()))
+}
+
+async fn fetch_users(core: Arc<CoreState>) -> Result<Vec<user::Model>, UserError> {
+    user::Entity::find()
+        .order_by_desc(user::Column::Id)
+        .all(&core.db)
+        .await
+        .map_err(|e| UserError::LoadFailed(e.to_string()))
 }
