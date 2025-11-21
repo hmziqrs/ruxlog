@@ -1452,20 +1452,6 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
 
         match user::Entity::admin_create(&state.sea_db, new_user).await {
             Ok(user) => {
-                // Create user in Supabase
-                let supabase = state.supabase.clone();
-                let email_clone = email.clone();
-                let password_clone = password.clone();
-                tokio::spawn(async move {
-                    match supabase
-                        .admin_create_user(&email_clone, &password_clone)
-                        .await
-                    {
-                        Ok(_) => println!("Supabase user created for {}", email_clone),
-                        Err(e) => println!("Failed to create Supabase user: {}", e),
-                    }
-                });
-
                 fake_users.push(user);
             }
             Err(err) => {
