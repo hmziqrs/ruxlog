@@ -54,7 +54,7 @@ pub fn NewsletterSubscribersScreen() -> Element {
                     p { class: "text-sm text-muted-foreground", "Manage newsletter subscribers." }
                 }
                 button {
-                    class: "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent",
+                    class: "inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:bg-accent",
                     onclick: reload,
                     "Refresh"
                 }
@@ -63,7 +63,7 @@ pub fn NewsletterSubscribersScreen() -> Element {
             div { class: "flex flex-wrap items-center gap-3",
                 div { class: "relative flex-1 min-w-[240px]",
                     input {
-                        class: "w-full rounded-md border pl-8 pr-3 py-2 text-sm",
+                        class: "w-full rounded-md border border-border pl-8 pr-3 py-2 text-sm",
                         placeholder: "Search email",
                         value: "{search}",
                         oninput: move |e| search.set(e.value()),
@@ -74,15 +74,15 @@ pub fn NewsletterSubscribersScreen() -> Element {
                     "Confirmed only"
                 }
                 button {
-                    class: "rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent",
+                    class: "rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-accent",
                     onclick: reload,
                     "Apply"
                 }
             }
 
-            div { class: "overflow-auto border rounded-md",
+            div { class: "overflow-auto bg-transparent border border-border rounded-lg",
                 table { class: "w-full text-sm",
-                    thead { class: "bg-muted/50",
+                    thead { class: "bg-transparent",
                         tr {
                             th { class: "p-3 text-left", "ID" }
                             th { class: "p-3 text-left", "Email" }
@@ -99,7 +99,7 @@ pub fn NewsletterSubscribersScreen() -> Element {
                             }
                         } else {
                             for sub in subs {
-                                tr { class: "border-t",
+                                tr { class: "border-t border-border",
                                     td { class: "p-3", "{sub.id}" }
                                     td { class: "p-3", "{sub.email}" }
                                     td { class: "p-3", if sub.confirmed { "Confirmed" } else { "Pending" } }

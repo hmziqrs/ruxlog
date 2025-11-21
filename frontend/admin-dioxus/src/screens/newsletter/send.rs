@@ -37,7 +37,7 @@ pub fn NewsletterSendScreen() -> Element {
                 div { class: "space-y-2",
                     label { class: "text-sm font-medium", "Subject" }
                     input {
-                        class: "w-full rounded-md border px-3 py-2 text-sm",
+                        class: "w-full rounded-md border border-border px-3 py-2 text-sm",
                         value: "{subject}",
                         oninput: move |e| subject.set(e.value()),
                         required: true
@@ -46,7 +46,7 @@ pub fn NewsletterSendScreen() -> Element {
                 div { class: "space-y-2",
                     label { class: "text-sm font-medium", "Content (text)" }
                     textarea {
-                        class: "w-full rounded-md border px-3 py-2 text-sm min-h-[160px]",
+                        class: "w-full rounded-md border border-border px-3 py-2 text-sm min-h-[160px]",
                         value: "{content}",
                         oninput: move |e| content.set(e.value()),
                         required: true
@@ -55,7 +55,7 @@ pub fn NewsletterSendScreen() -> Element {
                 div { class: "space-y-2",
                     label { class: "text-sm font-medium", "HTML Content (optional)" }
                     textarea {
-                        class: "w-full rounded-md border px-3 py-2 text-sm min-h-[160px]",
+                        class: "w-full rounded-md border border-border px-3 py-2 text-sm min-h-[160px]",
                         value: "{html_content}",
                         oninput: move |e| html_content.set(e.value())
                     }
@@ -68,7 +68,7 @@ pub fn NewsletterSendScreen() -> Element {
             }
 
             if let Some(result) = last_result {
-                div { class: "rounded-md border px-3 py-2 text-sm",
+                div { class: "rounded-md border border-border px-3 py-2 text-sm",
                     if result.success {
                         span { class: "text-green-600", "{result.message.clone().unwrap_or_else(|| \"Newsletter sent successfully\".to_string())}" }
                     } else {

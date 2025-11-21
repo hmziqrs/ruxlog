@@ -61,7 +61,7 @@ pub fn CommentsListScreen() -> Element {
                     p { class: "text-sm text-muted-foreground", "Moderate comments and flags." }
                 }
                 button {
-                    class: "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent",
+                    class: "inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:bg-accent",
                     onclick: reload,
                     "Refresh"
                 }
@@ -69,13 +69,13 @@ pub fn CommentsListScreen() -> Element {
 
             div { class: "grid grid-cols-1 md:grid-cols-4 gap-3",
                 input {
-                    class: "w-full rounded-md border px-3 py-2 text-sm",
+                    class: "w-full rounded-md border border-border px-3 py-2 text-sm",
                     placeholder: "Filter by post id",
                     value: "{post_id}",
                     oninput: move |e| post_id.set(e.value())
                 }
                 input {
-                    class: "w-full rounded-md border px-3 py-2 text-sm",
+                    class: "w-full rounded-md border border-border px-3 py-2 text-sm",
                     placeholder: "Filter by user id",
                     value: "{user_id}",
                     oninput: move |e| user_id.set(e.value())
@@ -89,15 +89,15 @@ pub fn CommentsListScreen() -> Element {
                     "Include hidden"
                 }
                 button {
-                    class: "rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent",
+                    class: "rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-accent",
                     onclick: reload,
                     "Apply Filters"
                 }
             }
 
-            div { class: "overflow-auto border rounded-md",
+            div { class: "overflow-auto bg-transparent border border-border rounded-lg",
                 table { class: "w-full text-sm",
-                    thead { class: "bg-muted/50",
+                    thead { class: "bg-transparent",
                         tr {
                             th { class: "p-3 text-left", "ID" }
                             th { class: "p-3 text-left", "Post" }
@@ -131,7 +131,7 @@ fn CommentRow(comment: Comment) -> Element {
     let comments = use_comments();
     let hidden_label = if comment.is_hidden { "Hidden" } else { "Visible" };
     rsx! {
-        tr { class: "border-t",
+        tr { class: "border-t border-border",
             td { class: "p-3", "{comment.id}" }
             td { class: "p-3", "{comment.post_id}" }
             td { class: "p-3", "{comment.user_id}" }
@@ -139,7 +139,7 @@ fn CommentRow(comment: Comment) -> Element {
             td { class: "p-3", "{hidden_label}" }
             td { class: "p-3 space-x-2",
                 button {
-                    class: "rounded-md border px-2 py-1 text-xs hover:bg-accent",
+                    class: "rounded-md border border-border px-2 py-1 text-xs hover:bg-accent",
                     onclick: move |_| {
                         let comments = comments;
                         let id = comment.id;
@@ -148,7 +148,7 @@ fn CommentRow(comment: Comment) -> Element {
                     "Hide"
                 }
                 button {
-                    class: "rounded-md border px-2 py-1 text-xs hover:bg-accent",
+                    class: "rounded-md border border-border px-2 py-1 text-xs hover:bg-accent",
                     onclick: move |_| {
                         let comments = comments;
                         let id = comment.id;
@@ -157,7 +157,7 @@ fn CommentRow(comment: Comment) -> Element {
                     "Unhide"
                 }
                 button {
-                    class: "rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-red-50 border-red-200",
+                    class: "rounded-md border border-border px-2 py-1 text-xs text-red-600 hover:bg-red-50",
                     onclick: move |_| {
                         let comments = comments;
                         let id = comment.id;

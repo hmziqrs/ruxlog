@@ -42,7 +42,7 @@ pub fn RoutesSettingsScreen() -> Element {
                     p { class: "text-sm text-muted-foreground", "Block or unblock admin routes." }
                 }
                 button {
-                    class: "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent",
+                    class: "inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:bg-accent",
                     onclick: move |_| {
                         let routes_state = routes_state;
                         spawn(async move { routes_state.list().await; });
@@ -51,11 +51,11 @@ pub fn RoutesSettingsScreen() -> Element {
                 }
             }
 
-            form { class: "grid gap-3 md:grid-cols-3 items-end border rounded-md p-3", onsubmit: block_route,
+            form { class: "grid gap-3 md:grid-cols-3 items-end border border-border rounded-md p-3", onsubmit: block_route,
                 div { class: "space-y-1",
                     label { class: "text-sm font-medium", "Pattern" }
                     input {
-                        class: "w-full rounded-md border px-3 py-2 text-sm",
+                        class: "w-full rounded-md border border-border px-3 py-2 text-sm",
                         placeholder: "/admin/*",
                         value: "{pattern}",
                         oninput: move |e| pattern.set(e.value()),
@@ -65,7 +65,7 @@ pub fn RoutesSettingsScreen() -> Element {
                 div { class: "space-y-1",
                     label { class: "text-sm font-medium", "Reason" }
                     input {
-                        class: "w-full rounded-md border px-3 py-2 text-sm",
+                        class: "w-full rounded-md border border-border px-3 py-2 text-sm",
                         placeholder: "Maintenance",
                         value: "{reason}",
                         oninput: move |e| reason.set(e.value()),
@@ -78,9 +78,9 @@ pub fn RoutesSettingsScreen() -> Element {
                 }
             }
 
-            div { class: "overflow-auto border rounded-md",
+            div { class: "overflow-auto bg-transparent border border-border rounded-lg",
                 table { class: "w-full text-sm",
-                    thead { class: "bg-muted/50",
+                    thead { class: "bg-transparent",
                         tr {
                             th { class: "p-3 text-left", "Pattern" }
                             th { class: "p-3 text-left", "Status" }
@@ -112,13 +112,13 @@ fn RouteRow(route: RouteStatus) -> Element {
     let routes_state = use_admin_routes();
     let status_label = if route.is_blocked { "Blocked" } else { "Allowed" };
     rsx! {
-        tr { class: "border-t",
+        tr { class: "border-t border-border",
             td { class: "p-3 font-mono text-xs", "{route.pattern}" }
             td { class: "p-3", "{status_label}" }
             td { class: "p-3", "{route.reason.clone().unwrap_or_else(|| \"-\".to_string())}" }
             td { class: "p-3 space-x-2",
                 button {
-                    class: "rounded-md border px-2 py-1 text-xs hover:bg-accent",
+                    class: "rounded-md border border-border px-2 py-1 text-xs hover:bg-accent",
                     onclick: {
                         let routes_state = routes_state;
                         let pattern = route.pattern.clone();
@@ -136,7 +136,7 @@ fn RouteRow(route: RouteStatus) -> Element {
                     if route.is_blocked { "Unblock" } else { "Block" }
                 }
                 button {
-                    class: "rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-red-50 border-red-200",
+                    class: "rounded-md border border-border px-2 py-1 text-xs text-red-600 hover:bg-red-50",
                     onclick: {
                         let routes_state = routes_state;
                         let pattern = route.pattern.clone();

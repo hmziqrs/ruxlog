@@ -31,15 +31,15 @@ pub fn FlaggedCommentsScreen() -> Element {
                     p { class: "text-sm text-muted-foreground", "Review and clear comment flags." }
                 }
                 button {
-                    class: "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent",
+                    class: "inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:bg-accent",
                     onclick: refresh,
                     "Refresh"
                 }
             }
 
-            div { class: "overflow-auto border rounded-md",
+            div { class: "overflow-auto bg-transparent border border-border rounded-lg",
                 table { class: "w-full text-sm",
-                    thead { class: "bg-muted/50",
+                    thead { class: "bg-transparent",
                         tr {
                             th { class: "p-3 text-left", "Flag ID" }
                             th { class: "p-3 text-left", "Comment" }
@@ -71,14 +71,14 @@ pub fn FlaggedCommentsScreen() -> Element {
 fn FlagRow(flag: CommentFlag) -> Element {
     let comments = use_comments();
     rsx! {
-        tr { class: "border-t",
+        tr { class: "border-t border-border",
             td { class: "p-3", "{flag.id}" }
             td { class: "p-3", "{flag.comment_id}" }
             td { class: "p-3", "{flag.user_id}" }
             td { class: "p-3 max-w-md truncate", "{flag.reason}" }
             td { class: "p-3 space-x-2",
                 button {
-                    class: "rounded-md border px-2 py-1 text-xs hover:bg-accent",
+                    class: "rounded-md border border-border px-2 py-1 text-xs hover:bg-accent",
                     onclick: move |_| {
                         let comments = comments;
                         let id = flag.comment_id;
@@ -87,7 +87,7 @@ fn FlagRow(flag: CommentFlag) -> Element {
                     "Clear flags"
                 }
                 button {
-                    class: "rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-red-50 border-red-200",
+                    class: "rounded-md border border-border px-2 py-1 text-xs text-red-600 hover:bg-red-50",
                     onclick: move |_| {
                         let comments = comments;
                         let id = flag.comment_id;
