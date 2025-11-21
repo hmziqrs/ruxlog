@@ -20,7 +20,8 @@ pub struct Comment {
     pub content: String,
     pub parent_id: Option<i32>,
     pub created_at: DateTime<Utc>,
-    pub is_hidden: bool,
+    #[serde(default, alias = "is_hidden")]
+    pub hidden: bool,
     #[serde(default)]
     pub author: Option<CommentAuthor>,
 }

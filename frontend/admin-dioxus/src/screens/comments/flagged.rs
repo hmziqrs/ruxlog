@@ -1,5 +1,10 @@
 use dioxus::prelude::*;
 use ruxlog_shared::store::{use_comments, CommentFlag};
+use oxstore::{PaginatedList, StateFrame};
+
+use crate::components::table::data_table_screen::{DataTableScreen, HeaderColumn};
+use crate::containers::page_header::PageHeaderProps;
+use oxui::shadcn::button::{Button, ButtonVariant};
 
 #[component]
 pub fn FlaggedCommentsScreen() -> Element {
@@ -22,48 +27,70 @@ pub fn FlaggedCommentsScreen() -> Element {
         .data
         .clone()
         .unwrap_or_default();
+    let flags_frame = to_paginated_frame((comments.flags)());
+
+    // Define header columns
+    let headers = vec![
+        HeaderColumn::new("Flag ID", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+        HeaderColumn::new("Comment", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+        HeaderColumn::new("User", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+        HeaderColumn::new("Reason", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+        HeaderColumn::new("Actions", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+    ];
 
     rsx! {
-        div { class: "p-6 space-y-4",
-            div { class: "flex items-center justify-between",
-                div {
-                    h2 { class: "text-2xl font-semibold", "Flagged Comments" }
-                    p { class: "text-sm text-muted-foreground", "Review and clear comment flags." }
-                }
-                button {
-                    class: "inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:bg-accent",
-                    onclick: refresh,
-                    "Refresh"
-                }
-            }
-
-            div { class: "overflow-auto bg-transparent border border-border rounded-lg",
-                table { class: "w-full text-sm",
-                    thead { class: "bg-transparent",
-                        tr {
-                            th { class: "p-3 text-left", "Flag ID" }
-                            th { class: "p-3 text-left", "Comment" }
-                            th { class: "p-3 text-left", "User" }
-                            th { class: "p-3 text-left", "Reason" }
-                            th { class: "p-3 text-left", "Actions" }
-                        }
+        DataTableScreen::<CommentFlag> {
+            frame: flags_frame,
+            header: Some(PageHeaderProps {
+                title: "Flagged Comments".to_string(),
+                description: "Review and clear comment flags".to_string(),
+                actions: Some(rsx!{
+                    Button {
+                        onclick: refresh,
+                        "Refresh"
                     }
-                    tbody {
-                        if flags.is_empty() {
-                            tr {
-                                td { class: "p-4 text-center text-muted-foreground", colspan: "5",
-                                    "No flags found."
-                                }
-                            }
-                        } else {
-                            for flag in flags {
-                                FlagRow { flag }
-                            }
-                        }
+                }),
+                class: None,
+                embedded: false,
+            }),
+            headers: Some(headers),
+            current_sort_field: None,
+            on_sort: None,
+            show_pagination: false,
+            on_prev: move |_| {},
+            on_next: move |_| {},
+            if flags.is_empty() {
+                tr {
+                    td { class: "p-4 text-center text-muted-foreground", colspan: "5",
+                        "No flags found."
                     }
                 }
+            } else {
+                {flags.iter().cloned().map(|flag| {
+                    rsx! {
+                        FlagRow { key: "{flag.id}", flag }
+                    }
+                })}
             }
         }
+    }
+}
+
+fn to_paginated_frame<T: Clone>(frame: StateFrame<Vec<T>>) -> StateFrame<PaginatedList<T>> {
+    let data_vec = frame.data;
+    let count = data_vec.as_ref().map(|d| d.len() as u64).unwrap_or(0);
+    let data = data_vec.map(|items| PaginatedList {
+        data: items,
+        total: count,
+        page: 1,
+        per_page: count.max(1),
+    });
+
+    StateFrame {
+        status: frame.status,
+        data,
+        meta: frame.meta,
+        error: frame.error,
     }
 }
 
@@ -71,14 +98,15 @@ pub fn FlaggedCommentsScreen() -> Element {
 fn FlagRow(flag: CommentFlag) -> Element {
     let comments = use_comments();
     rsx! {
-        tr { class: "border-t border-border",
+        tr { class: "border-b border-zinc-200 dark:border-zinc-800 hover:bg-muted/30 transition-colors",
             td { class: "p-3", "{flag.id}" }
             td { class: "p-3", "{flag.comment_id}" }
             td { class: "p-3", "{flag.user_id}" }
             td { class: "p-3 max-w-md truncate", "{flag.reason}" }
             td { class: "p-3 space-x-2",
-                button {
-                    class: "rounded-md border border-border px-2 py-1 text-xs hover:bg-accent",
+                Button {
+                    variant: ButtonVariant::Outline,
+                    class: "h-8 px-2 text-xs",
                     onclick: move |_| {
                         let comments = comments;
                         let id = flag.comment_id;
@@ -86,8 +114,9 @@ fn FlagRow(flag: CommentFlag) -> Element {
                     },
                     "Clear flags"
                 }
-                button {
-                    class: "rounded-md border border-border px-2 py-1 text-xs text-red-600 hover:bg-red-50",
+                Button {
+                    variant: ButtonVariant::Destructive,
+                    class: "h-8 px-2 text-xs",
                     onclick: move |_| {
                         let comments = comments;
                         let id = flag.comment_id;

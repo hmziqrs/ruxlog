@@ -3,6 +3,12 @@ use ruxlog_shared::store::{
     use_admin_routes, BlockRoutePayload, RouteStatus, UpdateRoutePayload,
 };
 
+use crate::components::table::data_table_screen::{DataTableScreen, HeaderColumn};
+use crate::containers::page_header::PageHeaderProps;
+use oxstore::{PaginatedList, StateFrame};
+use oxui::components::form::input::SimpleInput;
+use oxui::shadcn::button::{Button, ButtonVariant};
+
 #[component]
 pub fn RoutesSettingsScreen() -> Element {
     let routes_state = use_admin_routes();
@@ -27,81 +33,86 @@ pub fn RoutesSettingsScreen() -> Element {
         });
     };
 
+    let refresh = move |_| {
+        let routes_state = routes_state;
+        spawn(async move { routes_state.list().await; });
+    };
+
     let rows: Vec<RouteStatus> = routes_state
         .list
         .read()
         .data
         .clone()
         .unwrap_or_default();
+    let routes_frame = to_paginated_frame((routes_state.list)());
+
+    // Define header columns
+    let headers = vec![
+        HeaderColumn::new("Pattern", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+        HeaderColumn::new("Status", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+        HeaderColumn::new("Reason", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+        HeaderColumn::new("Actions", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+    ];
 
     rsx! {
-        div { class: "p-6 space-y-5",
-            div { class: "flex items-center justify-between",
-                div {
-                    h2 { class: "text-2xl font-semibold", "Route Settings" }
-                    p { class: "text-sm text-muted-foreground", "Block or unblock admin routes." }
-                }
-                button {
-                    class: "inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:bg-accent",
-                    onclick: move |_| {
-                        let routes_state = routes_state;
-                        spawn(async move { routes_state.list().await; });
-                    },
-                    "Refresh"
-                }
-            }
-
-            form { class: "grid gap-3 md:grid-cols-3 items-end border border-border rounded-md p-3", onsubmit: block_route,
-                div { class: "space-y-1",
-                    label { class: "text-sm font-medium", "Pattern" }
-                    input {
-                        class: "w-full rounded-md border border-border px-3 py-2 text-sm",
-                        placeholder: "/admin/*",
-                        value: "{pattern}",
-                        oninput: move |e| pattern.set(e.value()),
-                        required: true
+        DataTableScreen::<RouteStatus> {
+            frame: routes_frame,
+            header: Some(PageHeaderProps {
+                title: "Route Settings".to_string(),
+                description: "Block or unblock admin routes".to_string(),
+                actions: Some(rsx!{
+                    Button {
+                        onclick: refresh,
+                        "Refresh"
                     }
-                }
-                div { class: "space-y-1",
-                    label { class: "text-sm font-medium", "Reason" }
-                    input {
-                        class: "w-full rounded-md border border-border px-3 py-2 text-sm",
-                        placeholder: "Maintenance",
-                        value: "{reason}",
-                        oninput: move |e| reason.set(e.value()),
-                    }
-                }
-                button {
-                    class: "inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90",
-                    r#type: "submit",
-                    "Block route"
-                }
-            }
-
-            div { class: "overflow-auto bg-transparent border border-border rounded-lg",
-                table { class: "w-full text-sm",
-                    thead { class: "bg-transparent",
-                        tr {
-                            th { class: "p-3 text-left", "Pattern" }
-                            th { class: "p-3 text-left", "Status" }
-                            th { class: "p-3 text-left", "Reason" }
-                            th { class: "p-3 text-left", "Actions" }
+                }),
+                class: None,
+                embedded: false,
+            }),
+            headers: Some(headers),
+            current_sort_field: None,
+            on_sort: None,
+            show_pagination: false,
+            on_prev: move |_| {},
+            on_next: move |_| {},
+            below_toolbar: Some(rsx! {
+                form { class: "grid gap-3 md:grid-cols-3 items-end border border-border rounded-md p-3", onsubmit: block_route,
+                    div { class: "space-y-1",
+                        label { class: "text-sm font-medium", "Pattern" }
+                        SimpleInput {
+                            placeholder: Some("/admin/*".to_string()),
+                            value: pattern(),
+                            oninput: move |value| pattern.set(value),
+                            class: Some("text-sm".to_string()),
                         }
                     }
-                    tbody {
-                        if rows.is_empty() {
-                            tr {
-                                td { class: "p-4 text-center text-muted-foreground", colspan: "4",
-                                    "No routes configured."
-                                }
-                            }
-                        } else {
-                            for route in rows {
-                                RouteRow { key: "{route.pattern}", route }
-                            }
+                    div { class: "space-y-1",
+                        label { class: "text-sm font-medium", "Reason" }
+                        SimpleInput {
+                            placeholder: Some("Maintenance".to_string()),
+                            value: reason(),
+                            oninput: move |value| reason.set(value),
+                            class: Some("text-sm".to_string()),
                         }
                     }
+                    Button {
+                        r#type: "submit",
+                        "Block route"
+                    }
                 }
+            }),
+            if rows.is_empty() {
+                tr {
+                    td { class: "p-4 text-center text-muted-foreground", colspan: "4",
+                        "No routes configured."
+                    }
+                }
+            } else {
+                {rows.iter().cloned().map(|route| {
+                    rsx! {
+                        RouteRow { key: "{route.pattern}", route }
+                    }
+                })}
             }
         }
     }
@@ -112,13 +123,14 @@ fn RouteRow(route: RouteStatus) -> Element {
     let routes_state = use_admin_routes();
     let status_label = if route.is_blocked { "Blocked" } else { "Allowed" };
     rsx! {
-        tr { class: "border-t border-border",
+        tr { class: "border-b border-zinc-200 dark:border-zinc-800 hover:bg-muted/30 transition-colors",
             td { class: "p-3 font-mono text-xs", "{route.pattern}" }
             td { class: "p-3", "{status_label}" }
             td { class: "p-3", "{route.reason.clone().unwrap_or_else(|| \"-\".to_string())}" }
             td { class: "p-3 space-x-2",
-                button {
-                    class: "rounded-md border border-border px-2 py-1 text-xs hover:bg-accent",
+                Button {
+                    variant: ButtonVariant::Outline,
+                    class: "h-8 px-2 text-xs",
                     onclick: {
                         let routes_state = routes_state;
                         let pattern = route.pattern.clone();
@@ -135,8 +147,9 @@ fn RouteRow(route: RouteStatus) -> Element {
                     },
                     if route.is_blocked { "Unblock" } else { "Block" }
                 }
-                button {
-                    class: "rounded-md border border-border px-2 py-1 text-xs text-red-600 hover:bg-red-50",
+                Button {
+                    variant: ButtonVariant::Destructive,
+                    class: "h-8 px-2 text-xs",
                     onclick: {
                         let routes_state = routes_state;
                         let pattern = route.pattern.clone();
@@ -149,5 +162,23 @@ fn RouteRow(route: RouteStatus) -> Element {
                 }
             }
         }
+    }
+}
+
+fn to_paginated_frame<T: Clone>(frame: StateFrame<Vec<T>>) -> StateFrame<PaginatedList<T>> {
+    let data_vec = frame.data;
+    let count = data_vec.as_ref().map(|d| d.len() as u64).unwrap_or(0);
+    let data = data_vec.map(|items| PaginatedList {
+        data: items,
+        total: count,
+        page: 1,
+        per_page: count.max(1),
+    });
+
+    StateFrame {
+        status: frame.status,
+        data,
+        meta: frame.meta,
+        error: frame.error,
     }
 }

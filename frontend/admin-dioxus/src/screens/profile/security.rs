@@ -3,6 +3,10 @@ use ruxlog_shared::store::{
     use_auth, TwoFactorVerifyPayload, UserSession,
 };
 
+use crate::containers::page_header::PageHeader;
+use oxui::components::form::input::SimpleInput;
+use oxui::shadcn::button::{Button, ButtonVariant};
+
 #[component]
 pub fn ProfileSecurityScreen() -> Element {
     let auth = use_auth();
@@ -47,80 +51,83 @@ pub fn ProfileSecurityScreen() -> Element {
     };
 
     rsx! {
-        div { class: "p-6 space-y-6",
-            div { class: "flex items-center justify-between",
-                div {
-                    h2 { class: "text-2xl font-semibold", "Security" }
-                    p { class: "text-sm text-muted-foreground", "Manage 2FA and active sessions." }
-                }
-                button {
-                    class: "inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:bg-accent",
-                    onclick: refresh_sessions,
-                    "Refresh"
-                }
+        div { class: "min-h-screen bg-transparent",
+            PageHeader {
+                title: "Security".to_string(),
+                description: "Manage 2FA and active sessions".to_string(),
+                actions: Some(rsx!{
+                    Button {
+                        onclick: refresh_sessions,
+                        "Refresh"
+                    }
+                }),
+                class: None,
+                embedded: false,
             }
 
-            div { class: "grid gap-4 md:grid-cols-2",
-                div { class: "border border-border rounded-md p-4 space-y-3",
-                    div { class: "flex items-center gap-2",
-                        h3 { class: "text-lg font-semibold", "Two-Factor Auth" }
-                    }
-                    button {
-                        class: "rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-accent",
-                        onclick: setup,
-                        "Setup 2FA"
-                    }
-                    if let Some(setup_info) = setup_payload.clone() {
-                        div { class: "space-y-2",
-                            p { class: "text-sm text-muted-foreground", "Scan QR code or use the secret below." }
-                            img { class: "w-40 h-40 border border-border rounded-md", src: setup_info.qr_code_url }
-                            div { class: "font-mono text-xs break-all border border-border rounded-md px-3 py-2", "{setup_info.secret}" }
-                            if !setup_info.backup_codes.is_empty() {
-                                div { class: "space-y-1",
-                                    h4 { class: "text-sm font-semibold", "Backup Codes" }
-                                    ul { class: "grid grid-cols-2 gap-1 text-xs font-mono",
-                                        for code in setup_info.backup_codes {
-                                            li { class: "rounded border border-border px-2 py-1", "{code}" }
+            div { class: "container mx-auto px-4 py-8 md:py-12",
+                div { class: "grid gap-4 md:grid-cols-2",
+                    div { class: "border border-border rounded-md p-4 space-y-3",
+                        div { class: "flex items-center gap-2",
+                            h3 { class: "text-lg font-semibold", "Two-Factor Auth" }
+                        }
+                        Button {
+                            variant: ButtonVariant::Outline,
+                            onclick: setup,
+                            "Setup 2FA"
+                        }
+                        if let Some(setup_info) = setup_payload.clone() {
+                            div { class: "space-y-2",
+                                p { class: "text-sm text-muted-foreground", "Scan QR code or use the secret below." }
+                                img { class: "w-40 h-40 border border-border rounded-md", src: setup_info.qr_code_url }
+                                div { class: "font-mono text-xs break-all border border-border rounded-md px-3 py-2", "{setup_info.secret}" }
+                                if !setup_info.backup_codes.is_empty() {
+                                    div { class: "space-y-1",
+                                        h4 { class: "text-sm font-semibold", "Backup Codes" }
+                                        ul { class: "grid grid-cols-2 gap-1 text-xs font-mono",
+                                            for code in setup_info.backup_codes {
+                                                li { class: "rounded border border-border px-2 py-1", "{code}" }
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    form { class: "space-y-2", onsubmit: verify,
-                        label { class: "text-sm font-medium", "Verify code" }
-                        input {
-                            class: "w-full rounded-md border border-border px-3 py-2 text-sm",
-                            placeholder: "123456",
-                            value: "{verification_code}",
-                            oninput: move |e| verification_code.set(e.value()),
+                        form { class: "space-y-2", onsubmit: verify,
+                            label { class: "text-sm font-medium", "Verify code" }
+                            SimpleInput {
+                                placeholder: Some("123456".to_string()),
+                                value: verification_code(),
+                                oninput: move |value| verification_code.set(value),
+                                class: Some("text-sm".to_string()),
+                            }
+                            Button { r#type: "submit", "Verify" }
                         }
-                        button { class: "rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:opacity-90", r#type: "submit", "Verify" }
-                    }
 
-                    form { class: "space-y-2", onsubmit: disable,
-                        label { class: "text-sm font-medium", "Disable with code" }
-                        input {
-                            class: "w-full rounded-md border border-border px-3 py-2 text-sm",
-                            placeholder: "123456",
-                            value: "{disable_code}",
-                            oninput: move |e| disable_code.set(e.value()),
+                        form { class: "space-y-2", onsubmit: disable,
+                            label { class: "text-sm font-medium", "Disable with code" }
+                            SimpleInput {
+                                placeholder: Some("123456".to_string()),
+                                value: disable_code(),
+                                oninput: move |value| disable_code.set(value),
+                                class: Some("text-sm".to_string()),
+                            }
+                            Button { variant: ButtonVariant::Outline, r#type: "submit", "Disable 2FA" }
                         }
-                        button { class: "rounded-md border border-border px-3 py-2 text-sm hover:bg-accent", r#type: "submit", "Disable 2FA" }
                     }
-                }
 
-                div { class: "border border-border rounded-md p-4 space-y-3",
-                    div { class: "flex items-center gap-2",
-                        h3 { class: "text-lg font-semibold", "Active Sessions" }
-                    }
-                    if sessions.is_empty() {
-                        p { class: "text-sm text-muted-foreground", "No active sessions." }
-                    } else {
-                        div { class: "space-y-2",
-                            for session in sessions {
-                                SessionCard { key: "{session.id}", session }
+                    div { class: "border border-border rounded-md p-4 space-y-3",
+                        div { class: "flex items-center gap-2",
+                            h3 { class: "text-lg font-semibold", "Active Sessions" }
+                        }
+                        if sessions.is_empty() {
+                            p { class: "text-sm text-muted-foreground", "No active sessions." }
+                        } else {
+                            div { class: "space-y-2",
+                                for session in sessions {
+                                    SessionCard { key: "{session.id}", session }
+                                }
                             }
                         }
                     }
@@ -140,8 +147,9 @@ fn SessionCard(session: UserSession) -> Element {
             div { class: "text-muted-foreground", "Agent: {session.user_agent.clone().unwrap_or_else(|| \"n/a\".to_string())}" }
             div { class: "text-muted-foreground", "Last active: {session.last_active}" }
             div { class: "mt-2 flex gap-2",
-                button {
-                    class: "rounded-md border border-border px-3 py-1 text-xs hover:bg-accent",
+                Button {
+                    variant: ButtonVariant::Outline,
+                    class: "h-8 px-3 text-xs",
                     onclick: move |_| {
                         let auth = auth;
                         let id = session.id.clone();

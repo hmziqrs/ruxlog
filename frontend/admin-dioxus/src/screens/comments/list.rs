@@ -1,6 +1,11 @@
 use dioxus::prelude::*;
 use ruxlog_shared::store::{use_comments, Comment, CommentListQuery};
 
+use crate::components::table::data_table_screen::{DataTableScreen, HeaderColumn};
+use crate::containers::page_header::PageHeaderProps;
+use oxui::components::form::input::SimpleInput;
+use oxui::shadcn::button::{Button, ButtonVariant};
+
 #[component]
 pub fn CommentsListScreen() -> Element {
     let comments = use_comments();
@@ -53,74 +58,78 @@ pub fn CommentsListScreen() -> Element {
         .map(|p| p.data.clone())
         .unwrap_or_default();
 
+    // Define header columns
+    let headers = vec![
+        HeaderColumn::new("ID", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+        HeaderColumn::new("Post", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+        HeaderColumn::new("User", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+        HeaderColumn::new("Content", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+        HeaderColumn::new("Status", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+        HeaderColumn::new("Actions", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+    ];
+
     rsx! {
-        div { class: "p-6 space-y-4",
-            div { class: "flex items-center justify-between",
-                div { class: "space-y-1",
-                    h2 { class: "text-2xl font-semibold", "Comments" }
-                    p { class: "text-sm text-muted-foreground", "Moderate comments and flags." }
-                }
-                button {
-                    class: "inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:bg-accent",
-                    onclick: reload,
-                    "Refresh"
-                }
-            }
-
-            div { class: "grid grid-cols-1 md:grid-cols-4 gap-3",
-                input {
-                    class: "w-full rounded-md border border-border px-3 py-2 text-sm",
-                    placeholder: "Filter by post id",
-                    value: "{post_id}",
-                    oninput: move |e| post_id.set(e.value())
-                }
-                input {
-                    class: "w-full rounded-md border border-border px-3 py-2 text-sm",
-                    placeholder: "Filter by user id",
-                    value: "{user_id}",
-                    oninput: move |e| user_id.set(e.value())
-                }
-                label { class: "flex items-center gap-2 text-sm",
-                    input {
-                        r#type: "checkbox",
-                        checked: "{include_hidden()}",
-                        onchange: move |_| include_hidden.toggle(),
+        DataTableScreen::<Comment> {
+            frame: (comments.list)(),
+            header: Some(PageHeaderProps {
+                title: "Comments".to_string(),
+                description: "Moderate comments and flags".to_string(),
+                actions: Some(rsx!{
+                    Button {
+                        onclick: reload,
+                        "Refresh"
                     }
-                    "Include hidden"
-                }
-                button {
-                    class: "rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-accent",
-                    onclick: reload,
-                    "Apply Filters"
-                }
-            }
-
-            div { class: "overflow-auto bg-transparent border border-border rounded-lg",
-                table { class: "w-full text-sm",
-                    thead { class: "bg-transparent",
-                        tr {
-                            th { class: "p-3 text-left", "ID" }
-                            th { class: "p-3 text-left", "Post" }
-                            th { class: "p-3 text-left", "User" }
-                            th { class: "p-3 text-left", "Content" }
-                            th { class: "p-3 text-left", "Status" }
-                            th { class: "p-3 text-left", "Actions" }
+                }),
+                class: None,
+                embedded: false,
+            }),
+            headers: Some(headers),
+            current_sort_field: None,
+            on_sort: None,
+            show_pagination: false,
+            on_prev: move |_| {},
+            on_next: move |_| {},
+            below_toolbar: Some(rsx! {
+                div { class: "grid grid-cols-1 md:grid-cols-4 gap-3",
+                    SimpleInput {
+                        placeholder: Some("Filter by post id".to_string()),
+                        value: post_id(),
+                        oninput: move |value| post_id.set(value),
+                        class: Some("text-sm".to_string()),
+                    }
+                    SimpleInput {
+                        placeholder: Some("Filter by user id".to_string()),
+                        value: user_id(),
+                        oninput: move |value| user_id.set(value),
+                        class: Some("text-sm".to_string()),
+                    }
+                    label { class: "flex items-center gap-2 text-sm",
+                        input {
+                            r#type: "checkbox",
+                            checked: "{include_hidden()}",
+                            onchange: move |_| include_hidden.toggle(),
                         }
+                        "Include hidden"
                     }
-                    tbody {
-                        if items.is_empty() {
-                            tr {
-                                td { class: "p-4 text-center text-muted-foreground", colspan: "6",
-                                    "No comments found."
-                                }
-                            }
-                        } else {
-                            for comment in items {
+                    Button {
+                        variant: ButtonVariant::Outline,
+                        onclick: reload,
+                        "Apply Filters"
+                    }
+                }
+            }),
+            if items.is_empty() {
+                tr {
+                    td { class: "p-4 text-center text-muted-foreground", colspan: "6",
+                        "No comments found."
+                    }
+                }
+            } else {
+                {items.iter().cloned().map(|comment| {
+                    rsx! {
                         CommentRow { key: "{comment.id}", comment }
                     }
-                        }
-                    }
-                }
+                })}
             }
         }
     }
@@ -129,17 +138,18 @@ pub fn CommentsListScreen() -> Element {
 #[component]
 fn CommentRow(comment: Comment) -> Element {
     let comments = use_comments();
-    let hidden_label = if comment.is_hidden { "Hidden" } else { "Visible" };
+    let hidden_label = if comment.hidden { "Hidden" } else { "Visible" };
     rsx! {
-        tr { class: "border-t border-border",
+        tr { class: "border-b border-zinc-200 dark:border-zinc-800 hover:bg-muted/30 transition-colors",
             td { class: "p-3", "{comment.id}" }
             td { class: "p-3", "{comment.post_id}" }
             td { class: "p-3", "{comment.user_id}" }
             td { class: "p-3 max-w-md truncate", "{comment.content}" }
             td { class: "p-3", "{hidden_label}" }
             td { class: "p-3 space-x-2",
-                button {
-                    class: "rounded-md border border-border px-2 py-1 text-xs hover:bg-accent",
+                Button {
+                    variant: ButtonVariant::Outline,
+                    class: "h-8 px-2 text-xs",
                     onclick: move |_| {
                         let comments = comments;
                         let id = comment.id;
@@ -147,8 +157,9 @@ fn CommentRow(comment: Comment) -> Element {
                     },
                     "Hide"
                 }
-                button {
-                    class: "rounded-md border border-border px-2 py-1 text-xs hover:bg-accent",
+                Button {
+                    variant: ButtonVariant::Outline,
+                    class: "h-8 px-2 text-xs",
                     onclick: move |_| {
                         let comments = comments;
                         let id = comment.id;
@@ -156,8 +167,9 @@ fn CommentRow(comment: Comment) -> Element {
                     },
                     "Unhide"
                 }
-                button {
-                    class: "rounded-md border border-border px-2 py-1 text-xs text-red-600 hover:bg-red-50",
+                Button {
+                    variant: ButtonVariant::Destructive,
+                    class: "h-8 px-2 text-xs",
                     onclick: move |_| {
                         let comments = comments;
                         let id = comment.id;

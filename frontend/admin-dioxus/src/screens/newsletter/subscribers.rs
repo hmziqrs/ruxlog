@@ -1,6 +1,11 @@
 use dioxus::prelude::*;
 use ruxlog_shared::store::{use_newsletter, NewsletterSubscriber, SubscriberListQuery};
 
+use crate::components::table::data_table_screen::{DataTableScreen, HeaderColumn};
+use crate::containers::page_header::PageHeaderProps;
+use oxui::components::form::input::SimpleInput;
+use oxui::shadcn::button::{Button, ButtonVariant};
+
 #[component]
 pub fn NewsletterSubscribersScreen() -> Element {
     let newsletter = use_newsletter();
@@ -46,69 +51,73 @@ pub fn NewsletterSubscribersScreen() -> Element {
         .map(|p| p.data.clone())
         .unwrap_or_default();
 
+    // Define header columns
+    let headers = vec![
+        HeaderColumn::new("ID", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+        HeaderColumn::new("Email", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+        HeaderColumn::new("Status", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+        HeaderColumn::new("Subscribed", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+    ];
+
     rsx! {
-        div { class: "p-6 space-y-4",
-            div { class: "flex items-center justify-between",
-                div {
-                    h2 { class: "text-2xl font-semibold", "Subscribers" }
-                    p { class: "text-sm text-muted-foreground", "Manage newsletter subscribers." }
-                }
-                button {
-                    class: "inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:bg-accent",
-                    onclick: reload,
-                    "Refresh"
-                }
-            }
-
-            div { class: "flex flex-wrap items-center gap-3",
-                div { class: "relative flex-1 min-w-[240px]",
-                    input {
-                        class: "w-full rounded-md border border-border pl-8 pr-3 py-2 text-sm",
-                        placeholder: "Search email",
-                        value: "{search}",
-                        oninput: move |e| search.set(e.value()),
+        DataTableScreen::<NewsletterSubscriber> {
+            frame: (newsletter.subscribers)(),
+            header: Some(PageHeaderProps {
+                title: "Newsletter Subscribers".to_string(),
+                description: "Manage newsletter subscribers".to_string(),
+                actions: Some(rsx!{
+                    Button {
+                        onclick: reload,
+                        "Refresh"
                     }
-                }
-                label { class: "flex items-center gap-2 text-sm",
-                    input { r#type: "checkbox", checked: "{confirmed_only()}", onchange: move |_| confirmed_only.toggle() }
-                    "Confirmed only"
-                }
-                button {
-                    class: "rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-accent",
-                    onclick: reload,
-                    "Apply"
-                }
-            }
-
-            div { class: "overflow-auto bg-transparent border border-border rounded-lg",
-                table { class: "w-full text-sm",
-                    thead { class: "bg-transparent",
-                        tr {
-                            th { class: "p-3 text-left", "ID" }
-                            th { class: "p-3 text-left", "Email" }
-                            th { class: "p-3 text-left", "Status" }
-                            th { class: "p-3 text-left", "Subscribed" }
+                }),
+                class: None,
+                embedded: false,
+            }),
+            headers: Some(headers),
+            current_sort_field: None,
+            on_sort: None,
+            show_pagination: false,
+            on_prev: move |_| {},
+            on_next: move |_| {},
+            below_toolbar: Some(rsx! {
+                div { class: "flex flex-wrap items-center gap-3",
+                    div { class: "relative flex-1 min-w-[240px]",
+                        SimpleInput {
+                            placeholder: Some("Search email".to_string()),
+                            value: search(),
+                            oninput: move |value| search.set(value),
+                            class: Some("text-sm".to_string()),
                         }
                     }
-                    tbody {
-                        if subs.is_empty() {
-                            tr {
-                                td { class: "p-4 text-center text-muted-foreground", colspan: "4",
-                                    "No subscribers yet."
-                                }
-                            }
-                        } else {
-                            for sub in subs {
-                                tr { class: "border-t border-border",
-                                    td { class: "p-3", "{sub.id}" }
-                                    td { class: "p-3", "{sub.email}" }
-                                    td { class: "p-3", if sub.confirmed { "Confirmed" } else { "Pending" } }
-                                    td { class: "p-3", "{sub.created_at}" }
-                                }
-                            }
-                        }
+                    label { class: "flex items-center gap-2 text-sm",
+                        input { r#type: "checkbox", checked: "{confirmed_only()}", onchange: move |_| confirmed_only.toggle() }
+                        "Confirmed only"
+                    }
+                    Button {
+                        variant: ButtonVariant::Outline,
+                        onclick: reload,
+                        "Apply"
                     }
                 }
+            }),
+            if subs.is_empty() {
+                tr {
+                    td { class: "p-4 text-center text-muted-foreground", colspan: "4",
+                        "No subscribers yet."
+                    }
+                }
+            } else {
+                {subs.iter().cloned().map(|sub| {
+                    rsx! {
+                        tr { key: "{sub.id}", class: "border-b border-zinc-200 dark:border-zinc-800 hover:bg-muted/30 transition-colors",
+                            td { class: "p-3", "{sub.id}" }
+                            td { class: "p-3", "{sub.email}" }
+                            td { class: "p-3", if sub.confirmed { "Confirmed" } else { "Pending" } }
+                            td { class: "p-3", "{sub.created_at}" }
+                        }
+                    }
+                })}
             }
         }
     }
