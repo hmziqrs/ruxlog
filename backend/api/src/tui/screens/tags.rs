@@ -26,10 +26,7 @@ pub fn draw_tags(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalette) {
         )
         .split(area);
 
-    let header_text = match &app.session {
-        Some(session) => format!("Tags - User ID {}", session.user_id),
-        None => "Tags".to_string(),
-    };
+    let header_text = "Tags".to_string();
     let header = Paragraph::new(header_text)
         .style(
             Style::default()
@@ -75,7 +72,7 @@ pub fn draw_tags(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalette) {
         let lines = vec![
             Line::from(err.as_str()),
             Line::from(""),
-            Line::from("Press R to retry, Q/Esc to logout, any other key to dismiss"),
+            Line::from("Press R to retry, Q/Esc to quit, any other key to dismiss"),
         ];
         let error = Paragraph::new(lines)
             .block(block)
@@ -150,10 +147,9 @@ pub fn draw_tags(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalette) {
         f.render_stateful_widget(list, chunks[1], &mut state);
     }
 
-    let footer_text = "[↑/↓ or j/k] navigate  [R] reload  [Q/Esc] logout";
+    let footer_text = "[↑/↓ or j/k] navigate  [R] reload  [Q/Esc] quit";
     let footer = Paragraph::new(footer_text)
         .style(Style::default().fg(palette.footer_fg))
         .alignment(Alignment::Center);
     f.render_widget(footer, chunks[2]);
 }
-
