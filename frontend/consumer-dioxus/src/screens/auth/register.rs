@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 use oxcore::http;
 use oxstore::StateFrame;
+use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use oxui::components::form::input::SimpleInput;
 use oxui::shadcn::button::{Button, ButtonVariant};
 use ruxlog_shared::use_auth;
@@ -160,14 +161,18 @@ pub fn RegisterScreen() -> Element {
                                 }
                             }
 
-                            // Error message
+                            // Error messages
                             if let Some(error) = validation_error() {
                                 div { class: "p-3 rounded-lg bg-destructive/10 border border-destructive/50 text-destructive text-sm",
                                     "{error}"
                                 }
-                            } else if let Some(error) = register_status.read().error_message() {
-                                div { class: "p-3 rounded-lg bg-destructive/10 border border-destructive/50 text-destructive text-sm",
-                                    "{error}"
+                            }
+
+                            if register_status.read().is_failed() {
+                                ErrorDetails {
+                                    error: register_status.read().error.clone(),
+                                    variant: ErrorDetailsVariant::Minimum,
+                                    class: "mb-2",
                                 }
                             }
 

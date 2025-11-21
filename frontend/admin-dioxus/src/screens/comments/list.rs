@@ -5,6 +5,10 @@ use crate::components::table::data_table_screen::{DataTableScreen, HeaderColumn}
 use crate::containers::page_header::PageHeaderProps;
 use oxui::components::form::input::SimpleInput;
 use oxui::shadcn::button::{Button, ButtonVariant};
+use oxui::shadcn::dropdown_menu::{
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+};
+use hmziq_dioxus_free_icons::{icons::ld_icons::LdEllipsis, Icon};
 
 #[component]
 pub fn CommentsListScreen() -> Element {
@@ -139,6 +143,8 @@ pub fn CommentsListScreen() -> Element {
 fn CommentRow(comment: Comment) -> Element {
     let comments = use_comments();
     let hidden_label = if comment.hidden { "Hidden" } else { "Visible" };
+    let comment_id = comment.id;
+    let is_hidden = comment.hidden;
     rsx! {
         tr { class: "border-b border-zinc-200 dark:border-zinc-800 hover:bg-muted/30 transition-colors",
             td { class: "p-3", "{comment.id}" }
@@ -146,36 +152,33 @@ fn CommentRow(comment: Comment) -> Element {
             td { class: "p-3", "{comment.user_id}" }
             td { class: "p-3 max-w-md truncate", "{comment.content}" }
             td { class: "p-3", "{hidden_label}" }
-            td { class: "p-3 space-x-2",
-                Button {
-                    variant: ButtonVariant::Outline,
-                    class: "h-8 px-2 text-xs",
-                    onclick: move |_| {
-                        let comments = comments;
-                        let id = comment.id;
-                        spawn(async move { comments.hide(id).await; });
-                    },
-                    "Hide"
-                }
-                Button {
-                    variant: ButtonVariant::Outline,
-                    class: "h-8 px-2 text-xs",
-                    onclick: move |_| {
-                        let comments = comments;
-                        let id = comment.id;
-                        spawn(async move { comments.unhide(id).await; });
-                    },
-                    "Unhide"
-                }
-                Button {
-                    variant: ButtonVariant::Destructive,
-                    class: "h-8 px-2 text-xs",
-                    onclick: move |_| {
-                        let comments = comments;
-                        let id = comment.id;
-                        spawn(async move { comments.delete_admin(id).await; });
-                    },
-                    "Delete"
+            td { class: "p-3",
+                DropdownMenu {
+                    DropdownMenuTrigger {
+                        Button { variant: ButtonVariant::Ghost, class: "h-8 w-8 p-0 bg-transparent hover:bg-muted/50", div { class: "w-4 h-4", Icon { icon: LdEllipsis {} } } }
+                    }
+                    DropdownMenuContent { class: "bg-background border-zinc-200 dark:border-zinc-800",
+                        DropdownMenuItem {
+                            onclick: move |_| {
+                                let comments = comments;
+                                let id = comment_id;
+                                if is_hidden {
+                                    spawn(async move { comments.unhide(id).await; });
+                                } else {
+                                    spawn(async move { comments.hide(id).await; });
+                                }
+                            },
+                            if is_hidden { "Unhide" } else { "Hide" }
+                        }
+                        DropdownMenuItem { class: "text-red-600",
+                            onclick: move |_| {
+                                let comments = comments;
+                                let id = comment_id;
+                                spawn(async move { comments.delete_admin(id).await; });
+                            },
+                            "Delete"
+                        }
+                    }
                 }
             }
         }

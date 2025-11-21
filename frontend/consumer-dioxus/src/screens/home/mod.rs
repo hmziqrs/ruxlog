@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use ruxlog_shared::store::use_post;
 
 #[component]
@@ -33,9 +34,12 @@ pub fn HomeScreen() -> Element {
                     div { class: "flex items-center justify-center py-20",
                         div { class: "text-muted-foreground", "Loading posts..." }
                     }
-                } else if let Some(error) = (*posts_frame).error_message() {
+                } else if (*posts_frame).is_failed() {
                     div { class: "flex items-center justify-center py-20",
-                        div { class: "text-destructive", "Error: {error}" }
+                        ErrorDetails {
+                            error: (*posts_frame).error.clone(),
+                            variant: ErrorDetailsVariant::Collapsed,
+                        }
                     }
                 } else if let Some(data) = &(*posts_frame).data {
                     if data.data.is_empty() {
