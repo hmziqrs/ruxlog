@@ -33,6 +33,7 @@ mod m20251118_000024_alter_user_add_avatar_id;
 mod m20251119_000028_alter_posts_featured_image;
 mod m20251201_000029_alter_user_add_oauth_fields;
 mod m20251202_000030_create_seed_runs_table;
+mod m20251203_000031_alter_email_and_forgot_password_add_updated_at;
 
 pub struct Migrator;
 
@@ -73,6 +74,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20251119_000028_alter_posts_featured_image::Migration),
             Box::new(m20251201_000029_alter_user_add_oauth_fields::Migration),
             Box::new(m20251202_000030_create_seed_runs_table::Migration),
+            Box::new(
+                m20251203_000031_alter_email_and_forgot_password_add_updated_at::Migration,
+            ),
         ]
     }
 }

@@ -13,9 +13,11 @@ default:
 
 dev env='dev':
     docker compose --env-file .env.{{env}} --profile services --profile storage up -d
+    just storage-init {{env}}
 
 dev-full env='dev':
     docker compose --env-file .env.{{env}} --profile full --profile storage up -d --build
+    just storage-init {{env}}
 
 stage:
     just dev-full env=stage
@@ -49,6 +51,7 @@ frontend-env env='dev':
 # Backend API (Axum) --------------------------------------------------------
 
 api-dev env='dev':
+    just dev {{env}}
     {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} dev
 
 api-tui env='dev' *args:

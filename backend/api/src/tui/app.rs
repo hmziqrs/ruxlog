@@ -1,6 +1,7 @@
-use std::{error::Error, sync::Arc, time::Duration};
+use std::{error::Error, fs::OpenOptions, io::Write, path::PathBuf, sync::Arc, time::Duration};
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use chrono::Utc;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::Style,
@@ -178,12 +179,14 @@ pub struct App {
     pub should_quit: bool,
     pub theme: ThemeKind,
     pub logs: Vec<String>,
+    log_file: Option<std::fs::File>,
     core: Arc<CoreState>,
 }
 
 impl App {
     fn new(core: Arc<CoreState>, theme: ThemeKind) -> Self {
-        Self {
+        let (log_file, init_log_msg) = Self::init_log_file();
+        let mut app = Self {
             route: AppRoute::Home,
             selected_home_index: 0,
             tags: TagsState::default(),
@@ -194,16 +197,51 @@ impl App {
             should_quit: false,
             theme,
             logs: Vec::new(),
+            log_file,
             core,
+        };
+
+        if let Some(msg) = init_log_msg {
+            app.push_log(msg);
+        }
+
+        app
+    }
+
+    fn init_log_file() -> (Option<std::fs::File>, Option<String>) {
+        let path = std::env::var("TUI_LOG_PATH")
+            .ok()
+            .map(PathBuf::from)
+            .or_else(|| std::env::current_dir().ok().map(|p| p.join("tui.log")));
+
+        if let Some(path) = path {
+            match OpenOptions::new().create(true).append(true).open(&path) {
+                Ok(file) => (Some(file), Some(format!("logging to {}", path.display()))),
+                Err(err) => (
+                    None,
+                    Some(format!("log file open failed at {}: {}", path.display(), err)),
+                ),
+            }
+        } else {
+            (None, None)
         }
     }
 
     fn push_log<S: Into<String>>(&mut self, line: S) {
         const MAX_LOG_LINES: usize = 200;
-        self.logs.push(line.into());
+        let line = line.into();
+        self.write_log_to_file(&line);
+        self.logs.push(line);
         if self.logs.len() > MAX_LOG_LINES {
             let excess = self.logs.len() - MAX_LOG_LINES;
             self.logs.drain(0..excess);
+        }
+    }
+
+    fn write_log_to_file(&mut self, line: &str) {
+        if let Some(file) = &mut self.log_file {
+            let ts = Utc::now().to_rfc3339();
+            let _ = writeln!(file, "[{ts}] {line}");
         }
     }
 
@@ -609,9 +647,7 @@ impl App {
 pub async fn run_tui(theme: ThemeKind) -> Result<(), Box<dyn Error>> {
     // Run migrations to ensure tables exist before loading tags; but return
     // a clean error instead of panicking if DB is unreachable.
-    let db = crate::db::sea_connect::try_connect(true)
-        .await
-        .map_err(|e| format!("Database connection failed: {}", e))?;
+    let db = init_db(true).await;
     let redis = init_redis_pool_only().await?;
     let core = Arc::new(CoreState { db, redis });
 
