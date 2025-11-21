@@ -1,23 +1,45 @@
+# Garage S3-compatible Object Storage Configuration
+# Single-node setup for dev/stage/qa environments
+
 metadata_dir = "/meta"
 data_dir = "/data"
+
+# Database engine - sqlite for dev/test, lmdb for production
 db_engine = "sqlite"
+
+# Single node replication (v2.1.0+ format)
 replication_factor = 1
 consistency_mode = "consistent"
+
+# Compression and encryption
 compression_level = 1
 
-# RPC configuration (secrets provided via CLI flags/env vars)
+# RPC configuration
 rpc_bind_addr = "[::]:3900"
 rpc_public_addr = "127.0.0.1:3900"
+# rpc_secret is set via GARAGE_RPC_SECRET environment variable
+
+# Bootstrap peers (none for single node)
 bootstrap_peers = []
 
 [s3_api]
+# S3 API endpoint
 s3_region = "garage"
 api_bind_addr = "[::]:3902"
-root_domain = ".s3.local.ruxlog"
+root_domain = ".s3.garage.localhost"
 
 [s3_web]
+# Web endpoint for static website hosting
 bind_addr = "[::]:3903"
-root_domain = ".web.local.ruxlog"
+root_domain = ".web.garage.localhost"
+
+# [k2v_api]
+# K2V API disabled for simplicity - commented out entire section
 
 [admin]
+# Admin API
 api_bind_addr = "[::]:3901"
+# admin_token and metrics_token are set via GARAGE_ADMIN_TOKEN environment variable
+# For explicit configuration, uncomment and set:
+# admin_token = "<base64-token-here>"
+# metrics_token = "<base64-token-here>"

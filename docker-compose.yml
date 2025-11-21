@@ -113,6 +113,8 @@ services:
       - ./backend/docker/garage/garage.toml:/etc/garage/garage.toml:ro
       - garage_meta:/meta
       - garage_data:/data
+    post_start:
+      - command: source ${ENV_FILE} && scripts/garage-bootstrap.sh
 
 networks:
   ruxlog:

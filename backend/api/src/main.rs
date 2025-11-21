@@ -119,6 +119,18 @@ fn env_u8(key: &str, default: u8) -> u8 {
     candidate.clamp(0, 100)
 }
 
+fn env_with_fallback(keys: &[&str], default: Option<&str>) -> Option<String> {
+    for key in keys {
+        if let Ok(value) = env::var(key) {
+            if !value.trim().is_empty() {
+                return Some(value);
+            }
+        }
+    }
+
+    default.map(|value| value.to_string())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
@@ -135,14 +147,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (redis_pool, redis_connection) = init_redis_store().await?;
     let mailer = services::mail::smtp::create_connection().await;
 
+    let bucket = env_with_fallback(&["S3_BUCKET", "AWS_S3_BUCKET"], None)
+        .expect("S3_BUCKET or AWS_S3_BUCKET must be set");
+    let access_key = env_with_fallback(&["S3_ACCESS_KEY", "AWS_ACCESS_KEY_ID"], None)
+        .expect("S3_ACCESS_KEY or AWS_ACCESS_KEY_ID must be set");
+    let secret_key = env_with_fallback(&["S3_SECRET_KEY", "AWS_SECRET_ACCESS_KEY"], None)
+        .expect("S3_SECRET_KEY or AWS_SECRET_ACCESS_KEY must be set");
+    let endpoint = env_with_fallback(
+        &["S3_ENDPOINT", "AWS_ENDPOINT", "GARAGE_S3_ENDPOINT"],
+        None,
+    )
+    .expect("S3_ENDPOINT, AWS_ENDPOINT, or GARAGE_S3_ENDPOINT must be set");
+    let public_url =
+        env_with_fallback(&["S3_PUBLIC_URL", "AWS_S3_PUBLIC_URL"], None).unwrap_or_else(|| {
+            // Fall back to direct endpoint when explicit public URL is missing.
+            endpoint.clone()
+        });
+
     let object_storage = state::ObjectStorageConfig {
-        region: env::var("S3_REGION").unwrap_or_else(|_| "auto".to_string()),
+        region: env_with_fallback(
+            &["S3_REGION", "GARAGE_S3_REGION", "AWS_S3_REGION", "AWS_REGION"],
+            Some("auto"),
+        )
+        .unwrap(),
         account_id: env::var("S3_ACCOUNT_ID").unwrap_or_else(|_| "local".to_string()),
-        bucket: env::var("S3_BUCKET").expect("S3_BUCKET must be set"),
-        access_key: env::var("S3_ACCESS_KEY").expect("S3_ACCESS_KEY must be set"),
-        secret_key: env::var("S3_SECRET_KEY").expect("S3_SECRET_KEY must be set"),
-        public_url: env::var("S3_PUBLIC_URL").expect("S3_PUBLIC_URL must be set"),
-        endpoint: env::var("S3_ENDPOINT").expect("S3_ENDPOINT must be set"),
+        bucket,
+        access_key,
+        secret_key,
+        public_url,
+        endpoint,
     };
 
     println!("Object Storage Config: {:?}", object_storage);

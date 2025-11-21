@@ -78,6 +78,10 @@ The script will:
 3. Create/import `S3_BUCKET` + `S3_ACCESS_KEY` from the env file.
 4. Grant the key read/write/owner permissions.
 
+`scripts/garage-bootstrap.sh` is the single source of truth (used by `just storage-init` and the test helper). It understands both `S3_*` and `AWS_*` credential env vars and will write back newly created keys to the env file when Garage generates fresh credentials.
+
+**Auto-hook:** the `garage-bootstrap` helper service uses a `post_start` lifecycle hook to call `scripts/garage-bootstrap.sh ${ENV_FILE:-.env.dev}` whenever the storage profile starts. The script still handles layout/bucket/permissions; keep using it directly when you need Garage to mint new keys and write them back into the env file.
+
 ## Testing helper
 
 `just test-db` orchestrates a clean database + garage bucket by:
