@@ -8,7 +8,6 @@ use fake::faker::lorem::raw as l;
 use fake::faker::name::en::*;
 use fake::locales::EN;
 use rand::seq::IndexedRandom;
-use sea_orm::EntityTrait;
 use serde_json::json;
 
 #[derive(Debug, Dummy)]
@@ -20,7 +19,7 @@ use crate::{
     db::sea_models::{
         category, comment_flag, email_verification, forgot_password, media, media_usage,
         media_variant, newsletter_subscriber, post, post_comment, post_revision, post_series,
-        post_view, route_status, scheduled_post, tag, user::UserRole, user_session,
+        post_view, route_status, scheduled_post, seed_run, tag, user::UserRole, user_session,
     },
     services::auth::AuthSession,
     AppState,
@@ -28,7 +27,7 @@ use crate::{
 
 use fake::{Dummy, Fake, Faker};
 use rand::{rngs::StdRng, Rng, SeedableRng};
-use sea_orm::{ActiveModelTrait, Set};
+use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set};
 
 #[derive(Debug, Dummy)]
 pub struct FakeUser {
@@ -1282,6 +1281,152 @@ pub async fn seed_route_status(
 
 #[debug_handler]
 pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
+    // Capture ID state before seeding for tracking.
+    let before_users = user::Entity::find()
+        .order_by_desc(user::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let before_categories = category::Entity::find()
+        .order_by_desc(category::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let before_tags = tag::Entity::find()
+        .order_by_desc(tag::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let before_posts = post::Entity::find()
+        .order_by_desc(post::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let before_post_comments = post_comment::Entity::find()
+        .order_by_desc(post_comment::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let before_user_sessions = user_session::Entity::find()
+        .order_by_desc(user_session::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let before_email_verifications = email_verification::Entity::find()
+        .order_by_desc(email_verification::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let before_forgot_passwords = forgot_password::Entity::find()
+        .order_by_desc(forgot_password::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let before_post_revisions = post_revision::Entity::find()
+        .order_by_desc(post_revision::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let before_post_series = post_series::Entity::find()
+        .order_by_desc(post_series::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let before_post_views = post_view::Entity::find()
+        .order_by_desc(post_view::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let before_scheduled_posts = scheduled_post::Entity::find()
+        .order_by_desc(scheduled_post::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let before_media = media::Entity::find()
+        .order_by_desc(media::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let before_media_variants = media_variant::Entity::find()
+        .order_by_desc(media_variant::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let before_media_usage = media_usage::Entity::find()
+        .order_by_desc(media_usage::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let before_comment_flags = comment_flag::Entity::find()
+        .order_by_desc(comment_flag::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let before_newsletter_subscribers = newsletter_subscriber::Entity::find()
+        .order_by_desc(newsletter_subscriber::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let before_route_status = route_status::Entity::find()
+        .order_by_desc(route_status::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+
     let mut rng = StdRng::seed_from_u64(42);
     let mut fake_users: Vec<user::UserWithRelations> = vec![];
     let mut fake_posts: Vec<post::PostWithRelations> = vec![];
@@ -1495,9 +1640,232 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
     println!("Seeding route status...");
     let _ = seed_route_status(State(state.clone()), _auth.clone()).await;
 
+    // Capture ID state after seeding and record the ranges.
+    let after_users = user::Entity::find()
+        .order_by_desc(user::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let after_categories = category::Entity::find()
+        .order_by_desc(category::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let after_tags = tag::Entity::find()
+        .order_by_desc(tag::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let after_posts = post::Entity::find()
+        .order_by_desc(post::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let after_post_comments = post_comment::Entity::find()
+        .order_by_desc(post_comment::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let after_user_sessions = user_session::Entity::find()
+        .order_by_desc(user_session::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let after_email_verifications = email_verification::Entity::find()
+        .order_by_desc(email_verification::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let after_forgot_passwords = forgot_password::Entity::find()
+        .order_by_desc(forgot_password::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let after_post_revisions = post_revision::Entity::find()
+        .order_by_desc(post_revision::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let after_post_series = post_series::Entity::find()
+        .order_by_desc(post_series::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let after_post_views = post_view::Entity::find()
+        .order_by_desc(post_view::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let after_scheduled_posts = scheduled_post::Entity::find()
+        .order_by_desc(scheduled_post::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let after_media = media::Entity::find()
+        .order_by_desc(media::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let after_media_variants = media_variant::Entity::find()
+        .order_by_desc(media_variant::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let after_media_usage = media_usage::Entity::find()
+        .order_by_desc(media_usage::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let after_comment_flags = comment_flag::Entity::find()
+        .order_by_desc(comment_flag::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let after_newsletter_subscribers = newsletter_subscriber::Entity::find()
+        .order_by_desc(newsletter_subscriber::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+    let after_route_status = route_status::Entity::find()
+        .order_by_desc(route_status::Column::Id)
+        .one(&state.sea_db)
+        .await
+        .ok()
+        .flatten()
+        .map(|m| m.id)
+        .unwrap_or(0);
+
+    fn compute_range(before: i32, after: i32) -> (i32, i32) {
+        if after > before {
+            (before + 1, after)
+        } else {
+            (0, 0)
+        }
+    }
+
+    let (users_from, users_to) = compute_range(before_users, after_users);
+    let (categories_from, categories_to) = compute_range(before_categories, after_categories);
+    let (tags_from, tags_to) = compute_range(before_tags, after_tags);
+    let (posts_from, posts_to) = compute_range(before_posts, after_posts);
+    let (post_comments_from, post_comments_to) =
+        compute_range(before_post_comments, after_post_comments);
+    let (user_sessions_from, user_sessions_to) =
+        compute_range(before_user_sessions, after_user_sessions);
+    let (email_verifications_from, email_verifications_to) =
+        compute_range(before_email_verifications, after_email_verifications);
+    let (forgot_passwords_from, forgot_passwords_to) =
+        compute_range(before_forgot_passwords, after_forgot_passwords);
+    let (post_revisions_from, post_revisions_to) =
+        compute_range(before_post_revisions, after_post_revisions);
+    let (post_series_from, post_series_to) =
+        compute_range(before_post_series, after_post_series);
+    let (post_views_from, post_views_to) = compute_range(before_post_views, after_post_views);
+    let (scheduled_posts_from, scheduled_posts_to) =
+        compute_range(before_scheduled_posts, after_scheduled_posts);
+    let (media_from, media_to) = compute_range(before_media, after_media);
+    let (media_variants_from, media_variants_to) =
+        compute_range(before_media_variants, after_media_variants);
+    let (media_usage_from, media_usage_to) =
+        compute_range(before_media_usage, after_media_usage);
+    let (comment_flags_from, comment_flags_to) =
+        compute_range(before_comment_flags, after_comment_flags);
+    let (newsletter_subscribers_from, newsletter_subscribers_to) =
+        compute_range(before_newsletter_subscribers, after_newsletter_subscribers);
+    let (route_status_from, route_status_to) =
+        compute_range(before_route_status, after_route_status);
+
+    let ranges = json!({
+        "users": { "from": users_from, "to": users_to },
+        "categories": { "from": categories_from, "to": categories_to },
+        "tags": { "from": tags_from, "to": tags_to },
+        "posts": { "from": posts_from, "to": posts_to },
+        "post_comments": { "from": post_comments_from, "to": post_comments_to },
+        "user_sessions": { "from": user_sessions_from, "to": user_sessions_to },
+        "email_verifications": { "from": email_verifications_from, "to": email_verifications_to },
+        "forgot_passwords": { "from": forgot_passwords_from, "to": forgot_passwords_to },
+        "post_revisions": { "from": post_revisions_from, "to": post_revisions_to },
+        "post_series": { "from": post_series_from, "to": post_series_to },
+        "post_views": { "from": post_views_from, "to": post_views_to },
+        "scheduled_posts": { "from": scheduled_posts_from, "to": scheduled_posts_to },
+        "media": { "from": media_from, "to": media_to },
+        "media_variants": { "from": media_variants_from, "to": media_variants_to },
+        "media_usage": { "from": media_usage_from, "to": media_usage_to },
+        "comment_flags": { "from": comment_flags_from, "to": comment_flags_to },
+        "newsletter_subscribers": { "from": newsletter_subscribers_from, "to": newsletter_subscribers_to },
+        "route_status": { "from": route_status_from, "to": route_status_to },
+    });
+
+    if let Err(err) = (seed_run::ActiveModel {
+        key: Set("seed".to_string()),
+        ranges: Set(ranges.clone()),
+        ..Default::default()
+    })
+    .insert(&state.sea_db)
+    .await
+    {
+        println!("Error recording seed run: {:?}", err);
+    }
+
     (
         StatusCode::OK,
-        Json(json!({"message": "All data seeded successfully! Including users, posts, categories, tags, comments, sessions, email verifications, post revisions, post series, post views, scheduled posts, media, media variants, media usage, comment flags, newsletter subscribers, and route status"})),
+        Json(json!({
+            "message": "All data seeded successfully! Including users, posts, categories, tags, comments, sessions, email verifications, post revisions, post series, post views, scheduled posts, media, media variants, media usage, comment flags, newsletter subscribers, and route status",
+            "seed_run": {
+                "key": "seed",
+                "ranges": ranges
+            }
+        })),
     )
         .into_response()
 }
