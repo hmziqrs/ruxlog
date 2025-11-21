@@ -1,7 +1,10 @@
 use dioxus::prelude::*;
 use crate::store::auth::{AuthUser, use_auth};
 use std::sync::Arc;
+use std::time::Duration;
 use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
+
+const FADE_MS: u64 = 400;
 
 pub type PermissionCheck = Arc<dyn Fn(Option<&AuthUser>) -> bool + Send + Sync>;
 pub type RouteMatcherFn<R> = Arc<dyn Fn(&R, &R) -> bool + Send + Sync>;
@@ -17,20 +20,43 @@ pub struct AuthGuardLoaderProps {
 
 #[component]
 pub fn AuthGuardLoader(props: AuthGuardLoaderProps) -> Element {
+    let mut should_render = use_signal(|| false);
+    let visible_sig = props.show.clone();
+
+    use_effect(move || {
+        let is_visible = visible_sig();
+        if is_visible && !should_render() {
+            // Show immediately
+            should_render.set(true);
+        } else if !is_visible && should_render() {
+            // Delay hide to allow fade out
+            spawn(async move {
+                dioxus_time::sleep(Duration::from_millis(FADE_MS)).await;
+                should_render.set(false);
+            });
+        }
+    });
+
+    if !should_render() {
+        return rsx! {
+            Fragment {}
+        };
+    }
+
     let container_class = if props.overlay {
         "fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center px-4"
     } else {
         "min-h-screen bg-background flex items-center justify-center px-4"
     };
 
-    if !*props.show.read() {
-        return rsx! {
-            Fragment {}
-        };
-    }
+    let opacity = if *props.show.read() {
+        "opacity-100"
+    } else {
+        "opacity-0"
+    };
 
     rsx! {
-        div { class: "{container_class} duration-400 ease-in-out opacity-100",
+        div { class: "{container_class} duration-400 ease-in-out {opacity}",
             div { class: "w-full max-w-sm text-center space-y-6",
                 div { class: "relative mx-auto h-24 w-24 flex items-center justify-center",
                     div { class: "absolute inset-0 rounded-full border-4 border-primary/20 border-t-primary animate-spin" }
@@ -59,9 +85,24 @@ pub fn AuthGuardError(
 {
     let auth_store = use_auth();
     let init_status = auth_store.init_status.read();
+    let mut is_visible = use_signal(|| false);
+
+    // Entrance animation with next tick delay
+    use_effect(move || {
+        spawn(async move {
+            dioxus_time::sleep(Duration::from_millis(16)).await;
+            is_visible.set(true);
+        });
+    });
+
+    let opacity = if is_visible() {
+        "opacity-100"
+    } else {
+        "opacity-0"
+    };
 
     rsx! {
-        div { class: "min-h-screen flex items-center justify-center bg-background p-4",
+        div { class: "min-h-screen flex items-center justify-center bg-background p-4 duration-400 ease-in-out {opacity}",
             div { class: "max-w-md w-full",
                 div { class: "rounded-xl border border-border/60 bg-background p-8 shadow-lg space-y-6",
                     div { class: "flex justify-center mb-2",
