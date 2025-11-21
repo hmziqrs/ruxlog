@@ -5492,6 +5492,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "dioxus 0.7.1",
+ "dioxus-time 0.7.1",
  "futures-channel",
  "js-sys",
  "oxcore",

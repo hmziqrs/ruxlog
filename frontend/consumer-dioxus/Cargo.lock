@@ -4379,7 +4379,6 @@ dependencies = [
 name = "oxcore"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
  "gloo-net",
  "js-sys",
  "reqwest",
@@ -5401,6 +5400,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "dioxus 0.7.1",
+ "dioxus-time 0.7.1",
  "futures-channel",
  "js-sys",
  "oxcore",

@@ -4,6 +4,7 @@ pub mod comments;
 pub mod auth;
 pub mod categories;
 pub mod email_verification;
+#[cfg(feature = "image-editor")]
 pub mod image_editor;
 pub mod media;
 pub mod newsletter;
@@ -18,6 +19,7 @@ pub use comments::*;
 pub use auth::*;
 pub use categories::*;
 pub use email_verification::*;
+#[cfg(feature = "image-editor")]
 pub use image_editor::*;
 pub use media::*;
 pub use newsletter::*;
