@@ -650,6 +650,7 @@ name = "consumer-dioxus"
 version = "0.1.0"
 dependencies = [
  "ammonia",
+ "base64 0.22.1",
  "bevy_pkv",
  "chrono",
  "dioxus 0.7.1",
@@ -4378,6 +4379,7 @@ dependencies = [
 name = "oxcore"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "gloo-net",
  "js-sys",
  "reqwest",

@@ -27,6 +27,7 @@ wasm-bindgen = "0.2.100"
 ammonia = "4.0.0"
 scraper = "0.20.0"
 getrandom = { version = "0.3.4", features = ["wasm_js"] }
+base64 = "0.22"
 wasm-bindgen-futures = "0.4"
 # wasm-cookies = "0.2.1"
 dotenvy = "0.15.7"

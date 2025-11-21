@@ -16,6 +16,8 @@ pub mod utils;
 // use utils::js_bridge;
 
 fn main() {
+    use base64::prelude::*;
+
     // Configure HTTP client
     println!("APP_API_URL: {}", env::APP_API_URL);
     println!("APP_CSRF_TOKEN: {}", env::APP_CSRF_TOKEN);
@@ -27,7 +29,8 @@ fn main() {
         format!("http://{}", env::APP_API_URL)
     };
 
-    oxcore::http::configure(base_url, env::APP_CSRF_TOKEN);
+    let csrf_token = BASE64_STANDARD.encode(env::APP_CSRF_TOKEN.as_bytes());
+    oxcore::http::configure(base_url, csrf_token);
 
     dioxus::launch(App);
 }

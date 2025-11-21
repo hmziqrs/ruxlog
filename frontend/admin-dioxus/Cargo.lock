@@ -28,6 +28,7 @@ name = "admin-dioxus"
 version = "0.1.0"
 dependencies = [
  "ammonia",
+ "base64 0.22.1",
  "bevy_pkv",
  "chrono",
  "dioxus 0.7.1",
