@@ -619,7 +619,7 @@ fn draw_login(
 ) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .margin(2)
+        .margin(0)
         .constraints(
             [
                 Constraint::Length(3),
@@ -648,7 +648,8 @@ fn draw_login(
     .block(
         Block::default()
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(palette.header_border)),
+            .border_style(Style::default().fg(palette.header_border))
+            .style(Style::default().bg(palette.panel_bg)),
     );
     f.render_widget(title, chunks[0]);
 
@@ -660,7 +661,8 @@ fn draw_login(
             Style::default()
                 .fg(palette.accent)
                 .add_modifier(Modifier::BOLD),
-        ));
+        ))
+        .style(Style::default().bg(palette.panel_bg));
     let form_area = chunks[1];
     f.render_widget(form_block, form_area);
 
@@ -714,12 +716,16 @@ fn draw_login(
     };
     let submit_style = if matches!(state.focused_field, LoginField::Submit) {
         Style::default()
-            .fg(palette.submit_fg_focus)
+            .fg(palette.highlight_fg)
+            .bg(palette.highlight_bg)
             .add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(palette.submit_fg)
+        Style::default()
+            .fg(palette.submit_fg)
+            .bg(palette.table_row_even_bg)
     };
-    let submit = Paragraph::new(Span::styled(submit_text, submit_style)).alignment(Alignment::Center);
+    let submit = Paragraph::new(Span::styled(submit_text, submit_style))
+        .alignment(Alignment::Center);
     f.render_widget(submit, inner[2]);
 
     if let Some(err) = &state.error {
@@ -731,7 +737,8 @@ fn draw_login(
                 Style::default()
                     .fg(palette.error_fg)
                     .add_modifier(Modifier::BOLD),
-            ));
+            ))
+            .style(Style::default().bg(palette.panel_bg));
         let lines = vec![
             Line::from(err.as_str()),
             Line::from(""),
@@ -744,6 +751,7 @@ fn draw_login(
     }
 
     let footer = Paragraph::new("Tab ⇆  •  Enter ↵  •  Esc to quit")
+        .style(Style::default().fg(palette.footer_fg).bg(palette.panel_bg))
         .alignment(Alignment::Center);
     f.render_widget(footer, chunks[3]);
 }
@@ -756,7 +764,7 @@ fn draw_tags(
 ) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .margin(1)
+        .margin(0)
         .constraints(
             [
                 Constraint::Length(3),
@@ -787,14 +795,20 @@ fn draw_tags(
                     Style::default()
                         .fg(palette.header_border)
                         .add_modifier(Modifier::BOLD),
-                )),
+                ))
+                .style(Style::default().bg(palette.panel_bg)),
         );
     f.render_widget(header, chunks[0]);
 
     if app.tags.is_loading && app.tags.tags.is_empty() {
         let loading = Paragraph::new("Loading tags...")
             .alignment(Alignment::Center)
-            .block(Block::default().borders(Borders::ALL).title("Tags"));
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title("Tags")
+                    .style(Style::default().bg(palette.panel_bg)),
+            );
         f.render_widget(loading, chunks[1]);
     } else if let Some(err) = &app.tags.error {
         let area = centered_rect(60, 25, area);
@@ -805,7 +819,8 @@ fn draw_tags(
                 Style::default()
                     .fg(palette.error_fg)
                     .add_modifier(Modifier::BOLD),
-            ));
+            ))
+            .style(Style::default().bg(palette.panel_bg));
         let lines = vec![
             Line::from(err.as_str()),
             Line::from(""),
@@ -868,7 +883,8 @@ fn draw_tags(
                         Style::default()
                             .fg(Color::Gray)
                             .add_modifier(Modifier::BOLD),
-                    )),
+                    ))
+                    .style(Style::default().bg(palette.panel_bg)),
             )
             .highlight_style(
                 Style::default()
