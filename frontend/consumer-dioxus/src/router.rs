@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use std::sync::LazyLock;
 use crate::containers::{AuthGuardContainer, NavBarContainer};
 use crate::screens::{
-    HomeScreen, LoginScreen, PostViewScreen, ProfileEditScreen, ProfileScreen, RegisterScreen,
+    AboutScreen, ContactScreen, HomeScreen, LoginScreen, PostViewScreen, ProfileEditScreen, ProfileScreen, RegisterScreen,
 };
 
 #[derive(Debug, Clone, Routable, PartialEq)]
@@ -27,6 +27,12 @@ pub enum Route {
 
     #[route("/profile/edit")]
     ProfileEditScreen {},
+
+    #[route("/about")]
+    AboutScreen {},
+
+    #[route("/contact")]
+    ContactScreen {},
 }
 
 pub static OPEN_ROUTES: LazyLock<Vec<Route>> = LazyLock::new(|| vec![
@@ -34,4 +40,6 @@ pub static OPEN_ROUTES: LazyLock<Vec<Route>> = LazyLock::new(|| vec![
     Route::RegisterScreen {},
     Route::HomeScreen {},
     Route::PostViewScreen { id: 0 }, // Note: Pattern matching might be needed for dynamic routes in real auth guard
+    Route::AboutScreen {},
+    Route::ContactScreen {},
 ]);

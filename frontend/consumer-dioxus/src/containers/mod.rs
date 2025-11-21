@@ -124,6 +124,20 @@ pub fn NavBarContainer() -> Element {
             footer { class: "border-t border-border/60 mt-auto",
                 div { class: "container mx-auto px-4 py-8",
                     div { class: "flex flex-col items-center gap-6",
+                        // Navigation links
+                        div { class: "flex items-center gap-6",
+                            a {
+                                href: "/about",
+                                class: "text-sm text-muted-foreground hover:text-foreground transition-colors",
+                                "About"
+                            }
+                            a {
+                                href: "/contact",
+                                class: "text-sm text-muted-foreground hover:text-foreground transition-colors",
+                                "Contact"
+                            }
+                        }
+
                         // Social icons
                         div { class: "flex items-center gap-4",
                             a {
@@ -149,6 +163,26 @@ pub fn NavBarContainer() -> Element {
                                 class: "p-2 rounded-lg hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground",
                                 aria_label: "LinkedIn",
                                 Icon { icon: LdLinkedin, class: "w-5 h-5" }
+                            }
+                        }
+
+                        // Built with message
+                        div { class: "text-center text-sm text-muted-foreground",
+                            "Built from scratch with "
+                            a {
+                                href: "https://dioxuslabs.com",
+                                target: "_blank",
+                                rel: "noopener noreferrer",
+                                class: "text-primary hover:underline",
+                                "Dioxus"
+                            }
+                            " by "
+                            a {
+                                href: "https://hmziq.rs",
+                                target: "_blank",
+                                rel: "noopener noreferrer",
+                                class: "text-primary hover:underline",
+                                "hmziqrs"
                             }
                         }
 
