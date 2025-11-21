@@ -25,8 +25,8 @@ default:
 dev:
     cargo run
 
-dev-tui:
-    cargo run --bin ruxlog_tui
+dev-tui *args:
+    cargo run --bin ruxlog_tui -- {{args}}
 
 watch:
     cargo watch -x run

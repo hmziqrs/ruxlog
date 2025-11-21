@@ -51,8 +51,8 @@ frontend-env env='dev':
 api-dev env='dev':
     {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} dev
 
-api-tui env='dev':
-    {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} dev-tui
+api-tui env='dev' *args:
+    cd {{api_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- cargo run --bin ruxlog_tui -- {{args}}
 
 api-watch env='dev':
     {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} watch
@@ -182,5 +182,3 @@ consumer-install env='dev':
 
 consumer-clean env='dev':
     {{dotenv_bin}} -e .env.{{env}} -- bash -lc 'cd {{consumer_dir}} && cargo clean'
-
-
