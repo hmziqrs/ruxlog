@@ -70,8 +70,8 @@ pub fn draw_users(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalette) 
         ];
         let error = Paragraph::new(lines)
             .block(block)
-            .alignment(Alignment::Center);
-        f.render_widget(error, area);
+            .alignment(Alignment::Left);
+        f.render_widget(error, chunks[1]);
     } else {
         let mut items: Vec<ListItem> = Vec::new();
 
@@ -147,4 +147,3 @@ pub fn draw_users(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalette) 
         .alignment(Alignment::Center);
     f.render_widget(footer, chunks[2]);
 }
-

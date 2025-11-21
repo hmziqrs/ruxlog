@@ -59,7 +59,6 @@ pub fn draw_tags(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalette) {
             );
         f.render_widget(loading, chunks[1]);
     } else if let Some(err) = &app.tags.error {
-        let area = centered_rect(60, 25, area);
         let block = Block::default()
             .borders(Borders::ALL)
             .title(Span::styled(
@@ -76,8 +75,8 @@ pub fn draw_tags(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalette) {
         ];
         let error = Paragraph::new(lines)
             .block(block)
-            .alignment(Alignment::Center);
-        f.render_widget(error, area);
+            .alignment(Alignment::Left);
+        f.render_widget(error, chunks[1]);
     } else {
         let mut items: Vec<ListItem> = Vec::new();
 

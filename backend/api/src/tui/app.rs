@@ -607,8 +607,11 @@ impl App {
 }
 
 pub async fn run_tui(theme: ThemeKind) -> Result<(), Box<dyn Error>> {
-    // Run migrations to ensure tables exist before loading tags.
-    let db = init_db(true).await;
+    // Run migrations to ensure tables exist before loading tags; but return
+    // a clean error instead of panicking if DB is unreachable.
+    let db = crate::db::sea_connect::try_connect(true)
+        .await
+        .map_err(|e| format!("Database connection failed: {}", e))?;
     let redis = init_redis_pool_only().await?;
     let core = Arc::new(CoreState { db, redis });
 

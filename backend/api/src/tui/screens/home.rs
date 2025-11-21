@@ -94,9 +94,7 @@ pub fn draw_home(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalette) {
     f.render_widget(footer, chunks[2]);
 
     if app.tags.error.is_some() && app.route == crate::tui::app::AppRoute::Home {
-        // In case an async load error bubbled while on home
         if let Some(err) = &app.tags.error {
-            let popup_area = centered_rect(60, 25, area);
             let block = Block::default()
                 .borders(Borders::ALL)
                 .title(Span::styled(
@@ -113,8 +111,8 @@ pub fn draw_home(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalette) {
             ];
             let error = Paragraph::new(lines)
                 .block(block)
-                .alignment(Alignment::Center);
-            f.render_widget(error, popup_area);
+                .alignment(Alignment::Left);
+            f.render_widget(error, chunks[1]);
         }
     }
 }

@@ -75,6 +75,28 @@ pub async fn init_db(run_migrations: bool) -> DatabaseConnection {
     conn
 }
 
+/// Non-panicking helper to test DB connectivity (and optionally migrations).
+pub async fn try_connect(run_migrations: bool) -> Result<DatabaseConnection, String> {
+    let db_url = get_db_url();
+    let opt = connect_options(&db_url);
+
+    let conn = Database::connect(opt)
+        .await
+        .map_err(|e| format!("Failed to connect to database with SeaORM: {:?}", e))?;
+
+    conn.ping()
+        .await
+        .map_err(|e| format!("Failed to ping database with SeaORM: {:?}", e))?;
+
+    if run_migrations {
+        Migrator::up(&conn, None)
+            .await
+            .map_err(|e| format!("Failed to run migrations: {:?}", e))?;
+    }
+
+    Ok(conn)
+}
+
 /// Backwards-compatible helper for the Axum server.
 #[instrument]
 pub async fn get_sea_connection() -> DatabaseConnection {
