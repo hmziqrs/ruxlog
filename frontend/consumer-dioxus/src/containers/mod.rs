@@ -3,7 +3,7 @@ use crate::router::Route;
 use ruxlog_shared::use_auth;
 use crate::config::DarkMode;
 use crate::utils::persist;
-use hmziq_dioxus_free_icons::icons::ld_icons::{LdMenu, LdMoon, LdSun, LdUser, LdLogIn};
+use hmziq_dioxus_free_icons::icons::ld_icons::{LdMenu, LdMoon, LdSun, LdUser, LdLogIn, LdGithub, LdTwitter, LdLinkedin};
 use hmziq_dioxus_free_icons::Icon;
 
 pub mod auth_guard_wrapper;
@@ -50,27 +50,8 @@ pub fn NavBarContainer() -> Element {
                             span { class: "text-primary", "Ruxlog" }
                         }
 
-                        // Desktop navigation
-                        div { class: "hidden md:flex items-center gap-6",
-                            a {
-                                href: "/",
-                                class: "text-sm font-medium text-foreground/80 hover:text-foreground transition-colors",
-                                "Home"
-                            }
-                            a {
-                                href: "/categories",
-                                class: "text-sm font-medium text-foreground/80 hover:text-foreground transition-colors",
-                                "Categories"
-                            }
-                            a {
-                                href: "/about",
-                                class: "text-sm font-medium text-foreground/80 hover:text-foreground transition-colors",
-                                "About"
-                            }
-                        }
-
                         // Actions
-                        div { class: "flex items-center gap-3",
+                        div { class: "flex items-center gap-3 ml-auto",
                             // Theme toggle
                             button {
                                 onclick: toggle_dark_mode,
@@ -115,24 +96,6 @@ pub fn NavBarContainer() -> Element {
                     if mobile_menu_open() {
                         div { class: "md:hidden py-4 border-t border-border/60",
                             div { class: "flex flex-col gap-3",
-                                a {
-                                    href: "/",
-                                    class: "px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors",
-                                    "Home"
-                                }
-                                a {
-                                    href: "/categories",
-                                    class: "px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors",
-                                    "Categories"
-                                }
-                                a {
-                                    href: "/about",
-                                    class: "px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors",
-                                    "About"
-                                }
-                                
-                                div { class: "border-t border-border/60 my-2" }
-                                
                                 if let Some(_user) = &*user {
                                     a {
                                         href: "/profile",
@@ -159,47 +122,40 @@ pub fn NavBarContainer() -> Element {
 
             // Footer
             footer { class: "border-t border-border/60 mt-auto",
-                div { class: "container mx-auto px-4 py-12",
-                    div { class: "grid grid-cols-1 md:grid-cols-4 gap-8",
-                        // Brand
-                        div {
-                            h3 { class: "font-bold text-lg mb-4", "Ruxlog" }
-                            p { class: "text-sm text-muted-foreground", "A modern blogging platform for sharing ideas and stories." }
-                        }
-
-                        // Links
-                        div {
-                            h4 { class: "font-semibold mb-4", "Explore" }
-                            div { class: "flex flex-col gap-2 text-sm",
-                                a { href: "/", class: "text-muted-foreground hover:text-foreground transition-colors", "Home" }
-                                a { href: "/categories", class: "text-muted-foreground hover:text-foreground transition-colors", "Categories" }
-                                a { href: "/tags", class: "text-muted-foreground hover:text-foreground transition-colors", "Tags" }
+                div { class: "container mx-auto px-4 py-8",
+                    div { class: "flex flex-col items-center gap-6",
+                        // Social icons
+                        div { class: "flex items-center gap-4",
+                            a {
+                                href: "https://twitter.com",
+                                target: "_blank",
+                                rel: "noopener noreferrer",
+                                class: "p-2 rounded-lg hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground",
+                                aria_label: "Twitter",
+                                Icon { icon: LdTwitter, class: "w-5 h-5" }
+                            }
+                            a {
+                                href: "https://github.com",
+                                target: "_blank",
+                                rel: "noopener noreferrer",
+                                class: "p-2 rounded-lg hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground",
+                                aria_label: "GitHub",
+                                Icon { icon: LdGithub, class: "w-5 h-5" }
+                            }
+                            a {
+                                href: "https://linkedin.com",
+                                target: "_blank",
+                                rel: "noopener noreferrer",
+                                class: "p-2 rounded-lg hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground",
+                                aria_label: "LinkedIn",
+                                Icon { icon: LdLinkedin, class: "w-5 h-5" }
                             }
                         }
 
-                        // Company
-                        div {
-                            h4 { class: "font-semibold mb-4", "Company" }
-                            div { class: "flex flex-col gap-2 text-sm",
-                                a { href: "/about", class: "text-muted-foreground hover:text-foreground transition-colors", "About" }
-                                a { href: "/contact", class: "text-muted-foreground hover:text-foreground transition-colors", "Contact" }
-                                a { href: "/privacy", class: "text-muted-foreground hover:text-foreground transition-colors", "Privacy" }
-                            }
+                        // Copyright
+                        div { class: "text-center text-sm text-muted-foreground",
+                            "© 2024 Ruxlog. All rights reserved."
                         }
-
-                        // Social
-                        div {
-                            h4 { class: "font-semibold mb-4", "Connect" }
-                            div { class: "flex flex-col gap-2 text-sm",
-                                a { href: "#", class: "text-muted-foreground hover:text-foreground transition-colors", "Twitter" }
-                                a { href: "#", class: "text-muted-foreground hover:text-foreground transition-colors", "GitHub" }
-                                a { href: "#", class: "text-muted-foreground hover:text-foreground transition-colors", "LinkedIn" }
-                            }
-                        }
-                    }
-
-                    div { class: "mt-8 pt-8 border-t border-border/60 text-center text-sm text-muted-foreground",
-                        "© 2024 Ruxlog. All rights reserved."
                     }
                 }
             }

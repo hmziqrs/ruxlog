@@ -18,18 +18,8 @@ pub fn HomeScreen() -> Element {
 
     rsx! {
         div { class: "min-h-screen bg-background text-foreground",
-            // Header
-            div { class: "border-b border-border/60 backdrop-blur-xl",
-                div { class: "container mx-auto px-4 py-8",
-                    h1 { class: "text-4xl font-bold mb-2", "Welcome to Ruxlog" }
-                    p { class: "text-muted-foreground",
-                        "Discover stories, thinking, and expertise from writers on any topic."
-                    }
-                }
-            }
-
             // Posts grid
-            div { class: "container mx-auto px-4 py-8",
+            div { class: "container mx-auto px-4 py-8 md:py-12",
                 if (*posts_frame).is_loading() {
                     div { class: "flex items-center justify-center py-20",
                         div { class: "text-muted-foreground", "Loading posts..." }

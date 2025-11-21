@@ -224,10 +224,16 @@ where
             let permission_check = permission_check.clone();
             let login_route = login_route.clone();
             let authenticated_route = authenticated_route.clone();
+            let route_matcher = route_matcher.clone();
 
             spawn(async move {
                 let is_logged_in = user.is_some();
                 let has_permission = permission_check.as_ref().map(|check| check(user.as_ref())).unwrap_or(true);
+                let is_on_authenticated_route = if let Some(matcher) = &route_matcher {
+                    matcher(&authenticated_route, &_route)
+                } else {
+                    authenticated_route == _route
+                };
 
                 // Check permissions first
                 if is_logged_in && !has_permission {
@@ -243,7 +249,10 @@ where
 
                 // Redirect authenticated users from open/auth routes
                 if is_logged_in && is_open_route {
-                    nav.push(authenticated_route);
+                    if !is_on_authenticated_route {
+                        nav.push(authenticated_route);
+                    }
+                    render_blocked_for_logic.set(false);
                     return;
                 }
 
