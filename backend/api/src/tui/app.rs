@@ -21,7 +21,7 @@ use crate::{
 
 use super::{
     components::logs::draw_logs,
-    screens::tags::draw_tags,
+    screens::{home::draw_home, tags::draw_tags},
     theme::{theme_palette, ThemeKind},
 };
 
@@ -29,6 +29,12 @@ use super::{
 pub struct CoreState {
     pub db: DatabaseConnection,
     pub redis: RedisPool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AppRoute {
+    Home,
+    Tags,
 }
 
 #[derive(Debug, Clone)]
@@ -61,6 +67,8 @@ pub enum AppEvent {
 }
 
 pub struct App {
+    pub route: AppRoute,
+    pub selected_home_index: usize,
     pub tags: TagsState,
     pub should_quit: bool,
     pub theme: ThemeKind,
@@ -71,6 +79,8 @@ pub struct App {
 impl App {
     fn new(core: Arc<CoreState>, theme: ThemeKind) -> Self {
         Self {
+            route: AppRoute::Home,
+            selected_home_index: 0,
             tags: TagsState::default(),
             should_quit: false,
             theme,
@@ -95,7 +105,34 @@ impl App {
             return;
         }
 
-        self.handle_key_tags(key, tx);
+        match self.route {
+            AppRoute::Home => self.handle_key_home(key, tx),
+            AppRoute::Tags => self.handle_key_tags(key, tx),
+        }
+    }
+
+    fn handle_key_home(&mut self, key: KeyEvent, tx: &mpsc::UnboundedSender<AppEvent>) {
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('q') => {
+                self.should_quit = true;
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                if self.selected_home_index > 0 {
+                    self.selected_home_index -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                // Only one item today, but keep logic extensible
+                if self.selected_home_index < 0_usize.saturating_add(1) {
+                    self.selected_home_index = 0;
+                }
+            }
+            KeyCode::Enter => {
+                // Only menu item: Tags
+                self.open_tags(tx);
+            }
+            _ => {}
+        }
     }
 
     fn handle_key_tags(&mut self, key: KeyEvent, tx: &mpsc::UnboundedSender<AppEvent>) {
@@ -105,7 +142,7 @@ impl App {
                     self.load_tags(tx);
                 }
                 KeyCode::Esc | KeyCode::Char('q') => {
-                    self.should_quit = true;
+                    self.route = AppRoute::Home;
                 }
                 _ => {
                     self.tags.error = None;
@@ -116,14 +153,14 @@ impl App {
 
         if self.tags.is_loading {
             if key.code == KeyCode::Esc || key.code == KeyCode::Char('q') {
-                self.should_quit = true;
+                self.route = AppRoute::Home;
             }
             return;
         }
 
         match key.code {
             KeyCode::Esc | KeyCode::Char('q') => {
-                self.should_quit = true;
+                self.route = AppRoute::Home;
             }
             KeyCode::Up | KeyCode::Char('k') => {
                 if !self.tags.tags.is_empty() && self.tags.selected_index > 0 {
@@ -142,6 +179,12 @@ impl App {
             }
             _ => {}
         }
+    }
+
+    fn open_tags(&mut self, tx: &mpsc::UnboundedSender<AppEvent>) {
+        self.route = AppRoute::Tags;
+        self.tags = TagsState::default();
+        self.load_tags(tx);
     }
 
     fn load_tags(&mut self, tx: &mpsc::UnboundedSender<AppEvent>) {
@@ -184,7 +227,8 @@ impl App {
 }
 
 pub async fn run_tui(theme: ThemeKind) -> Result<(), Box<dyn Error>> {
-    let db = init_db(false).await;
+    // Run migrations to ensure tables exist before loading tags.
+    let db = init_db(true).await;
     let redis = init_redis_pool_only().await?;
     let core = Arc::new(CoreState { db, redis });
 
@@ -204,7 +248,6 @@ async fn run_app<B: ratatui::backend::Backend>(
 ) -> Result<(), Box<dyn Error>> {
     let (tx, mut rx) = mpsc::unbounded_channel::<AppEvent>();
     let mut app = App::new(core, theme);
-    app.load_tags(&tx);
 
     loop {
         terminal.draw(|f| {
@@ -218,7 +261,10 @@ async fn run_app<B: ratatui::backend::Backend>(
                 .constraints([Constraint::Min(1), Constraint::Length(6)].as_ref())
                 .split(root);
 
-            draw_tags(f, layout[0], &app, &palette);
+            match app.route {
+                AppRoute::Home => draw_home(f, layout[0], &app, &palette),
+                AppRoute::Tags => draw_tags(f, layout[0], &app, &palette),
+            }
 
             draw_logs(f, layout[1], &app.logs, &palette);
         })?;
