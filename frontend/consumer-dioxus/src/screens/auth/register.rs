@@ -1,7 +1,4 @@
 use dioxus::prelude::*;
-use oxcore::http;
-use oxstore::StateFrame;
-use serde::Serialize;
 
 use crate::screens::auth::{use_register_form, RegisterForm};
 use crate::components::MouseTrackingCard;
@@ -13,23 +10,26 @@ use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use oxui::components::form::input::AppInput;
 use oxui::shadcn::button::Button;
 
-#[derive(Serialize, Clone)]
-struct RegisterPayload {
-    name: String,
-    email: String,
-    password: String,
-}
-
 #[component]
 pub fn RegisterScreen() -> Element {
     let mut ox_form = use_register_form(RegisterForm::dev());
     let auth_store = use_auth();
     let nav = use_navigator();
 
-    let mut register_status = use_signal(|| StateFrame::<()>::new());
     let mut password_match_error = use_signal(|| Option::<String>::None);
 
     use_context_provider(|| GridContext::new());
+
+    // Navigate to home after successful login (which happens after registration)
+    use_effect(move || {
+        let login_status = auth_store.login_status.read();
+        if login_status.is_success() {
+            nav.push(crate::router::Route::HomeScreen {});
+        }
+    });
+
+    let register_status = auth_store.register_status.read();
+    let login_status = auth_store.login_status.read();
 
     rsx! {
         div { class: "relative flex items-center justify-center min-h-screen overflow-hidden transition-colors duration-300",
@@ -88,9 +88,9 @@ pub fn RegisterScreen() -> Element {
                         }
 
                         // API error
-                        if register_status.read().is_failed() {
+                        if register_status.is_failed() {
                             ErrorDetails {
-                                error: register_status.read().error.clone(),
+                                error: register_status.error.clone(),
                                 variant: ErrorDetailsVariant::Minimum,
                                 class: "mb-2",
                             }
@@ -98,66 +98,50 @@ pub fn RegisterScreen() -> Element {
 
                         Button {
                             class: "w-full",
-                            disabled: register_status.read().is_loading(),
+                            disabled: register_status.is_loading() || login_status.is_loading(),
                             onclick: move |e: Event<MouseData>| {
                                 e.prevent_default();
 
-                                // Clear password match error
+                                // Get current form values and check password match
+                                let (password, confirm_password) = {
+                                    let form_data = ox_form.read();
+                                    (form_data.data.password.clone(), form_data.data.confirm_password.clone())
+                                };
+
+                                // Clear previous password match error
                                 password_match_error.set(None);
+
+                                // Check if passwords match before validation
+                                if password != confirm_password {
+                                    password_match_error.set(Some("Passwords do not match".to_string()));
+                                    return;
+                                }
 
                                 ox_form
                                     .write()
                                     .on_submit(move |val| {
-                                        // Check if passwords match
-                                        if val.password != val.confirm_password {
-                                            password_match_error.set(Some("Passwords do not match".to_string()));
-                                            return;
-                                        }
-
-                                        let mut register_status = register_status.clone();
                                         let auth_store = auth_store;
-                                        let nav = nav.clone();
+                                        let name = val.name.clone();
                                         let email = val.email.clone();
                                         let password = val.password.clone();
 
                                         spawn(async move {
-                                            register_status.write().set_loading();
-
-                                            let payload = RegisterPayload {
-                                                name: val.name.clone(),
-                                                email: email.clone(),
-                                                password: password.clone(),
-                                            };
-
-                                            match http::post("/auth/v1/register", &payload).send().await {
-                                                Ok(response) => {
-                                                    if (200..300).contains(&response.status()) {
-                                                        register_status.write().set_success(None);
-                                                        // Auto login after successful registration
-                                                        auth_store.login(email, password).await;
-                                                        if auth_store.login_status.read().is_success() {
-                                                            nav.push(crate::router::Route::HomeScreen {});
-                                                        }
-                                                    } else {
-                                                        let status = response.status();
-                                                        let body = response.text().await.unwrap_or_default();
-                                                        register_status.write().set_api_error(status, body);
-                                                    }
-                                                }
-                                                Err(e) => {
-                                                    let (kind, msg) = oxstore::error::classify_transport_error(&e);
-                                                    register_status
-                                                        .write()
-                                                        .set_transport_error(kind, Some(msg));
-                                                }
-                                            }
+                                            auth_store.register(name, email, password).await;
                                         });
                                     });
                             },
-                            if register_status.read().is_loading() {
+                            if register_status.is_loading() || login_status.is_loading() {
                                 div { class: "loading loading-spinner loading-xs" }
                             }
-                            span { "Create Account" }
+                            span {
+                                if register_status.is_loading() {
+                                    "Creating Account..."
+                                } else if login_status.is_loading() {
+                                    "Logging in..."
+                                } else {
+                                    "Create Account"
+                                }
+                            }
                         }
                     }
                     p { class: "text-sm text-center text-zinc-600 dark:text-zinc-400 mt-4 transition-colors duration-300",

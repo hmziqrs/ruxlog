@@ -12,6 +12,7 @@ pub struct AuthState {
 
     pub login_status: GlobalSignal<StateFrame>,
     pub logout_status: GlobalSignal<StateFrame>,
+    pub register_status: GlobalSignal<StateFrame>,
 
     pub init_status: GlobalSignal<StateFrame>,
     pub two_factor: GlobalSignal<StateFrame<Option<TwoFactorSetup>>>,
@@ -125,6 +126,13 @@ impl AuthUser {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LoginPayload {
+    pub email: String,
+    pub password: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RegisterPayload {
+    pub name: String,
     pub email: String,
     pub password: String,
 }

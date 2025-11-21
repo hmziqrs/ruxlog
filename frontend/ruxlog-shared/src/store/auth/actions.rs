@@ -1,5 +1,5 @@
 use super::{
-    AuthState, AuthUser, LoginPayload, TwoFactorSetup, TwoFactorVerifyPayload, UserRole,
+    AuthState, AuthUser, LoginPayload, RegisterPayload, TwoFactorSetup, TwoFactorVerifyPayload, UserRole,
     UserSession,
 };
 use crate::store::{
@@ -54,6 +54,7 @@ impl AuthState {
             user: GlobalSignal::new(|| None),
             login_status: GlobalSignal::new(|| StateFrame::new()),
             logout_status: GlobalSignal::new(|| StateFrame::new()),
+            register_status: GlobalSignal::new(|| StateFrame::new()),
             init_status: GlobalSignal::new(|| StateFrame::new()),
             two_factor: GlobalSignal::new(|| StateFrame::new()),
             sessions: GlobalSignal::new(|| StateFrame::new()),
@@ -206,10 +207,40 @@ impl AuthState {
         }
     }
 
+    pub async fn register(&self, name: String, email: String, password: String) {
+        self.register_status.write().set_loading();
+        let payload = RegisterPayload {
+            name,
+            email: email.clone(),
+            password: password.clone(),
+        };
+        let result = http::post("/auth/v1/register", &payload).send().await;
+        match result {
+            Ok(response) => {
+                if (200..300).contains(&response.status()) {
+                    self.register_status.write().set_success(None);
+                    // Auto-login after successful registration
+                    self.login(email, password).await;
+                } else {
+                    let status = response.status();
+                    let body = response.text().await.unwrap_or_default();
+                    self.register_status.write().set_api_error(status, body);
+                }
+            }
+            Err(e) => {
+                let (kind, msg) = oxstore::error::classify_transport_error(&e);
+                self.register_status
+                    .write()
+                    .set_transport_error(kind, Some(msg));
+            }
+        }
+    }
+
     pub fn reset(&self) {
         *self.user.write() = None;
         *self.login_status.write() = StateFrame::new();
         *self.logout_status.write() = StateFrame::new();
+        *self.register_status.write() = StateFrame::new();
         *self.init_status.write() = StateFrame::new();
         *self.two_factor.write() = StateFrame::new();
         *self.sessions.write() = StateFrame::new();
