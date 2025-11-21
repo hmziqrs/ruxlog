@@ -6,7 +6,8 @@ use fake::{
 };
 use rand::{rngs::StdRng, seq::IndexedRandom, Rng, SeedableRng};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, Set,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    QueryOrder, Set,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -730,7 +731,7 @@ async fn seed_user_sessions(db: &DatabaseConnection) -> SeedResult<()> {
             };
 
             let active_model = user_session::ActiveModel {
-                id: Set(new_session.id),
+                id: ActiveValue::NotSet,
                 user_id: Set(new_session.user_id),
                 device: Set(new_session.device),
                 ip_address: Set(new_session.ip_address),
@@ -757,7 +758,7 @@ async fn seed_email_verifications(db: &DatabaseConnection) -> SeedResult<()> {
         };
 
         let active_model = email_verification::ActiveModel {
-            id: Set(verification.id),
+            id: ActiveValue::NotSet,
             user_id: Set(verification.user_id),
             code: Set(verification.code),
             created_at: Set(verification.created_at),
@@ -783,7 +784,7 @@ async fn seed_forgot_passwords(db: &DatabaseConnection) -> SeedResult<()> {
         };
 
         let active_model = forgot_password::ActiveModel {
-            id: Set(forgot_password.id),
+            id: ActiveValue::NotSet,
             user_id: Set(forgot_password.user_id),
             code: Set(forgot_password.code),
             created_at: Set(forgot_password.created_at),
@@ -825,7 +826,7 @@ async fn seed_post_revisions(db: &DatabaseConnection) -> SeedResult<()> {
             };
 
             let active_model = post_revision::ActiveModel {
-                id: Set(revision.id),
+                id: ActiveValue::NotSet,
                 post_id: Set(revision.post_id),
                 content: Set(revision.content),
                 metadata: Set(revision.metadata),
@@ -858,7 +859,7 @@ async fn seed_post_series(db: &DatabaseConnection) -> SeedResult<()> {
         };
 
         let active_model = post_series::ActiveModel {
-            id: Set(new_series.id),
+            id: ActiveValue::NotSet,
             name: Set(new_series.name),
             slug: Set(new_series.slug),
             description: Set(new_series.description),
@@ -897,7 +898,7 @@ async fn seed_post_views(db: &DatabaseConnection) -> SeedResult<()> {
             };
 
             let active_model = post_view::ActiveModel {
-                id: Set(view.id),
+                id: ActiveValue::NotSet,
                 post_id: Set(view.post_id),
                 user_id: Set(view.user_id),
                 ip_address: Set(view.ip_address),
@@ -927,7 +928,7 @@ async fn seed_scheduled_posts(db: &DatabaseConnection) -> SeedResult<()> {
         };
 
         let active_model = scheduled_post::ActiveModel {
-            id: Set(scheduled_post.id),
+            id: ActiveValue::NotSet,
             post_id: Set(scheduled_post.post_id),
             publish_at: Set(scheduled_post.publish_at),
             status: Set(scheduled_post.status),
@@ -962,7 +963,7 @@ async fn seed_media(db: &DatabaseConnection) -> SeedResult<()> {
         };
 
         let active_model = media::ActiveModel {
-            id: Set(media_item.id),
+            id: ActiveValue::NotSet,
             object_key: Set(media_item.object_key),
             file_url: Set(media_item.file_url),
             mime_type: Set(media_item.mime_type),
@@ -1005,7 +1006,7 @@ async fn seed_media_variants(db: &DatabaseConnection) -> SeedResult<()> {
         };
 
         let active_model = media_variant::ActiveModel {
-            id: Set(variant.id),
+            id: ActiveValue::NotSet,
             media_id: Set(variant.media_id),
             object_key: Set(variant.object_key),
             mime_type: Set(variant.mime_type),
@@ -1042,7 +1043,7 @@ async fn seed_media_usage(db: &DatabaseConnection) -> SeedResult<()> {
             };
 
             let active_model = media_usage::ActiveModel {
-                id: Set(usage.id),
+                id: ActiveValue::NotSet,
                 media_id: Set(usage.media_id),
                 entity_type: Set(usage.entity_type),
                 entity_id: Set(usage.entity_id),
@@ -1078,7 +1079,7 @@ async fn seed_comment_flags(db: &DatabaseConnection) -> SeedResult<()> {
             };
 
             let active_model = comment_flag::ActiveModel {
-                id: Set(flag.id),
+                id: ActiveValue::NotSet,
                 comment_id: Set(flag.comment_id),
                 user_id: Set(flag.user_id),
                 reason: Set(flag.reason),
@@ -1118,7 +1119,7 @@ async fn seed_newsletter_subscribers(db: &DatabaseConnection) -> SeedResult<()> 
             };
 
             let active_model = newsletter_subscriber::ActiveModel {
-                id: Set(subscriber.id),
+                id: ActiveValue::NotSet,
                 email: Set(subscriber.email),
                 status: Set(subscriber.status),
                 token: Set(subscriber.token),
@@ -1155,7 +1156,7 @@ async fn seed_route_status(db: &DatabaseConnection) -> SeedResult<()> {
         };
 
         let active_model = route_status::ActiveModel {
-            id: Set(route_status_entry.id),
+            id: ActiveValue::NotSet,
             route_pattern: Set(route_status_entry.route_pattern),
             is_blocked: Set(route_status_entry.is_blocked),
             reason: Set(route_status_entry.reason),
