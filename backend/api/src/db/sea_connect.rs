@@ -15,23 +15,28 @@ fn get_db_url() -> String {
     format!("postgres://{}:{}@{}:{}/{}", user, password, host, port, db)
 }
 
-/// Establishes a connection to the database using SeaORM
-#[instrument]
-pub async fn get_sea_connection() -> DatabaseConnection {
-    let db_url = get_db_url();
-
-    let mut opt = ConnectOptions::new("protocol://username:password@host/database");
+fn connect_options(db_url: &str) -> ConnectOptions {
+    let mut opt = ConnectOptions::new(db_url.to_string());
     opt.max_connections(100)
         .min_connections(5)
         .connect_timeout(Duration::from_secs(8))
         .acquire_timeout(Duration::from_secs(8))
         .idle_timeout(Duration::from_secs(8))
         .max_lifetime(Duration::from_secs(8))
-        .sqlx_logging(true)
-        .sqlx_logging_level(log::LevelFilter::Info)
-        .set_schema_search_path("my_schema"); // Setting default PostgreSQL schema
+        // Disable SQLx logging to prevent noisy output in TUI;
+        // Axum can enable tracing separately.
+        .sqlx_logging(false)
+        .sqlx_logging_level(log::LevelFilter::Info);
+    opt
+}
 
-    let conn = match Database::connect(db_url).await {
+/// Establishes a connection to the database using SeaORM
+#[instrument]
+pub async fn init_db(run_migrations: bool) -> DatabaseConnection {
+    let db_url = get_db_url();
+    let opt = connect_options(&db_url);
+
+    let conn = match Database::connect(opt).await {
         Ok(conn) => {
             info!("SeaORM database connection established");
             conn
@@ -47,23 +52,31 @@ pub async fn get_sea_connection() -> DatabaseConnection {
         panic!("Failed to ping database with SeaORM: {:?}", e);
     }
 
-    info!("SeaORM database connection working");
+    if run_migrations {
+        let migration_span = tracing::info_span!("database_migration");
+        let _guard = migration_span.enter();
 
-    let migration_span = tracing::info_span!("database_migration");
-    let _guard = migration_span.enter();
-
-    info!("Starting database migrations");
-    match Migrator::up(&conn, None).await {
-        Ok(_) => {
-            info!("Database migrations completed successfully");
-            tracing::Span::current().record("result", "success");
-        }
-        Err(e) => {
-            error!(error = ?e, "Failed to run database migrations");
-            tracing::Span::current().record("result", "failed");
-            panic!("Failed to run migrations: {:?}", e);
+        info!("Starting database migrations");
+        match Migrator::up(&conn, None).await {
+            Ok(_) => {
+                info!("Database migrations completed successfully");
+                tracing::Span::current().record("result", "success");
+            }
+            Err(e) => {
+                error!(error = ?e, "Failed to run database migrations");
+                tracing::Span::current().record("result", "failed");
+                panic!("Failed to run migrations: {:?}", e);
+            }
         }
     }
 
+    info!("SeaORM database connection working");
+
     conn
+}
+
+/// Backwards-compatible helper for the Axum server.
+#[instrument]
+pub async fn get_sea_connection() -> DatabaseConnection {
+    init_db(true).await
 }

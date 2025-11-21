@@ -3,7 +3,6 @@ use std::str::FromStr;
 
 use clap::Parser;
 
-use ruxlog::core::config::CoreConfig;
 use ruxlog::tui::{app::run_tui, theme::ThemeKind};
 
 #[derive(Parser, Debug)]
@@ -35,12 +34,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .unwrap_or(&args.theme);
     let theme = ThemeKind::from_str(theme_name).unwrap_or(ThemeKind::Dracula);
 
-    let core_config = CoreConfig::from_env();
-
-    if let Err(err) = run_tui(core_config, theme).await {
+    if let Err(err) = run_tui(theme).await {
         eprintln!("Error: {}", err);
     }
 
     Ok(())
 }
-

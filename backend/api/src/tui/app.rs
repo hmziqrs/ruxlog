@@ -1,21 +1,19 @@
 use std::{error::Error, sync::Arc, time::Duration};
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
-use ratatui::{
-    layout::{Constraint, Direction, Layout},
-    style::Style,
-    Terminal,
-};
+use password_auth::verify_password;
+use ratatui::{layout::{Constraint, Direction, Layout}, style::Style, Terminal};
+use sea_orm::DatabaseConnection;
 use tokio::{sync::mpsc, time::sleep};
+use tower_sessions_redis_store::fred::prelude::Pool as RedisPool;
 use tuirealm::terminal::TerminalBridge;
 
-use crate::core::{
-    auth::AuthService,
-    context::CoreContext,
-    db::init_db,
-    redis::init_redis_pool,
-    tags::TagService,
-    types::{AuthError, Session, TagError, TagSummary, UserCredentials},
+use crate::{
+    db::{
+        sea_connect::init_db,
+        sea_models::{tag, user},
+    },
+    services::redis::init_redis_pool_only,
 };
 
 use super::{
@@ -23,6 +21,12 @@ use super::{
     screens::{login::draw_login, tags::draw_tags},
     theme::{theme_palette, ThemeKind},
 };
+
+#[derive(Clone)]
+pub struct CoreState {
+    pub db: DatabaseConnection,
+    pub redis: RedisPool,
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum AppRoute {
@@ -60,7 +64,7 @@ impl Default for LoginState {
 
 #[derive(Debug, Clone)]
 pub struct TagsState {
-    pub tags: Vec<TagSummary>,
+    pub tags: Vec<tag::Model>,
     pub selected_index: usize,
     pub is_loading: bool,
     pub error: Option<String>,
@@ -78,38 +82,52 @@ impl Default for TagsState {
 }
 
 #[derive(Debug)]
+pub struct TuiSession {
+    pub user_id: i32,
+    pub email: String,
+}
+
+#[derive(Debug)]
+pub enum AuthError {
+    InvalidCredentials,
+    UserNotFound,
+    PasswordVerificationError,
+    Database(String),
+}
+
+#[derive(Debug)]
+pub enum TagError {
+    LoadFailed(String),
+}
+
+#[derive(Debug)]
 pub enum AppEvent {
-    LoginResult(Result<Session, AuthError>),
-    TagsLoaded(Result<Vec<TagSummary>, TagError>),
+    LoginResult(Result<TuiSession, AuthError>),
+    TagsLoaded(Result<Vec<tag::Model>, TagError>),
 }
 
 pub struct App {
     pub route: AppRoute,
-    pub auth_service: AuthService,
-    pub tag_service: TagService,
-    pub session: Option<Session>,
+    pub session: Option<TuiSession>,
     pub login: LoginState,
     pub tags: TagsState,
     pub should_quit: bool,
     pub theme: ThemeKind,
     pub logs: Vec<String>,
+    core: Arc<CoreState>,
 }
 
 impl App {
-    fn new(core: Arc<CoreContext>, theme: ThemeKind) -> Self {
-        let auth_service = AuthService::new(core.clone());
-        let tag_service = TagService::new(core.clone());
-
+    fn new(core: Arc<CoreState>, theme: ThemeKind) -> Self {
         Self {
             route: AppRoute::Login,
-            auth_service,
-            tag_service,
             session: None,
             login: LoginState::default(),
             tags: TagsState::default(),
             should_quit: false,
             theme,
             logs: Vec::new(),
+            core,
         }
     }
 
@@ -255,16 +273,16 @@ impl App {
         self.login.is_loading = true;
         self.login.error = None;
 
-        let creds = UserCredentials {
+        let creds = LoginPayload {
             username: self.login.username_input.clone(),
             password: self.login.password_input.clone(),
         };
 
-        let auth = self.auth_service.clone();
+        let core = self.core.clone();
         let tx_clone = tx.clone();
 
         tokio::spawn(async move {
-            let result = auth.login(creds).await;
+            let result = login_user(core, creds).await;
             let _ = tx_clone.send(AppEvent::LoginResult(result));
         });
     }
@@ -277,11 +295,11 @@ impl App {
         self.tags.is_loading = true;
         self.tags.error = None;
 
-        let tag_service = self.tag_service.clone();
+        let core = self.core.clone();
         let tx_clone = tx.clone();
 
         tokio::spawn(async move {
-            let result = tag_service.list_tags().await;
+            let result = fetch_tags(core).await;
             let _ = tx_clone.send(AppEvent::TagsLoaded(result));
         });
     }
@@ -299,8 +317,8 @@ impl App {
                         self.load_tags(tx);
                     }
                     Err(err) => {
-                        self.push_log(format!("login error: {}", err));
-                        self.login.error = Some(err.to_string());
+                        self.push_log(format!("login error: {:?}", err));
+                        self.login.error = Some(format!("{:?}", err));
                     }
                 }
             }
@@ -315,8 +333,8 @@ impl App {
                         }
                     }
                     Err(err) => {
-                        self.push_log(format!("tags load error: {}", err));
-                        self.tags.error = Some(err.to_string());
+                        self.push_log(format!("tags load error: {:?}", err));
+                        self.tags.error = Some(format!("{:?}", err));
                     }
                 }
             }
@@ -324,14 +342,10 @@ impl App {
     }
 }
 
-pub async fn run_tui(core_config: crate::core::config::CoreConfig, theme: ThemeKind) -> Result<(), Box<dyn Error>> {
-    let db = init_db(&core_config).await;
-    let redis = init_redis_pool(&core_config).await;
-    let core = Arc::new(CoreContext {
-        config: core_config,
-        db,
-        redis,
-    });
+pub async fn run_tui(theme: ThemeKind) -> Result<(), Box<dyn Error>> {
+    let db = init_db(false).await;
+    let redis = init_redis_pool_only().await?;
+    let core = Arc::new(CoreState { db, redis });
 
     let mut bridge =
         TerminalBridge::init_crossterm().map_err(|e| format!("terminal init error: {e}"))?;
@@ -344,7 +358,7 @@ pub async fn run_tui(core_config: crate::core::config::CoreConfig, theme: ThemeK
 
 async fn run_app<B: ratatui::backend::Backend>(
     terminal: &mut Terminal<B>,
-    core: Arc<CoreContext>,
+    core: Arc<CoreState>,
     theme: ThemeKind,
 ) -> Result<(), Box<dyn Error>> {
     let (tx, mut rx) = mpsc::unbounded_channel::<AppEvent>();
@@ -359,13 +373,7 @@ async fn run_app<B: ratatui::backend::Backend>(
 
             let layout = Layout::default()
                 .direction(Direction::Vertical)
-                .constraints(
-                    [
-                        Constraint::Min(1),
-                        Constraint::Length(6),
-                    ]
-                    .as_ref(),
-                )
+                .constraints([Constraint::Min(1), Constraint::Length(6)].as_ref())
                 .split(root);
 
             match app.route {
@@ -394,5 +402,37 @@ async fn run_app<B: ratatui::backend::Backend>(
     }
 
     Ok(())
+}
+
+#[derive(Clone)]
+struct LoginPayload {
+    username: String,
+    password: String,
+}
+
+async fn login_user(core: Arc<CoreState>, creds: LoginPayload) -> Result<TuiSession, AuthError> {
+    let user = user::Entity::find_by_email(&core.db, creds.username.clone())
+        .await
+        .map_err(|e| AuthError::Database(e.to_string()))?;
+
+    let user = user.ok_or(AuthError::UserNotFound)?;
+    let password_hash = user
+        .password
+        .clone()
+        .ok_or(AuthError::InvalidCredentials)?;
+
+    verify_password(creds.password, &password_hash)
+        .map_err(|_| AuthError::InvalidCredentials)?;
+
+    Ok(TuiSession {
+        user_id: user.id,
+        email: user.email,
+    })
+}
+
+async fn fetch_tags(core: Arc<CoreState>) -> Result<Vec<tag::Model>, TagError> {
+    tag::Entity::find_all(&core.db)
+        .await
+        .map_err(|e| TagError::LoadFailed(e.to_string()))
 }
 

@@ -71,3 +71,11 @@ pub async fn init_redis_store() -> Result<(Pool, JoinHandle<Result<(), Error>>),
 
     Ok((redis_pool, redis_connection))
 }
+
+/// Initialize a Redis pool without wrapping it in a session store.
+/// Useful for non-HTTP consumers like the TUI.
+#[instrument(name = "redis_pool_init_simple")]
+pub async fn init_redis_pool_only() -> Result<Pool, Error> {
+    let (pool, _handle) = init_redis_store().await?;
+    Ok(pool)
+}
