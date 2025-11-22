@@ -14,7 +14,6 @@ pub fn NavBarContainer() -> Element {
     let auth_store = use_auth();
     let user = auth_store.user.read();
     let mut dark_theme = use_context_provider(|| Signal::new(DarkMode(true)));
-    let mut mobile_menu_open = use_signal(|| false);
 
     // Initialize theme from DOM
     use_effect(move || {
@@ -73,48 +72,18 @@ pub fn NavBarContainer() -> Element {
                             if let Some(user) = &*user {
                                 a {
                                     href: "/profile",
-                                    class: "hidden md:flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors",
+                                    class: "flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors",
                                     div { class: "w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm",
                                         "{user.name.chars().next().unwrap_or('U').to_uppercase()}"
                                     }
-                                    span { class: "text-sm font-medium", "{user.name}" }
+                                    span { class: "hidden md:block text-sm font-medium", "{user.name}" }
                                 }
                             } else {
                                 a {
                                     href: "/login",
-                                    class: "hidden md:flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium",
-                                    Icon { icon: LdLogIn, class: "w-4 h-4" }
-                                    "Sign In"
-                                }
-                            }
-
-                            // Mobile menu button
-                            button {
-                                onclick: move |_| mobile_menu_open.toggle(),
-                                class: "md:hidden p-2 rounded-lg hover:bg-muted/50 transition-colors",
-                                Icon { icon: LdMenu, class: "w-5 h-5" }
-                            }
-                        }
-                    }
-
-                    // Mobile menu
-                    if mobile_menu_open() {
-                        div { class: "md:hidden py-4 border-t border-border/60",
-                            div { class: "flex flex-col gap-3",
-                                if let Some(_user) = &*user {
-                                    a {
-                                        href: "/profile",
-                                        class: "flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors",
-                                        Icon { icon: LdUser, class: "w-5 h-5" }
-                                        "Profile"
-                                    }
-                                } else {
-                                    a {
-                                        href: "/login",
-                                        class: "flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors",
-                                        Icon { icon: LdLogIn, class: "w-4 h-4" }
-                                        "Sign In"
-                                    }
+                                    class: "p-2 rounded-lg hover:bg-muted/50 transition-colors",
+                                    aria_label: "Sign In",
+                                    Icon { icon: LdLogIn, class: "w-5 h-5" }
                                 }
                             }
                         }
