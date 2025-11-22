@@ -49,10 +49,15 @@ pub fn NavBarContainer() -> Element {
                             class: "flex items-center gap-2 font-bold text-xl",
                             span { class: "text-primary", "Ruxlog" }
                         }
-
-                        // Actions
                         div { class: "flex items-center gap-3 ml-auto",
-                            // Theme toggle
+                            a {
+                                href: "https://github.com/hmziqrs/ruxlog",
+                                target: "_blank",
+                                class: "p-2 rounded-lg hover:bg-muted/50 transition-colors",
+                                div { class: "w-4 h-4",
+                                    Icon { icon: LdGithub }
+                                }
+                            }
                             button {
                                 onclick: toggle_dark_mode,
                                 class: "p-2 rounded-lg hover:bg-muted/50 transition-colors",
