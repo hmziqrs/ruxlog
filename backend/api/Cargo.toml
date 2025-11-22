@@ -121,4 +121,4 @@ path = "scripts/restore_changes.rs"
 
 [[bin]]
 name = "ruxlog_tui"
-path = "src/bin/ruxlog_tui.rs"
+path = "scripts/ruxlog_tui.rs"
