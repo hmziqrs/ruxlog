@@ -114,13 +114,13 @@ pub fn CommentsListScreen() -> Element {
         div { class: "space-y-3",
             // Filter row
             div { class: "grid grid-cols-1 md:grid-cols-2 gap-3",
-                div { class: "flex flex-col gap-1.5",
+                div { class: "flex flex-col gap-1.5 md:max-w-xs",
                     label { class: "text-sm font-medium text-zinc-700 dark:text-zinc-300", "Filter by User" }
                     Combobox {
                         items: user_items,
                         placeholder: "Select user...".to_string(),
                         value: (*ctx.selected_user_id.read()).map(|id| id.to_string()),
-                        width: "w-full".to_string(),
+                        width: "w-full md:w-64".to_string(),
                         onvaluechange: Some(EventHandler::new({
                             let mut ctx = ctx.clone();
                             let mut filters = filters;
@@ -131,13 +131,13 @@ pub fn CommentsListScreen() -> Element {
                         })),
                     }
                 }
-                div { class: "flex flex-col gap-1.5",
+                div { class: "flex flex-col gap-1.5 md:max-w-xs",
                     label { class: "text-sm font-medium text-zinc-700 dark:text-zinc-300", "Filter by Post" }
                     Combobox {
                         items: post_items,
                         placeholder: "Select post...".to_string(),
                         value: (*ctx.selected_post_id.read()).map(|id| id.to_string()),
-                        width: "w-full".to_string(),
+                        width: "w-full md:w-64".to_string(),
                         onvaluechange: Some(EventHandler::new({
                             let mut ctx = ctx.clone();
                             let mut filters = filters;
