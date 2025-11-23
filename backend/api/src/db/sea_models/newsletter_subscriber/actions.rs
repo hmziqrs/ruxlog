@@ -120,29 +120,21 @@ impl Entity {
             q = q.filter(Column::Status.eq(status));
         }
 
-        if let Some(sort_fields) = &query.sort_by {
-            for field in sort_fields {
-                let order = if query.sort_order.as_deref() == Some("asc") {
-                    Order::Asc
-                } else {
-                    Order::Desc
+        if let Some(sorts) = query.sorts {
+            for sort in sorts {
+                let column = match sort.field.as_str() {
+                    "email" => Some(Column::Email),
+                    "status" => Some(Column::Status),
+                    "created_at" => Some(Column::CreatedAt),
+                    "updated_at" => Some(Column::UpdatedAt),
+                    _ => None,
                 };
-                q = match field.as_str() {
-                    "email" => q.order_by(Column::Email, order),
-                    "status" => q.order_by(Column::Status, order),
-                    "created_at" => q.order_by(Column::CreatedAt, order),
-                    "updated_at" => q.order_by(Column::UpdatedAt, order),
-                    _ => q,
-                };
+                if let Some(col) = column {
+                    q = q.order_by(col, sort.order);
+                }
             }
         } else {
-            // Default sorting
-            let order = if query.sort_order.as_deref() == Some("asc") {
-                Order::Asc
-            } else {
-                Order::Desc
-            };
-            q = q.order_by(Column::CreatedAt, order);
+            q = q.order_by(Column::CreatedAt, Order::Desc);
         }
 
         let page = match query.page_no {

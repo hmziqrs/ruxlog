@@ -25,8 +25,7 @@ pub struct SubscriberQuery {
     pub page_no: Option<u64>,
     pub search: Option<String>,
     pub status: Option<SubscriberStatus>,
-    pub sort_by: Option<Vec<String>>,
-    pub sort_order: Option<String>,
+    pub sorts: Option<Vec<crate::utils::SortParam>>,
 }
 
 /// Lightweight subscriber list item for admin listings

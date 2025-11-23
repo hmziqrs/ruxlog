@@ -235,8 +235,7 @@ pub async fn list_subscribers(
         page_no: payload.page,
         search: payload.search.clone(),
         status: None,
-        sort_by: None,
-        sort_order: None,
+        sorts: None,
     };
 
     match SubscriberEntity::find_with_query(&state.sea_db, query).await {
