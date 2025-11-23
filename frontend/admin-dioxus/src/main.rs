@@ -1,6 +1,6 @@
+use crate::utils::persist;
 use dioxus::{logger::tracing, prelude::*};
 use oxui::components::SonnerToaster;
-use crate::utils::persist;
 
 pub mod components;
 mod config;
@@ -28,7 +28,7 @@ fn main() {
         format!("http://{}", env::APP_API_URL)
     };
 
-    let csrf_token = BASE64_STANDARD.encode(env::APP_CSRF_TOKEN.as_bytes());
+    let csrf_token = BASE64_STANDARD.encode((env::APP_CSRF_TOKEN).as_bytes());
     oxcore::http::configure(base_url, csrf_token);
 
     dioxus::launch(App);
