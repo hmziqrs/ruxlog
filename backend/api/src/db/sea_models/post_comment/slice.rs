@@ -1,6 +1,21 @@
 use sea_orm::{prelude::DateTimeWithTimeZone, FromQueryResult};
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum HiddenFilter {
+    All,
+    Hidden,
+    Visible,
+}
+
+impl HiddenFilter {
+    /// Resolve an optional filter to a concrete value, defaulting to Visible.
+    pub fn resolve(input: Option<Self>) -> Self {
+        input.unwrap_or(HiddenFilter::Visible)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CommentUserMedia {
     pub id: i32,
@@ -32,7 +47,7 @@ pub struct CommentQuery {
     pub post_id: Option<i32>,
     pub user_id: Option<i32>,
     pub search_term: Option<String>,
-    pub include_hidden: Option<bool>,
+    pub hidden_filter: Option<HiddenFilter>,
     pub min_flags: Option<i32>,
     pub sorts: Option<Vec<crate::utils::SortParam>>,
     // Date range filters
@@ -49,7 +64,7 @@ impl Default for CommentQuery {
             post_id: None,
             user_id: None,
             search_term: None,
-            include_hidden: None,
+            hidden_filter: None,
             min_flags: None,
             sorts: None,
             created_at_gt: None,

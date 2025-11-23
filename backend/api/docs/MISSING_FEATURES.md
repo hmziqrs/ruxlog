@@ -157,7 +157,7 @@ Public (authenticated for mutations):
 - POST /post/comment/v1/{post_id}                       (public list by post; non-hidden only)
 
 Admin (nested under /post/comment/v1/admin):
-- POST /post/comment/v1/admin/list                      (filter/paginate; supports min_flags/include_hidden/search/sort)
+- POST /post/comment/v1/admin/list                      (filter/paginate; supports min_flags/hidden_filter/search/sort)
 - POST /post/comment/v1/admin/hide/{comment_id}
 - POST /post/comment/v1/admin/unhide/{comment_id}
 - POST /post/comment/v1/admin/delete/{comment_id}
@@ -185,7 +185,7 @@ Wiring (Updated):
 - Removed legacy separate `/admin/post/comment/v1` mount.
 
 SeaORM:
-- `post_comments` model includes `hidden bool` (default false), `flags_count i32` (default 0).
+- `post_comments` model includes `hidden bool` (default false), `flags_count i32` (default 0), `hidden_filter` supports all/hidden/visible.
 - `comment_flags` entity supports individual user flags.
 - Actions implemented: `find_all_by_post`, `find_with_query`, `admin_hide`, `admin_unhide`, `admin_delete`, `admin_flags_clear`, plus flag sync.
 

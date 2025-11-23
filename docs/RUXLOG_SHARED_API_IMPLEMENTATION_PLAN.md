@@ -93,7 +93,7 @@ This plan outlines the implementation of a complete API integration layer in `ru
 - [ ] CommentCreatePayload (post_id, content, parent_id)
 - [ ] CommentUpdatePayload (content)
 - [ ] CommentFlagPayload (reason)
-- [ ] CommentListQuery (post_id, user_id, page, limit, include_hidden)
+- [ ] CommentListQuery (post_id, user_id, page, limit, hidden_filter)
 - [ ] CommentState struct with GlobalSignals:
     - list: StateFrame<PaginatedList<Comment>>
     - view: HashMap<i32, StateFrame<Comment>>

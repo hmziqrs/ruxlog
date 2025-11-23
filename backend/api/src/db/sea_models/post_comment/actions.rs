@@ -271,8 +271,14 @@ impl Entity {
             comment_query = comment_query.filter(Column::Content.contains(search_term));
         }
 
-        if query.include_hidden != Some(true) {
-            comment_query = comment_query.filter(Column::Hidden.eq(false));
+        match query.hidden_filter.unwrap_or(HiddenFilter::Visible) {
+            HiddenFilter::All => {}
+            HiddenFilter::Hidden => {
+                comment_query = comment_query.filter(Column::Hidden.eq(true));
+            }
+            HiddenFilter::Visible => {
+                comment_query = comment_query.filter(Column::Hidden.eq(false));
+            }
         }
 
         if let Some(min_flags) = query.min_flags {

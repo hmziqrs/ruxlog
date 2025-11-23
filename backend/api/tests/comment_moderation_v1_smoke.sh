@@ -325,7 +325,7 @@ echo
 # Admin list (all comments) - NEW ROUTE STRUCTURE
 # -----------------------------
 echo "==> Admin list comments (new route)"
-admin_list_payload="$(jq -nc '{page:1, include_hidden:true}')"
+admin_list_payload="$(jq -nc '{page:1, hidden_filter:\"all\"}')"
 post_json "/post/comment/v1/admin/list" "$admin_list_payload" 200
 echo
 
@@ -343,11 +343,14 @@ echo
 echo "==> Hide comment1"
 post_json "/post/comment/v1/admin/hide/$comment1_id" "{}" 200
 
-echo "==> List without include_hidden (comment1 should be absent)"
+echo "==> List without hidden_filter (comment1 should be absent)"
 post_json "/post/comment/v1/admin/list" "$(jq -nc '{page:1}')" 200
 
-echo "==> List with include_hidden true (comment1 should appear as hidden)"
-post_json "/post/comment/v1/admin/list" "$(jq -nc '{page:1, include_hidden:true}')" 200
+echo "==> List with hidden_filter=all (comment1 should appear as hidden)"
+post_json "/post/comment/v1/admin/list" "$(jq -nc '{page:1, hidden_filter:\"all\"}')" 200
+
+echo "==> List with hidden_filter=hidden (only hidden comments should appear)"
+post_json "/post/comment/v1/admin/list" "$(jq -nc '{page:1, hidden_filter:\"hidden\"}')" 200
 echo
 
 # -----------------------------
