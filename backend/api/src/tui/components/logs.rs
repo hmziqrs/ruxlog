@@ -29,4 +29,3 @@ pub fn draw_logs(f: &mut Frame, area: Rect, logs: &[String], palette: &ThemePale
 
     f.render_widget(paragraph, area);
 }
-

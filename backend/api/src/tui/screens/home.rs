@@ -6,10 +6,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::tui::{
-    app::App,
-    theme::ThemePalette,
-};
+use crate::tui::{app::App, theme::ThemePalette};
 
 pub fn draw_home(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalette) {
     let chunks = Layout::default()

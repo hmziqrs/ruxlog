@@ -10,6 +10,8 @@ use sea_orm::{
     QueryOrder, Set,
 };
 use serde::{Deserialize, Serialize};
+
+use super::seed_config::SeedMode;
 use serde_json::{json, Value};
 
 use crate::db::sea_models::{
@@ -28,6 +30,8 @@ pub struct TableRange {
 pub struct SeedOutcome {
     pub ranges: HashMap<String, TableRange>,
     pub seed_run_id: Option<i32>,
+    pub errors: Vec<String>,
+    pub warnings: Vec<String>,
 }
 
 impl SeedOutcome {
@@ -96,8 +100,28 @@ fn compute_range(before: i32, after: i32) -> TableRange {
     }
 }
 
+/// Progress callback function type for seed operations
+pub type ProgressCallback = Box<dyn Fn(String) + Send + Sync>;
+
 /// Seed everything locally (no Supabase) and record ranges into `seed_runs`.
 pub async fn seed_all(db: &DatabaseConnection) -> SeedResult<SeedOutcome> {
+    seed_all_with_progress(db, None, None).await
+}
+
+/// Seed everything with optional progress callback for TUI
+pub async fn seed_all_with_progress(
+    db: &DatabaseConnection,
+    progress: Option<ProgressCallback>,
+    seed_mode: Option<SeedMode>,
+) -> SeedResult<SeedOutcome> {
+    let mut errors = Vec::new();
+    let mut warnings = Vec::new();
+
+    let log = |msg: String| {
+        if let Some(ref callback) = progress {
+            callback(msg);
+        }
+    };
     // Capture ID state before seeding for tracking.
     let before_users = user::Entity::find()
         .order_by_desc(user::Column::Id)
@@ -208,11 +232,14 @@ pub async fn seed_all(db: &DatabaseConnection) -> SeedResult<SeedOutcome> {
         .map(|m| m.id)
         .unwrap_or(0);
 
-    let mut rng = StdRng::seed_from_u64(42);
+    let seed_value = seed_mode.unwrap_or_default().to_seed();
+    log(format!("Using seed: {}", seed_value));
+    let mut rng = StdRng::seed_from_u64(seed_value);
     let mut fake_users: Vec<user::UserWithRelations> = vec![];
     let mut fake_posts: Vec<post::PostWithRelations> = vec![];
 
-    for _ in 0..50 {
+    log("Creating users (0/50)...".to_string());
+    for i in 0..50 {
         let user: FakeUser = Faker.fake_with_rng(&mut rng);
         let email = user.email.clone();
         let password = user.email.clone();
@@ -234,20 +261,26 @@ pub async fn seed_all(db: &DatabaseConnection) -> SeedResult<SeedOutcome> {
         match user::Entity::admin_create(db, new_user).await {
             Ok(user) => {
                 fake_users.push(user);
+                if (i + 1) % 10 == 0 || i + 1 == 50 {
+                    log(format!("Creating users ({}/50)...", i + 1));
+                }
             }
             Err(err) => {
-                println!("Error creating user: {:?}", err);
+                let err_msg = format!("Failed to create user '{}': {}", email, err);
+                errors.push(err_msg.clone());
+                log(err_msg);
             }
         }
     }
 
     let mut categories: Vec<category::CategoryWithRelations> = vec![];
-    for _ in 0..10 {
+    log("Creating categories (0/10)...".to_string());
+    for i in 0..10 {
         let fake_name: FakeWord = Faker.fake();
         let name = fake_name.0;
         let slug = name.to_lowercase().replace(' ', "-");
         let new_category = category::NewCategory {
-            name,
+            name: name.clone(),
             slug,
             description: None,
             parent_id: None,
@@ -259,20 +292,28 @@ pub async fn seed_all(db: &DatabaseConnection) -> SeedResult<SeedOutcome> {
         };
 
         match category::Entity::create(db, new_category).await {
-            Ok(category) => categories.push(category),
+            Ok(category) => {
+                categories.push(category);
+                if (i + 1) % 5 == 0 || i + 1 == 10 {
+                    log(format!("Creating categories ({}/10)...", i + 1));
+                }
+            }
             Err(err) => {
-                println!("Error creating category: {:?}", err);
+                let err_msg = format!("Failed to create category '{}': {}", name, err);
+                errors.push(err_msg.clone());
+                log(err_msg);
             }
         }
     }
 
     let mut tags: Vec<tag::Model> = vec![];
-    for _ in 0..50 {
+    log("Creating tags (0/50)...".to_string());
+    for i in 0..50 {
         let fake_name: FakeWord = Faker.fake();
         let name = fake_name.0;
         let slug = name.to_lowercase().replace(' ', "-");
         let new_tag = tag::NewTag {
-            name,
+            name: name.clone(),
             slug,
             description: None,
             color: Some("#3b82f6".to_string()),
@@ -281,13 +322,22 @@ pub async fn seed_all(db: &DatabaseConnection) -> SeedResult<SeedOutcome> {
         };
 
         match tag::Entity::create(db, new_tag).await {
-            Ok(tag) => tags.push(tag),
+            Ok(tag) => {
+                tags.push(tag);
+                if (i + 1) % 10 == 0 || i + 1 == 50 {
+                    log(format!("Creating tags ({}/50)...", i + 1));
+                }
+            }
             Err(err) => {
-                println!("Error creating tag: {:?}", err);
+                let err_msg = format!("Failed to create tag '{}': {}", name, err);
+                errors.push(err_msg.clone());
+                log(err_msg);
             }
         }
     }
 
+    log("Creating posts...".to_string());
+    let mut post_count = 0;
     for user in fake_users.iter() {
         if user.role == user::UserRole::Author {
             let num_posts = rng.random_range(2..16);
@@ -337,15 +387,24 @@ pub async fn seed_all(db: &DatabaseConnection) -> SeedResult<SeedOutcome> {
                 match post::Entity::create(db, new_post).await {
                     Ok(post) => {
                         fake_posts.push(post);
+                        post_count += 1;
+                        if post_count % 10 == 0 {
+                            log(format!("Created {} posts...", post_count));
+                        }
                     }
                     Err(err) => {
-                        println!("Error creating post: {:?}", err);
+                        let err_msg = format!("Failed to create post '{}': {}", post_title, err);
+                        errors.push(err_msg.clone());
+                        log(err_msg);
                     }
                 }
             }
         }
     }
+    log(format!("Created {} posts total", post_count));
 
+    log("Creating comments...".to_string());
+    let mut comment_count = 0;
     for user in fake_users.iter() {
         if user.role == user::UserRole::User && !fake_posts.is_empty() {
             let num_comments = rng.random_range(1..4);
@@ -355,31 +414,95 @@ pub async fn seed_all(db: &DatabaseConnection) -> SeedResult<SeedOutcome> {
                 let new_comment = post_comment::NewComment {
                     post_id: post.id,
                     user_id: user.id,
-                    content,
+                    content: content.clone(),
                     likes_count: Some(0),
                 };
 
-                if let Err(err) = post_comment::Entity::create(db, new_comment).await {
-                    println!("Error creating comment: {:?}", err);
+                match post_comment::Entity::create(db, new_comment).await {
+                    Ok(_) => {
+                        comment_count += 1;
+                        if comment_count % 20 == 0 {
+                            log(format!("Created {} comments...", comment_count));
+                        }
+                    }
+                    Err(err) => {
+                        let err_msg = format!("Failed to create comment: {}", err);
+                        errors.push(err_msg.clone());
+                        log(err_msg);
+                    }
                 }
             }
         }
     }
+    log(format!("Created {} comments total", comment_count));
 
     // Seed additional models similar to original handler
-    seed_user_sessions(db).await.ok();
-    seed_email_verifications(db).await.ok();
-    seed_forgot_passwords(db).await.ok();
-    seed_post_revisions(db).await.ok();
-    seed_post_series(db).await.ok();
-    seed_post_views(db).await.ok();
-    seed_scheduled_posts(db).await.ok();
-    seed_media(db).await.ok();
-    seed_media_variants(db).await.ok();
-    seed_media_usage(db).await.ok();
-    seed_comment_flags(db).await.ok();
-    seed_newsletter_subscribers(db).await.ok();
-    seed_route_status(db).await.ok();
+    log("Seeding user sessions...".to_string());
+    if let Err(e) = seed_user_sessions(db).await {
+        warnings.push(format!("Failed to seed user sessions: {}", e));
+    }
+
+    log("Seeding email verifications...".to_string());
+    if let Err(e) = seed_email_verifications(db).await {
+        warnings.push(format!("Failed to seed email verifications: {}", e));
+    }
+
+    log("Seeding forgot passwords...".to_string());
+    if let Err(e) = seed_forgot_passwords(db).await {
+        warnings.push(format!("Failed to seed forgot passwords: {}", e));
+    }
+
+    log("Seeding post revisions...".to_string());
+    if let Err(e) = seed_post_revisions(db).await {
+        warnings.push(format!("Failed to seed post revisions: {}", e));
+    }
+
+    log("Seeding post series...".to_string());
+    if let Err(e) = seed_post_series(db).await {
+        warnings.push(format!("Failed to seed post series: {}", e));
+    }
+
+    log("Seeding post views...".to_string());
+    if let Err(e) = seed_post_views(db).await {
+        warnings.push(format!("Failed to seed post views: {}", e));
+    }
+
+    log("Seeding scheduled posts...".to_string());
+    if let Err(e) = seed_scheduled_posts(db).await {
+        warnings.push(format!("Failed to seed scheduled posts: {}", e));
+    }
+
+    log("Seeding media...".to_string());
+    if let Err(e) = seed_media(db).await {
+        warnings.push(format!("Failed to seed media: {}", e));
+    }
+
+    log("Seeding media variants...".to_string());
+    if let Err(e) = seed_media_variants(db).await {
+        warnings.push(format!("Failed to seed media variants: {}", e));
+    }
+
+    log("Seeding media usage...".to_string());
+    if let Err(e) = seed_media_usage(db).await {
+        warnings.push(format!("Failed to seed media usage: {}", e));
+    }
+
+    log("Seeding comment flags...".to_string());
+    if let Err(e) = seed_comment_flags(db).await {
+        warnings.push(format!("Failed to seed comment flags: {}", e));
+    }
+
+    log("Seeding newsletter subscribers...".to_string());
+    if let Err(e) = seed_newsletter_subscribers(db).await {
+        warnings.push(format!("Failed to seed newsletter subscribers: {}", e));
+    }
+
+    log("Seeding route status...".to_string());
+    if let Err(e) = seed_route_status(db).await {
+        warnings.push(format!("Failed to seed route status: {}", e));
+    }
+
+    log("Additional data seeded".to_string());
 
     // Capture ID state after seeding and record the ranges.
     let after_users = user::Entity::find()
@@ -492,13 +615,19 @@ pub async fn seed_all(db: &DatabaseConnection) -> SeedResult<SeedOutcome> {
         .unwrap_or(0);
 
     let mut ranges: HashMap<String, TableRange> = HashMap::new();
-    ranges.insert("users".to_string(), compute_range(before_users, after_users));
+    ranges.insert(
+        "users".to_string(),
+        compute_range(before_users, after_users),
+    );
     ranges.insert(
         "categories".to_string(),
         compute_range(before_categories, after_categories),
     );
     ranges.insert("tags".to_string(), compute_range(before_tags, after_tags));
-    ranges.insert("posts".to_string(), compute_range(before_posts, after_posts));
+    ranges.insert(
+        "posts".to_string(),
+        compute_range(before_posts, after_posts),
+    );
     ranges.insert(
         "post_comments".to_string(),
         compute_range(before_post_comments, after_post_comments),
@@ -556,17 +685,36 @@ pub async fn seed_all(db: &DatabaseConnection) -> SeedResult<SeedOutcome> {
         compute_range(before_route_status, after_route_status),
     );
 
+    log("Finalizing seed run...".to_string());
     let seed_run_record = seed_run::ActiveModel {
         key: Set("seed".to_string()),
-        ranges: Set(SeedOutcome { ranges: ranges.clone(), seed_run_id: None }.ranges_json()),
+        ranges: Set(SeedOutcome {
+            ranges: ranges.clone(),
+            seed_run_id: None,
+            errors: vec![],
+            warnings: vec![],
+        }
+        .ranges_json()),
         ..Default::default()
     };
     let inserted = seed_run_record.insert(db).await.ok();
     let seed_run_id = inserted.map(|m| m.id);
 
+    if !errors.is_empty() {
+        log(format!("Completed with {} errors", errors.len()));
+    }
+    if !warnings.is_empty() {
+        log(format!("Completed with {} warnings", warnings.len()));
+    }
+    if errors.is_empty() && warnings.is_empty() {
+        log("Seed completed successfully!".to_string());
+    }
+
     Ok(SeedOutcome {
         ranges,
         seed_run_id,
+        errors,
+        warnings,
     })
 }
 
@@ -578,8 +726,8 @@ pub async fn list_seed_runs(db: &DatabaseConnection) -> SeedResult<Vec<SeedOutco
 
     let mut rows = Vec::new();
     for r in runs {
-        let ranges_map: HashMap<String, TableRange> = serde_json::from_value(r.ranges.clone())
-            .unwrap_or_default();
+        let ranges_map: HashMap<String, TableRange> =
+            serde_json::from_value(r.ranges.clone()).unwrap_or_default();
         let counts = ranges_map
             .iter()
             .map(|(k, v)| {
@@ -644,7 +792,11 @@ pub async fn undo_seed_run(db: &DatabaseConnection, run_id: i32) -> SeedResult<U
     }
 
     // Dependency-aware order
-    del_range!("comment_flags", comment_flag::Entity, comment_flag::Column::Id);
+    del_range!(
+        "comment_flags",
+        comment_flag::Entity,
+        comment_flag::Column::Id
+    );
     del_range!("post_views", post_view::Entity, post_view::Column::Id);
     del_range!(
         "post_comments",
@@ -664,7 +816,11 @@ pub async fn undo_seed_run(db: &DatabaseConnection, run_id: i32) -> SeedResult<U
         scheduled_post::Column::Id
     );
     del_range!("media_usage", media_usage::Entity, media_usage::Column::Id);
-    del_range!("media_variants", media_variant::Entity, media_variant::Column::Id);
+    del_range!(
+        "media_variants",
+        media_variant::Entity,
+        media_variant::Column::Id
+    );
     del_range!("media", media::Entity, media::Column::Id);
     del_range!("posts", post::Entity, post::Column::Id);
     del_range!("tags", tag::Entity, tag::Column::Id);
@@ -710,7 +866,7 @@ async fn seed_user_sessions(db: &DatabaseConnection) -> SeedResult<()> {
         "Android · Chrome 125",
     ];
     let ip_addresses = vec!["192.168.1.100", "10.0.0.50", "172.16.0.25", "203.0.113.1"];
-    let mut rng = StdRng::seed_from_u64(999);
+    let mut rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
 
     for user in users {
         let session_count = rng.random_range(1..4);
@@ -772,7 +928,7 @@ async fn seed_email_verifications(db: &DatabaseConnection) -> SeedResult<()> {
 
 async fn seed_forgot_passwords(db: &DatabaseConnection) -> SeedResult<()> {
     let users = user::Entity::find().all(db).await?;
-    let _rng = StdRng::seed_from_u64(5678);
+    let _rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
 
     for user in users.into_iter().take(10) {
         let forgot_password = forgot_password::Model {
@@ -798,14 +954,12 @@ async fn seed_forgot_passwords(db: &DatabaseConnection) -> SeedResult<()> {
 
 async fn seed_post_revisions(db: &DatabaseConnection) -> SeedResult<()> {
     let posts = post::Entity::find().all(db).await?;
-    let mut rng = StdRng::seed_from_u64(3456);
+    let mut rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
 
     for post in posts.into_iter().take(30) {
         let revision_count = rng.random_range(1..5);
         for i in 0..revision_count {
-            let content_text = l::Paragraphs(EN, 1..3)
-                .fake::<Vec<String>>()
-                .join(" ");
+            let content_text = l::Paragraphs(EN, 1..3).fake::<Vec<String>>().join(" ");
             let post_content = serde_json::json!({
                 "time": chrono::Utc::now().timestamp_millis(),
                 "blocks": [
@@ -875,11 +1029,11 @@ async fn seed_post_series(db: &DatabaseConnection) -> SeedResult<()> {
 async fn seed_post_views(db: &DatabaseConnection) -> SeedResult<()> {
     let posts = post::Entity::find().all(db).await?;
     let users = user::Entity::find().all(db).await?;
-    let mut rng = StdRng::seed_from_u64(7890);
+    let mut rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
     let ip_addresses = vec!["192.168.1.100", "10.0.0.50", "172.16.0.25", "203.0.113.1"];
 
     for post in posts {
-        let view_count = rng.random_range(50..500);
+        let view_count = rng.random_range(5..20); // Reduced from 50-500 to prevent blocking
         for _ in 0..view_count {
             let user_id = if rng.random_bool(0.7) {
                 Some(users.choose(&mut rng).map(|u| u.id).unwrap())
@@ -914,7 +1068,7 @@ async fn seed_post_views(db: &DatabaseConnection) -> SeedResult<()> {
 
 async fn seed_scheduled_posts(db: &DatabaseConnection) -> SeedResult<()> {
     let posts = post::Entity::find().all(db).await?;
-    let mut rng = StdRng::seed_from_u64(9999);
+    let mut rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
 
     for post in posts.into_iter().take(10) {
         let scheduled_post = scheduled_post::Model {
@@ -942,7 +1096,7 @@ async fn seed_scheduled_posts(db: &DatabaseConnection) -> SeedResult<()> {
 }
 
 async fn seed_media(db: &DatabaseConnection) -> SeedResult<()> {
-    let mut rng = StdRng::seed_from_u64(5555);
+    let mut rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
     for i in 0..20 {
         let media_item = media::Model {
             id: 0,
@@ -987,7 +1141,7 @@ async fn seed_media(db: &DatabaseConnection) -> SeedResult<()> {
 
 async fn seed_media_variants(db: &DatabaseConnection) -> SeedResult<()> {
     let media_items = media::Entity::find().all(db).await?;
-    let _rng = StdRng::seed_from_u64(8888);
+    let _rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
 
     for media_item in media_items.into_iter().take(10) {
         let variant = media_variant::Model {
@@ -1029,7 +1183,7 @@ async fn seed_media_variants(db: &DatabaseConnection) -> SeedResult<()> {
 async fn seed_media_usage(db: &DatabaseConnection) -> SeedResult<()> {
     let media_items = media::Entity::find().all(db).await?;
     let posts = post::Entity::find().all(db).await?;
-    let mut rng = StdRng::seed_from_u64(9999);
+    let mut rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
 
     for media_item in media_items.into_iter().take(10) {
         if let Some(post) = posts.choose(&mut rng) {
@@ -1062,7 +1216,7 @@ async fn seed_comment_flags(db: &DatabaseConnection) -> SeedResult<()> {
     let comments = post_comment::Entity::find().all(db).await?;
     let users = user::Entity::find().all(db).await?;
 
-    let mut rng = StdRng::seed_from_u64(1111);
+    let mut rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
     let flag_reasons = vec!["spam", "inappropriate", "off-topic", "harassment"];
 
     for comment in comments.into_iter().take(10) {
@@ -1096,7 +1250,7 @@ async fn seed_comment_flags(db: &DatabaseConnection) -> SeedResult<()> {
 async fn seed_newsletter_subscribers(db: &DatabaseConnection) -> SeedResult<()> {
     let mut subscribers: Vec<newsletter_subscriber::Model> = vec![];
     let mut emails_set: std::collections::HashSet<String> = std::collections::HashSet::new();
-    let mut rng = StdRng::seed_from_u64(2222);
+    let mut rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
 
     for _ in 0..100 {
         let email = FreeEmail().fake::<String>();
@@ -1127,9 +1281,8 @@ async fn seed_newsletter_subscribers(db: &DatabaseConnection) -> SeedResult<()> 
                 updated_at: Set(subscriber.updated_at),
             };
 
-            match active_model.insert(db).await {
-                Ok(sub) => subscribers.push(sub),
-                Err(err) => println!("Error creating newsletter subscriber: {:?}", err),
+            if let Ok(sub) = active_model.insert(db).await {
+                subscribers.push(sub);
             }
         }
     }

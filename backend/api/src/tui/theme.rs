@@ -168,4 +168,3 @@ pub fn theme_palette(theme: ThemeKind) -> ThemePalette {
         }
     }
 }
-

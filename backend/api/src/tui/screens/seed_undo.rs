@@ -109,4 +109,3 @@ pub fn draw_seed_undo(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalet
         .alignment(Alignment::Center);
     f.render_widget(footer, chunks[2]);
 }
-

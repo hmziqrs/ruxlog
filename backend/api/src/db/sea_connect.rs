@@ -5,14 +5,22 @@ use tracing::{error, info, instrument};
 
 /// Get the database URL from environment variables
 #[instrument]
-fn get_db_url() -> String {
-    let user = env::var("POSTGRES_USER").expect("POSTGRES_USER must be set");
-    let password = env::var("POSTGRES_PASSWORD").expect("POSTGRES_PASSWORD must be set");
-    let db = env::var("POSTGRES_DB").expect("POSTGRES_DB must be set");
-    let host = env::var("POSTGRES_HOST").expect("POSTGRES_HOST must be set");
-    let port = env::var("POSTGRES_PORT").expect("POSTGRES_PORT must be set");
+fn get_db_url() -> Result<String, String> {
+    let user = env::var("POSTGRES_USER")
+        .map_err(|_| "POSTGRES_USER environment variable must be set".to_string())?;
+    let password = env::var("POSTGRES_PASSWORD")
+        .map_err(|_| "POSTGRES_PASSWORD environment variable must be set".to_string())?;
+    let db = env::var("POSTGRES_DB")
+        .map_err(|_| "POSTGRES_DB environment variable must be set".to_string())?;
+    let host = env::var("POSTGRES_HOST")
+        .map_err(|_| "POSTGRES_HOST environment variable must be set".to_string())?;
+    let port = env::var("POSTGRES_PORT")
+        .map_err(|_| "POSTGRES_PORT environment variable must be set".to_string())?;
 
-    format!("postgres://{}:{}@{}:{}/{}", user, password, host, port, db)
+    Ok(format!(
+        "postgres://{}:{}@{}:{}/{}",
+        user, password, host, port, db
+    ))
 }
 
 fn connect_options(db_url: &str) -> ConnectOptions {
@@ -31,69 +39,43 @@ fn connect_options(db_url: &str) -> ConnectOptions {
 }
 
 /// Establishes a connection to the database using SeaORM
+/// This function panics on errors - for non-panicking version use `try_connect()`
 #[instrument]
 pub async fn init_db(run_migrations: bool) -> DatabaseConnection {
-    let db_url = get_db_url();
-    let opt = connect_options(&db_url);
-
-    let conn = match Database::connect(opt).await {
+    match try_connect(run_migrations).await {
         Ok(conn) => {
-            info!("SeaORM database connection established");
+            info!("SeaORM database connection working");
             conn
         }
         Err(e) => {
-            error!("Failed to connect to database with SeaORM: {:?}", e);
-            panic!("Failed to connect to database with SeaORM: {:?}", e);
-        }
-    };
-
-    if let Err(e) = conn.ping().await {
-        error!("Failed to ping database with SeaORM: {:?}", e);
-        panic!("Failed to ping database with SeaORM: {:?}", e);
-    }
-
-    if run_migrations {
-        let migration_span = tracing::info_span!("database_migration");
-        let _guard = migration_span.enter();
-
-        info!("Starting database migrations");
-        match Migrator::up(&conn, None).await {
-            Ok(_) => {
-                info!("Database migrations completed successfully");
-                tracing::Span::current().record("result", "success");
-            }
-            Err(e) => {
-                error!(error = ?e, "Failed to run database migrations");
-                tracing::Span::current().record("result", "failed");
-                panic!("Failed to run migrations: {:?}", e);
-            }
+            error!("Database initialization failed: {}", e);
+            panic!("Database initialization failed: {}", e);
         }
     }
-
-    info!("SeaORM database connection working");
-
-    conn
 }
 
 /// Non-panicking helper to test DB connectivity (and optionally migrations).
 pub async fn try_connect(run_migrations: bool) -> Result<DatabaseConnection, String> {
-    let db_url = get_db_url();
+    let db_url = get_db_url()?;
     let opt = connect_options(&db_url);
 
     let conn = Database::connect(opt)
         .await
-        .map_err(|e| format!("Failed to connect to database with SeaORM: {:?}", e))?;
+        .map_err(|e| format!("Failed to connect to database: {}", e))?;
 
     conn.ping()
         .await
-        .map_err(|e| format!("Failed to ping database with SeaORM: {:?}", e))?;
+        .map_err(|e| format!("Failed to ping database: {}", e))?;
 
     if run_migrations {
+        info!("Starting database migrations");
         Migrator::up(&conn, None)
             .await
-            .map_err(|e| format!("Failed to run migrations: {:?}", e))?;
+            .map_err(|e| format!("Failed to run migrations: {}", e))?;
+        info!("Database migrations completed successfully");
     }
 
+    info!("SeaORM database connection established");
     Ok(conn)
 }
 

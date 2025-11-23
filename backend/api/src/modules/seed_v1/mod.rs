@@ -1,4 +1,5 @@
 pub mod controller;
+pub mod validator;
 
 use crate::AppState;
 use axum::{routing::post, Router};
@@ -41,4 +42,5 @@ pub fn routes() -> Router<AppState> {
         )
         .route("/seed_route_status", post(controller::seed_route_status))
         .route("/seed", post(controller::seed))
+        .route("/presets", post(controller::list_presets))
 }

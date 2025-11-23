@@ -29,4 +29,3 @@ pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
 
     horizontal_layout[1]
 }
-

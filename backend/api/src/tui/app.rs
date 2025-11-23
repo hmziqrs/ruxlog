@@ -1,7 +1,7 @@
 use std::{error::Error, fs::OpenOptions, io::Write, path::PathBuf, sync::Arc, time::Duration};
 
-use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use chrono::Utc;
+use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::Style,
@@ -14,7 +14,7 @@ use tuirealm::terminal::TerminalBridge;
 
 use crate::{
     db::{
-        sea_connect::init_db,
+        sea_connect::try_connect,
         sea_models::{tag, user},
     },
     services::{
@@ -27,8 +27,8 @@ use super::{
     components::logs::draw_logs,
     screens::{
         home::draw_home, seed_history::draw_seed_history, seed_menu::draw_seed_menu,
-        seed_progress::draw_seed_progress, seed_summary::draw_seed_summary, seed_undo::draw_seed_undo,
-        tags::draw_tags, users::draw_users,
+        seed_progress::draw_seed_progress, seed_summary::draw_seed_summary,
+        seed_undo::draw_seed_undo, tags::draw_tags, users::draw_users,
     },
     theme::{theme_palette, ThemeKind},
 };
@@ -163,6 +163,7 @@ impl Default for SeedUndoState {
 pub enum AppEvent {
     TagsLoaded(Result<Vec<tag::Model>, TagError>),
     UsersLoaded(Result<Vec<user::Model>, UserError>),
+    SeedProgress(String),
     SeedCompleted(Result<SeedOutcome, SeedFlowError>),
     SeedHistoryLoaded(Result<Vec<SeedOutcomeRow>, SeedFlowError>),
     SeedUndoCompleted(Result<UndoOutcome, SeedFlowError>),
@@ -176,6 +177,8 @@ pub struct App {
     pub seed_summary: SeedSummaryState,
     pub seed_history: SeedHistoryState,
     pub seed_undo: SeedUndoState,
+    pub seed_menu_state: ratatui::widgets::ListState,
+    pub selected_seed_mode: Option<crate::services::seed_config::SeedMode>,
     pub should_quit: bool,
     pub theme: ThemeKind,
     pub logs: Vec<String>,
@@ -194,6 +197,8 @@ impl App {
             seed_summary: SeedSummaryState::default(),
             seed_history: SeedHistoryState::default(),
             seed_undo: SeedUndoState::default(),
+            seed_menu_state: ratatui::widgets::ListState::default(),
+            selected_seed_mode: None,
             should_quit: false,
             theme,
             logs: Vec::new(),
@@ -219,7 +224,11 @@ impl App {
                 Ok(file) => (Some(file), Some(format!("logging to {}", path.display()))),
                 Err(err) => (
                     None,
-                    Some(format!("log file open failed at {}: {}", path.display(), err)),
+                    Some(format!(
+                        "log file open failed at {}: {}",
+                        path.display(),
+                        err
+                    )),
                 ),
             }
         } else {
@@ -280,15 +289,13 @@ impl App {
                     self.selected_home_index += 1;
                 }
             }
-            KeyCode::Enter => {
-                match self.selected_home_index {
-                    0 => self.open_tags(tx),
-                    1 => self.open_users(tx),
-                    2 => self.open_seed_menu(),
-                    3 => self.open_seed_history(tx),
-                    _ => self.open_tags(tx),
-                }
-            }
+            KeyCode::Enter => match self.selected_home_index {
+                0 => self.open_tags(tx),
+                1 => self.open_users(tx),
+                2 => self.open_seed_menu(),
+                3 => self.open_seed_history(tx),
+                _ => self.open_tags(tx),
+            },
             _ => {}
         }
     }
@@ -326,8 +333,7 @@ impl App {
                 }
             }
             KeyCode::Down | KeyCode::Char('j') => {
-                if !self.tags.tags.is_empty()
-                    && self.tags.selected_index + 1 < self.tags.tags.len()
+                if !self.tags.tags.is_empty() && self.tags.selected_index + 1 < self.tags.tags.len()
                 {
                     self.tags.selected_index += 1;
                 }
@@ -390,8 +396,86 @@ impl App {
             KeyCode::Esc | KeyCode::Char('q') => {
                 self.route = AppRoute::Home;
             }
-            KeyCode::Char('1') | KeyCode::Enter => {
+            KeyCode::Up | KeyCode::Char('k') => {
+                let selected = self.seed_menu_state.selected().unwrap_or(0);
+                if selected > 0 {
+                    self.seed_menu_state.select(Some(selected - 1));
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                let selected = self.seed_menu_state.selected().unwrap_or(0);
+                if selected < 3 {
+                    self.seed_menu_state.select(Some(selected + 1));
+                }
+            }
+            KeyCode::Char('1') => {
+                // Random seed
+                self.selected_seed_mode = Some(crate::services::seed_config::SeedMode::Random);
+                self.push_log("Selected: RANDOM seed mode".to_string());
                 self.start_seed_all(tx);
+            }
+            KeyCode::Char('2') => {
+                // Static seed - for now use a default value, could add input dialog later
+                self.selected_seed_mode = Some(crate::services::seed_config::SeedMode::Static {
+                    value: 12345,
+                });
+                self.push_log("Selected: STATIC seed mode (seed: 12345)".to_string());
+                self.start_seed_all(tx);
+            }
+            KeyCode::Char('3') => {
+                // Preset - use demo by default
+                self.selected_seed_mode = Some(crate::services::seed_config::SeedMode::Static {
+                    value: 1000, // demo preset
+                });
+                self.push_log("Selected: PRESET seed mode (demo - seed: 1000)".to_string());
+                self.start_seed_all(tx);
+            }
+            KeyCode::Char('4') => {
+                // List presets
+                let presets = crate::services::seed_config::list_presets();
+                for preset in presets {
+                    self.push_log(format!(
+                        "Preset '{}': seed={}, {}",
+                        preset.name, preset.seed, preset.description
+                    ));
+                }
+            }
+            KeyCode::Enter => {
+                let selected = self.seed_menu_state.selected().unwrap_or(0);
+                match selected {
+                    0 => {
+                        // Random
+                        self.selected_seed_mode =
+                            Some(crate::services::seed_config::SeedMode::Random);
+                        self.push_log("Selected: RANDOM seed mode".to_string());
+                        self.start_seed_all(tx);
+                    }
+                    1 => {
+                        // Static
+                        self.selected_seed_mode =
+                            Some(crate::services::seed_config::SeedMode::Static { value: 12345 });
+                        self.push_log("Selected: STATIC seed mode (seed: 12345)".to_string());
+                        self.start_seed_all(tx);
+                    }
+                    2 => {
+                        // Preset
+                        self.selected_seed_mode =
+                            Some(crate::services::seed_config::SeedMode::Static { value: 1000 });
+                        self.push_log("Selected: PRESET seed mode (demo - seed: 1000)".to_string());
+                        self.start_seed_all(tx);
+                    }
+                    3 => {
+                        // List presets
+                        let presets = crate::services::seed_config::list_presets();
+                        for preset in presets {
+                            self.push_log(format!(
+                                "Preset '{}': seed={}, {}",
+                                preset.name, preset.seed, preset.description
+                            ));
+                        }
+                    }
+                    _ => {}
+                }
             }
             _ => {}
         }
@@ -524,8 +608,13 @@ impl App {
 
         let core = self.core.clone();
         let tx_clone = tx.clone();
+        let tx_progress = tx.clone();
+        let seed_mode = self.selected_seed_mode.clone();
         tokio::spawn(async move {
-            let res = seed::seed_all(&core.db)
+            let progress_callback = Box::new(move |msg: String| {
+                let _ = tx_progress.send(AppEvent::SeedProgress(msg));
+            });
+            let res = seed::seed_all_with_progress(&core.db, Some(progress_callback), seed_mode)
                 .await
                 .map_err(|e| SeedFlowError::Failed(e.to_string()));
             let _ = tx_clone.send(AppEvent::SeedCompleted(res));
@@ -600,6 +689,9 @@ impl App {
                     }
                 }
             }
+            AppEvent::SeedProgress(msg) => {
+                self.push_log(msg);
+            }
             AppEvent::SeedCompleted(result) => {
                 self.seed_summary.is_loading = false;
                 match result {
@@ -647,7 +739,9 @@ impl App {
 pub async fn run_tui(theme: ThemeKind) -> Result<(), Box<dyn Error>> {
     // Run migrations to ensure tables exist before loading tags; but return
     // a clean error instead of panicking if DB is unreachable.
-    let db = init_db(true).await;
+    let db = try_connect(true)
+        .await
+        .map_err(|e| format!("Database connection failed: {}", e))?;
     let redis = init_redis_pool_only().await?;
     let core = Arc::new(CoreState { db, redis });
 
@@ -684,7 +778,7 @@ async fn run_app<B: ratatui::backend::Backend>(
                 AppRoute::Home => draw_home(f, layout[0], &app, &palette),
                 AppRoute::Tags => draw_tags(f, layout[0], &app, &palette),
                 AppRoute::Users => draw_users(f, layout[0], &app, &palette),
-                AppRoute::SeedMenu => draw_seed_menu(f, layout[0], &palette),
+                AppRoute::SeedMenu => draw_seed_menu(f, layout[0], &app, &palette),
                 AppRoute::SeedProgress => draw_seed_progress(f, layout[0], &app, &palette),
                 AppRoute::SeedSummary => draw_seed_summary(f, layout[0], &app, &palette),
                 AppRoute::SeedHistory => draw_seed_history(f, layout[0], &app, &palette),

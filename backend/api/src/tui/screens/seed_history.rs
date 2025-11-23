@@ -6,10 +6,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::tui::{
-    app::App,
-    theme::ThemePalette,
-};
+use crate::tui::{app::App, theme::ThemePalette};
 
 pub fn draw_seed_history(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalette) {
     let chunks = Layout::default()
@@ -126,4 +123,3 @@ pub fn draw_seed_history(f: &mut Frame, area: Rect, app: &App, palette: &ThemePa
         .alignment(Alignment::Center);
     f.render_widget(footer, chunks[2]);
 }
-

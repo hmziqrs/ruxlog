@@ -6,10 +6,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::tui::{
-    app::App,
-    theme::ThemePalette,
-};
+use crate::tui::{app::App, theme::ThemePalette};
 
 pub fn draw_tags(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalette) {
     let chunks = Layout::default()
@@ -104,10 +101,7 @@ pub fn draw_tags(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalette) {
                         .add_modifier(Modifier::BOLD),
                 ),
                 Span::raw("  "),
-                Span::styled(
-                    t.slug.clone(),
-                    Style::default().fg(palette.table_slug_fg),
-                ),
+                Span::styled(t.slug.clone(), Style::default().fg(palette.table_slug_fg)),
             ]);
             let row_style = if idx % 2 == 0 {
                 Style::default().bg(palette.table_row_even_bg)

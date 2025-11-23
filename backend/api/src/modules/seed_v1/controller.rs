@@ -8,7 +8,6 @@ use fake::locales::EN;
 use rand::seq::IndexedRandom;
 use serde_json::json;
 
-
 use crate::db::sea_models::scheduled_post::ScheduledPostStatus;
 use crate::db::sea_models::user::{self, AdminUserQuery};
 use crate::{
@@ -24,7 +23,6 @@ use crate::{
 use fake::Fake;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use sea_orm::{ActiveModelTrait, EntityTrait, Set};
-
 
 #[debug_handler]
 pub async fn seed_tags(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
@@ -1269,8 +1267,29 @@ pub async fn seed_route_status(
 }
 
 #[debug_handler]
-pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
-    match crate::services::seed::seed_all(&state.sea_db).await {
+pub async fn seed(
+    State(state): State<AppState>,
+    _auth: AuthSession,
+    payload: Option<Json<super::validator::V1SeedPayload>>,
+) -> impl IntoResponse {
+    let seed_mode = if let Some(Json(p)) = payload {
+        match p.to_seed_mode() {
+            Ok(mode) => Some(mode),
+            Err(err) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "message": format!("Invalid seed mode: {}", err)
+                    })),
+                )
+                    .into_response();
+            }
+        }
+    } else {
+        None
+    };
+
+    match crate::services::seed::seed_all_with_progress(&state.sea_db, None, seed_mode).await {
         Ok(outcome) => {
             let counts = outcome.counts();
             (
@@ -1281,7 +1300,9 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
                         "key": "seed",
                         "ranges": outcome.ranges_json(),
                         "seed_run_id": outcome.seed_run_id,
-                        "counts": counts
+                        "counts": counts,
+                        "errors": outcome.errors,
+                        "warnings": outcome.warnings
                     }
                 })),
             )
@@ -1295,4 +1316,10 @@ pub async fn seed(State(state): State<AppState>, _auth: AuthSession) -> impl Int
         )
             .into_response(),
     }
+}
+
+#[debug_handler]
+pub async fn list_presets(_auth: AuthSession) -> impl IntoResponse {
+    let presets = crate::services::seed_config::list_presets();
+    (StatusCode::OK, Json(json!({ "presets": presets }))).into_response()
 }

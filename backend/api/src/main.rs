@@ -13,16 +13,13 @@ use tower_http::{
 use tower_sessions::{cookie::Key, Expiry, SessionManagerLayer};
 use tower_sessions_redis_store::RedisStore;
 
+use modules::csrf_v1;
 use ruxlog::{
-    db,
-    middlewares,
-    modules,
-    router,
+    db, middlewares, modules, router,
     services::{self, auth::AuthBackend, redis::init_redis_store},
     state::{AppState, ObjectStorageConfig, OptimizerConfig},
     utils::telemetry,
 };
-use modules::csrf_v1;
 
 fn hex_to_512bit_key(hex: &str) -> [u8; 64] {
     use sha2::{Digest, Sha512};
@@ -153,20 +150,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("S3_ACCESS_KEY or AWS_ACCESS_KEY_ID must be set");
     let secret_key = env_with_fallback(&["S3_SECRET_KEY", "AWS_SECRET_ACCESS_KEY"], None)
         .expect("S3_SECRET_KEY or AWS_SECRET_ACCESS_KEY must be set");
-    let endpoint = env_with_fallback(
-        &["S3_ENDPOINT", "AWS_ENDPOINT", "GARAGE_S3_ENDPOINT"],
-        None,
-    )
-    .expect("S3_ENDPOINT, AWS_ENDPOINT, or GARAGE_S3_ENDPOINT must be set");
-    let public_url =
-        env_with_fallback(&["S3_PUBLIC_URL", "AWS_S3_PUBLIC_URL"], None).unwrap_or_else(|| {
+    let endpoint = env_with_fallback(&["S3_ENDPOINT", "AWS_ENDPOINT", "GARAGE_S3_ENDPOINT"], None)
+        .expect("S3_ENDPOINT, AWS_ENDPOINT, or GARAGE_S3_ENDPOINT must be set");
+    let public_url = env_with_fallback(&["S3_PUBLIC_URL", "AWS_S3_PUBLIC_URL"], None)
+        .unwrap_or_else(|| {
             // Fall back to direct endpoint when explicit public URL is missing.
             endpoint.clone()
         });
 
     let object_storage = ObjectStorageConfig {
         region: env_with_fallback(
-            &["S3_REGION", "GARAGE_S3_REGION", "AWS_S3_REGION", "AWS_REGION"],
+            &[
+                "S3_REGION",
+                "GARAGE_S3_REGION",
+                "AWS_S3_REGION",
+                "AWS_REGION",
+            ],
             Some("auto"),
         )
         .unwrap(),
