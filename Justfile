@@ -54,6 +54,9 @@ api-dev env='dev':
     just dev {{env}}
     {{dotenv_bin}} -e .env.{{env}} -- just -f {{api_justfile}} dev
 
+api-remote:
+    {{dotenv_bin}} -e .env.remote -- just -f {{api_justfile}} dev
+
 api-tui env='dev' *args:
     cd {{api_dir}} && set -a && source ../../.env.{{env}} && set +a && cargo run --bin ruxlog_tui -- {{args}}
 

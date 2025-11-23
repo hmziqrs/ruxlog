@@ -16,7 +16,7 @@ compression_level = 1
 
 # RPC configuration
 rpc_bind_addr = "[::]:3900"
-rpc_public_addr = "127.0.0.1:3900"
+rpc_public_addr = "garage:3900"
 # rpc_secret is set via GARAGE_RPC_SECRET environment variable
 
 # Bootstrap peers (none for single node)
