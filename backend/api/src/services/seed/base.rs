@@ -4,80 +4,23 @@ use fake::{
     faker::internet::en::FreeEmail, faker::lorem::raw as l, faker::name::en::Name, locales::EN,
     Dummy, Fake, Faker,
 };
-use rand::{rngs::StdRng, seq::IndexedRandom, Rng, SeedableRng};
+use rand::{seq::IndexedRandom, Rng};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
     QueryOrder, Set,
 };
 use sea_orm::sea_query::Expr;
-use serde::{Deserialize, Serialize};
-
-use super::seed_config::{CustomSeedTarget, SeedMode, SeedSizePreset};
-use serde_json::{json, Value};
 
 use crate::db::sea_models::{
     category, comment_flag, email_verification, forgot_password, media, media_usage, media_variant,
     newsletter_subscriber, post, post_comment, post_revision, post_series, post_view, route_status,
     scheduled_post, seed_run, tag, user, user_session,
 };
+use crate::services::seed_config::SeedMode;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TableRange {
-    pub from: i32,
-    pub to: i32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SeedOutcome {
-    pub ranges: HashMap<String, TableRange>,
-    pub seed_run_id: Option<i32>,
-    pub errors: Vec<String>,
-    pub warnings: Vec<String>,
-}
-
-impl SeedOutcome {
-    pub fn counts(&self) -> HashMap<String, i32> {
-        self.ranges
-            .iter()
-            .map(|(k, v)| {
-                let count = if v.to > 0 && v.to >= v.from {
-                    v.to - v.from + 1
-                } else {
-                    0
-                };
-                (k.clone(), count)
-            })
-            .collect()
-    }
-
-    pub fn ranges_json(&self) -> Value {
-        let mut map = serde_json::Map::new();
-        for (k, v) in &self.ranges {
-            map.insert(
-                k.clone(),
-                json!({
-                    "from": v.from,
-                    "to": v.to,
-                }),
-            );
-        }
-        Value::Object(map)
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum SeedError {
-    #[error("database error: {0}")]
-    Db(String),
-}
-
-impl From<sea_orm::DbErr> for SeedError {
-    fn from(value: sea_orm::DbErr) -> Self {
-        SeedError::Db(value.to_string())
-    }
-}
-
-type SeedResult<T> = Result<T, SeedError>;
+use super::types::{
+    compute_range, seeded_rng, ProgressCallback, SeedOutcome, SeedResult, TableRange,
+};
 
 #[derive(Debug, Dummy)]
 struct FakeWord(#[dummy(faker = "l::Word(EN)")] String);
@@ -88,25 +31,6 @@ struct FakeUser {
     name: String,
     #[dummy(faker = "FreeEmail()")]
     email: String,
-}
-
-fn compute_range(before: i32, after: i32) -> TableRange {
-    if after > before {
-        TableRange {
-            from: before + 1,
-            to: after,
-        }
-    } else {
-        TableRange { from: 0, to: 0 }
-    }
-}
-
-/// Progress callback function type for seed operations
-pub type ProgressCallback = Box<dyn Fn(String) + Send + Sync>;
-
-fn seeded_rng(seed_mode: Option<SeedMode>) -> StdRng {
-    let seed_value = seed_mode.unwrap_or_default().to_seed();
-    StdRng::seed_from_u64(seed_value)
 }
 
 /// Seed everything locally (no Supabase) and record ranges into `seed_runs`.
@@ -238,9 +162,10 @@ pub async fn seed_all_with_progress(
         .map(|m| m.id)
         .unwrap_or(0);
 
-    let seed_value = seed_mode.unwrap_or_default().to_seed();
+    let seed_mode = seed_mode.unwrap_or_default();
+    let seed_value = seed_mode.to_seed();
     log(format!("Using seed: {}", seed_value));
-    let mut rng = StdRng::seed_from_u64(seed_value);
+    let mut rng = seeded_rng(Some(seed_mode));
     let mut fake_users: Vec<user::UserWithRelations> = vec![];
     let mut fake_posts: Vec<post::PostWithRelations> = vec![];
 
@@ -442,7 +367,6 @@ pub async fn seed_all_with_progress(
     }
     log(format!("Created {} comments total", comment_count));
 
-    // Seed additional models similar to original handler
     log("Seeding user sessions...".to_string());
     if let Err(e) = seed_user_sessions(db).await {
         warnings.push(format!("Failed to seed user sessions: {}", e));
@@ -694,13 +618,15 @@ pub async fn seed_all_with_progress(
     log("Finalizing seed run...".to_string());
     let seed_run_record = seed_run::ActiveModel {
         key: Set("seed".to_string()),
-        ranges: Set(SeedOutcome {
-            ranges: ranges.clone(),
-            seed_run_id: None,
-            errors: vec![],
-            warnings: vec![],
-        }
-        .ranges_json()),
+        ranges: Set(
+            SeedOutcome {
+                ranges: ranges.clone(),
+                seed_run_id: None,
+                errors: vec![],
+                warnings: vec![],
+            }
+            .ranges_json(),
+        ),
         ..Default::default()
     };
     let inserted = seed_run_record.insert(db).await.ok();
@@ -724,522 +650,6 @@ pub async fn seed_all_with_progress(
     })
 }
 
-pub async fn seed_custom(
-    db: &DatabaseConnection,
-    target: CustomSeedTarget,
-    size: SeedSizePreset,
-    seed_mode: Option<SeedMode>,
-    progress: Option<ProgressCallback>,
-) -> SeedResult<SeedOutcome> {
-    let mut ranges = HashMap::new();
-    let errors = Vec::new();
-    let warnings = Vec::new();
-    let log = |msg: String| {
-        if let Some(ref callback) = progress {
-            callback(msg);
-        }
-    };
-
-    let count = size.count_for_target(target);
-    let range = match target {
-        CustomSeedTarget::Posts => seed_extra_posts(db, count, seed_mode, &log).await?,
-        CustomSeedTarget::PostComments => seed_extra_comments(db, count, seed_mode, &log).await?,
-        CustomSeedTarget::CommentFlags => {
-            seed_extra_comment_flags(db, count, seed_mode, &log).await?
-        }
-        CustomSeedTarget::PostViews => seed_extra_post_views(db, count, seed_mode, &log).await?,
-    };
-
-    ranges.insert(
-        match target {
-            CustomSeedTarget::Posts => "posts",
-            CustomSeedTarget::PostComments => "post_comments",
-            CustomSeedTarget::CommentFlags => "comment_flags",
-            CustomSeedTarget::PostViews => "post_views",
-        }
-        .to_string(),
-        range,
-    );
-
-    Ok(SeedOutcome {
-        ranges,
-        seed_run_id: None,
-        errors,
-        warnings,
-    })
-}
-
-pub async fn list_seed_runs(db: &DatabaseConnection) -> SeedResult<Vec<SeedOutcomeRow>> {
-    let runs = seed_run::Entity::find()
-        .order_by_desc(seed_run::Column::RanAt)
-        .all(db)
-        .await?;
-
-    let mut rows = Vec::new();
-    for r in runs {
-        let ranges_map: HashMap<String, TableRange> =
-            serde_json::from_value(r.ranges.clone()).unwrap_or_default();
-        let counts = ranges_map
-            .iter()
-            .map(|(k, v)| {
-                let count = if v.to > 0 && v.to >= v.from {
-                    v.to - v.from + 1
-                } else {
-                    0
-                };
-                (k.clone(), count)
-            })
-            .collect();
-        rows.push(SeedOutcomeRow {
-            id: r.id,
-            key: r.key,
-            ran_at: r.ran_at,
-            ranges: ranges_map,
-            counts,
-        });
-    }
-    Ok(rows)
-}
-
-#[derive(Debug, Clone)]
-pub struct SeedOutcomeRow {
-    pub id: i32,
-    pub key: String,
-    pub ran_at: chrono::DateTime<chrono::FixedOffset>,
-    pub ranges: HashMap<String, TableRange>,
-    pub counts: HashMap<String, i32>,
-}
-
-#[derive(Debug, Clone)]
-pub struct UndoOutcome {
-    pub deleted: HashMap<String, u64>,
-}
-
-/// Undo a specific seed run based on ID ranges.
-pub async fn undo_seed_run(db: &DatabaseConnection, run_id: i32) -> SeedResult<UndoOutcome> {
-    let run = seed_run::Entity::find_by_id(run_id)
-        .one(db)
-        .await?
-        .ok_or_else(|| SeedError::Db("Seed run not found".to_string()))?;
-
-    let ranges: HashMap<String, TableRange> =
-        serde_json::from_value(run.ranges).unwrap_or_default();
-
-    let mut deleted: HashMap<String, u64> = HashMap::new();
-
-    macro_rules! del_range {
-        ($name:literal, $entity:path, $column:expr) => {
-            if let Some(range) = ranges.get($name) {
-                if range.to > 0 && range.to >= range.from {
-                    let res = <$entity as sea_orm::EntityTrait>::delete_many()
-                        .filter($column.gte(range.from))
-                        .filter($column.lte(range.to))
-                        .exec(db)
-                        .await?;
-                    deleted.insert($name.to_string(), res.rows_affected);
-                }
-            }
-        };
-    }
-
-    // Dependency-aware order
-    del_range!(
-        "comment_flags",
-        comment_flag::Entity,
-        comment_flag::Column::Id
-    );
-    del_range!("post_views", post_view::Entity, post_view::Column::Id);
-    del_range!(
-        "post_comments",
-        post_comment::Entity,
-        post_comment::Column::Id
-    );
-    del_range!(
-        "post_revisions",
-        post_revision::Entity,
-        post_revision::Column::Id
-    );
-    // post_series_posts not tracked; skip.
-    del_range!("post_series", post_series::Entity, post_series::Column::Id);
-    del_range!(
-        "scheduled_posts",
-        scheduled_post::Entity,
-        scheduled_post::Column::Id
-    );
-    del_range!("media_usage", media_usage::Entity, media_usage::Column::Id);
-    del_range!(
-        "media_variants",
-        media_variant::Entity,
-        media_variant::Column::Id
-    );
-    del_range!("media", media::Entity, media::Column::Id);
-    del_range!("posts", post::Entity, post::Column::Id);
-    del_range!("tags", tag::Entity, tag::Column::Id);
-    del_range!("categories", category::Entity, category::Column::Id);
-    del_range!(
-        "user_sessions",
-        user_session::Entity,
-        user_session::Column::Id
-    );
-    del_range!(
-        "email_verifications",
-        email_verification::Entity,
-        email_verification::Column::Id
-    );
-    del_range!(
-        "forgot_passwords",
-        forgot_password::Entity,
-        forgot_password::Column::Id
-    );
-    del_range!(
-        "newsletter_subscribers",
-        newsletter_subscriber::Entity,
-        newsletter_subscriber::Column::Id
-    );
-    del_range!(
-        "route_status",
-        route_status::Entity,
-        route_status::Column::Id
-    );
-    del_range!("users", user::Entity, user::Column::Id);
-
-    Ok(UndoOutcome { deleted })
-}
-
-async fn seed_extra_posts<F>(
-    db: &DatabaseConnection,
-    count: u32,
-    seed_mode: Option<SeedMode>,
-    log: &F,
-) -> SeedResult<TableRange>
-where
-    F: Fn(String),
-{
-    let mut rng = seeded_rng(seed_mode);
-    let before_posts = post::Entity::find()
-        .order_by_desc(post::Column::Id)
-        .one(db)
-        .await?
-        .map(|m| m.id)
-        .unwrap_or(0);
-
-    let authors: Vec<user::Model> = user::Entity::find()
-        .filter(user::Column::Role.eq(user::UserRole::Author))
-        .all(db)
-        .await?;
-    let categories = category::Entity::find().all(db).await?;
-    let tags = tag::Entity::find().all(db).await?;
-
-    if authors.is_empty() || categories.is_empty() || tags.is_empty() {
-        return Err(SeedError::Db(
-            "Need at least one author, category, and tag to seed posts".to_string(),
-        ));
-    }
-
-    log(format!(
-        "Seeding {} additional posts (preset: {})...",
-        count,
-        size_label(count)
-    ));
-
-    for i in 0..count {
-        let author = authors.choose(&mut rng).unwrap();
-        let category_id = categories.choose(&mut rng).map(|c| c.id).unwrap();
-        let tags_amount = rng.random_range(1..4);
-        let tag_ids: Vec<i32> = tags
-            .choose_multiple(&mut rng, tags_amount)
-            .cloned()
-            .map(|t| t.id)
-            .collect();
-        let post_title: String = l::Sentence(EN, 1..2).fake_with_rng(&mut rng);
-        let post_excerpt = l::Words(EN, 1..8)
-            .fake_with_rng::<Vec<String>, _>(&mut rng)
-            .join(" ");
-        let post_content_text: String = l::Paragraph(EN, 1..8).fake_with_rng(&mut rng);
-        let post_content = serde_json::json!({
-            "time": chrono::Utc::now().timestamp_millis(),
-            "blocks": [
-                {"type": "paragraph", "data": {"text": post_content_text}}
-            ],
-            "version": "2.30.7"
-        });
-        let is_published = rng.random_bool(0.5);
-
-        let new_post = post::NewPost {
-            title: post_title.clone(),
-            slug: format!(
-                "{}-{}",
-                post_title.to_lowercase().replace(' ', "-"),
-                rng.random::<u32>()
-            ),
-            content: post_content,
-            excerpt: Some(post_excerpt),
-            featured_image_id: None,
-            status: if is_published {
-                post::PostStatus::Published
-            } else {
-                post::PostStatus::Draft
-            },
-            author_id: author.id,
-            published_at: if is_published {
-                Some(chrono::Utc::now().fixed_offset())
-            } else {
-                None
-            },
-            category_id,
-            view_count: 0,
-            likes_count: 0,
-            tag_ids,
-        };
-
-        match post::Entity::create(db, new_post).await {
-            Ok(_) => {}
-            Err(err) => {
-                log(format!("Failed to create post: {}", err));
-            }
-        }
-        if (i + 1) % 10 == 0 || i + 1 == count {
-            log(format!("Created {} / {} posts", i + 1, count));
-        }
-    }
-
-    let after_posts = post::Entity::find()
-        .order_by_desc(post::Column::Id)
-        .one(db)
-        .await?
-        .map(|m| m.id)
-        .unwrap_or(before_posts);
-
-    Ok(compute_range(before_posts, after_posts))
-}
-
-async fn seed_extra_comments<F>(
-    db: &DatabaseConnection,
-    count: u32,
-    seed_mode: Option<SeedMode>,
-    log: &F,
-) -> SeedResult<TableRange>
-where
-    F: Fn(String),
-{
-    let mut rng = seeded_rng(seed_mode);
-    let before_comments = post_comment::Entity::find()
-        .order_by_desc(post_comment::Column::Id)
-        .one(db)
-        .await?
-        .map(|m| m.id)
-        .unwrap_or(0);
-
-    let posts = post::Entity::find()
-        .filter(post::Column::Status.eq(post::PostStatus::Published))
-        .all(db)
-        .await?;
-    let users = user::Entity::find()
-        .filter(user::Column::Role.ne(user::UserRole::Admin))
-        .all(db)
-        .await?;
-
-    if posts.is_empty() || users.is_empty() {
-        return Err(SeedError::Db(
-            "Need posts and users to seed post comments".to_string(),
-        ));
-    }
-
-    log(format!(
-        "Seeding {} additional post comments (preset: {})...",
-        count,
-        size_label(count)
-    ));
-
-    for i in 0..count {
-        let post = posts.choose(&mut rng).unwrap();
-        let user = users.choose(&mut rng).unwrap();
-        let content: String = l::Sentence(EN, 1..2).fake_with_rng(&mut rng);
-        let new_comment = post_comment::NewComment {
-            post_id: post.id,
-            user_id: user.id,
-            content,
-            likes_count: Some(0),
-        };
-        match post_comment::Entity::create(db, new_comment).await {
-            Ok(_) => {}
-            Err(err) => {
-                log(format!("Failed to create comment: {}", err));
-            }
-        }
-
-        if (i + 1) % 20 == 0 || i + 1 == count {
-            log(format!("Created {} / {} comments", i + 1, count));
-        }
-    }
-
-    let after_comments = post_comment::Entity::find()
-        .order_by_desc(post_comment::Column::Id)
-        .one(db)
-        .await?
-        .map(|m| m.id)
-        .unwrap_or(before_comments);
-
-    Ok(compute_range(before_comments, after_comments))
-}
-
-async fn seed_extra_comment_flags<F>(
-    db: &DatabaseConnection,
-    count: u32,
-    seed_mode: Option<SeedMode>,
-    log: &F,
-) -> SeedResult<TableRange>
-where
-    F: Fn(String),
-{
-    let mut rng = seeded_rng(seed_mode);
-    let before_flags = comment_flag::Entity::find()
-        .order_by_desc(comment_flag::Column::Id)
-        .one(db)
-        .await?
-        .map(|m| m.id)
-        .unwrap_or(0);
-
-    let comments = post_comment::Entity::find().all(db).await?;
-    let users = user::Entity::find().all(db).await?;
-    let reasons = ["spam", "inappropriate", "off-topic", "harassment"];
-
-    if comments.is_empty() || users.is_empty() {
-        return Err(SeedError::Db(
-            "Need comments and users to seed comment flags".to_string(),
-        ));
-    }
-
-    log(format!(
-        "Seeding {} comment flags (preset: {})...",
-        count,
-        size_label(count)
-    ));
-
-    for i in 0..count {
-        let comment = comments.choose(&mut rng).unwrap();
-        let flag_user = users.choose(&mut rng).unwrap();
-        let reason = reasons.choose(&mut rng).unwrap();
-
-        let active_model = comment_flag::ActiveModel {
-            id: ActiveValue::NotSet,
-            comment_id: Set(comment.id),
-            user_id: Set(flag_user.id),
-            reason: Set(Some(reason.to_string())),
-            created_at: Set(chrono::Utc::now().fixed_offset()),
-        };
-
-        let _ = active_model.insert(db).await?;
-
-        if let Some(existing) = post_comment::Entity::find_by_id(comment.id).one(db).await? {
-            let mut comment_model: post_comment::ActiveModel = existing.into();
-            comment_model.flags_count = Set(comment.flags_count + 1);
-            let _ = comment_model.update(db).await?;
-        }
-
-        if (i + 1) % 20 == 0 || i + 1 == count {
-            log(format!("Created {} / {} comment flags", i + 1, count));
-        }
-    }
-
-    let after_flags = comment_flag::Entity::find()
-        .order_by_desc(comment_flag::Column::Id)
-        .one(db)
-        .await?
-        .map(|m| m.id)
-        .unwrap_or(before_flags);
-
-    Ok(compute_range(before_flags, after_flags))
-}
-
-async fn seed_extra_post_views<F>(
-    db: &DatabaseConnection,
-    count: u32,
-    seed_mode: Option<SeedMode>,
-    log: &F,
-) -> SeedResult<TableRange>
-where
-    F: Fn(String),
-{
-    let mut rng = seeded_rng(seed_mode);
-    let before_views = post_view::Entity::find()
-        .order_by_desc(post_view::Column::Id)
-        .one(db)
-        .await?
-        .map(|m| m.id)
-        .unwrap_or(0);
-
-    let posts = post::Entity::find().all(db).await?;
-    let users = user::Entity::find().all(db).await?;
-    let user_agents = vec![
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
-        "Mozilla/5.0 (Linux; Android 14)",
-    ];
-    let ips = vec!["203.0.113.10", "198.51.100.42", "10.0.0.24", "172.16.1.15"];
-
-    if posts.is_empty() {
-        return Err(SeedError::Db(
-            "Need posts to seed post views".to_string(),
-        ));
-    }
-
-    log(format!(
-        "Seeding {} post views (preset: {})...",
-        count,
-        size_label(count)
-    ));
-
-    for i in 0..count {
-        let post = posts.choose(&mut rng).unwrap();
-        let viewer = users.choose(&mut rng).map(|u| u.id);
-        let view = post_view::ActiveModel {
-            id: ActiveValue::NotSet,
-            post_id: Set(post.id),
-            ip_address: Set(Some(ips.choose(&mut rng).unwrap().to_string())),
-            user_agent: Set(Some(user_agents.choose(&mut rng).unwrap().to_string())),
-            user_id: Set(viewer),
-            created_at: Set(chrono::Utc::now().fixed_offset()),
-        };
-        let _ = view.insert(db).await?;
-
-        let _ = post::Entity::update_many()
-            .col_expr(
-                post::Column::ViewCount,
-                Expr::col(post::Column::ViewCount).add(1),
-            )
-            .filter(post::Column::Id.eq(post.id))
-            .exec(db)
-            .await?;
-
-        if (i + 1) % 100 == 0 || i + 1 == count {
-            log(format!("Created {} / {} post views", i + 1, count));
-        }
-    }
-
-    let after_views = post_view::Entity::find()
-        .order_by_desc(post_view::Column::Id)
-        .one(db)
-        .await?
-        .map(|m| m.id)
-        .unwrap_or(before_views);
-
-    Ok(compute_range(before_views, after_views))
-}
-
-fn size_label(count: u32) -> String {
-    match count {
-        0..=15 => "low",
-        16..=60 => "default",
-        61..=150 => "medium",
-        151..=300 => "large",
-        301..=700 => "very large",
-        _ => "massive",
-    }
-    .to_string()
-}
-
 // --- Internal helpers copied from the original seed controller for reuse ---
 
 async fn seed_user_sessions(db: &DatabaseConnection) -> SeedResult<()> {
@@ -1251,7 +661,7 @@ async fn seed_user_sessions(db: &DatabaseConnection) -> SeedResult<()> {
         "Android · Chrome 125",
     ];
     let ip_addresses = vec!["192.168.1.100", "10.0.0.50", "172.16.0.25", "203.0.113.1"];
-    let mut rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
+    let mut rng = seeded_rng(None);
 
     for user in users {
         let session_count = rng.random_range(1..4);
@@ -1283,26 +693,32 @@ async fn seed_user_sessions(db: &DatabaseConnection) -> SeedResult<()> {
             let _ = active_model.insert(db).await;
         }
     }
+
     Ok(())
 }
 
 async fn seed_email_verifications(db: &DatabaseConnection) -> SeedResult<()> {
     let users = user::Entity::find().all(db).await?;
-
+    let mut rng = seeded_rng(None);
     for user in users {
+        let code = email_verification::Entity::generate_code();
+        // Spread creation times a bit for realism
+        let created_at = chrono::Utc::now().fixed_offset()
+            - chrono::Duration::minutes(rng.random_range(0..90));
+
         let verification = email_verification::Model {
             id: 0,
             user_id: user.id,
-            code: email_verification::Entity::generate_code(),
-            created_at: chrono::Utc::now().fixed_offset(),
-            updated_at: chrono::Utc::now().fixed_offset(),
+            code,
+            created_at,
+            updated_at: created_at,
         };
 
         let active_model = email_verification::ActiveModel {
             id: ActiveValue::NotSet,
             user_id: Set(verification.user_id),
-            code: Set(verification.code),
             created_at: Set(verification.created_at),
+            code: Set(verification.code),
             updated_at: Set(verification.updated_at),
         };
 
@@ -1313,55 +729,50 @@ async fn seed_email_verifications(db: &DatabaseConnection) -> SeedResult<()> {
 
 async fn seed_forgot_passwords(db: &DatabaseConnection) -> SeedResult<()> {
     let users = user::Entity::find().all(db).await?;
-    let _rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
+    let mut rng = seeded_rng(None);
 
-    for user in users.into_iter().take(10) {
-        let forgot_password = forgot_password::Model {
-            id: 0,
-            user_id: user.id,
-            code: forgot_password::Entity::generate_code(),
-            created_at: chrono::Utc::now().fixed_offset(),
-            updated_at: chrono::Utc::now().fixed_offset(),
-        };
+    for user in users {
+        if rng.random_bool(0.3) {
+            let code = forgot_password::Entity::generate_code();
+            let created_at = chrono::Utc::now().fixed_offset()
+                - chrono::Duration::minutes(rng.random_range(0..60));
 
-        let active_model = forgot_password::ActiveModel {
-            id: ActiveValue::NotSet,
-            user_id: Set(forgot_password.user_id),
-            code: Set(forgot_password.code),
-            created_at: Set(forgot_password.created_at),
-            updated_at: Set(forgot_password.updated_at),
-        };
+            let forgot = forgot_password::Model {
+                id: 0,
+                user_id: user.id,
+                code,
+                created_at,
+                updated_at: created_at,
+            };
 
-        let _ = active_model.insert(db).await;
+            let active_model = forgot_password::ActiveModel {
+                id: ActiveValue::NotSet,
+                user_id: Set(forgot.user_id),
+                created_at: Set(forgot.created_at),
+                updated_at: Set(forgot.updated_at),
+                code: Set(forgot.code),
+            };
+
+            let _ = active_model.insert(db).await;
+        }
     }
     Ok(())
 }
 
 async fn seed_post_revisions(db: &DatabaseConnection) -> SeedResult<()> {
     let posts = post::Entity::find().all(db).await?;
-    let mut rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
+    let mut rng = seeded_rng(None);
 
-    for post in posts.into_iter().take(30) {
-        let revision_count = rng.random_range(1..5);
-        for i in 0..revision_count {
-            let content_text = l::Paragraphs(EN, 1..3).fake::<Vec<String>>().join(" ");
-            let post_content = serde_json::json!({
-                "time": chrono::Utc::now().timestamp_millis(),
-                "blocks": [
-                    {"type": "paragraph", "data": {"text": content_text}}
-                ],
-                "version": "2.30.7"
-            });
-
+    for post in posts {
+        let revision_count = rng.random_range(1..4);
+        for _ in 0..revision_count {
+            let revision_content: String = l::Paragraph(EN, 1..6).fake_with_rng(&mut rng);
             let revision = post_revision::Model {
                 id: 0,
                 post_id: post.id,
-                content: post_content.to_string(),
-                metadata: Some(serde_json::json!({
-                    "title": format!("{} (Revision {})", post.title, i + 1)
-                })),
-                created_at: chrono::Utc::now().fixed_offset()
-                    - chrono::Duration::hours(i as i64 * 24),
+                content: revision_content.clone(),
+                metadata: None,
+                created_at: chrono::Utc::now().fixed_offset(),
             };
 
             let active_model = post_revision::ActiveModel {
@@ -1379,88 +790,90 @@ async fn seed_post_revisions(db: &DatabaseConnection) -> SeedResult<()> {
 }
 
 async fn seed_post_series(db: &DatabaseConnection) -> SeedResult<()> {
-    let series_names = vec![
-        "Getting Started with Rust",
-        "Web Development Best Practices",
-        "Database Design Patterns",
-        "API Security Guide",
-        "Frontend Frameworks Comparison",
-    ];
+    let mut rng = seeded_rng(None);
+    for _ in 0..5 {
+        let words: Vec<String> = l::Words(EN, 1..4).fake_with_rng(&mut rng);
+        let title = words.join(" ");
+        let description: String = l::Sentence(EN, 4..8).fake_with_rng(&mut rng);
 
-    for name in series_names.iter() {
-        let new_series = post_series::Model {
+        let series = post_series::Model {
             id: 0,
-            name: name.to_string(),
-            slug: name.to_lowercase().replace(' ', "-"),
-            description: Some(format!("A comprehensive series about {}", name)),
+            name: title.clone(),
+            slug: title.to_lowercase().replace(' ', "-"),
+            description: Some(description),
             created_at: chrono::Utc::now().fixed_offset(),
             updated_at: chrono::Utc::now().fixed_offset(),
         };
 
         let active_model = post_series::ActiveModel {
             id: ActiveValue::NotSet,
-            name: Set(new_series.name),
-            slug: Set(new_series.slug),
-            description: Set(new_series.description),
-            created_at: Set(new_series.created_at),
-            updated_at: Set(new_series.updated_at),
+            name: Set(series.name.clone()),
+            slug: Set(series.slug.clone()),
+            description: Set(series.description.clone()),
+            created_at: Set(series.created_at),
+            updated_at: Set(series.updated_at),
         };
 
         let _ = active_model.insert(db).await;
     }
+
     Ok(())
 }
 
 async fn seed_post_views(db: &DatabaseConnection) -> SeedResult<()> {
     let posts = post::Entity::find().all(db).await?;
     let users = user::Entity::find().all(db).await?;
-    let mut rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
-    let ip_addresses = vec!["192.168.1.100", "10.0.0.50", "172.16.0.25", "203.0.113.1"];
+    let mut rng = seeded_rng(None);
+    let user_agents = vec![
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
+        "Mozilla/5.0 (Linux; Android 14)",
+    ];
+    let ips = vec!["203.0.113.10", "198.51.100.42", "10.0.0.24", "172.16.1.15"];
 
-    for post in posts {
-        let view_count = rng.random_range(5..20); // Reduced from 50-500 to prevent blocking
+    for post in posts.into_iter().take(100) {
+        let view_count = rng.random_range(1..20);
         for _ in 0..view_count {
-            let user_id = if rng.random_bool(0.7) {
-                Some(users.choose(&mut rng).map(|u| u.id).unwrap())
-            } else {
-                None
-            };
-
-            let view = post_view::Model {
-                id: 0,
-                post_id: post.id,
-                user_id,
-                ip_address: Some(ip_addresses.choose(&mut rng).unwrap().to_string()),
-                user_agent: Some("Mozilla/5.0 (compatible; RuxlogBot/1.0)".to_string()),
-                created_at: chrono::Utc::now().fixed_offset()
-                    - chrono::Duration::minutes(rng.random_range(1..4320)),
-            };
-
-            let active_model = post_view::ActiveModel {
+            let viewer = users.choose(&mut rng).map(|u| u.id);
+            let view = post_view::ActiveModel {
                 id: ActiveValue::NotSet,
-                post_id: Set(view.post_id),
-                user_id: Set(view.user_id),
-                ip_address: Set(view.ip_address),
-                user_agent: Set(view.user_agent),
-                created_at: Set(view.created_at),
+                post_id: Set(post.id),
+                ip_address: Set(Some(ips.choose(&mut rng).unwrap().to_string())),
+                user_agent: Set(Some(user_agents.choose(&mut rng).unwrap().to_string())),
+                user_id: Set(viewer),
+                created_at: Set(chrono::Utc::now().fixed_offset()),
             };
+            let _ = view.insert(db).await;
 
-            let _ = active_model.insert(db).await;
+            let _ = post::Entity::update_many()
+                .col_expr(
+                    post::Column::ViewCount,
+                    Expr::col(post::Column::ViewCount).add(1),
+                )
+                .filter(post::Column::Id.eq(post.id))
+                .exec(db)
+                .await;
         }
     }
+
     Ok(())
 }
 
 async fn seed_scheduled_posts(db: &DatabaseConnection) -> SeedResult<()> {
-    let posts = post::Entity::find().all(db).await?;
-    let mut rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
+    let posts = post::Entity::find()
+        .filter(post::Column::Status.eq(post::PostStatus::Draft))
+        .all(db)
+        .await?;
+    let mut rng = seeded_rng(None);
 
-    for post in posts.into_iter().take(10) {
-        let scheduled_post = scheduled_post::Model {
+    for post in posts.into_iter().take(20) {
+        let scheduled_at = chrono::Utc::now().fixed_offset()
+            + chrono::Duration::hours(rng.random_range(24..240));
+        let scheduled = scheduled_post::Model {
             id: 0,
             post_id: post.id,
-            publish_at: chrono::Utc::now().fixed_offset()
-                + chrono::Duration::days(rng.random_range(1..30)),
+            publish_at: scheduled_at,
             status: scheduled_post::ScheduledPostStatus::Pending,
             created_at: chrono::Utc::now().fixed_offset(),
             updated_at: chrono::Utc::now().fixed_offset(),
@@ -1468,11 +881,11 @@ async fn seed_scheduled_posts(db: &DatabaseConnection) -> SeedResult<()> {
 
         let active_model = scheduled_post::ActiveModel {
             id: ActiveValue::NotSet,
-            post_id: Set(scheduled_post.post_id),
-            publish_at: Set(scheduled_post.publish_at),
-            status: Set(scheduled_post.status),
-            created_at: Set(scheduled_post.created_at),
-            updated_at: Set(scheduled_post.updated_at),
+            post_id: Set(scheduled.post_id),
+            publish_at: Set(scheduled.publish_at),
+            status: Set(scheduled.status),
+            created_at: Set(scheduled.created_at),
+            updated_at: Set(scheduled.updated_at),
         };
 
         let _ = active_model.insert(db).await;
@@ -1481,85 +894,103 @@ async fn seed_scheduled_posts(db: &DatabaseConnection) -> SeedResult<()> {
 }
 
 async fn seed_media(db: &DatabaseConnection) -> SeedResult<()> {
-    let mut rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
-    for i in 0..20 {
-        let media_item = media::Model {
+    let mut rng = seeded_rng(None);
+    let media_types = vec!["image/png", "image/jpeg", "image/webp"];
+    let sizes = vec![1024, 2048, 4096, 8192];
+
+    for i in 0..50 {
+        let mime = media_types.choose(&mut rng).unwrap().to_string();
+        let width = Some(rng.random_range(300..2000));
+        let height = Some(rng.random_range(300..2000));
+        let size = *sizes.choose(&mut rng).unwrap_or(&2048);
+        let now = chrono::Utc::now().fixed_offset();
+
+        let media_record = media::Model {
             id: 0,
-            object_key: format!("media_{i}.jpg"),
-            file_url: format!("https://example.com/media_{i}.jpg"),
-            mime_type: "image/jpeg".to_string(),
-            width: Some(800),
-            height: Some(600),
-            size: 1024 * 100,
-            extension: Some("jpg".to_string()),
+            object_key: format!("uploads/fake_image_{}.png", i),
+            file_url: format!("https://example.com/uploads/fake_image_{}.png", i),
+            mime_type: mime,
+            width,
+            height,
+            size,
+            extension: Some("png".to_string()),
             uploader_id: None,
             reference_type: None,
             content_hash: None,
-            is_optimized: rng.random_bool(0.5),
+            is_optimized: false,
             optimized_at: None,
-            created_at: chrono::Utc::now().fixed_offset(),
-            updated_at: chrono::Utc::now().fixed_offset(),
+            created_at: now,
+            updated_at: now,
         };
 
         let active_model = media::ActiveModel {
             id: ActiveValue::NotSet,
-            object_key: Set(media_item.object_key),
-            file_url: Set(media_item.file_url),
-            mime_type: Set(media_item.mime_type),
-            width: Set(media_item.width),
-            height: Set(media_item.height),
-            size: Set(media_item.size),
-            extension: Set(media_item.extension),
-            uploader_id: Set(media_item.uploader_id),
-            reference_type: Set(media_item.reference_type),
-            content_hash: Set(media_item.content_hash),
-            is_optimized: Set(media_item.is_optimized),
-            optimized_at: Set(media_item.optimized_at),
-            created_at: Set(media_item.created_at),
-            updated_at: Set(media_item.updated_at),
+            object_key: Set(media_record.object_key),
+            file_url: Set(media_record.file_url),
+            mime_type: Set(media_record.mime_type),
+            width: Set(media_record.width),
+            height: Set(media_record.height),
+            size: Set(media_record.size),
+            extension: Set(media_record.extension),
+            uploader_id: Set(media_record.uploader_id),
+            reference_type: Set(media_record.reference_type),
+            content_hash: Set(media_record.content_hash),
+            is_optimized: Set(media_record.is_optimized),
+            optimized_at: Set(media_record.optimized_at),
+            created_at: Set(media_record.created_at),
+            updated_at: Set(media_record.updated_at),
         };
 
         let _ = active_model.insert(db).await;
     }
+
     Ok(())
 }
 
 async fn seed_media_variants(db: &DatabaseConnection) -> SeedResult<()> {
     let media_items = media::Entity::find().all(db).await?;
-    let _rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
 
-    for media_item in media_items.into_iter().take(10) {
-        let variant = media_variant::Model {
-            id: 0,
-            media_id: media_item.id,
-            object_key: format!("variant_{}_webp", media_item.id),
-            mime_type: "image/webp".to_string(),
-            width: Some(600),
-            height: Some(400),
-            size: 50_000,
-            extension: Some("webp".to_string()),
-            quality: Some(80),
-            variant_type: "webp".to_string(),
-            created_at: chrono::Utc::now().fixed_offset(),
-            updated_at: chrono::Utc::now().fixed_offset(),
-        };
+    for media_item in media_items.into_iter().take(30) {
+        let variants = vec![
+            (format!("{}-thumb", media_item.object_key), 200, 200, 32, "thumbnail"),
+            (format!("{}-small", media_item.object_key), 400, 400, 64, "small"),
+            (format!("{}-medium", media_item.object_key), 800, 800, 128, "medium"),
+        ];
 
-        let active_model = media_variant::ActiveModel {
-            id: ActiveValue::NotSet,
-            media_id: Set(variant.media_id),
-            object_key: Set(variant.object_key),
-            mime_type: Set(variant.mime_type),
-            width: Set(variant.width),
-            height: Set(variant.height),
-            size: Set(variant.size),
-            extension: Set(variant.extension),
-            quality: Set(variant.quality),
-            variant_type: Set(variant.variant_type),
-            created_at: Set(variant.created_at),
-            updated_at: Set(variant.updated_at),
-        };
+        for (key, w, h, size, variant_type) in variants {
+            let now = chrono::Utc::now().fixed_offset();
+            let variant = media_variant::Model {
+                id: 0,
+                media_id: media_item.id,
+                object_key: key.clone(),
+                mime_type: media_item.mime_type.clone(),
+                width: Some(w),
+                height: Some(h),
+                size,
+                extension: Some("png".to_string()),
+                quality: Some(80),
+                variant_type: variant_type.to_string(),
+                created_at: now,
+                updated_at: now,
+            };
 
-        let _ = active_model.insert(db).await;
+            let active_model = media_variant::ActiveModel {
+                id: ActiveValue::NotSet,
+                media_id: Set(variant.media_id),
+                object_key: Set(variant.object_key),
+                mime_type: Set(variant.mime_type),
+                width: Set(variant.width),
+                height: Set(variant.height),
+                size: Set(variant.size),
+                extension: Set(variant.extension),
+                quality: Set(variant.quality),
+                variant_type: Set(variant.variant_type),
+                created_at: Set(variant.created_at),
+                updated_at: Set(variant.updated_at),
+            };
+
+            let _ = active_model.insert(db).await;
+        }
     }
 
     Ok(())
@@ -1568,7 +999,7 @@ async fn seed_media_variants(db: &DatabaseConnection) -> SeedResult<()> {
 async fn seed_media_usage(db: &DatabaseConnection) -> SeedResult<()> {
     let media_items = media::Entity::find().all(db).await?;
     let posts = post::Entity::find().all(db).await?;
-    let mut rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
+    let mut rng = seeded_rng(None);
 
     for media_item in media_items.into_iter().take(10) {
         if let Some(post) = posts.choose(&mut rng) {
@@ -1601,7 +1032,7 @@ async fn seed_comment_flags(db: &DatabaseConnection) -> SeedResult<()> {
     let comments = post_comment::Entity::find().all(db).await?;
     let users = user::Entity::find().all(db).await?;
 
-    let mut rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
+    let mut rng = seeded_rng(None);
     let flag_reasons = vec!["spam", "inappropriate", "off-topic", "harassment"];
 
     for comment in comments.into_iter().take(10) {
@@ -1635,7 +1066,7 @@ async fn seed_comment_flags(db: &DatabaseConnection) -> SeedResult<()> {
 async fn seed_newsletter_subscribers(db: &DatabaseConnection) -> SeedResult<()> {
     let mut subscribers: Vec<newsletter_subscriber::Model> = vec![];
     let mut emails_set: std::collections::HashSet<String> = std::collections::HashSet::new();
-    let mut rng = StdRng::seed_from_u64(chrono::Utc::now().timestamp_millis() as u64); // Dynamic seed based on timestamp
+    let mut rng = seeded_rng(None);
 
     for _ in 0..100 {
         let email = FreeEmail().fake::<String>();
@@ -1643,18 +1074,22 @@ async fn seed_newsletter_subscribers(db: &DatabaseConnection) -> SeedResult<()> 
             let status = if rng.random_bool(0.85) {
                 newsletter_subscriber::SubscriberStatus::Confirmed
             } else if rng.random_bool(0.1) {
-                newsletter_subscriber::SubscriberStatus::Pending
-            } else {
                 newsletter_subscriber::SubscriberStatus::Unsubscribed
+            } else {
+                newsletter_subscriber::SubscriberStatus::Pending
             };
+            let token: String = (0..12)
+                .map(|_| ((rng.random::<u8>() % 26) + b'a') as char)
+                .collect();
+            let now = chrono::Utc::now().fixed_offset();
 
             let subscriber = newsletter_subscriber::Model {
                 id: 0,
                 email,
                 status,
-                token: format!("token_{}", rng.random_range(1000..9999)),
-                created_at: chrono::Utc::now().fixed_offset(),
-                updated_at: chrono::Utc::now().fixed_offset(),
+                token,
+                created_at: now,
+                updated_at: now,
             };
 
             let active_model = newsletter_subscriber::ActiveModel {
