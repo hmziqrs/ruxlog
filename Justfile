@@ -128,6 +128,9 @@ api-lsof env='dev':
 admin-dev env='dev':
     cd {{admin_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- bash -c 'dx serve --port $ADMIN_PORT'
 
+admin-remote:
+    cd {{admin_dir}} && set -a && source ../../.env.remote && set +a && dx serve --port $ADMIN_PORT
+
 admin-desktop env='dev':
     cd {{admin_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- bash -c 'dx serve --platform desktop --port $ADMIN_PORT'
 
@@ -165,6 +168,9 @@ admin-clean env='dev':
 
 consumer-dev env='dev':
     cd {{consumer_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- bash -c 'dx serve --port $CONSUMER_PORT'
+
+consumer-remote:
+    cd {{consumer_dir}} && set -a && source ../../.env.remote && set +a && dx serve --port $CONSUMER_PORT
 
 consumer-desktop env='dev':
     cd {{consumer_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- bash -c 'dx serve --platform desktop --port $CONSUMER_PORT'

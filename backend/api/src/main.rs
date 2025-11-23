@@ -19,8 +19,8 @@ use ruxlog::{
     modules,
     router,
     services::{self, auth::AuthBackend, redis::init_redis_store},
-    state::{self, AppState, ObjectStorageConfig, OptimizerConfig},
-    utils::{self, telemetry},
+    state::{AppState, ObjectStorageConfig, OptimizerConfig},
+    utils::telemetry,
 };
 use modules::csrf_v1;
 
@@ -164,7 +164,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             endpoint.clone()
         });
 
-    let object_storage = state::ObjectStorageConfig {
+    let object_storage = ObjectStorageConfig {
         region: env_with_fallback(
             &["S3_REGION", "GARAGE_S3_REGION", "AWS_S3_REGION", "AWS_REGION"],
             Some("auto"),

@@ -8,7 +8,6 @@ use ratatui::{
 
 use crate::tui::{
     app::App,
-    components::layout::centered_rect,
     theme::ThemePalette,
 };
 

@@ -772,7 +772,7 @@ async fn seed_email_verifications(db: &DatabaseConnection) -> SeedResult<()> {
 
 async fn seed_forgot_passwords(db: &DatabaseConnection) -> SeedResult<()> {
     let users = user::Entity::find().all(db).await?;
-    let mut rng = StdRng::seed_from_u64(5678);
+    let _rng = StdRng::seed_from_u64(5678);
 
     for user in users.into_iter().take(10) {
         let forgot_password = forgot_password::Model {
@@ -987,7 +987,7 @@ async fn seed_media(db: &DatabaseConnection) -> SeedResult<()> {
 
 async fn seed_media_variants(db: &DatabaseConnection) -> SeedResult<()> {
     let media_items = media::Entity::find().all(db).await?;
-    let mut rng = StdRng::seed_from_u64(8888);
+    let _rng = StdRng::seed_from_u64(8888);
 
     for media_item in media_items.into_iter().take(10) {
         let variant = media_variant::Model {

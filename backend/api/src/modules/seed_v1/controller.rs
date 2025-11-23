@@ -3,15 +3,11 @@ use std::collections::HashSet;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_macros::debug_handler;
 use fake::faker::internet::en::*;
-use fake::faker::lorem::en::*;
 use fake::faker::lorem::raw as l;
-use fake::faker::name::en::*;
 use fake::locales::EN;
 use rand::seq::IndexedRandom;
 use serde_json::json;
 
-#[derive(Debug, Dummy)]
-struct FakeWord(#[dummy(faker = "Word()")] String);
 
 use crate::db::sea_models::scheduled_post::ScheduledPostStatus;
 use crate::db::sea_models::user::{self, AdminUserQuery};
@@ -19,23 +15,16 @@ use crate::{
     db::sea_models::{
         category, comment_flag, email_verification, forgot_password, media, media_usage,
         media_variant, newsletter_subscriber, post, post_comment, post_revision, post_series,
-        post_view, route_status, scheduled_post, seed_run, tag, user::UserRole, user_session,
+        post_view, route_status, scheduled_post, tag, user::UserRole, user_session,
     },
     services::auth::AuthSession,
     AppState,
 };
 
-use fake::{Dummy, Fake, Faker};
+use fake::Fake;
 use rand::{rngs::StdRng, Rng, SeedableRng};
-use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set};
+use sea_orm::{ActiveModelTrait, EntityTrait, Set};
 
-#[derive(Debug, Dummy)]
-pub struct FakeUser {
-    #[dummy(faker = "Name()")]
-    name: String,
-    #[dummy(faker = "FreeEmail()")]
-    email: String,
-}
 
 #[debug_handler]
 pub async fn seed_tags(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
@@ -455,7 +444,7 @@ pub async fn seed_email_verifications(
         }
     };
 
-    let mut rng = StdRng::seed_from_u64(1234);
+    let _rng = StdRng::seed_from_u64(1234);
 
     for user in users.into_iter().take(20) {
         let verification = email_verification::Model {
@@ -506,7 +495,7 @@ pub async fn seed_forgot_passwords(
         }
     };
 
-    let mut rng = StdRng::seed_from_u64(5678);
+    let _rng = StdRng::seed_from_u64(5678);
 
     for user in users.into_iter().take(10) {
         let forgot_password = forgot_password::Model {
@@ -620,7 +609,7 @@ pub async fn seed_post_series(
         "Frontend Frameworks Comparison",
     ];
 
-    for (i, name) in series_names.iter().enumerate() {
+    for (_i, name) in series_names.iter().enumerate() {
         let new_series = post_series::Model {
             id: 0, // Auto-increment
             name: name.to_string(),

@@ -73,10 +73,6 @@ impl MigrationTrait for Migration {
 #[derive(Iden)]
 enum EmailVerifications {
     Table,
-    Id,
-    UserId,
-    Code,
-    CreatedAt,
     ExpiresAt,
     UpdatedAt,
 }
@@ -84,10 +80,6 @@ enum EmailVerifications {
 #[derive(Iden)]
 enum ForgotPasswords {
     Table,
-    Id,
-    UserId,
-    Code,
-    CreatedAt,
     ExpiresAt,
     UpdatedAt,
 }
