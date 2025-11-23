@@ -10,7 +10,9 @@ use crate::components::table::data_table_screen::{DataTableScreen, HeaderColumn}
 use crate::components::table::list_toolbar::ListToolbarProps;
 use crate::containers::page_header::PageHeaderProps;
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
-use ruxlog_shared::store::{use_comments, use_post, use_user, Comment, CommentListQuery};
+use ruxlog_shared::store::{
+    use_comments, use_post, use_user, Comment, CommentListQuery, HiddenFilter,
+};
 use oxui::shadcn::combobox::{Combobox, ComboboxItem};
 use oxstore::{ListQuery, ListStore, Order};
 
@@ -155,6 +157,12 @@ pub fn CommentsListScreen() -> Element {
     let headers = vec![
         HeaderColumn::new("", false, "w-12 py-2 px-3", None),
         HeaderColumn::new(
+            "Comment ID",
+            false,
+            "py-2 px-3 text-left font-medium text-xs md:text-sm whitespace-nowrap",
+            None,
+        ),
+        HeaderColumn::new(
             "Post",
             true,
             "py-2 px-3 text-left font-medium text-xs md:text-sm whitespace-nowrap",
@@ -208,25 +216,30 @@ pub fn CommentsListScreen() -> Element {
                 search_placeholder: "Search comments...".to_string(),
                 disabled: list_loading,
                 on_search_input: handlers.handle_search.clone(),
-                status_selected: match filters.read().include_hidden {
-                    Some(true) => "All".to_string(),
-                    Some(false) => "Visible".to_string(),
-                    None => "Visible".to_string(),
+                status_selected: match filters.read().hidden_filter {
+                    Some(HiddenFilter::All) => "All".to_string(),
+                    Some(HiddenFilter::Hidden) => "Hidden".to_string(),
+                    Some(HiddenFilter::Visible) | None => "Visible".to_string(),
                 },
                 on_status_select: EventHandler::new({
                     let mut filters = filters;
                     move |value: String| {
                         let mut q = filters.peek().clone();
                         q.set_page(1);
-                        q.include_hidden = match value.as_str() {
-                            "All" => Some(true),
-                            "Active" => Some(false),
-                            "Inactive" => Some(true),
-                            _ => Some(false),
+                        let normalized = value.to_lowercase();
+                        q.hidden_filter = match normalized.as_str() {
+                            "all" => Some(HiddenFilter::All),
+                            "hidden" | "hidden only" => Some(HiddenFilter::Hidden),
+                            _ => Some(HiddenFilter::Visible),
                         };
                         filters.set(q);
                     }
                 }),
+                status_options: Some(vec![
+                    "Visible".to_string(),
+                    "Hidden".to_string(),
+                    "All".to_string(),
+                ]),
             }),
             below_toolbar: Some(rsx!{
                 {below_toolbar_content}
@@ -238,7 +251,18 @@ pub fn CommentsListScreen() -> Element {
                 comments: comments.clone(),
                 list_loading,
                 has_data,
-                on_clear: handlers.handle_clear
+                on_clear: handlers.handle_clear,
+                on_refresh: EventHandler::new({
+                    let comments_state = comments_state;
+                    let filters = filters;
+                    move |_| {
+                        let comments_state = comments_state;
+                        let query = filters();
+                        spawn(async move {
+                            comments_state.fetch_list_with_query(query).await;
+                        });
+                    }
+                })
             }
         }
     }

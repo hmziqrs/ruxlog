@@ -12,6 +12,14 @@ pub struct CommentAuthor {
     pub avatar: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum HiddenFilter {
+    All,
+    Hidden,
+    Visible,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Comment {
     pub id: i32,
@@ -65,7 +73,7 @@ pub struct CommentListQuery {
     pub user_id: Option<i32>,
     pub page: u64,
     pub limit: Option<u64>,
-    pub include_hidden: Option<bool>,
+    pub hidden_filter: Option<HiddenFilter>,
     pub search: Option<String>,
     pub sorts: Option<Vec<SortParam>>,
 }

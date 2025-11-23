@@ -33,7 +33,7 @@ impl CommentListContext {
         q.set_page(1);
         q.user_id = None;
         q.post_id = None;
-        q.include_hidden = None;
+        q.hidden_filter = None;
         q.set_search(None);
         filters.set(q);
         self.selected_user_id.set(None);
@@ -69,7 +69,7 @@ impl CommentListContext {
         if q.post_id.is_some() {
             count += 1;
         }
-        if q.include_hidden.is_some() {
+        if q.hidden_filter.is_some() {
             count += 1;
         }
         count

@@ -22,6 +22,9 @@ pub struct ListToolbarProps {
     pub status_selected: String,
     /// Called when status is selected
     pub on_status_select: EventHandler<String>,
+    /// Optional custom status options (defaults to All/Active/Inactive)
+    #[props(optional)]
+    pub status_options: Option<Vec<String>>,
 }
 
 /// Generic list toolbar with a search input and a status select.
@@ -29,6 +32,10 @@ pub struct ListToolbarProps {
 pub fn ListToolbar(props: ListToolbarProps) -> Element {
     let on_search = props.on_search_input.clone();
     let placeholder = props.search_placeholder.clone();
+    let status_options = props
+        .status_options
+        .clone()
+        .unwrap_or_else(|| vec!["All".to_string(), "Active".to_string(), "Inactive".to_string()]);
 
     rsx! {
         div { class: "bg-transparent",
@@ -57,7 +64,7 @@ pub fn ListToolbar(props: ListToolbarProps) -> Element {
                         Select {
                             groups: vec![SelectGroup::new(
                                 "Status".to_string(),
-                                vec!["All".to_string(), "Active".to_string(), "Inactive".to_string()],
+                                status_options,
                             )],
                             selected: Some(props.status_selected.clone()),
                             placeholder: "All status".to_string(),

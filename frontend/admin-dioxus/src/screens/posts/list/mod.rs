@@ -242,6 +242,7 @@ pub fn PostsListScreen() -> Element {
                         filters.set(q);
                     }
                 }),
+                status_options: None,
             }),
             below_toolbar: Some(rsx!{
                 div { class: "space-y-3",

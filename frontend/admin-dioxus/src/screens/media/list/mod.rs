@@ -170,6 +170,7 @@ pub fn MediaListScreen() -> Element {
                     None => "All".to_string(),
                 },
                 on_status_select: EventHandler::new(handle_reference_select),
+                status_options: None,
             }),
             on_prev: move |_| { handlers.handle_prev.call(current_page); },
             on_next: move |_| { handlers.handle_next.call(current_page); },

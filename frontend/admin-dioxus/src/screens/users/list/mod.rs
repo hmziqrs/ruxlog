@@ -170,6 +170,7 @@ pub fn UsersListScreen() -> Element {
                     None => "All".to_string(),
                 },
                 on_status_select: EventHandler::new(handle_verified_select),
+                status_options: None,
             }),
             on_prev: move |_| { handlers.handle_prev.call(current_page); },
             on_next: move |_| { handlers.handle_next.call(current_page); },

@@ -4,7 +4,8 @@ use crate::components::table::list_empty_state::ListEmptyState;
 use crate::components::table::skeleton_table_rows::{
     SkeletonCellConfig, SkeletonTableRows, UICellType,
 };
-use ruxlog_shared::store::{use_comments, Comment};
+use crate::utils::dates::format_short_date_dt;
+use oxui::components::loading_overlay::LoadingOverlay;
 use oxui::shadcn::avatar::{Avatar, AvatarFallback};
 use oxui::shadcn::badge::{Badge, BadgeVariant};
 use oxui::shadcn::button::{Button, ButtonVariant};
@@ -12,12 +13,9 @@ use oxui::shadcn::checkbox::Checkbox;
 use oxui::shadcn::dropdown_menu::{
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 };
-use crate::utils::dates::format_short_date_dt;
+use ruxlog_shared::store::{use_comments, Comment};
 
-use hmziq_dioxus_free_icons::{
-    icons::ld_icons::LdEllipsis,
-    Icon,
-};
+use hmziq_dioxus_free_icons::{icons::ld_icons::LdEllipsis, Icon};
 
 use super::super::context::use_comment_list_context;
 
@@ -34,6 +32,7 @@ pub fn TableView(
     list_loading: bool,
     has_data: bool,
     on_clear: EventHandler<()>,
+    on_refresh: EventHandler<()>,
 ) -> Element {
     let comments_state = use_comments();
     let ctx = use_comment_list_context();
@@ -48,6 +47,7 @@ pub fn TableView(
                         SkeletonCellConfig::custom(UICellType::Default, "py-2 px-3"),
                         SkeletonCellConfig::custom(UICellType::Default, "py-2 px-3"),
                         SkeletonCellConfig::custom(UICellType::Default, "py-2 px-3"),
+                        SkeletonCellConfig::custom(UICellType::Default, "py-2 px-3"),
                         SkeletonCellConfig::custom(UICellType::Badge, "py-2 px-3"),
                         SkeletonCellConfig::custom(UICellType::Default, "py-2 px-3"),
                         SkeletonCellConfig::custom(UICellType::Action, "w-12 py-2 px-3"),
@@ -55,7 +55,7 @@ pub fn TableView(
                 }
             } else {
                 tr { class: "border-b border-zinc-200 dark:border-zinc-800",
-                    td { colspan: "7", class: "py-12 px-4 text-center",
+                    td { colspan: "8", class: "py-12 px-4 text-center",
                         ListEmptyState {
                             title: "No comments found".to_string(),
                             description: "Try adjusting your search or filters.".to_string(),
@@ -74,6 +74,13 @@ pub fn TableView(
                     let is_selected = ctx.selected_ids.read().contains(&comment_id);
                     let is_hidden = comment.hidden;
                     let mut ctx_clone = ctx.clone();
+                    let on_refresh_hide = on_refresh.clone();
+                    let on_refresh_delete = on_refresh.clone();
+                    let is_moderating = comments_state
+                        .moderation
+                        .read()
+                        .get(&comment_id)
+                        .map_or(false, |frame| frame.is_loading());
 
                     rsx! {
                         tr {
@@ -86,6 +93,9 @@ pub fn TableView(
                                         ctx_clone.toggle_comment_selection(comment_id);
                                     },
                                 }
+                            }
+                            td { class: "py-2 px-3 text-xs font-mono text-muted-foreground whitespace-nowrap",
+                                "{comment_id}"
                             }
                             td { class: "py-2 px-3 text-sm text-zinc-700 dark:text-zinc-300",
                                 "Post #{comment.post_id}"
@@ -121,12 +131,13 @@ pub fn TableView(
                             td { class: "py-2 px-3 text-xs text-muted-foreground whitespace-nowrap",
                                 {format_short_date_dt(&comment.created_at)}
                             }
-                            td { class: "w-12 py-2 px-3",
+                            td { class: "w-12 py-2 px-3 relative",
                                 DropdownMenu {
                                     DropdownMenuTrigger { class: "h-8 w-8",
                                         Button {
                                             variant: ButtonVariant::Ghost,
                                             class: "h-8 w-8 p-0",
+                                            disabled: is_moderating,
                                             Icon { icon: LdEllipsis {}, class: "w-4 h-4" }
                                         }
                                     }
@@ -148,6 +159,7 @@ pub fn TableView(
                                                         } else {
                                                             comments_state.hide(comment_id).await;
                                                         }
+                                                        on_refresh_hide.call(());
                                                     });
                                                 }
                                             },
@@ -162,6 +174,7 @@ pub fn TableView(
                                                     let comments_state = comments_state;
                                                     spawn(async move {
                                                         comments_state.delete_admin(comment_id).await;
+                                                        on_refresh_delete.call(());
                                                     });
                                                 }
                                             },
@@ -169,6 +182,7 @@ pub fn TableView(
                                         }
                                     }
                                 }
+                                LoadingOverlay { visible: is_moderating }
                             }
                         }
                     }
