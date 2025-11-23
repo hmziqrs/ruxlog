@@ -20,6 +20,14 @@ pub enum HiddenFilter {
     Visible,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FlagFilter {
+    All,
+    Flagged,
+    NotFlagged,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Comment {
     pub id: i32,
@@ -74,6 +82,7 @@ pub struct CommentListQuery {
     pub page: u64,
     pub limit: Option<u64>,
     pub hidden_filter: Option<HiddenFilter>,
+    pub flag_filter: Option<FlagFilter>,
     pub search: Option<String>,
     pub sorts: Option<Vec<SortParam>>,
 }

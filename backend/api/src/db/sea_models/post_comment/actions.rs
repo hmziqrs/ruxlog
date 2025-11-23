@@ -283,6 +283,16 @@ impl Entity {
 
         if let Some(min_flags) = query.min_flags {
             comment_query = comment_query.filter(Column::FlagsCount.gte(min_flags));
+        } else if let Some(flag_filter) = query.flag_filter {
+            match flag_filter {
+                FlagFilter::All => {}
+                FlagFilter::Flagged => {
+                    comment_query = comment_query.filter(Column::FlagsCount.gt(0));
+                }
+                FlagFilter::NotFlagged => {
+                    comment_query = comment_query.filter(Column::FlagsCount.eq(0));
+                }
+            }
         }
 
         // Date range filters

@@ -16,6 +16,21 @@ impl HiddenFilter {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FlagFilter {
+    All,
+    Flagged,
+    NotFlagged,
+}
+
+impl FlagFilter {
+    /// Resolve an optional flag filter to a concrete value, defaulting to All.
+    pub fn resolve(input: Option<Self>) -> Self {
+        input.unwrap_or(FlagFilter::All)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CommentUserMedia {
     pub id: i32,
@@ -48,6 +63,7 @@ pub struct CommentQuery {
     pub user_id: Option<i32>,
     pub search_term: Option<String>,
     pub hidden_filter: Option<HiddenFilter>,
+    pub flag_filter: Option<FlagFilter>,
     pub min_flags: Option<i32>,
     pub sorts: Option<Vec<crate::utils::SortParam>>,
     // Date range filters
@@ -65,6 +81,7 @@ impl Default for CommentQuery {
             user_id: None,
             search_term: None,
             hidden_filter: None,
+            flag_filter: None,
             min_flags: None,
             sorts: None,
             created_at_gt: None,

@@ -1,4 +1,4 @@
-use ruxlog_shared::store::CommentListQuery;
+use ruxlog_shared::store::{CommentListQuery, FlagFilter};
 use dioxus::prelude::*;
 use oxstore::ListQuery;
 
@@ -7,6 +7,7 @@ pub struct CommentListContext {
     pub selected_ids: Signal<Vec<i32>>,
     pub selected_user_id: Signal<Option<i32>>,
     pub selected_post_id: Signal<Option<i32>>,
+    pub selected_flag_filter: Signal<FlagFilter>,
 }
 
 impl CommentListContext {
@@ -15,6 +16,7 @@ impl CommentListContext {
             selected_ids: use_signal(|| Vec::new()),
             selected_user_id: use_signal(|| None),
             selected_post_id: use_signal(|| None),
+            selected_flag_filter: use_signal(|| FlagFilter::All),
         }
     }
 
@@ -24,6 +26,7 @@ impl CommentListContext {
 
         q.user_id = self.selected_user_id.peek().clone();
         q.post_id = self.selected_post_id.peek().clone();
+        q.flag_filter = Some(self.selected_flag_filter.peek().clone());
 
         filters.set(q);
     }
@@ -33,11 +36,13 @@ impl CommentListContext {
         q.set_page(1);
         q.user_id = None;
         q.post_id = None;
+        q.flag_filter = Some(FlagFilter::All);
         q.hidden_filter = None;
         q.set_search(None);
         filters.set(q);
         self.selected_user_id.set(None);
         self.selected_post_id.set(None);
+        self.selected_flag_filter.set(FlagFilter::All);
     }
 
     pub fn clear_user_filter(&mut self, filters: &mut Signal<CommentListQuery>) {
@@ -60,6 +65,11 @@ impl CommentListContext {
         self.apply_filters(filters);
     }
 
+    pub fn set_flag_filter(&mut self, filters: &mut Signal<CommentListQuery>, flag_filter: FlagFilter) {
+        self.selected_flag_filter.set(flag_filter);
+        self.apply_filters(filters);
+    }
+
     pub fn active_filter_count(&self, filters: &Signal<CommentListQuery>) -> usize {
         let q = filters.read();
         let mut count = 0;
@@ -67,6 +77,9 @@ impl CommentListContext {
             count += 1;
         }
         if q.post_id.is_some() {
+            count += 1;
+        }
+        if q.flag_filter.is_some() && q.flag_filter != Some(FlagFilter::All) {
             count += 1;
         }
         if q.hidden_filter.is_some() {

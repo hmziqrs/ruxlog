@@ -2,7 +2,9 @@ use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::db::sea_models::post_comment::{CommentQuery, HiddenFilter, NewComment, UpdateComment};
+use crate::db::sea_models::post_comment::{
+    CommentQuery, FlagFilter, HiddenFilter, NewComment, UpdateComment,
+};
 use crate::utils::SortParam;
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
@@ -45,6 +47,7 @@ pub struct V1AdminPostCommentListQuery {
     pub post_id: Option<i32>,
     pub search: Option<String>,
     pub hidden_filter: Option<HiddenFilter>,
+    pub flag_filter: Option<FlagFilter>,
     pub min_flags: Option<i32>,
     pub sorts: Option<Vec<SortParam>>,
     // Date range filters
@@ -57,6 +60,7 @@ pub struct V1AdminPostCommentListQuery {
 impl V1AdminPostCommentListQuery {
     pub fn into_post_comment_query(self) -> CommentQuery {
         let hidden_filter = HiddenFilter::resolve(self.hidden_filter);
+        let flag_filter = FlagFilter::resolve(self.flag_filter);
 
         CommentQuery {
             page_no: self.page,
@@ -64,6 +68,7 @@ impl V1AdminPostCommentListQuery {
             post_id: self.post_id,
             search_term: self.search,
             hidden_filter: Some(hidden_filter),
+            flag_filter: Some(flag_filter),
             min_flags: self.min_flags,
             sorts: self.sorts,
             created_at_gt: self.created_at_gt,

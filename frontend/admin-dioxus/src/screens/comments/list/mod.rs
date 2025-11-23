@@ -11,7 +11,7 @@ use crate::components::table::list_toolbar::ListToolbarProps;
 use crate::containers::page_header::PageHeaderProps;
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
 use ruxlog_shared::store::{
-    use_comments, use_post, use_user, Comment, CommentListQuery, HiddenFilter,
+    use_comments, use_post, use_user, Comment, CommentListQuery, FlagFilter, HiddenFilter,
 };
 use oxui::shadcn::combobox::{Combobox, ComboboxItem};
 use oxstore::{ListQuery, ListStore, Order};
@@ -113,7 +113,7 @@ pub fn CommentsListScreen() -> Element {
     let below_toolbar_content = rsx! {
         div { class: "space-y-3",
             // Filter row
-            div { class: "grid grid-cols-1 md:grid-cols-2 gap-3",
+            div { class: "grid grid-cols-1 md:grid-cols-3 gap-3",
                 div { class: "flex flex-col gap-1.5 md:max-w-xs",
                     label { class: "text-sm font-medium text-zinc-700 dark:text-zinc-300", "Filter by User" }
                     Combobox {
@@ -144,6 +144,35 @@ pub fn CommentsListScreen() -> Element {
                             move |val: Option<String>| {
                                 let post_id = val.and_then(|v| v.parse::<i32>().ok());
                                 ctx.set_post_filter(&mut filters, post_id);
+                            }
+                        })),
+                    }
+                }
+                div { class: "flex flex-col gap-1.5 md:max-w-xs",
+                    label { class: "text-sm font-medium text-zinc-700 dark:text-zinc-300", "Filter by Flags" }
+                    Combobox {
+                        items: vec![
+                            ComboboxItem { value: "all".to_string(), label: "All".to_string() },
+                            ComboboxItem { value: "flagged".to_string(), label: "Flagged".to_string() },
+                            ComboboxItem { value: "not_flagged".to_string(), label: "Not flagged".to_string() },
+                        ],
+                        placeholder: "Select flag status...".to_string(),
+                        value: Some(match *ctx.selected_flag_filter.read() {
+                            FlagFilter::All => "all".to_string(),
+                            FlagFilter::Flagged => "flagged".to_string(),
+                            FlagFilter::NotFlagged => "not_flagged".to_string(),
+                        }),
+                        width: "w-full md:w-64".to_string(),
+                        onvaluechange: Some(EventHandler::new({
+                            let mut ctx = ctx.clone();
+                            let mut filters = filters;
+                            move |val: Option<String>| {
+                                let filter = match val.as_deref() {
+                                    Some("flagged") => FlagFilter::Flagged,
+                                    Some("not_flagged") => FlagFilter::NotFlagged,
+                                    _ => FlagFilter::All,
+                                };
+                                ctx.set_flag_filter(&mut filters, filter);
                             }
                         })),
                     }
