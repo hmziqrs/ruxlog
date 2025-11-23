@@ -1,35 +1,42 @@
 use super::{
-    ConfirmPayload, NewsletterState, SendNewsletterPayload, SendResult, SubscribePayload,
+    ConfirmPayload, NewsletterState, SendNewsletterPayload, SubscribePayload,
     SubscriberListQuery, UnsubscribePayload,
 };
 use oxcore::http;
-use oxstore::{list_state_abstraction, state_request_abstraction};
+use oxstore::{edit_state_abstraction, list_state_abstraction, state_request_abstraction};
+use std::collections::HashMap;
 
 impl NewsletterState {
     pub async fn subscribe(&self, payload: SubscribePayload) {
-        let meta = payload.clone();
-        let created = state_request_abstraction(
+        let email = payload.email.clone();
+        let _subscriber = edit_state_abstraction(
             &self.subscribe,
-            Some(meta),
+            email.clone(),
+            payload.clone(),
             http::post("/newsletter/v1/subscribe", &payload).send(),
             "subscriber",
-            |subscriber: &super::NewsletterSubscriber| (Some(subscriber.clone()), None),
+            Some(&self.subscribers),
+            None::<&HashMap<String, oxstore::StateFrame<super::NewsletterSubscriber>>>,
+            |subscriber: &super::NewsletterSubscriber| subscriber.email.clone(),
+            None::<fn(&super::NewsletterSubscriber)>,
         )
         .await;
 
-        if created.is_some() {
-            self.list_subscribers(SubscriberListQuery::new()).await;
-        }
+        self.list_subscribers(SubscriberListQuery::new()).await;
     }
 
     pub async fn unsubscribe(&self, payload: UnsubscribePayload) {
-        let meta = payload.clone();
-        let _ = state_request_abstraction(
+        let email = payload.email.clone().unwrap_or_default();
+        let _ = edit_state_abstraction(
             &self.unsubscribe,
-            Some(meta),
+            email.clone(),
+            payload.clone(),
             http::post("/newsletter/v1/unsubscribe", &payload).send(),
             "unsubscribe",
-            |_res: &serde_json::Value| (Some(Some(())), None),
+            Some(&self.subscribers),
+            None::<&HashMap<String, oxstore::StateFrame<()>>>,
+            |_res: &serde_json::Value| String::new(),
+            None::<fn(&serde_json::Value)>,
         )
         .await;
 
@@ -37,15 +44,21 @@ impl NewsletterState {
     }
 
     pub async fn confirm(&self, payload: ConfirmPayload) {
-        let meta = payload.clone();
-        let _ = state_request_abstraction(
+        let token = payload.token.clone();
+        let _ = edit_state_abstraction(
             &self.confirm,
-            Some(meta),
+            token.clone(),
+            payload.clone(),
             http::post("/newsletter/v1/confirm", &payload).send(),
             "confirm",
-            |_res: &serde_json::Value| (Some(Some(())), None),
+            Some(&self.subscribers),
+            None::<&HashMap<String, oxstore::StateFrame<()>>>,
+            |_res: &serde_json::Value| String::new(),
+            None::<fn(&serde_json::Value)>,
         )
         .await;
+
+        self.list_subscribers(SubscriberListQuery::new()).await;
     }
 
     pub async fn list_subscribers(&self, query: SubscriberListQuery) {
@@ -58,13 +71,17 @@ impl NewsletterState {
     }
 
     pub async fn send(&self, payload: SendNewsletterPayload) {
-        let meta = payload.clone();
-        let _ = state_request_abstraction(
-            &self.send_status,
-            Some(meta),
+        let subject = payload.subject.clone();
+        let _ = edit_state_abstraction(
+            &self.send,
+            subject.clone(),
+            payload.clone(),
             http::post("/newsletter/v1/send", &payload).send(),
             "send_newsletter",
-            |res: &SendResult| (Some(Some(res.clone())), None),
+            None::<&oxstore::StateFrame<oxstore::PaginatedList<super::NewsletterSubscriber>>>,
+            None::<&HashMap<String, oxstore::StateFrame<()>>>,
+            |_res: &serde_json::Value| String::new(),
+            None::<fn(&serde_json::Value)>,
         )
         .await;
     }
