@@ -1,5 +1,6 @@
-use crate::error::DbResult;
+use crate::error::{DbResult, ErrorCode, ErrorResponse};
 use sea_orm::{entity::prelude::*, Condition, Order, QueryOrder, QuerySelect, Set};
+use tracing::{error, info, instrument, warn};
 
 use super::{
     ActiveModel, Column, Entity, Model, NewSubscriber, SubscriberListItem, SubscriberQuery,
@@ -7,8 +8,9 @@ use super::{
 };
 
 impl Entity {
-    pub const PER_PAGE: u64 = 10;
+    pub const PER_PAGE: u64 = 20;
 
+    #[instrument(skip(conn, new_subscriber), fields(subscriber_id, email = %new_subscriber.email))]
     pub async fn create(conn: &DbConn, new_subscriber: NewSubscriber) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
 
@@ -24,8 +26,15 @@ impl Entity {
                 am.status = Set(new_subscriber.status);
                 am.updated_at = Set(now);
                 match am.update(conn).await {
-                    Ok(updated) => Ok(updated),
-                    Err(err) => Err(err.into()),
+                    Ok(updated) => {
+                        tracing::Span::current().record("subscriber_id", updated.id);
+                        info!(subscriber_id = updated.id, "Newsletter subscriber updated");
+                        Ok(updated)
+                    }
+                    Err(err) => {
+                        error!("Failed to update newsletter subscriber: {}", err);
+                        Err(err.into())
+                    }
                 }
             }
             Ok(None) => {
@@ -38,11 +47,21 @@ impl Entity {
                     ..Default::default()
                 };
                 match model.insert(conn).await {
-                    Ok(inserted) => Ok(inserted),
-                    Err(err) => Err(err.into()),
+                    Ok(inserted) => {
+                        tracing::Span::current().record("subscriber_id", inserted.id);
+                        info!(subscriber_id = inserted.id, "Newsletter subscriber created");
+                        Ok(inserted)
+                    }
+                    Err(err) => {
+                        error!("Failed to create newsletter subscriber: {}", err);
+                        Err(err.into())
+                    }
                 }
             }
-            Err(err) => Err(err.into()),
+            Err(err) => {
+                error!("Failed to find newsletter subscriber: {}", err);
+                Err(err.into())
+            }
         }
     }
 
@@ -120,6 +139,19 @@ impl Entity {
             q = q.filter(Column::Status.eq(status));
         }
 
+        if let Some(ts) = query.created_at_gt {
+            q = q.filter(Column::CreatedAt.gt(ts));
+        }
+        if let Some(ts) = query.created_at_lt {
+            q = q.filter(Column::CreatedAt.lt(ts));
+        }
+        if let Some(ts) = query.updated_at_gt {
+            q = q.filter(Column::UpdatedAt.gt(ts));
+        }
+        if let Some(ts) = query.updated_at_lt {
+            q = q.filter(Column::UpdatedAt.lt(ts));
+        }
+
         if let Some(sorts) = query.sorts {
             for sort in sorts {
                 let column = match sort.field.as_str() {
@@ -137,7 +169,7 @@ impl Entity {
             q = q.order_by(Column::CreatedAt, Order::Desc);
         }
 
-        let page = match query.page_no {
+        let page = match query.page {
             Some(p) if p > 0 => p,
             _ => 1,
         };
@@ -151,6 +183,50 @@ impl Entity {
         Ok((items, total))
     }
 
+    pub async fn find_by_id_with_404(conn: &DbConn, subscriber_id: i32) -> DbResult<Model> {
+        match Self::find_by_id(subscriber_id).one(conn).await {
+            Ok(Some(model)) => Ok(model),
+            Ok(None) => Err(ErrorResponse::new(ErrorCode::SubscriberNotFound)
+                .with_message(&format!("Subscriber with ID {} not found", subscriber_id))),
+            Err(err) => Err(err.into()),
+        }
+    }
+
+    #[instrument(skip(conn, update), fields(subscriber_id))]
+    pub async fn update(
+        conn: &DbConn,
+        subscriber_id: i32,
+        update: UpdateSubscriber,
+    ) -> DbResult<Option<Model>> {
+        let sub: Option<Model> = Self::find_by_id(subscriber_id).one(conn).await?;
+
+        if let Some(model) = sub {
+            let mut am: ActiveModel = model.into();
+
+            if let Some(status) = update.status {
+                am.status = Set(status);
+            }
+            if let Some(token) = update.token {
+                am.token = Set(token);
+            }
+            am.updated_at = Set(update.updated_at);
+
+            match am.update(conn).await {
+                Ok(updated) => {
+                    info!(subscriber_id, "Newsletter subscriber updated");
+                    Ok(Some(updated))
+                }
+                Err(err) => {
+                    error!(subscriber_id, "Failed to update subscriber: {}", err);
+                    Err(err.into())
+                }
+            }
+        } else {
+            warn!(subscriber_id, "Subscriber not found for update");
+            Ok(None)
+        }
+    }
+
     pub async fn update_by_email(
         conn: &DbConn,
         email: &str,
@@ -162,7 +238,6 @@ impl Entity {
             .await?;
 
         if let Some(model) = sub {
-            let now = chrono::Utc::now().fixed_offset();
             let mut am: ActiveModel = model.into();
 
             if let Some(status) = update.status {
@@ -171,7 +246,7 @@ impl Entity {
             if let Some(token) = update.token {
                 am.token = Set(token);
             }
-            am.updated_at = Set(now);
+            am.updated_at = Set(update.updated_at);
 
             let updated = am.update(conn).await?;
             Ok(Some(updated))

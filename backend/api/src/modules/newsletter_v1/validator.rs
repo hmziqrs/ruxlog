@@ -1,5 +1,8 @@
+use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
+
+use crate::{db::sea_models::newsletter_subscriber::SubscriberQuery, utils::SortParam};
 
 /// Subscribe to newsletter (double opt-in)
 #[derive(Debug, Deserialize, Serialize, Validate)]
@@ -35,10 +38,28 @@ pub struct V1ListSubscribersQuery {
     pub page: Option<u64>,
     #[validate(length(min = 1, max = 100))]
     pub search: Option<String>,
+    pub sorts: Option<Vec<SortParam>>,
+    pub created_at_gt: Option<DateTimeWithTimeZone>,
+    pub created_at_lt: Option<DateTimeWithTimeZone>,
+    pub updated_at_gt: Option<DateTimeWithTimeZone>,
+    pub updated_at_lt: Option<DateTimeWithTimeZone>,
 }
 
 impl V1ListSubscribersQuery {
     pub fn page_or_default(&self) -> u64 {
         self.page.unwrap_or(1)
+    }
+
+    pub fn into_query(self) -> SubscriberQuery {
+        SubscriberQuery {
+            page: self.page,
+            search: self.search,
+            status: None,
+            sorts: self.sorts,
+            created_at_gt: self.created_at_gt,
+            created_at_lt: self.created_at_lt,
+            updated_at_gt: self.updated_at_gt,
+            updated_at_lt: self.updated_at_lt,
+        }
     }
 }

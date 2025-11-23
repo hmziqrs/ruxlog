@@ -134,6 +134,9 @@ pub enum ErrorCode {
     TagNotFound,
     #[serde(rename = "TAG_002")]
     TagAlreadyExists,
+
+    #[serde(rename = "NWS_001")]
+    SubscriberNotFound,
 }
 
 impl ErrorCode {
@@ -203,6 +206,8 @@ impl ErrorCode {
 
             Self::TagNotFound => "Tag not found",
             Self::TagAlreadyExists => "Tag already exists",
+
+            Self::SubscriberNotFound => "Newsletter subscriber not found",
         }
     }
 
@@ -274,6 +279,8 @@ impl ErrorCode {
 
             Self::TagNotFound => StatusCode::NOT_FOUND,
             Self::TagAlreadyExists => StatusCode::CONFLICT,
+
+            Self::SubscriberNotFound => StatusCode::NOT_FOUND,
         }
     }
 }

@@ -8,8 +8,7 @@ use uuid::Uuid;
 
 use crate::{
     db::sea_models::newsletter_subscriber::{
-        Column as SubscriberColumn, Entity as SubscriberEntity, NewSubscriber, SubscriberQuery,
-        SubscriberStatus,
+        Column as SubscriberColumn, Entity as SubscriberEntity, NewSubscriber, SubscriberStatus,
     },
     error::{ErrorCode, ErrorResponse},
     extractors::ValidatedJson,
@@ -150,7 +149,7 @@ pub async fn unsubscribe(
         }
         Ok(None) => {
             warn!(email = %email, "Invalid unsubscribe token");
-            Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
+            Err(ErrorResponse::new(ErrorCode::SubscriberNotFound)
                 .with_message("Invalid token or subscriber not found"))
         }
         Err(err) => {
@@ -231,12 +230,7 @@ pub async fn list_subscribers(
     _auth: AuthSession,
     payload: ValidatedJson<V1ListSubscribersQuery>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let query = SubscriberQuery {
-        page_no: payload.page,
-        search: payload.search.clone(),
-        status: None,
-        sorts: None,
-    };
+    let query = payload.0.clone().into_query();
 
     match SubscriberEntity::find_with_query(&state.sea_db, query).await {
         Ok((items, total)) => {
@@ -248,6 +242,7 @@ pub async fn list_subscribers(
             Ok(Json(json!({
                 "data": items,
                 "total": total,
+                "per_page": SubscriberEntity::PER_PAGE,
                 "page": payload.page_or_default()
             })))
         }
@@ -274,7 +269,7 @@ pub async fn confirm(
         }
         Ok(None) => {
             warn!(email = %email, "Invalid confirmation token");
-            Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
+            Err(ErrorResponse::new(ErrorCode::SubscriberNotFound)
                 .with_message("Invalid token or subscriber not found"))
         }
         Err(err) => {

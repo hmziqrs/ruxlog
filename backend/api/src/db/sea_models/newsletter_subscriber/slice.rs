@@ -3,6 +3,7 @@ use sea_orm::FromQueryResult;
 use serde::{Deserialize, Serialize};
 
 use super::SubscriberStatus;
+use crate::utils::SortParam;
 
 /// New subscriber DTO for insertion
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -17,15 +18,20 @@ pub struct NewSubscriber {
 pub struct UpdateSubscriber {
     pub status: Option<SubscriberStatus>,
     pub token: Option<String>,
+    pub updated_at: DateTimeWithTimeZone,
 }
 
 /// Query parameters for searching/paginating subscribers
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SubscriberQuery {
-    pub page_no: Option<u64>,
+    pub page: Option<u64>,
     pub search: Option<String>,
     pub status: Option<SubscriberStatus>,
-    pub sorts: Option<Vec<crate::utils::SortParam>>,
+    pub sorts: Option<Vec<SortParam>>,
+    pub created_at_gt: Option<DateTimeWithTimeZone>,
+    pub created_at_lt: Option<DateTimeWithTimeZone>,
+    pub updated_at_gt: Option<DateTimeWithTimeZone>,
+    pub updated_at_lt: Option<DateTimeWithTimeZone>,
 }
 
 /// Lightweight subscriber list item for admin listings
