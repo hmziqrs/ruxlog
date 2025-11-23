@@ -1,7 +1,4 @@
-use axum::{
-    http::{HeaderName, HeaderValue},
-    middleware, routing,
-};
+use axum::{http::HeaderName, middleware, routing};
 use axum_client_ip::ClientIpSource;
 use axum_extra::extract::cookie::SameSite;
 use axum_login::AuthManagerLayerBuilder;
@@ -14,6 +11,7 @@ use tower_sessions::{cookie::Key, Expiry, SessionManagerLayer};
 use tower_sessions_redis_store::RedisStore;
 
 use modules::csrf_v1;
+use ruxlog::utils::cors::get_allowed_origins;
 use ruxlog::{
     db, middlewares, modules, router,
     services::{self, auth::AuthBackend, redis::init_redis_store},
@@ -30,61 +28,6 @@ fn hex_to_512bit_key(hex: &str) -> [u8; 64] {
     let mut array = [0u8; 64];
     array.copy_from_slice(&result);
     array
-}
-
-fn get_allowed_origins() -> Vec<HeaderValue> {
-    let mut default_origins: Vec<String> = vec![
-        "http://localhost:8081",
-        "http://localhost:8080",
-        "http://127.0.0.1:8080",
-        "http://127.0.0.1:8000",
-        "http://127.0.0.1:8888",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-        "http://127.0.0.1:3002",
-        "http://127.0.0.1:3333",
-        "https://127.0.0.1:3333",
-        "http://192.168.0.101:3333",
-        "http://192.168.0.101:3000",
-        "http://192.168.0.101:8000",
-        "http://192.168.0.101:8080",
-        "http://192.168.0.101:8888",
-        "http://192.168.0.23:3333",
-        "http://192.168.0.23:3000",
-        "http://192.168.0.23:8080",
-        "http://192.168.0.23:8888",
-        "https://hzmiqrs.com",
-        "https://hmziq.rs",
-        "https://blog.hmziq.rs",
-    ]
-    .into_iter()
-    .map(|val| val.to_string())
-    .collect();
-
-    if let Ok(admin_port) = env::var("ADMIN_PORT") {
-        default_origins.push(format!("http://localhost:{}", admin_port));
-        default_origins.push(format!("http://127.0.0.1:{}", admin_port));
-    }
-
-    if let Ok(consumer_port) = env::var("CONSUMER_PORT") {
-        default_origins.push(format!("http://localhost:{}", consumer_port));
-        default_origins.push(format!("http://127.0.0.1:{}", consumer_port));
-    }
-
-    if let Ok(env_allowed_origin) = env::var("ALLOWED_ORIGINS") {
-        let env_origins: Vec<String> = env_allowed_origin
-            .split(',')
-            .map(|s| s.trim().to_string())
-            .collect();
-
-        default_origins.extend(env_origins);
-    }
-
-    default_origins
-        .iter()
-        .map(|origin| origin.parse::<HeaderValue>().unwrap())
-        .collect()
 }
 
 fn env_bool(key: &str, default: bool) -> bool {
@@ -291,6 +234,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(middleware::from_fn(
             middlewares::request_id::request_id_middleware,
         ))
+        .layer(middleware::from_fn(middlewares::cors::origin_guard))
         .layer(middleware::from_fn(middlewares::static_csrf::csrf_guard))
         .route(
             "/csrf/v1/generate",

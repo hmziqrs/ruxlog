@@ -416,9 +416,8 @@ impl App {
             }
             KeyCode::Char('2') => {
                 // Static seed - for now use a default value, could add input dialog later
-                self.selected_seed_mode = Some(crate::services::seed_config::SeedMode::Static {
-                    value: 12345,
-                });
+                self.selected_seed_mode =
+                    Some(crate::services::seed_config::SeedMode::Static { value: 12345 });
                 self.push_log("Selected: STATIC seed mode (seed: 12345)".to_string());
                 self.start_seed_all(tx);
             }

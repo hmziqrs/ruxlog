@@ -13,6 +13,6 @@ pub mod validation;
 
 pub use codes::ErrorCode;
 pub use database::{DbResult, DbResultExt};
-pub use middleware::{CsrfError, PermissionError, RouteBlockerError, UserStatusError};
+pub use middleware::{CorsError, CsrfError, PermissionError, RouteBlockerError, UserStatusError};
 pub use response::ErrorResponse;
 pub use response::IntoErrorResponse;

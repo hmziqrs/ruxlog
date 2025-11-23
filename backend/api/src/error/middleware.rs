@@ -54,6 +54,40 @@ impl IntoResponse for CsrfError {
     }
 }
 
+/// Errors originating from the CORS configuration / checks.
+#[derive(Debug, thiserror::Error)]
+pub enum CorsError {
+    #[error("Origin not allowed: {origin}")]
+    OriginNotAllowed { origin: String },
+    #[error("Invalid Origin header")]
+    InvalidOriginHeader,
+}
+
+impl IntoErrorResponse for CorsError {
+    fn into_error_response(self) -> ErrorResponse {
+        match self {
+            Self::OriginNotAllowed { origin } => ErrorResponse::new(ErrorCode::OperationNotAllowed)
+                .with_message("CORS origin not allowed")
+                .with_context(json!({ "origin": origin })),
+            Self::InvalidOriginHeader => ErrorResponse::new(ErrorCode::InvalidFormat)
+                .with_message("Invalid Origin header")
+                .with_context(json!({ "header": "Origin" })),
+        }
+    }
+}
+
+impl From<CorsError> for ErrorResponse {
+    fn from(err: CorsError) -> Self {
+        err.into_error_response()
+    }
+}
+
+impl IntoResponse for CorsError {
+    fn into_response(self) -> axum::response::Response {
+        ErrorResponse::from(self).into_response()
+    }
+}
+
 /// Errors emitted by the role-based permission middleware.
 #[derive(Debug, thiserror::Error)]
 pub enum PermissionError {
