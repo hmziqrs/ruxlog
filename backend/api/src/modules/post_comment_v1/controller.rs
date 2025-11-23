@@ -382,3 +382,27 @@ pub async fn admin_flags_summary(
         }
     }
 }
+
+#[debug_handler]
+#[instrument(skip(state, _auth), fields(comment_id))]
+pub async fn admin_flags_details(
+    State(state): State<AppState>,
+    _auth: AuthSession,
+    Path(comment_id): Path<i32>,
+) -> Result<impl IntoResponse, ErrorResponse> {
+    let q = comment_flag::slice::CommentFlagQuery {
+        comment_id: Some(comment_id),
+        ..Default::default()
+    };
+
+    match comment_flag::Entity::list(&state.sea_db, q).await {
+        Ok((items, _total)) => {
+            info!(comment_id, count = items.len(), "Admin viewed comment flags details");
+            Ok(Json(json!(items)))
+        }
+        Err(err) => {
+            error!(comment_id, "Failed to get flags details: {}", err);
+            Err(err.into())
+        }
+    }
+}

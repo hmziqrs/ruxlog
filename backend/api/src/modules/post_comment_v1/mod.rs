@@ -38,6 +38,10 @@ pub fn routes() -> Router<AppState> {
             "/flags/summary/{comment_id}",
             post(controller::admin_flags_summary),
         )
+        .route(
+            "/flags/details/{comment_id}",
+            post(controller::admin_flags_details),
+        )
         .route_layer(middleware::from_fn(user_permission::admin))
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend));

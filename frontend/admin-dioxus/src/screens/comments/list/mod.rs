@@ -209,8 +209,9 @@ pub fn CommentsListScreen() -> Element {
                 disabled: list_loading,
                 on_search_input: handlers.handle_search.clone(),
                 status_selected: match filters.read().include_hidden {
-                    Some(true) | None => "All".to_string(),
+                    Some(true) => "All".to_string(),
                     Some(false) => "Visible".to_string(),
+                    None => "Visible".to_string(),
                 },
                 on_status_select: EventHandler::new({
                     let mut filters = filters;
@@ -219,8 +220,9 @@ pub fn CommentsListScreen() -> Element {
                         q.set_page(1);
                         q.include_hidden = match value.as_str() {
                             "All" => Some(true),
-                            "Visible" => Some(false),
-                            _ => Some(true),
+                            "Active" => Some(false),
+                            "Inactive" => Some(true),
+                            _ => Some(false),
                         };
                         filters.set(q);
                     }

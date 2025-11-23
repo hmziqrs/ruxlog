@@ -1,3 +1,4 @@
+pub mod cors;
 pub mod http_metrics;
 pub mod request_id;
 pub mod route_blocker;
