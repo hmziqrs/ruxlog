@@ -1,5 +1,5 @@
 use super::{
-    Comment, CommentCreatePayload, CommentFlag, CommentFlagPayload, CommentFlagSummary,
+    Comment, CommentCreatePayload, CommentFlagPayload, CommentFlagSummary,
     CommentListQuery, CommentState, CommentUpdatePayload,
 };
 use oxcore::http;

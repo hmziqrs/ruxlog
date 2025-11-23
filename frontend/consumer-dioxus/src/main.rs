@@ -19,17 +19,19 @@ fn main() {
     use base64::prelude::*;
 
     // Configure HTTP client
-    println!("APP_API_URL: {}", env::APP_API_URL);
-    println!("APP_CSRF_TOKEN: {}", env::APP_CSRF_TOKEN);
+    let app_api_url = env::app_api_url();
+    let app_csrf_token = env::app_csrf_token();
+    println!("APP_API_URL: {}", app_api_url);
+    println!("APP_CSRF_TOKEN: {}", app_csrf_token);
 
     // Ensure URL has protocol
-    let base_url = if env::APP_API_URL.starts_with("http") {
-        env::APP_API_URL.to_string()
+    let base_url = if app_api_url.starts_with("http") {
+        app_api_url
     } else {
-        format!("http://{}", env::APP_API_URL)
+        format!("http://{}", app_api_url)
     };
 
-    let csrf_token = BASE64_STANDARD.encode(env::APP_CSRF_TOKEN.as_bytes());
+    let csrf_token = BASE64_STANDARD.encode(app_csrf_token.as_bytes());
     oxcore::http::configure(base_url, csrf_token);
 
     dioxus::launch(App);

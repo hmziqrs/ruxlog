@@ -3,7 +3,7 @@ use crate::router::Route;
 use ruxlog_shared::use_auth;
 use crate::config::DarkMode;
 use crate::utils::persist;
-use hmziq_dioxus_free_icons::icons::ld_icons::{LdMenu, LdMoon, LdSun, LdUser, LdLogIn, LdGithub, LdTwitter, LdLinkedin};
+use hmziq_dioxus_free_icons::icons::ld_icons::{LdMoon, LdSun, LdLogIn, LdGithub, LdTwitter, LdLinkedin};
 use hmziq_dioxus_free_icons::Icon;
 
 pub mod auth_guard_wrapper;
