@@ -179,6 +179,7 @@ pub struct App {
     pub seed_undo: SeedUndoState,
     pub seed_menu_state: ratatui::widgets::ListState,
     pub selected_seed_mode: Option<crate::services::seed_config::SeedMode>,
+    pub custom_seed_size: crate::services::seed_config::SeedSizePreset,
     pub should_quit: bool,
     pub theme: ThemeKind,
     pub logs: Vec<String>,
@@ -199,6 +200,7 @@ impl App {
             seed_undo: SeedUndoState::default(),
             seed_menu_state: ratatui::widgets::ListState::default(),
             selected_seed_mode: None,
+            custom_seed_size: crate::services::seed_config::SeedSizePreset::Default,
             should_quit: false,
             theme,
             logs: Vec::new(),
@@ -404,9 +406,15 @@ impl App {
             }
             KeyCode::Down | KeyCode::Char('j') => {
                 let selected = self.seed_menu_state.selected().unwrap_or(0);
-                if selected < 3 {
+                if selected < 7 {
                     self.seed_menu_state.select(Some(selected + 1));
                 }
+            }
+            KeyCode::Char('[') => {
+                self.cycle_seed_size(false);
+            }
+            KeyCode::Char(']') => {
+                self.cycle_seed_size(true);
             }
             KeyCode::Char('1') => {
                 // Random seed
@@ -438,6 +446,30 @@ impl App {
                         preset.name, preset.seed, preset.description
                     ));
                 }
+            }
+            KeyCode::Char('5') => {
+                self.start_seed_custom(
+                    crate::services::seed_config::CustomSeedTarget::Posts,
+                    tx,
+                );
+            }
+            KeyCode::Char('6') => {
+                self.start_seed_custom(
+                    crate::services::seed_config::CustomSeedTarget::PostComments,
+                    tx,
+                );
+            }
+            KeyCode::Char('7') => {
+                self.start_seed_custom(
+                    crate::services::seed_config::CustomSeedTarget::CommentFlags,
+                    tx,
+                );
+            }
+            KeyCode::Char('8') => {
+                self.start_seed_custom(
+                    crate::services::seed_config::CustomSeedTarget::PostViews,
+                    tx,
+                );
             }
             KeyCode::Enter => {
                 let selected = self.seed_menu_state.selected().unwrap_or(0);
@@ -473,6 +505,22 @@ impl App {
                             ));
                         }
                     }
+                    4 => self.start_seed_custom(
+                        crate::services::seed_config::CustomSeedTarget::Posts,
+                        tx,
+                    ),
+                    5 => self.start_seed_custom(
+                        crate::services::seed_config::CustomSeedTarget::PostComments,
+                        tx,
+                    ),
+                    6 => self.start_seed_custom(
+                        crate::services::seed_config::CustomSeedTarget::CommentFlags,
+                        tx,
+                    ),
+                    7 => self.start_seed_custom(
+                        crate::services::seed_config::CustomSeedTarget::PostViews,
+                        tx,
+                    ),
                     _ => {}
                 }
             }
@@ -618,6 +666,58 @@ impl App {
                 .map_err(|e| SeedFlowError::Failed(e.to_string()));
             let _ = tx_clone.send(AppEvent::SeedCompleted(res));
         });
+    }
+
+    fn start_seed_custom(
+        &mut self,
+        target: crate::services::seed_config::CustomSeedTarget,
+        tx: &mpsc::UnboundedSender<AppEvent>,
+    ) {
+        if self.seed_summary.is_loading {
+            return;
+        }
+        self.seed_summary.is_loading = true;
+        self.seed_summary.error = None;
+        self.seed_summary.outcome = None;
+        self.route = AppRoute::SeedProgress;
+
+        let core = self.core.clone();
+        let tx_clone = tx.clone();
+        let tx_progress = tx.clone();
+        let seed_mode = self.selected_seed_mode.clone();
+        let size = self.custom_seed_size;
+
+        tokio::spawn(async move {
+            let progress_callback = Box::new(move |msg: String| {
+                let _ = tx_progress.send(AppEvent::SeedProgress(msg));
+            });
+            let res = seed::seed_custom(&core.db, target, size, seed_mode, Some(progress_callback))
+                .await
+                .map_err(|e| SeedFlowError::Failed(e.to_string()));
+            let _ = tx_clone.send(AppEvent::SeedCompleted(res));
+        });
+    }
+
+    fn cycle_seed_size(&mut self, forward: bool) {
+        use crate::services::seed_config::SeedSizePreset::*;
+        self.custom_seed_size = match (self.custom_seed_size, forward) {
+            (Low, true) => Default,
+            (Default, true) => Medium,
+            (Medium, true) => Large,
+            (Large, true) => VeryLarge,
+            (VeryLarge, true) => Massive,
+            (Massive, true) => Massive,
+            (Massive, false) => VeryLarge,
+            (VeryLarge, false) => Large,
+            (Large, false) => Medium,
+            (Medium, false) => Default,
+            (Default, false) => Low,
+            (Low, false) => Low,
+        };
+        self.push_log(format!(
+            "Seed size preset: {}",
+            self.custom_seed_size.label()
+        ));
     }
 
     fn load_tags(&mut self, tx: &mpsc::UnboundedSender<AppEvent>) {

@@ -42,27 +42,52 @@ pub fn draw_seed_menu(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalet
         );
     f.render_widget(header, chunks[0]);
 
+    let size_label = app.custom_seed_size.label();
     let menu_items = vec![
         ListItem::new(Line::from(vec![Span::styled(
-            "1) Seed with RANDOM data (unique each time)",
+            "1) Seed ALL with RANDOM data (unique each time)",
             Style::default()
                 .fg(palette.table_header_fg)
                 .add_modifier(Modifier::BOLD),
         )])),
         ListItem::new(Line::from(vec![Span::styled(
-            "2) Seed with STATIC data (enter custom seed)",
+            "2) Seed ALL with STATIC data (enter custom seed)",
             Style::default()
                 .fg(palette.table_header_fg)
                 .add_modifier(Modifier::BOLD),
         )])),
         ListItem::new(Line::from(vec![Span::styled(
-            "3) Seed with PRESET (demo/test/showcase)",
+            "3) Seed ALL with PRESET (demo/test/showcase)",
             Style::default()
                 .fg(palette.table_header_fg)
                 .add_modifier(Modifier::BOLD),
         )])),
         ListItem::new(Line::from(vec![Span::styled(
             "4) List available presets",
+            Style::default()
+                .fg(palette.table_header_fg)
+                .add_modifier(Modifier::BOLD),
+        )])),
+        ListItem::new(Line::from(vec![Span::styled(
+            format!("5) Seed MORE POSTS (preset: {})", size_label),
+            Style::default()
+                .fg(palette.table_header_fg)
+                .add_modifier(Modifier::BOLD),
+        )])),
+        ListItem::new(Line::from(vec![Span::styled(
+            format!("6) Seed MORE POST COMMENTS (preset: {})", size_label),
+            Style::default()
+                .fg(palette.table_header_fg)
+                .add_modifier(Modifier::BOLD),
+        )])),
+        ListItem::new(Line::from(vec![Span::styled(
+            format!("7) Seed MORE COMMENT FLAGS (preset: {})", size_label),
+            Style::default()
+                .fg(palette.table_header_fg)
+                .add_modifier(Modifier::BOLD),
+        )])),
+        ListItem::new(Line::from(vec![Span::styled(
+            format!("8) Seed MORE POST VIEWS (preset: {})", size_label),
             Style::default()
                 .fg(palette.table_header_fg)
                 .add_modifier(Modifier::BOLD),
@@ -92,7 +117,8 @@ pub fn draw_seed_menu(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalet
 
     f.render_stateful_widget(list, chunks[1], &mut app.seed_menu_state.clone());
 
-    let footer_text = "[1-4 or Enter] select  [Q/Esc] back  [↑↓] navigate";
+    let footer_text =
+        "[1-8 or Enter] select  [Q/Esc] back  [↑↓] navigate  [[]/]] change size preset";
     let footer = Paragraph::new(footer_text)
         .style(Style::default().fg(palette.footer_fg))
         .alignment(Alignment::Center);

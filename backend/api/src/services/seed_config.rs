@@ -34,6 +34,90 @@ pub struct SeedPreset {
     pub description: String,
 }
 
+/// Target categories for individual seeders
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CustomSeedTarget {
+    Posts,
+    PostComments,
+    CommentFlags,
+    PostViews,
+}
+
+impl CustomSeedTarget {
+    pub fn label(&self) -> &'static str {
+        match self {
+            CustomSeedTarget::Posts => "Posts",
+            CustomSeedTarget::PostComments => "Post comments",
+            CustomSeedTarget::CommentFlags => "Comment flags",
+            CustomSeedTarget::PostViews => "Post views",
+        }
+    }
+}
+
+/// Size presets for individual seeders
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SeedSizePreset {
+    Low,
+    Default,
+    Medium,
+    Large,
+    VeryLarge,
+    Massive,
+}
+
+impl SeedSizePreset {
+    pub fn label(&self) -> &'static str {
+        match self {
+            SeedSizePreset::Low => "Low",
+            SeedSizePreset::Default => "Default",
+            SeedSizePreset::Medium => "Medium",
+            SeedSizePreset::Large => "Large",
+            SeedSizePreset::VeryLarge => "Very large",
+            SeedSizePreset::Massive => "Massive",
+        }
+    }
+
+    /// Get a count for a given target based on the preset.
+    pub fn count_for_target(&self, target: CustomSeedTarget) -> u32 {
+        match target {
+            CustomSeedTarget::Posts => match self {
+                SeedSizePreset::Low => 10,
+                SeedSizePreset::Default => 25,
+                SeedSizePreset::Medium => 50,
+                SeedSizePreset::Large => 100,
+                SeedSizePreset::VeryLarge => 250,
+                SeedSizePreset::Massive => 500,
+            },
+            CustomSeedTarget::PostComments => match self {
+                SeedSizePreset::Low => 25,
+                SeedSizePreset::Default => 60,
+                SeedSizePreset::Medium => 120,
+                SeedSizePreset::Large => 240,
+                SeedSizePreset::VeryLarge => 500,
+                SeedSizePreset::Massive => 1000,
+            },
+            CustomSeedTarget::CommentFlags => match self {
+                SeedSizePreset::Low => 10,
+                SeedSizePreset::Default => 25,
+                SeedSizePreset::Medium => 60,
+                SeedSizePreset::Large => 120,
+                SeedSizePreset::VeryLarge => 240,
+                SeedSizePreset::Massive => 480,
+            },
+            CustomSeedTarget::PostViews => match self {
+                SeedSizePreset::Low => 200,
+                SeedSizePreset::Default => 500,
+                SeedSizePreset::Medium => 1200,
+                SeedSizePreset::Large => 2500,
+                SeedSizePreset::VeryLarge => 5000,
+                SeedSizePreset::Massive => 10000,
+            },
+        }
+    }
+}
+
 /// Get all available seed presets
 pub fn list_presets() -> Vec<SeedPreset> {
     vec![
