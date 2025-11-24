@@ -14,8 +14,9 @@ pub fn NewsletterSendScreen() -> Element {
 
     let send = move |event: FormEvent| {
         event.prevent_default();
+        let subj = subject();
         let payload = SendNewsletterPayload {
-            subject: subject(),
+            subject: subj.clone(),
             content: content(),
             html_content: if html_content().is_empty() {
                 None
@@ -29,8 +30,8 @@ pub fn NewsletterSendScreen() -> Element {
         });
     };
 
-    let send_state = newsletter.send_status.read();
-    let last_result = send_state.data.clone().unwrap_or(None);
+    let send_map = newsletter.send.read();
+    let last_send_frame = send_map.get(&subject()).cloned();
 
     rsx! {
         div { class: "min-h-screen bg-transparent",
@@ -75,12 +76,14 @@ pub fn NewsletterSendScreen() -> Element {
                     }
                 }
 
-                if let Some(result) = last_result {
+                if let Some(frame) = last_send_frame {
                     div { class: "rounded-md border border-border px-3 py-2 text-sm mt-4 max-w-3xl",
-                        if result.success {
-                            span { class: "text-green-600", "{result.message.clone().unwrap_or_else(|| \"Newsletter sent successfully\".to_string())}" }
-                        } else {
-                            span { class: "text-red-600", "{result.message.clone().unwrap_or_else(|| \"Send failed\".to_string())}" }
+                        if frame.is_success() {
+                            span { class: "text-green-600", "Newsletter sent successfully" }
+                        } else if frame.is_failed() {
+                            span { class: "text-red-600", "Failed to send newsletter" }
+                        } else if frame.is_loading() {
+                            span { class: "text-blue-600", "Sending newsletter..." }
                         }
                     }
                 }

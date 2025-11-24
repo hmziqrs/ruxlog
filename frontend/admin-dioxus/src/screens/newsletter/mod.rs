@@ -1,5 +1,5 @@
+mod list;
 mod send;
-mod subscribers;
 
+pub use list::NewsletterSubscribersScreen;
 pub use send::NewsletterSendScreen;
-pub use subscribers::NewsletterSubscribersScreen;
