@@ -1,4 +1,6 @@
 #[cfg(feature = "admin-routes-store")]
+pub mod acl;
+#[cfg(feature = "admin-routes-store")]
 pub mod admin_routes;
 #[cfg(feature = "analytics-store")]
 pub mod analytics;
@@ -17,6 +19,8 @@ pub mod tags;
 #[cfg(feature = "users-store")]
 pub mod users;
 
+#[cfg(feature = "admin-routes-store")]
+pub use acl::*;
 #[cfg(feature = "admin-routes-store")]
 pub use admin_routes::*;
 #[cfg(feature = "analytics-store")]
