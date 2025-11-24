@@ -4,19 +4,16 @@ use crate::components::table::list_empty_state::ListEmptyState;
 use crate::components::table::skeleton_table_rows::{
     SkeletonCellConfig, SkeletonTableRows, UICellType,
 };
-use ruxlog_shared::store::{use_newsletter, NewsletterSubscriber};
+use crate::utils::dates::format_short_date_dt;
 use oxui::shadcn::badge::{Badge, BadgeVariant};
 use oxui::shadcn::button::{Button, ButtonVariant};
 use oxui::shadcn::checkbox::Checkbox;
 use oxui::shadcn::dropdown_menu::{
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 };
-use crate::utils::dates::format_short_date_dt;
+use ruxlog_shared::store::{use_newsletter, NewsletterSubscriber};
 
-use hmziq_dioxus_free_icons::{
-    icons::ld_icons::LdEllipsis,
-    Icon,
-};
+use hmziq_dioxus_free_icons::{icons::ld_icons::LdEllipsis, Icon};
 
 use super::super::context::use_newsletter_list_context;
 use super::super::utils::{format_subscriber_status, status_badge_class};

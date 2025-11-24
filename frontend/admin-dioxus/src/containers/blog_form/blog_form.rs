@@ -9,11 +9,6 @@ use crate::components::media::{upload_item::MediaUploadItem, upload_zone::MediaU
 use crate::components::post_success_dialog::PostSuccessDialog;
 use crate::hooks::use_previous;
 use crate::router::Route;
-use ruxlog_shared::store::{
-    media::MediaReference, media::MediaUploadPayload, posts::PostContent, posts::PostCreatePayload,
-    posts::PostEditPayload, posts::PostStatus, use_categories, use_image_editor, use_media,
-    use_post, use_tag,
-};
 use oxui::components::confirm_dialog::ConfirmDialog;
 use oxui::components::form::input::AppInput;
 use oxui::shadcn::badge::{Badge, BadgeVariant};
@@ -21,6 +16,11 @@ use oxui::shadcn::button::{Button, ButtonVariant};
 use oxui::shadcn::checkbox::Checkbox;
 use oxui::shadcn::combobox::{Combobox, ComboboxItem};
 use oxui::shadcn::skeleton::Skeleton;
+use ruxlog_shared::store::{
+    media::MediaReference, media::MediaUploadPayload, posts::PostContent, posts::PostCreatePayload,
+    posts::PostEditPayload, posts::PostStatus, use_categories, use_image_editor, use_media,
+    use_post, use_tag,
+};
 use serde_json;
 use wasm_bindgen::{closure::Closure, JsCast};
 use web_sys::{Blob, Url};
@@ -181,7 +181,10 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
             if form_data.featured_image_media_id.is_none() {
                 // Check if upload completed
                 if let Some(media) = media_state.get_uploaded_media(featured_blob) {
-                    tracing::debug!("[BlogForm] Featured image upload complete, media ID: {}", media.id);
+                    tracing::debug!(
+                        "[BlogForm] Featured image upload complete, media ID: {}",
+                        media.id
+                    );
                     let mut form_mut = form.write();
                     form_mut.data.featured_image_media_id = Some(media.id);
                 }
@@ -251,7 +254,10 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
         let field = pending_field();
 
         if let Some(_field_name) = field {
-            tracing::debug!("[BlogForm] Editor saved, uploading edited file: {}", edited_file.name());
+            tracing::debug!(
+                "[BlogForm] Editor saved, uploading edited file: {}",
+                edited_file.name()
+            );
 
             // Upload the edited file
             spawn(async move {

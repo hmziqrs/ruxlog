@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use ruxlog_shared::store::{use_categories, categories::Category};
+use ruxlog_shared::store::{categories::Category, use_categories};
 
 #[derive(Clone)]
 pub struct CategoryViewState {

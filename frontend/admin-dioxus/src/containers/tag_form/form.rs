@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use validator::{Validate, ValidationError};
 
 use crate::hooks::{OxForm, OxFormModel};
-use ruxlog_shared::store::tags::{TagsAddPayload, TagsEditPayload};
 use crate::utils::colors::get_contrast_yiq;
+use ruxlog_shared::store::tags::{TagsAddPayload, TagsEditPayload};
 
 #[derive(Debug, Validate, Clone, PartialEq)]
 pub struct TagForm {

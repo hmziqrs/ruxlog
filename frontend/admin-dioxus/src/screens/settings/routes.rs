@@ -1,7 +1,5 @@
 use dioxus::prelude::*;
-use ruxlog_shared::store::{
-    use_admin_routes, BlockRoutePayload, RouteStatus, UpdateRoutePayload,
-};
+use ruxlog_shared::store::{use_admin_routes, BlockRoutePayload, RouteStatus, UpdateRoutePayload};
 
 use crate::components::table::data_table_screen::{DataTableScreen, HeaderColumn};
 use crate::containers::page_header::PageHeaderProps;
@@ -25,7 +23,11 @@ pub fn RoutesSettingsScreen() -> Element {
         event.prevent_default();
         let payload = BlockRoutePayload {
             pattern: pattern(),
-            reason: if reason().is_empty() { None } else { Some(reason()) },
+            reason: if reason().is_empty() {
+                None
+            } else {
+                Some(reason())
+            },
         };
         let routes_state = routes_state;
         spawn(async move {
@@ -35,23 +37,40 @@ pub fn RoutesSettingsScreen() -> Element {
 
     let refresh = move |_| {
         let routes_state = routes_state;
-        spawn(async move { routes_state.list().await; });
+        spawn(async move {
+            routes_state.list().await;
+        });
     };
 
-    let rows: Vec<RouteStatus> = routes_state
-        .list
-        .read()
-        .data
-        .clone()
-        .unwrap_or_default();
+    let rows: Vec<RouteStatus> = routes_state.list.read().data.clone().unwrap_or_default();
     let routes_frame = to_paginated_frame((routes_state.list)());
 
     // Define header columns
     let headers = vec![
-        HeaderColumn::new("Pattern", false, "p-3 text-left font-medium text-xs md:text-sm", None),
-        HeaderColumn::new("Status", false, "p-3 text-left font-medium text-xs md:text-sm", None),
-        HeaderColumn::new("Reason", false, "p-3 text-left font-medium text-xs md:text-sm", None),
-        HeaderColumn::new("Actions", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+        HeaderColumn::new(
+            "Pattern",
+            false,
+            "p-3 text-left font-medium text-xs md:text-sm",
+            None,
+        ),
+        HeaderColumn::new(
+            "Status",
+            false,
+            "p-3 text-left font-medium text-xs md:text-sm",
+            None,
+        ),
+        HeaderColumn::new(
+            "Reason",
+            false,
+            "p-3 text-left font-medium text-xs md:text-sm",
+            None,
+        ),
+        HeaderColumn::new(
+            "Actions",
+            false,
+            "p-3 text-left font-medium text-xs md:text-sm",
+            None,
+        ),
     ];
 
     rsx! {
@@ -121,7 +140,11 @@ pub fn RoutesSettingsScreen() -> Element {
 #[component]
 fn RouteRow(route: RouteStatus) -> Element {
     let routes_state = use_admin_routes();
-    let status_label = if route.is_blocked { "Blocked" } else { "Allowed" };
+    let status_label = if route.is_blocked {
+        "Blocked"
+    } else {
+        "Allowed"
+    };
     rsx! {
         tr { class: "border-b border-zinc-200 dark:border-zinc-800 hover:bg-muted/30 transition-colors",
             td { class: "p-3 font-mono text-xs", "{route.pattern}" }

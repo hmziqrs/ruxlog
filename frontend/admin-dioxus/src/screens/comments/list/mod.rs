@@ -1,7 +1,7 @@
 mod components;
 mod context;
 
-use components::{BulkActionsBar, TableView};
+use components::{ActiveFilters, BulkActionsBar, TableView};
 use context::CommentListContext;
 
 use dioxus::prelude::*;
@@ -10,11 +10,12 @@ use crate::components::table::data_table_screen::{DataTableScreen, HeaderColumn}
 use crate::components::table::list_toolbar::ListToolbarProps;
 use crate::containers::page_header::PageHeaderProps;
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
+use oxstore::{ListQuery, ListStore, Order};
+use oxui::shadcn::checkbox::Checkbox;
+use oxui::shadcn::combobox::{Combobox, ComboboxItem};
 use ruxlog_shared::store::{
     use_comments, use_post, use_user, Comment, CommentListQuery, FlagFilter, HiddenFilter,
 };
-use oxui::shadcn::combobox::{Combobox, ComboboxItem};
-use oxstore::{ListQuery, ListStore, Order};
 
 #[component]
 pub fn CommentsListScreen() -> Element {
@@ -71,9 +72,13 @@ pub fn CommentsListScreen() -> Element {
     };
 
     let has_data = !comments.is_empty();
+    let comment_ids: Vec<i32> = comments.iter().map(|comment| comment.id).collect();
+    let selected_count = ctx.selected_ids.read().len();
+    let all_selected = ctx.is_all_selected(&comment_ids);
+    let active_filter_count = ctx.active_filter_count(&filters);
 
     // Bulk actions if items selected
-    let bulk_actions = if !ctx.selected_ids.read().is_empty() {
+    let bulk_actions = if selected_count > 0 {
         Some(rsx! {
             BulkActionsBar {}
         })
@@ -177,6 +182,30 @@ pub fn CommentsListScreen() -> Element {
                         })),
                     }
                 }
+            }
+            if has_data {
+                {
+                    let mut ctx_clone = ctx.clone();
+                    let ids = comment_ids.clone();
+                    rsx! {
+                        div { class: "flex items-center gap-3 text-xs text-muted-foreground",
+                            Checkbox {
+                                class: "h-4 w-4",
+                                checked: all_selected,
+                                onchange: move |_| {
+                                    ctx_clone.toggle_select_all(ids.clone());
+                                },
+                            }
+                            span { class: "font-medium text-zinc-700 dark:text-zinc-300", "Select all" }
+                            if selected_count > 0 {
+                                span { class: "text-zinc-500 dark:text-zinc-400", "{selected_count} selected" }
+                            }
+                        }
+                    }
+                }
+            }
+            if active_filter_count > 0 {
+                ActiveFilters { active_filter_count, filters }
             }
             {bulk_actions}
         }

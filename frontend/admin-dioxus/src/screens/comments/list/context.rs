@@ -1,6 +1,6 @@
-use ruxlog_shared::store::{CommentListQuery, FlagFilter};
 use dioxus::prelude::*;
 use oxstore::ListQuery;
+use ruxlog_shared::store::{CommentListQuery, FlagFilter, HiddenFilter};
 
 #[derive(Clone)]
 pub struct CommentListContext {
@@ -55,17 +55,29 @@ impl CommentListContext {
         self.apply_filters(filters);
     }
 
-    pub fn set_user_filter(&mut self, filters: &mut Signal<CommentListQuery>, user_id: Option<i32>) {
+    pub fn set_user_filter(
+        &mut self,
+        filters: &mut Signal<CommentListQuery>,
+        user_id: Option<i32>,
+    ) {
         self.selected_user_id.set(user_id);
         self.apply_filters(filters);
     }
 
-    pub fn set_post_filter(&mut self, filters: &mut Signal<CommentListQuery>, post_id: Option<i32>) {
+    pub fn set_post_filter(
+        &mut self,
+        filters: &mut Signal<CommentListQuery>,
+        post_id: Option<i32>,
+    ) {
         self.selected_post_id.set(post_id);
         self.apply_filters(filters);
     }
 
-    pub fn set_flag_filter(&mut self, filters: &mut Signal<CommentListQuery>, flag_filter: FlagFilter) {
+    pub fn set_flag_filter(
+        &mut self,
+        filters: &mut Signal<CommentListQuery>,
+        flag_filter: FlagFilter,
+    ) {
         self.selected_flag_filter.set(flag_filter);
         self.apply_filters(filters);
     }
@@ -82,7 +94,10 @@ impl CommentListContext {
         if q.flag_filter.is_some() && q.flag_filter != Some(FlagFilter::All) {
             count += 1;
         }
-        if q.hidden_filter.is_some() {
+        if matches!(
+            q.hidden_filter,
+            Some(HiddenFilter::Hidden) | Some(HiddenFilter::All)
+        ) {
             count += 1;
         }
         count

@@ -1,8 +1,8 @@
-use ruxlog_shared::store::{media::MediaReference, media::MediaUploadPayload, use_media};
-use oxui::shadcn::button::{Button, ButtonVariant};
 use crate::utils::file_helpers::validate_file_type;
 use dioxus::{logger::tracing, prelude::*};
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdUpload, Icon};
+use oxui::shadcn::button::{Button, ButtonVariant};
+use ruxlog_shared::store::{media::MediaReference, media::MediaUploadPayload, use_media};
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use wasm_bindgen::JsCast;
@@ -97,11 +97,17 @@ pub fn MediaUploadZone(props: MediaUploadZoneProps) -> Element {
                                 if file_count > 0 {
                                     let allowed_refs: Vec<&str> =
                                         allowed_types_clone.iter().map(|s| s.as_str()).collect();
-                                    tracing::debug!("[MediaUploadZone] Processing {} files with max: {}", file_count, max_files);
+                                    tracing::debug!(
+                                        "[MediaUploadZone] Processing {} files with max: {}",
+                                        file_count,
+                                        max_files
+                                    );
 
                                     // If on_file_selected is provided, extract Files and pass them
                                     if let Some(on_file_selected) = on_file_selected_clone {
-                                        tracing::debug!("[MediaUploadZone] Using on_file_selected callback");
+                                        tracing::debug!(
+                                            "[MediaUploadZone] Using on_file_selected callback"
+                                        );
                                         let mut file_vec = Vec::new();
                                         let limit = if max_files > 0 {
                                             max_files.min(files.length() as usize)
@@ -133,7 +139,10 @@ pub fn MediaUploadZone(props: MediaUploadZoneProps) -> Element {
                                         )
                                         .await;
 
-                                        tracing::debug!("[MediaUploadZone] Processing complete, blob URLs: {}", blob_urls.len());
+                                        tracing::debug!(
+                                            "[MediaUploadZone] Processing complete, blob URLs: {}",
+                                            blob_urls.len()
+                                        );
 
                                         if !blob_urls.is_empty() {
                                             on_upload_clone.call(blob_urls);
@@ -239,11 +248,21 @@ async fn process_files_async(
             let file_type = file.type_();
             let file_size = file.size();
 
-            tracing::debug!("[process_files_async] File {} - Name: {}, Type: {}, Size: {}", i, &filename, &file_type, file_size);
+            tracing::debug!(
+                "[process_files_async] File {} - Name: {}, Type: {}, Size: {}",
+                i,
+                &filename,
+                &file_type,
+                file_size
+            );
 
             // Validate file type
             if !validate_file_type(&file, allowed_types) {
-                tracing::warn!("[process_files_async] File type not allowed: {} - Allowed: {:?}", &file_type, allowed_types);
+                tracing::warn!(
+                    "[process_files_async] File type not allowed: {} - Allowed: {:?}",
+                    &file_type,
+                    allowed_types
+                );
                 continue;
             }
 
@@ -261,11 +280,18 @@ async fn process_files_async(
             tracing::debug!("[process_files_async] Initiating upload for: {}", &filename);
             match media_state.upload(payload).await {
                 Ok(blob_url) => {
-                    tracing::debug!("[process_files_async] Upload initiated successfully, blob URL: {}", &blob_url);
+                    tracing::debug!(
+                        "[process_files_async] Upload initiated successfully, blob URL: {}",
+                        &blob_url
+                    );
                     blob_urls.push(blob_url);
                 }
                 Err(e) => {
-                    tracing::error!("[process_files_async] Upload failed for {}: {}", &filename, e);
+                    tracing::error!(
+                        "[process_files_async] Upload failed for {}: {}",
+                        &filename,
+                        e
+                    );
                 }
             }
         } else {
@@ -273,6 +299,9 @@ async fn process_files_async(
         }
     }
 
-    tracing::debug!("[process_files_async] Processing complete, total blob URLs: {}", blob_urls.len());
+    tracing::debug!(
+        "[process_files_async] Processing complete, total blob URLs: {}",
+        blob_urls.len()
+    );
     blob_urls
 }

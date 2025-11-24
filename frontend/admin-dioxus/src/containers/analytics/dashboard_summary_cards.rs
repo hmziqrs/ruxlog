@@ -1,7 +1,9 @@
 use dioxus::prelude::*;
 use oxstore::{StateFrame, StateFrameStatus};
 
-use ruxlog_shared::store::analytics::{AnalyticsEnvelopeResponse, DashboardSummaryData, DashboardSummaryRequest};
+use ruxlog_shared::store::analytics::{
+    AnalyticsEnvelopeResponse, DashboardSummaryData, DashboardSummaryRequest,
+};
 
 /// Props:
 /// - `frame`: state frame for the dashboard summary analytics request
@@ -9,10 +11,7 @@ use ruxlog_shared::store::analytics::{AnalyticsEnvelopeResponse, DashboardSummar
 /// - `description`: optional header description
 #[derive(Props, PartialEq, Clone)]
 pub struct DashboardSummaryCardsProps {
-    pub frame: StateFrame<
-        AnalyticsEnvelopeResponse<DashboardSummaryData>,
-        DashboardSummaryRequest,
-    >,
+    pub frame: StateFrame<AnalyticsEnvelopeResponse<DashboardSummaryData>, DashboardSummaryRequest>,
     #[props(optional, into)]
     pub title: Option<String>,
     #[props(optional, into)]

@@ -6,9 +6,7 @@ use crate::components::image_editor::ImageEditorModal;
 use crate::components::media::{upload_item::MediaUploadItem, upload_zone::MediaUploadZone};
 use crate::hooks::OxForm;
 use crate::router::Route;
-use ruxlog_shared::store::{
-    media::MediaReference, media::MediaUploadPayload, use_categories, use_image_editor, use_media,
-};
+use hmziq_dioxus_free_icons::{icons::ld_icons::LdLoader, Icon};
 use oxui::components::confirm_dialog::ConfirmDialog;
 use oxui::components::form::input::AppInput;
 use oxui::custom::portal::AppPortal;
@@ -16,7 +14,9 @@ use oxui::shadcn::button::{Button, ButtonSize, ButtonVariant};
 use oxui::shadcn::checkbox::Checkbox;
 use oxui::shadcn::combobox::{Combobox, ComboboxItem};
 use oxui::shadcn::skeleton::Skeleton;
-use hmziq_dioxus_free_icons::{icons::ld_icons::LdLoader, Icon};
+use ruxlog_shared::store::{
+    media::MediaReference, media::MediaUploadPayload, use_categories, use_image_editor, use_media,
+};
 use web_sys::{Blob, Url};
 
 #[derive(Props, PartialEq, Clone)]
@@ -64,7 +64,10 @@ pub fn CategoryFormContainer(props: CategoryFormContainerProps) -> Element {
             if form_data.logo_media_id.is_none() {
                 // Check if upload completed
                 if let Some(media) = media_state.get_uploaded_media(logo_blob) {
-                    tracing::debug!("[CategoryForm] Logo upload complete, media ID: {}", media.id);
+                    tracing::debug!(
+                        "[CategoryForm] Logo upload complete, media ID: {}",
+                        media.id
+                    );
                     let mut form_mut = form.write();
                     form_mut.data.logo_media_id = Some(media.id);
                 }
@@ -76,7 +79,10 @@ pub fn CategoryFormContainer(props: CategoryFormContainerProps) -> Element {
             if form_data.cover_media_id.is_none() {
                 // Check if upload completed
                 if let Some(media) = media_state.get_uploaded_media(cover_blob) {
-                    tracing::debug!("[CategoryForm] Cover upload complete, media ID: {}", media.id);
+                    tracing::debug!(
+                        "[CategoryForm] Cover upload complete, media ID: {}",
+                        media.id
+                    );
                     let mut form_mut = form.write();
                     form_mut.data.cover_media_id = Some(media.id);
                 }
@@ -88,7 +94,11 @@ pub fn CategoryFormContainer(props: CategoryFormContainerProps) -> Element {
     let handle_file_selected = move |field: String| {
         move |files: Vec<web_sys::File>| {
             if let Some(file) = files.first() {
-                tracing::debug!("[CategoryForm] File selected for {}: {}", &field, file.name());
+                tracing::debug!(
+                    "[CategoryForm] File selected for {}: {}",
+                    &field,
+                    file.name()
+                );
                 pending_file.set(Some(file.clone()));
                 pending_field.set(Some(field.clone()));
                 edit_confirm_open.set(true);
@@ -117,7 +127,10 @@ pub fn CategoryFormContainer(props: CategoryFormContainerProps) -> Element {
         let field = pending_field();
 
         if let (Some(f), Some(field_name)) = (file, field) {
-            tracing::debug!("[CategoryForm] Skipping edit, uploading directly: {}", f.name());
+            tracing::debug!(
+                "[CategoryForm] Skipping edit, uploading directly: {}",
+                f.name()
+            );
 
             // Upload the file
             spawn(async move {
@@ -157,7 +170,10 @@ pub fn CategoryFormContainer(props: CategoryFormContainerProps) -> Element {
         let field = pending_field();
 
         if let Some(field_name) = field {
-            tracing::debug!("[CategoryForm] Editor saved, uploading edited file: {}", edited_file.name());
+            tracing::debug!(
+                "[CategoryForm] Editor saved, uploading edited file: {}",
+                edited_file.name()
+            );
 
             // Upload the edited file
             spawn(async move {
@@ -195,7 +211,11 @@ pub fn CategoryFormContainer(props: CategoryFormContainerProps) -> Element {
     // Handle re-edit of already uploaded image
     let handle_edit_uploaded = move |field: String| {
         move |blob_url: String| {
-            tracing::debug!("[CategoryForm] Re-editing uploaded image for {}: {}", &field, &blob_url);
+            tracing::debug!(
+                "[CategoryForm] Re-editing uploaded image for {}: {}",
+                &field,
+                &blob_url
+            );
             pending_field.set(Some(field.clone()));
             // Open editor directly with the blob URL
             spawn(async move {

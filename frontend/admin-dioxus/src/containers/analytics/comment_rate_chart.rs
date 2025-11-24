@@ -1,9 +1,9 @@
 use dioxus::prelude::*;
 
-use ruxlog_shared::store::{analytics::CommentRatePoint, use_analytics};
+use oxstore::StateFrameStatus;
 use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use oxui::components::loading_overlay::LoadingOverlay;
-use oxstore::StateFrameStatus;
+use ruxlog_shared::store::{analytics::CommentRatePoint, use_analytics};
 
 /// Props for `CommentRateChart`.
 ///

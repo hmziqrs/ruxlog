@@ -1,6 +1,6 @@
-use oxui::shadcn::button::{Button, ButtonVariant};
 use dioxus::prelude::*;
 use oxstore::PaginatedList;
+use oxui::shadcn::button::{Button, ButtonVariant};
 
 #[derive(Props, PartialEq, Clone)]
 pub struct PaginationProps<T: Clone + PartialEq + 'static> {

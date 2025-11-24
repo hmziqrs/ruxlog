@@ -1,13 +1,13 @@
 use dioxus::prelude::*;
 
 use crate::router::Route;
-use ruxlog_shared::store::users::User;
-use ruxlog_shared::components::user_avatar::UserAvatar;
+use crate::utils::dates::format_short_date_dt;
+use hmziq_dioxus_free_icons::{icons::ld_icons::LdX, Icon};
 use oxui::custom::portal::AppPortal;
 use oxui::shadcn::badge::{Badge, BadgeVariant};
 use oxui::shadcn::button::{Button, ButtonVariant};
-use crate::utils::dates::format_short_date_dt;
-use hmziq_dioxus_free_icons::{icons::ld_icons::LdX, Icon};
+use ruxlog_shared::components::user_avatar::UserAvatar;
+use ruxlog_shared::store::users::User;
 
 #[derive(Props, Clone, PartialEq)]
 pub struct UserDetailsDialogProps {

@@ -1,7 +1,5 @@
 use dioxus::prelude::*;
-use ruxlog_shared::store::{
-    use_auth, TwoFactorVerifyPayload, UserSession,
-};
+use ruxlog_shared::store::{use_auth, TwoFactorVerifyPayload, UserSession};
 
 use crate::containers::page_header::PageHeader;
 use oxui::components::form::input::SimpleInput;
@@ -34,20 +32,30 @@ pub fn ProfileSecurityScreen() -> Element {
     let verify = move |e: FormEvent| {
         e.prevent_default();
         let auth = auth;
-        let body = TwoFactorVerifyPayload { code: verification_code() };
-        spawn(async move { auth.verify_2fa(body).await; });
+        let body = TwoFactorVerifyPayload {
+            code: verification_code(),
+        };
+        spawn(async move {
+            auth.verify_2fa(body).await;
+        });
     };
 
     let disable = move |e: FormEvent| {
         e.prevent_default();
         let auth = auth;
-        let body = TwoFactorVerifyPayload { code: disable_code() };
-        spawn(async move { auth.disable_2fa(body).await; });
+        let body = TwoFactorVerifyPayload {
+            code: disable_code(),
+        };
+        spawn(async move {
+            auth.disable_2fa(body).await;
+        });
     };
 
     let refresh_sessions = move |_| {
         let auth = auth;
-        spawn(async move { auth.list_sessions().await; });
+        spawn(async move {
+            auth.list_sessions().await;
+        });
     };
 
     rsx! {

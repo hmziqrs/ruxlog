@@ -1,8 +1,8 @@
 use dioxus::prelude::*;
 
-use ruxlog_shared::store::SubscriberListQuery;
 use oxui::shadcn::badge::{Badge, BadgeVariant};
 use oxui::shadcn::button::{Button, ButtonSize, ButtonVariant};
+use ruxlog_shared::store::SubscriberListQuery;
 
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdX, Icon};
 

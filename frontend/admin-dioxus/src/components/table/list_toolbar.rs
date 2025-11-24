@@ -32,10 +32,13 @@ pub struct ListToolbarProps {
 pub fn ListToolbar(props: ListToolbarProps) -> Element {
     let on_search = props.on_search_input.clone();
     let placeholder = props.search_placeholder.clone();
-    let status_options = props
-        .status_options
-        .clone()
-        .unwrap_or_else(|| vec!["All".to_string(), "Active".to_string(), "Inactive".to_string()]);
+    let status_options = props.status_options.clone().unwrap_or_else(|| {
+        vec![
+            "All".to_string(),
+            "Active".to_string(),
+            "Inactive".to_string(),
+        ]
+    });
 
     rsx! {
         div { class: "bg-transparent",

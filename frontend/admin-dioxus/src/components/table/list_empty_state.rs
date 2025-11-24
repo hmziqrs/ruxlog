@@ -1,6 +1,6 @@
-use oxui::shadcn::button::{Button, ButtonVariant};
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdTag, Icon};
+use oxui::shadcn::button::{Button, ButtonVariant};
 
 #[derive(Props, PartialEq, Clone)]
 pub struct ListEmptyStateProps {

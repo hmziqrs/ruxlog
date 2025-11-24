@@ -1,11 +1,9 @@
 use dioxus::prelude::*;
 
 use super::interval_selector::IntervalSelector;
+use oxstore::{StateFrame, StateFrameStatus};
 use ruxlog_shared::store::analytics::{
     AnalyticsEnvelopeResponse, AnalyticsInterval, PageViewPoint,
-};
-use oxstore::{
-    StateFrame, StateFrameStatus,
 };
 
 /// Simple typed props for the page views chart.
@@ -19,8 +17,10 @@ use oxstore::{
 #[derive(Props, PartialEq, Clone)]
 pub struct PageViewsChartProps {
     /// State frame wrapping `AnalyticsEnvelopeResponse<Vec<PageViewPoint>>`.
-    pub frame:
-        StateFrame<AnalyticsEnvelopeResponse<Vec<PageViewPoint>>, ruxlog_shared::store::PageViewsRequest>,
+    pub frame: StateFrame<
+        AnalyticsEnvelopeResponse<Vec<PageViewPoint>>,
+        ruxlog_shared::store::PageViewsRequest,
+    >,
     /// Optional chart title.
     #[props(default = "Page views".to_string())]
     pub title: String,

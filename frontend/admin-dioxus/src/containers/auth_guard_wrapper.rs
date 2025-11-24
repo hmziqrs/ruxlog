@@ -1,6 +1,8 @@
-use dioxus::prelude::*;
 use crate::router::Route;
-use ruxlog_shared::{AuthGuardContainer as SharedAuthGuardContainer, LoadingMessages, PermissionCheck};
+use dioxus::prelude::*;
+use ruxlog_shared::{
+    AuthGuardContainer as SharedAuthGuardContainer, LoadingMessages, PermissionCheck,
+};
 use std::sync::Arc;
 
 #[component]

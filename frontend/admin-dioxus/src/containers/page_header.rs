@@ -92,14 +92,12 @@ pub fn PageHeader(props: PageHeaderProps) -> Element {
             ("newsletter".to_string(), None),
             ("subscribers".to_string(), None),
         ],
-        Route::NewsletterSendScreen {} => vec![
-            ("newsletter".to_string(), None),
-            ("send".to_string(), None),
-        ],
-        Route::RoutesSettingsScreen {} => vec![
-            ("settings".to_string(), None),
-            ("routes".to_string(), None),
-        ],
+        Route::NewsletterSendScreen {} => {
+            vec![("newsletter".to_string(), None), ("send".to_string(), None)]
+        }
+        Route::RoutesSettingsScreen {} => {
+            vec![("settings".to_string(), None), ("routes".to_string(), None)]
+        }
         Route::ProfileSecurityScreen {} => vec![
             ("profile".to_string(), None),
             ("security".to_string(), None),

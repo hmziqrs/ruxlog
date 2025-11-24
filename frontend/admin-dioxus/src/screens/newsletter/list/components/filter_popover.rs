@@ -1,9 +1,9 @@
 use dioxus::prelude::*;
 
-use ruxlog_shared::store::{SubscriberListQuery, SubscriberStatus};
 use oxui::shadcn::badge::{Badge, BadgeVariant};
 use oxui::shadcn::button::{Button, ButtonSize, ButtonVariant};
 use oxui::shadcn::popover::{Popover, PopoverContent, PopoverTrigger};
+use ruxlog_shared::store::{SubscriberListQuery, SubscriberStatus};
 
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdFilter, Icon};
 

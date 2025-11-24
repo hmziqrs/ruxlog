@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
-use ruxlog_shared::store::{use_comments, CommentFlag};
 use oxstore::{PaginatedList, StateFrame};
+use ruxlog_shared::store::{use_comments, CommentFlag};
 
 use crate::components::table::data_table_screen::{DataTableScreen, HeaderColumn};
 use crate::containers::page_header::PageHeaderProps;
@@ -18,24 +18,46 @@ pub fn FlaggedCommentsScreen() -> Element {
 
     let refresh = move |_| {
         let comments = comments;
-        spawn(async move { comments.list_flags().await; });
+        spawn(async move {
+            comments.list_flags().await;
+        });
     };
 
-    let flags = comments
-        .flags
-        .read()
-        .data
-        .clone()
-        .unwrap_or_default();
+    let flags = comments.flags.read().data.clone().unwrap_or_default();
     let flags_frame = to_paginated_frame((comments.flags)());
 
     // Define header columns
     let headers = vec![
-        HeaderColumn::new("Flag ID", false, "p-3 text-left font-medium text-xs md:text-sm", None),
-        HeaderColumn::new("Comment", false, "p-3 text-left font-medium text-xs md:text-sm", None),
-        HeaderColumn::new("User", false, "p-3 text-left font-medium text-xs md:text-sm", None),
-        HeaderColumn::new("Reason", false, "p-3 text-left font-medium text-xs md:text-sm", None),
-        HeaderColumn::new("Actions", false, "p-3 text-left font-medium text-xs md:text-sm", None),
+        HeaderColumn::new(
+            "Flag ID",
+            false,
+            "p-3 text-left font-medium text-xs md:text-sm",
+            None,
+        ),
+        HeaderColumn::new(
+            "Comment",
+            false,
+            "p-3 text-left font-medium text-xs md:text-sm",
+            None,
+        ),
+        HeaderColumn::new(
+            "User",
+            false,
+            "p-3 text-left font-medium text-xs md:text-sm",
+            None,
+        ),
+        HeaderColumn::new(
+            "Reason",
+            false,
+            "p-3 text-left font-medium text-xs md:text-sm",
+            None,
+        ),
+        HeaderColumn::new(
+            "Actions",
+            false,
+            "p-3 text-left font-medium text-xs md:text-sm",
+            None,
+        ),
     ];
 
     rsx! {

@@ -11,9 +11,9 @@ use crate::components::table::data_table_screen::{DataTableScreen, HeaderColumn}
 use crate::components::table::list_toolbar::ListToolbarProps;
 use crate::containers::page_header::PageHeaderProps;
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
-use ruxlog_shared::store::{use_newsletter, NewsletterSubscriber, SubscriberListQuery};
-use oxui::shadcn::button::Button;
 use oxstore::{ListQuery, ListStore, Order};
+use oxui::shadcn::button::Button;
+use ruxlog_shared::store::{use_newsletter, NewsletterSubscriber, SubscriberListQuery};
 
 #[component]
 pub fn NewsletterSubscribersScreen() -> Element {

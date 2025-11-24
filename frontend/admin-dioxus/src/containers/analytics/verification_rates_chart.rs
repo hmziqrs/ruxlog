@@ -1,11 +1,9 @@
 use dioxus::prelude::*;
 
 use super::interval_selector::IntervalSelector;
+use oxstore::{StateFrame, StateFrameStatus};
 use ruxlog_shared::store::analytics::{
     AnalyticsEnvelopeResponse, AnalyticsInterval, VerificationRatePoint, VerificationRatesRequest,
-};
-use oxstore::{
-    StateFrame, StateFrameStatus,
 };
 
 /// Props for `VerificationRatesChart`.

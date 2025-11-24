@@ -9,12 +9,14 @@ use crate::components::media::{
 };
 use crate::hooks::OxForm;
 use crate::router::Route;
-use ruxlog_shared::store::{media::MediaReference, media::MediaUploadPayload, use_image_editor, use_media};
 use oxui::components::confirm_dialog::ConfirmDialog;
 use oxui::components::form::{input::AppInput, password_input::PasswordInput};
 use oxui::custom::portal::AppPortal;
 use oxui::shadcn::button::{Button, ButtonVariant};
 use oxui::shadcn::checkbox::Checkbox;
+use ruxlog_shared::store::{
+    media::MediaReference, media::MediaUploadPayload, use_image_editor, use_media,
+};
 
 #[derive(Props, PartialEq, Clone)]
 pub struct UserFormContainerProps {
@@ -97,7 +99,10 @@ pub fn UserFormContainer(props: UserFormContainerProps) -> Element {
 
     // Handle image editor save - upload edited file
     let handle_editor_save = move |edited_file: web_sys::File| {
-        tracing::debug!("[UserForm] Editor saved, uploading edited file: {}", edited_file.name());
+        tracing::debug!(
+            "[UserForm] Editor saved, uploading edited file: {}",
+            edited_file.name()
+        );
 
         spawn(async move {
             let payload = MediaUploadPayload {

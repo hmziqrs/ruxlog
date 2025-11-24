@@ -1,6 +1,6 @@
-use ruxlog_shared::store::PostListQuery;
 use dioxus::prelude::*;
 use oxstore::ListQuery;
+use ruxlog_shared::store::PostListQuery;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum ViewMode {

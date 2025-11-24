@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use ruxlog_shared::store::{use_tag, tags::Tag};
+use ruxlog_shared::store::{tags::Tag, use_tag};
 
 #[derive(Clone)]
 pub struct TagViewState {

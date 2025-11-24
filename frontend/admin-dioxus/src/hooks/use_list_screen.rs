@@ -1,6 +1,6 @@
-use oxstore::{ListQuery, Order, SortParam};
 use dioxus::prelude::*;
 use dioxus_time::sleep;
+use oxstore::{ListQuery, Order, SortParam};
 use std::time::Duration;
 
 #[derive(Debug, Clone)]

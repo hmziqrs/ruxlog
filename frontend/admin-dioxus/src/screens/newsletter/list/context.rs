@@ -1,6 +1,6 @@
-use ruxlog_shared::store::{SubscriberListQuery, SubscriberStatus};
 use dioxus::prelude::*;
 use oxstore::ListQuery;
+use ruxlog_shared::store::{SubscriberListQuery, SubscriberStatus};
 
 #[derive(Clone)]
 pub struct NewsletterListContext {
@@ -48,7 +48,11 @@ impl NewsletterListContext {
         count
     }
 
-    pub fn set_status(&mut self, filters: &mut Signal<SubscriberListQuery>, status: Option<SubscriberStatus>) {
+    pub fn set_status(
+        &mut self,
+        filters: &mut Signal<SubscriberListQuery>,
+        status: Option<SubscriberStatus>,
+    ) {
         self.selected_status.set(status);
         self.apply_filters(filters);
     }
