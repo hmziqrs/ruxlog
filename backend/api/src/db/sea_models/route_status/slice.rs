@@ -1,7 +1,7 @@
 use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 
-use crate::db::sea_models::sort_param::SortParam;
+use crate::utils::sort::SortParam;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]

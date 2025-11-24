@@ -1,4 +1,5 @@
-use crate::db::sea_models::{route_status::{BlockFilter, RouteStatusQuery}, sort_param::SortParam};
+use crate::db::sea_models::route_status::{BlockFilter, RouteStatusQuery};
+use crate::utils::sort::SortParam;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 

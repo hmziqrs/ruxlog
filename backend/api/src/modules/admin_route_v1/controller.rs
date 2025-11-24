@@ -9,6 +9,7 @@ use serde_json::json;
 use tracing::{error, info, instrument};
 
 use crate::{
+    db::sea_models::route_status::Entity as RouteStatus,
     error::ErrorResponse,
     extractors::ValidatedJson,
     services::auth::AuthSession,
@@ -16,7 +17,10 @@ use crate::{
     AppState,
 };
 
-use super::validator::{V1BlockRoutePayload, V1UpdateRoutePayload, V1UpdateSyncIntervalPayload};
+use super::validator::{
+    V1BlockRoutePayload, V1RouteStatusQueryParams, V1UpdateRoutePayload,
+    V1UpdateSyncIntervalPayload,
+};
 
 #[debug_handler]
 #[instrument(skip(state, _auth, payload), fields(pattern))]
@@ -136,7 +140,7 @@ pub async fn delete_route(
 pub async fn list_routes(
     State(state): State<AppState>,
     _auth: AuthSession,
-    payload: ValidatedJson<validator::V1RouteStatusQueryParams>,
+    payload: ValidatedJson<V1RouteStatusQueryParams>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let route_query = payload.0.into_route_status_query();
     let page = route_query.page.unwrap_or(1);

@@ -108,7 +108,21 @@ impl Entity {
 
         if let Some(sorts) = query.sorts {
             for sort in sorts {
-                route_query = sort.apply_to_query(route_query);
+                let column = match sort.field.as_str() {
+                    "route_pattern" => Some(Column::RoutePattern),
+                    "is_blocked" => Some(Column::IsBlocked),
+                    "created_at" => Some(Column::CreatedAt),
+                    "updated_at" => Some(Column::UpdatedAt),
+                    _ => None,
+                };
+
+                if let Some(col) = column {
+                    route_query = match sort.order {
+                        sea_orm::Order::Asc => route_query.order_by_asc(col),
+                        sea_orm::Order::Desc => route_query.order_by_desc(col),
+                        _ => route_query,
+                    };
+                }
             }
         } else {
             route_query = route_query.order_by_asc(Column::RoutePattern);
