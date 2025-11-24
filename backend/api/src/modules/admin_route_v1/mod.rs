@@ -3,7 +3,7 @@ pub mod validator;
 
 use axum::{
     middleware,
-    routing::{delete, get, post},
+    routing::{get, post},
     Router,
 };
 use axum_login::login_required;
@@ -17,9 +17,9 @@ use crate::{
 pub fn routes() -> Router<AppState> {
     let admin = Router::new()
         .route("/block", post(controller::block_route))
-        .route("/unblock/{pattern}", post(controller::unblock_route))
-        .route("/update/{pattern}", post(controller::update_route_status))
-        .route("/delete/{pattern}", delete(controller::delete_route))
+        .route("/unblock", post(controller::unblock_route))
+        .route("/update", post(controller::update_route_status))
+        .route("/delete", post(controller::delete_route))
         .route("/list", post(controller::list_routes))
         .route("/sync", get(controller::sync_routes_to_redis))
         .route(

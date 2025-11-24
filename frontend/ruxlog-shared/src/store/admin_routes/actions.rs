@@ -26,10 +26,11 @@ impl AdminRoutesState {
     }
 
     pub async fn unblock(&self, pattern: String) {
+        let payload = serde_json::json!({ "pattern": pattern });
         let _ = state_request_abstraction(
             &self.block,
             None::<BlockRoutePayload>,
-            http::post(&format!("/admin/route/v1/unblock/{}", pattern), &()).send(),
+            http::post("/admin/route/v1/unblock", &payload).send(),
             "route_status",
             |_route: &RouteStatus| (None, None),
         )
@@ -39,11 +40,16 @@ impl AdminRoutesState {
     }
 
     pub async fn update(&self, pattern: String, payload: UpdateRoutePayload) {
+        let body = serde_json::json!({
+            "pattern": pattern,
+            "is_blocked": payload.is_blocked,
+            "reason": payload.reason
+        });
         let updated_route = edit_state_abstraction(
             &self.update,
             pattern.clone(),
             payload.clone(),
-            http::post(&format!("/admin/route/v1/update/{}", pattern), &payload).send(),
+            http::post("/admin/route/v1/update", &body).send(),
             "route_status",
             None,
             None,
@@ -58,10 +64,11 @@ impl AdminRoutesState {
     }
 
     pub async fn remove(&self, pattern: String) {
+        let payload = serde_json::json!({ "pattern": pattern });
         let removed = remove_state_abstraction(
             &self.remove,
             pattern.clone(),
-            http::delete(&format!("/admin/route/v1/delete/{}", pattern)).send(),
+            http::post("/admin/route/v1/delete", &payload).send(),
             "route_status",
             None,
             None,

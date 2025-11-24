@@ -17,11 +17,38 @@ pub struct V1BlockRoutePayload {
 }
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
+pub struct V1UnblockRoutePayload {
+    #[validate(length(
+        min = 1,
+        max = 255,
+        message = "Route pattern must be between 1 and 255 characters"
+    ))]
+    pub pattern: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1UpdateRoutePayload {
+    #[validate(length(
+        min = 1,
+        max = 255,
+        message = "Route pattern must be between 1 and 255 characters"
+    ))]
+    pub pattern: String,
+
     pub is_blocked: bool,
 
     #[validate(length(max = 500, message = "Reason must be less than 500 characters"))]
     pub reason: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Validate)]
+pub struct V1DeleteRoutePayload {
+    #[validate(length(
+        min = 1,
+        max = 255,
+        message = "Route pattern must be between 1 and 255 characters"
+    ))]
+    pub pattern: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Validate, Clone)]
