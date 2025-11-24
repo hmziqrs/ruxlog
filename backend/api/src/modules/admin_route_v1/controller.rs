@@ -133,25 +133,30 @@ pub async fn delete_route(
 
 #[debug_handler]
 #[instrument(skip(state, _auth))]
-pub async fn list_blocked_routes(
+pub async fn list_routes(
     State(state): State<AppState>,
     _auth: AuthSession,
+    payload: ValidatedJson<validator::V1RouteStatusQueryParams>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let result = RouteBlockerService::list_blocked_routes(State(state)).await;
+    let route_query = payload.0.into_route_status_query();
+    let page = route_query.page.unwrap_or(1);
 
-    match result {
-        Ok(routes) => {
-            info!(count = routes.len(), "Retrieved blocked routes list");
-            Ok(Json(json!({
-                "data": routes,
-                "total": routes.len(),
-                "page": 1,
-                "per_page": routes.len()
-            })))
+    match RouteStatus::search(&state.sea_db, route_query).await {
+        Ok((routes, total)) => {
+            info!(total, page, "Routes retrieved with query");
+            Ok((
+                StatusCode::OK,
+                Json(json!({
+                    "data": routes,
+                    "total": total,
+                    "per_page": RouteStatus::PER_PAGE,
+                    "page": page,
+                })),
+            ))
         }
         Err(err) => {
-            error!(error = %err, "Failed to retrieve blocked routes");
-            Err(err)
+            error!("Failed to query routes: {}", err);
+            Err(err.into())
         }
     }
 }

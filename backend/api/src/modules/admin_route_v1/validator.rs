@@ -1,3 +1,4 @@
+use crate::db::sea_models::{route_status::{BlockFilter, RouteStatusQuery}, sort_param::SortParam};
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
@@ -22,21 +23,31 @@ pub struct V1UpdateRoutePayload {
     pub reason: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Validate)]
+#[derive(Debug, Deserialize, Serialize, Validate, Clone)]
 pub struct V1RouteStatusQueryParams {
     pub page: Option<u64>,
-    pub per_page: Option<u64>,
-    pub is_blocked: Option<bool>,
+    pub block_filter: Option<BlockFilter>,
     pub search: Option<String>,
+    pub sorts: Option<Vec<SortParam>>,
+    pub created_at_gt: Option<chrono::DateTime<chrono::FixedOffset>>,
+    pub created_at_lt: Option<chrono::DateTime<chrono::FixedOffset>>,
+    pub updated_at_gt: Option<chrono::DateTime<chrono::FixedOffset>>,
+    pub updated_at_lt: Option<chrono::DateTime<chrono::FixedOffset>>,
 }
 
-impl Default for V1RouteStatusQueryParams {
-    fn default() -> Self {
-        Self {
-            page: Some(1),
-            per_page: Some(20),
-            is_blocked: None,
-            search: None,
+impl V1RouteStatusQueryParams {
+    pub fn into_route_status_query(self) -> RouteStatusQuery {
+        let block_filter = BlockFilter::resolve(self.block_filter);
+
+        RouteStatusQuery {
+            page: self.page,
+            block_filter: Some(block_filter),
+            search: self.search,
+            sorts: self.sorts,
+            created_at_gt: self.created_at_gt,
+            created_at_lt: self.created_at_lt,
+            updated_at_gt: self.updated_at_gt,
+            updated_at_lt: self.updated_at_lt,
         }
     }
 }

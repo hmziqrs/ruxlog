@@ -6,6 +6,7 @@ use sea_orm::{
 use tower_sessions_redis_store::fred::interfaces::{KeysInterface, SetsInterface};
 
 impl Entity {
+    pub const PER_PAGE: u64 = 20;
     pub async fn find_by_pattern(
         db: &DatabaseConnection,
         pattern: &str,
@@ -74,22 +75,51 @@ impl Entity {
 
     pub async fn search(
         db: &DatabaseConnection,
-        page: u64,
-        per_page: u64,
-        blocked_only: Option<bool>,
+        query: RouteStatusQuery,
     ) -> Result<(Vec<Model>, u64), DbErr> {
-        let mut query = Entity::find();
+        let mut route_query = Entity::find();
 
-        if let Some(blocked) = blocked_only {
-            query = query.filter(Column::IsBlocked.eq(blocked));
+        match BlockFilter::resolve(query.block_filter) {
+            BlockFilter::All => {}
+            BlockFilter::Blocked => {
+                route_query = route_query.filter(Column::IsBlocked.eq(true));
+            }
+            BlockFilter::Unblocked => {
+                route_query = route_query.filter(Column::IsBlocked.eq(false));
+            }
         }
 
-        let total = query.clone().count(db).await?;
+        if let Some(search_term) = &query.search {
+            route_query = route_query.filter(Column::RoutePattern.contains(search_term));
+        }
 
-        let items = query
-            .order_by_asc(Column::RoutePattern)
-            .offset((page - 1) * per_page)
-            .limit(per_page)
+        if let Some(ts) = query.created_at_gt {
+            route_query = route_query.filter(Column::CreatedAt.gt(ts));
+        }
+        if let Some(ts) = query.created_at_lt {
+            route_query = route_query.filter(Column::CreatedAt.lt(ts));
+        }
+        if let Some(ts) = query.updated_at_gt {
+            route_query = route_query.filter(Column::UpdatedAt.gt(ts));
+        }
+        if let Some(ts) = query.updated_at_lt {
+            route_query = route_query.filter(Column::UpdatedAt.lt(ts));
+        }
+
+        if let Some(sorts) = query.sorts {
+            for sort in sorts {
+                route_query = sort.apply_to_query(route_query);
+            }
+        } else {
+            route_query = route_query.order_by_asc(Column::RoutePattern);
+        }
+
+        let page = query.page.unwrap_or(1);
+        let total = route_query.clone().count(db).await?;
+
+        let items = route_query
+            .offset((page - 1) * Self::PER_PAGE)
+            .limit(Self::PER_PAGE)
             .all(db)
             .await?;
 
