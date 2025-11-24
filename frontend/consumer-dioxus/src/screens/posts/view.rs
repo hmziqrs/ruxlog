@@ -1,7 +1,8 @@
 use dioxus::prelude::*;
 use ruxlog_shared::store::use_post;
 use crate::utils::editorjs::render_editorjs_content;
-use hmziq_dioxus_free_icons::icons::ld_icons::{LdCalendar, LdClock, LdEye, LdHeart, LdMessageCircle, LdShare2};
+use crate::components::{CommentsSection, EngagementBar, estimate_reading_time};
+use hmziq_dioxus_free_icons::icons::ld_icons::{LdCalendar, LdClock};
 use hmziq_dioxus_free_icons::Icon;
 
 #[component]
@@ -29,6 +30,29 @@ pub fn PostViewScreen(id: i32) -> Element {
         }
     });
 
+    // Handle share
+    let handle_share = move |_| {
+        #[cfg(target_arch = "wasm32")]
+        {
+            if let Some(window) = web_sys::window() {
+                let url = window.location().href().unwrap_or_default();
+                let _ = window.navigator().clipboard().write_text(&url);
+            }
+        }
+    };
+
+    // Handle scroll to comments
+    let handle_scroll_to_comments = move |_| {
+        #[cfg(target_arch = "wasm32")]
+        {
+            if let Some(document) = web_sys::window().and_then(|w| w.document()) {
+                if let Some(element) = document.get_element_by_id("comments-section") {
+                    element.scroll_into_view();
+                }
+            }
+        }
+    };
+
     if let Some(post) = post() {
         let published_date = post
             .published_at
@@ -36,6 +60,7 @@ pub fn PostViewScreen(id: i32) -> Element {
             .unwrap_or_else(|| post.created_at.format("%B %d, %Y").to_string());
 
         let reading_time = estimate_reading_time(&post.content);
+        let post_id = post.id;
 
         rsx! {
             div { class: "min-h-screen bg-background text-foreground",
@@ -72,7 +97,7 @@ pub fn PostViewScreen(id: i32) -> Element {
                                     span { class: "font-medium text-foreground", "{post.author.name}" }
                                 }
                                 
-                                span { class: "text-border", "•" }
+                                span { class: "text-border", "·" }
                                 
                                 // Date
                                 div { class: "flex items-center gap-1.5",
@@ -80,7 +105,7 @@ pub fn PostViewScreen(id: i32) -> Element {
                                     span { "{published_date}" }
                                 }
                                 
-                                span { class: "text-border", "•" }
+                                span { class: "text-border", "·" }
                                 
                                 // Reading time
                                 div { class: "flex items-center gap-1.5",
@@ -89,7 +114,7 @@ pub fn PostViewScreen(id: i32) -> Element {
                                 }
                             }
 
-                            // Tags (keeping as <a> for now since there's no TagScreen route)
+                            // Tags
                             if !post.tags.is_empty() {
                                 div { class: "flex flex-wrap gap-2 mt-6",
                                     for tag in &post.tags {
@@ -108,32 +133,22 @@ pub fn PostViewScreen(id: i32) -> Element {
                         }
 
                         // Engagement bar
-                        div { class: "flex items-center justify-between p-6 bg-muted/30 rounded-lg border border-border/50",
-                            div { class: "flex items-center gap-6",
-                                // Views
-                                div { class: "flex items-center gap-2 text-muted-foreground",
-                                    Icon { icon: LdEye, class: "w-5 h-5" }
-                                    span { class: "font-medium", "{post.view_count}" }
-                                }
-                                
-                                // Likes
-                                div { class: "flex items-center gap-2 text-muted-foreground",
-                                    Icon { icon: LdHeart, class: "w-5 h-5" }
-                                    span { class: "font-medium", "{post.likes_count}" }
-                                }
-                                
-                                // Comments
-                                div { class: "flex items-center gap-2 text-muted-foreground",
-                                    Icon { icon: LdMessageCircle, class: "w-5 h-5" }
-                                    span { class: "font-medium", "{post.comment_count}" }
-                                }
-                            }
+                        EngagementBar {
+                            view_count: post.view_count,
+                            likes_count: post.likes_count,
+                            comment_count: post.comment_count,
+                            is_liked: false, // TODO: Track user's like state when backend supports it
+                            on_like: move |_| {
+                                // TODO: Implement like/unlike when backend supports it
+                                dioxus::logger::tracing::info!("Like clicked - backend endpoint needed");
+                            },
+                            on_share: handle_share,
+                            on_scroll_to_comments: handle_scroll_to_comments,
+                        }
 
-                            button {
-                                class: "flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors",
-                                Icon { icon: LdShare2, class: "w-4 h-4" }
-                                "Share"
-                            }
+                        // Comments section
+                        div { id: "comments-section",
+                            CommentsSection { post_id: post_id }
                         }
 
                         // Navigation
@@ -160,24 +175,4 @@ pub fn PostViewScreen(id: i32) -> Element {
             }
         }
     }
-}
-
-fn estimate_reading_time(content: &ruxlog_shared::store::PostContent) -> u32 {
-    let word_count: usize = content.blocks.iter().map(|block| {
-        match block {
-            ruxlog_shared::store::EditorJsBlock::Paragraph { data, .. } => {
-                data.text.split_whitespace().count()
-            },
-            ruxlog_shared::store::EditorJsBlock::Header { data, .. } => {
-                data.text.split_whitespace().count()
-            },
-            ruxlog_shared::store::EditorJsBlock::List { data, .. } => {
-                data.items.iter().map(|item| item.split_whitespace().count()).sum()
-            },
-            _ => 0,
-        }
-    }).sum();
-    
-    // Average reading speed is 200-250 words per minute
-    ((word_count as f32 / 225.0).ceil() as u32).max(1)
 }
