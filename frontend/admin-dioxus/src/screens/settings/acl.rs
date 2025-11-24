@@ -6,7 +6,8 @@ use oxui::shadcn::button::{Button, ButtonVariant};
 use oxui::shadcn::dropdown_menu::{
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 };
-use hmziq_dioxus_free_icons::{icons::ld_icons::LdEllipsis, Icon};
+use oxui::shadcn::checkbox::Checkbox;
+use hmziq_dioxus_free_icons::{icons::ld_icons::{LdEllipsis, LdX}, Icon};
 
 use crate::components::table::data_table_screen::{DataTableScreen, HeaderColumn};
 use crate::components::table::list_empty_state::ListEmptyState;
@@ -36,7 +37,8 @@ pub fn AclSettingsScreen() -> Element {
     let mut value_type = use_signal(|| "".to_string());
     let mut description = use_signal(|| "".to_string());
     let mut is_sensitive = use_signal(|| false);
-    let editing_key = use_signal(|| None::<String>);
+    let mut editing_key = use_signal(|| None::<String>);
+    let mut dialog_open = use_signal(|| false);
 
     use_effect({
         let list_state = list_state;
@@ -78,6 +80,7 @@ pub fn AclSettingsScreen() -> Element {
         let mut description = description;
         let mut is_sensitive = is_sensitive;
         let mut editing_key = editing_key;
+        let mut dialog_open = dialog_open;
         spawn(async move {
             if let Some(existing_key) = editing_key() {
                 acl_state.update(existing_key, payload).await;
@@ -90,6 +93,7 @@ pub fn AclSettingsScreen() -> Element {
             description.set(String::new());
             is_sensitive.set(false);
             editing_key.set(None);
+            dialog_open.set(false);
         });
     };
 
@@ -204,97 +208,144 @@ pub fn AclSettingsScreen() -> Element {
         ]),
     };
 
-    let below_toolbar = rsx! {
-        form { class: "bg-card border border-border rounded-lg p-4 space-y-3", onsubmit: create_constant,
-            if let Some(editing) = editing_key() {
-                div { class: "flex items-center justify-between gap-3 rounded-md bg-muted/50 px-3 py-2 border border-border/70",
-                    span { class: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", "Editing" }
-                    span { class: "text-xs font-mono", "{editing}" }
-                }
-            }
-            div { class: "grid gap-3 md:grid-cols-2",
-                div { class: "space-y-1",
-                    label { class: "text-xs font-medium text-muted-foreground", "Key" }
-                    SimpleInput {
-                        placeholder: Some("S3_BUCKET".to_string()),
-                        value: key(),
-                        disabled: editing_key().is_some(),
-                        oninput: move |val| key.set(val),
-                        class: Some("text-sm font-mono".to_string()),
-                    }
-                }
-                div { class: "space-y-1",
-                    label { class: "text-xs font-medium text-muted-foreground", "Type (optional)" }
-                    SimpleInput {
-                        placeholder: Some("string | bool | int | json".to_string()),
-                        value: value_type(),
-                        oninput: move |val| value_type.set(val),
-                        class: Some("text-sm".to_string()),
-                    }
-                }
-            }
-            div { class: "grid gap-3 md:grid-cols-2",
-                div { class: "space-y-1",
-                    label { class: "text-xs font-medium text-muted-foreground", "Value" }
-                    SimpleInput {
-                        placeholder: Some("value".to_string()),
-                        value: value(),
-                        oninput: move |val| value.set(val),
-                        class: Some("text-sm".to_string()),
-                    }
-                    p { class: "text-[11px] text-muted-foreground",
-                        "Sensitive values are not shown. Enter a new value to update."
-                    }
-                }
-                div { class: "space-y-1",
-                    label { class: "text-xs font-medium text-muted-foreground", "Description (optional)" }
-                    SimpleInput {
-                        placeholder: Some("Describe this constant".to_string()),
-                        value: description(),
-                        oninput: move |val| description.set(val),
-                        class: Some("text-sm".to_string()),
-                    }
-                }
-            }
-            div { class: "flex items-center gap-2",
-                input {
-                    r#type: "checkbox",
-                    checked: is_sensitive(),
-                    onchange: move |ev| {
-                        is_sensitive.set(ev.value().parse::<bool>().unwrap_or(false));
-                    }
-                }
-                span { class: "text-xs text-muted-foreground", "Mark as sensitive (value will be masked in UI)" }
-            }
-            div { class: "flex flex-wrap gap-2",
-                Button { r#type: "submit", class: "w-full md:w-auto",
-                    if editing_key().is_some() { "Update constant" } else { "Create constant" }
-                }
-                if editing_key().is_some() {
-                    Button {
-                        variant: ButtonVariant::Outline,
-                        class: "w-full md:w-auto",
-                        onclick: {
-                            let mut key = key;
-                            let mut value = value;
-                            let mut value_type = value_type;
-                            let mut description = description;
-                            let mut is_sensitive = is_sensitive;
-                            let mut editing_key = editing_key;
-                            move |_| {
+    let dialog_content = if dialog_open() {
+        rsx! {
+            div {
+                class: "fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+                onclick: move |_| {
+                    dialog_open.set(false);
+                    key.set(String::new());
+                    value.set(String::new());
+                    value_type.set(String::new());
+                    description.set(String::new());
+                    is_sensitive.set(false);
+                    editing_key.set(None);
+                },
+                div {
+                    class: "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-2xl bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+                    onclick: move |e| e.stop_propagation(),
+                    form { onsubmit: create_constant,
+                        div { class: "flex flex-col space-y-1.5 text-center sm:text-left",
+                            h2 { class: "text-lg font-semibold",
+                                if editing_key().is_some() { "Edit Constant" } else { "Add Constant" }
+                            }
+                            p { class: "text-sm text-muted-foreground",
+                                "Manage ACL constants with DB + Redis cache."
+                            }
+                        }
+                        div { class: "space-y-4 py-4",
+                            if let Some(editing) = editing_key() {
+                                div { class: "flex items-center justify-between gap-3 rounded-md bg-muted/50 px-3 py-2 border border-border/70",
+                                    span { class: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", "Editing" }
+                                    span { class: "text-xs font-mono", "{editing}" }
+                                }
+                            }
+                            div { class: "grid gap-4 md:grid-cols-2",
+                                div { class: "space-y-2",
+                                    label { class: "text-sm font-medium text-foreground", "Key" }
+                                    SimpleInput {
+                                        placeholder: Some("S3_BUCKET".to_string()),
+                                        value: key(),
+                                        disabled: editing_key().is_some(),
+                                        oninput: move |val| key.set(val),
+                                        class: Some("text-sm font-mono".to_string()),
+                                    }
+                                }
+                                div { class: "space-y-2",
+                                    label { class: "text-sm font-medium text-foreground", "Type (optional)" }
+                                    SimpleInput {
+                                        placeholder: Some("string | bool | int | json".to_string()),
+                                        value: value_type(),
+                                        oninput: move |val| value_type.set(val),
+                                        class: Some("text-sm".to_string()),
+                                    }
+                                }
+                            }
+                            div { class: "grid gap-4 md:grid-cols-2",
+                                div { class: "space-y-2",
+                                    label { class: "text-sm font-medium text-foreground", "Value" }
+                                    SimpleInput {
+                                        placeholder: Some("value".to_string()),
+                                        value: value(),
+                                        oninput: move |val| value.set(val),
+                                        class: Some("text-sm".to_string()),
+                                    }
+                                    p { class: "text-xs text-muted-foreground mt-1",
+                                        "Sensitive values are not shown. Enter a new value to update."
+                                    }
+                                }
+                                div { class: "space-y-2",
+                                    label { class: "text-sm font-medium text-foreground", "Description (optional)" }
+                                    SimpleInput {
+                                        placeholder: Some("Describe this constant".to_string()),
+                                        value: description(),
+                                        oninput: move |val| description.set(val),
+                                        class: Some("text-sm".to_string()),
+                                    }
+                                }
+                            }
+                            div { class: "flex items-center gap-3",
+                                Checkbox {
+                                    checked: is_sensitive(),
+                                    onchange: move |checked| is_sensitive.set(checked),
+                                }
+                                label { class: "text-sm text-foreground cursor-pointer",
+                                    "Mark as sensitive (value will be masked in UI)"
+                                }
+                            }
+                        }
+                        div { class: "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
+                            Button {
+                                r#type: "button",
+                                variant: ButtonVariant::Outline,
+                                onclick: {
+                                    let mut key = key;
+                                    let mut value = value;
+                                    let mut value_type = value_type;
+                                    let mut description = description;
+                                    let mut is_sensitive = is_sensitive;
+                                    let mut editing_key = editing_key;
+                                    let mut dialog_open = dialog_open;
+                                    move |_| {
+                                        key.set(String::new());
+                                        value.set(String::new());
+                                        value_type.set(String::new());
+                                        description.set(String::new());
+                                        is_sensitive.set(false);
+                                        editing_key.set(None);
+                                        dialog_open.set(false);
+                                    }
+                                },
+                                "Cancel"
+                            }
+                            Button {
+                                r#type: "submit",
+                                if editing_key().is_some() { "Update Constant" } else { "Create Constant" }
+                            }
+                        }
+                        button {
+                            onclick: move |_| {
+                                dialog_open.set(false);
                                 key.set(String::new());
                                 value.set(String::new());
                                 value_type.set(String::new());
                                 description.set(String::new());
                                 is_sensitive.set(false);
                                 editing_key.set(None);
+                            },
+                            class: "ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none",
+                            r#type: "button",
+                            div { class: "w-4 h-4 pointer-events-none shrink-0",
+                                Icon { icon: LdX {} }
                             }
-                        },
-                        "Cancel edit"
+                            span { class: "sr-only", "Close" }
+                        }
                     }
                 }
             }
         }
+    } else {
+        rsx! {}
     };
 
     let has_rows = !filtered_rows.is_empty();
@@ -306,6 +357,10 @@ pub fn AclSettingsScreen() -> Element {
                 title: "Application Constants".to_string(),
                 description: "Manage ACL constants with DB + Redis cache.".to_string(),
                 actions: Some(rsx!{
+                    Button {
+                        onclick: move |_| dialog_open.set(true),
+                        "Add Constant"
+                    }
                     Button {
                         variant: ButtonVariant::Outline,
                         onclick: move |_| handlers.handle_retry.call(()),
@@ -322,7 +377,6 @@ pub fn AclSettingsScreen() -> Element {
             error_retry_label: Some("Retry".to_string()),
             on_error_retry: Some(EventHandler::new(move |_| handlers.handle_retry.call(()))),
             toolbar: Some(toolbar),
-            below_toolbar: Some(below_toolbar),
             on_prev: move |_| { handlers.handle_prev.call(current_page); },
             on_next: move |_| { handlers.handle_next.call(current_page); },
             show_pagination: true,
@@ -361,6 +415,7 @@ pub fn AclSettingsScreen() -> Element {
                     let mut description_signal = description;
                     let mut sensitive_signal = is_sensitive;
                     let mut editing_key_signal = editing_key;
+                    let mut dialog_open_signal = dialog_open;
                     let row_constant = constant.clone();
                     rsx!{
                         AclRow {
@@ -378,12 +433,14 @@ pub fn AclSettingsScreen() -> Element {
                                     .set(row_constant.description.clone().unwrap_or_default());
                                 sensitive_signal.set(row_constant.is_sensitive);
                                 editing_key_signal.set(Some(row_constant.key.clone()));
+                                dialog_open_signal.set(true);
                             })
                         }
                     }
                 })}
             }
         }
+        {dialog_content}
     }
 }
 
