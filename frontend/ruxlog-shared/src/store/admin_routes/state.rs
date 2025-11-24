@@ -5,6 +5,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum BlockFilter {
+    All,
+    Blocked,
+    Unblocked,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RouteStatus {
     pub id: i32,
@@ -31,9 +39,9 @@ pub struct UpdateRoutePayload {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct AdminRoutesListQuery {
     pub page: Option<u64>,
-    pub per_page: Option<u64>,
-    pub is_blocked: Option<bool>,
+    pub block_filter: Option<BlockFilter>,
     pub search: Option<String>,
+    pub sorts: Option<Vec<SortParam>>,
 }
 
 impl AdminRoutesListQuery {
@@ -67,11 +75,11 @@ impl ListQuery for AdminRoutesListQuery {
     }
 
     fn sorts(&self) -> Option<Vec<SortParam>> {
-        None
+        self.sorts.clone()
     }
 
     fn set_sorts(&mut self, sorts: Option<Vec<SortParam>>) {
-        let _ = sorts;
+        self.sorts = sorts;
     }
 }
 

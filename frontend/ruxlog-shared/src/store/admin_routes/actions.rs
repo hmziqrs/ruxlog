@@ -76,14 +76,17 @@ impl AdminRoutesState {
     }
 
     pub async fn list(&self) {
-        let _ =
-            list_state_abstraction(&self.list, http::get("/admin/route/v1/list").send(), "data")
-                .await;
+        let query = AdminRoutesListQuery::new();
+        self.list_with_query(query).await;
     }
 
-    pub async fn list_with_query(&self, _query: AdminRoutesListQuery) {
-        // Backend currently returns all blocked routes without filters.
-        self.list().await;
+    pub async fn list_with_query(&self, query: AdminRoutesListQuery) {
+        let _ = list_state_abstraction(
+            &self.list,
+            http::post("/admin/route/v1/list", &query).send(),
+            "data",
+        )
+        .await;
     }
 
     pub async fn sync(&self) {
