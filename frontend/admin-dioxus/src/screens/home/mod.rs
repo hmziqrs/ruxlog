@@ -3,15 +3,18 @@ use dioxus::prelude::*;
 use crate::containers::analytics::{
     dashboard_summary_cards::DashboardSummaryCards, filter_toolbar::AnalyticsFilterToolbar,
     page_views_chart::PageViewsChart, publishing_trends_chart::PublishingTrendsChart,
-    registration_trend_chart::RegistrationTrendChart,
-    verification_rates_chart::VerificationRatesChart,
+    // NOTE: Commented out overkill analytics for personal blog - backend still works if needed
+    // registration_trend_chart::RegistrationTrendChart,
+    // verification_rates_chart::VerificationRatesChart,
 };
 use crate::containers::page_header::PageHeader;
 use ruxlog_shared::store::analytics::{
     use_analytics, use_analytics_filters, AnalyticsInterval, DashboardSummaryFilters,
     DashboardSummaryRequest, PageViewsFilters, PageViewsRequest, PublishingTrendsFilters,
-    PublishingTrendsRequest, RegistrationTrendsFilters, RegistrationTrendsRequest,
-    VerificationRatesFilters, VerificationRatesRequest,
+    PublishingTrendsRequest,
+    // NOTE: Commented out overkill analytics for personal blog
+    // RegistrationTrendsFilters, RegistrationTrendsRequest,
+    // VerificationRatesFilters, VerificationRatesRequest,
 };
 
 #[component]
@@ -65,23 +68,24 @@ pub fn HomeScreen() -> Element {
             };
             analytics.fetch_publishing_trends(publishing_req).await;
 
+            // NOTE: Commented out overkill analytics fetches for personal blog
             // Registration trends
-            let registration_req = RegistrationTrendsRequest {
-                envelope: envelope.clone(),
-                filters: RegistrationTrendsFilters {
-                    group_by: AnalyticsInterval::Day,
-                },
-            };
-            analytics.fetch_registration_trends(registration_req).await;
+            // let registration_req = RegistrationTrendsRequest {
+            //     envelope: envelope.clone(),
+            //     filters: RegistrationTrendsFilters {
+            //         group_by: AnalyticsInterval::Day,
+            //     },
+            // };
+            // analytics.fetch_registration_trends(registration_req).await;
 
             // Verification rates
-            let verification_req = VerificationRatesRequest {
-                envelope: envelope.clone(),
-                filters: VerificationRatesFilters {
-                    group_by: AnalyticsInterval::Day,
-                },
-            };
-            analytics.fetch_verification_rates(verification_req).await;
+            // let verification_req = VerificationRatesRequest {
+            //     envelope: envelope.clone(),
+            //     filters: VerificationRatesFilters {
+            //         group_by: AnalyticsInterval::Day,
+            //     },
+            // };
+            // analytics.fetch_verification_rates(verification_req).await;
         });
     };
 
@@ -94,8 +98,9 @@ pub fn HomeScreen() -> Element {
     let summary_frame = analytics.dashboard_summary.read();
     let page_views_frame = analytics.page_views.read();
     let publishing_frame = analytics.publishing_trends.read();
-    let registration_frame = analytics.registration_trends.read();
-    let verification_frame = analytics.verification_rates.read();
+    // NOTE: Commented out overkill analytics frames for personal blog
+    // let registration_frame = analytics.registration_trends.read();
+    // let verification_frame = analytics.verification_rates.read();
 
     rsx! {
         div { class: "min-h-screen bg-transparent text-foreground",
@@ -204,33 +209,34 @@ pub fn HomeScreen() -> Element {
                     }
                 }
 
+                // NOTE: Commented out overkill analytics UI for personal blog
                 // Secondary charts row: registrations & verifications
-                div { class: "grid grid-cols-1 lg:grid-cols-2 gap-4",
-                    RegistrationTrendChart {
-                        frame: registration_frame.clone(),
-                        title: "New user registrations (last 7 days)".to_string(),
-                        height: "h-64".to_string(),
-                    }
-
-                    VerificationRatesChart {
-                        frame: verification_frame.clone(),
-                        title: "Verification funnel".to_string(),
-                        height: "260px".to_string(),
-                        show_success_rate: true,
-                        on_interval_change: Some(EventHandler::new(move |interval: AnalyticsInterval| {
-                            spawn(async move {
-                                let envelope = filters.build_envelope();
-                                let req = VerificationRatesRequest {
-                                    envelope,
-                                    filters: VerificationRatesFilters {
-                                        group_by: interval,
-                                    },
-                                };
-                                analytics.fetch_verification_rates(req).await;
-                            });
-                        })),
-                    }
-                }
+                // div { class: "grid grid-cols-1 lg:grid-cols-2 gap-4",
+                //     RegistrationTrendChart {
+                //         frame: registration_frame.clone(),
+                //         title: "New user registrations (last 7 days)".to_string(),
+                //         height: "h-64".to_string(),
+                //     }
+                //
+                //     VerificationRatesChart {
+                //         frame: verification_frame.clone(),
+                //         title: "Verification funnel".to_string(),
+                //         height: "260px".to_string(),
+                //         show_success_rate: true,
+                //         on_interval_change: Some(EventHandler::new(move |interval: AnalyticsInterval| {
+                //             spawn(async move {
+                //                 let envelope = filters.build_envelope();
+                //                 let req = VerificationRatesRequest {
+                //                     envelope,
+                //                     filters: VerificationRatesFilters {
+                //                         group_by: interval,
+                //                     },
+                //                 };
+                //                 analytics.fetch_verification_rates(req).await;
+                //             });
+                //         })),
+                //     }
+                // }
             }
         }
     }

@@ -1,20 +1,29 @@
 use dioxus::prelude::*;
 
 use crate::containers::analytics::{
-    comment_rate_chart::CommentRateChartFromStore, dashboard_summary_cards::DashboardSummaryCards,
-    filter_toolbar::AnalyticsFilterToolbar, media_upload_trends_chart::MediaUploadTrendsChart,
-    newsletter_growth_chart::NewsletterGrowthChart, page_views_chart::PageViewsChart,
+    // NOTE: Commented out overkill analytics for personal blog - backend still works if needed
+    // comment_rate_chart::CommentRateChartFromStore,
+    dashboard_summary_cards::DashboardSummaryCards,
+    filter_toolbar::AnalyticsFilterToolbar,
+    // media_upload_trends_chart::MediaUploadTrendsChart,
+    // newsletter_growth_chart::NewsletterGrowthChart,
+    page_views_chart::PageViewsChart,
     publishing_trends_chart::PublishingTrendsChart,
-    registration_trend_chart::RegistrationTrendChart,
-    verification_rates_chart::VerificationRatesChart,
+    // registration_trend_chart::RegistrationTrendChart,
+    // verification_rates_chart::VerificationRatesChart,
 };
 use crate::containers::page_header::PageHeader;
 use ruxlog_shared::store::analytics::{
-    use_analytics, use_analytics_filters, AnalyticsInterval, CommentRateFilters,
-    CommentRateRequest, DashboardSummaryFilters, DashboardSummaryRequest, MediaUploadFilters,
-    MediaUploadRequest, NewsletterGrowthFilters, NewsletterGrowthRequest, PageViewsFilters,
-    PageViewsRequest, PublishingTrendsFilters, PublishingTrendsRequest, RegistrationTrendsFilters,
-    RegistrationTrendsRequest, VerificationRatesFilters, VerificationRatesRequest,
+    use_analytics, use_analytics_filters, AnalyticsInterval,
+    // NOTE: Commented out overkill analytics for personal blog
+    // CommentRateFilters, CommentRateRequest,
+    DashboardSummaryFilters, DashboardSummaryRequest,
+    // MediaUploadFilters, MediaUploadRequest,
+    // NewsletterGrowthFilters, NewsletterGrowthRequest,
+    PageViewsFilters, PageViewsRequest,
+    PublishingTrendsFilters, PublishingTrendsRequest,
+    // RegistrationTrendsFilters, RegistrationTrendsRequest,
+    // VerificationRatesFilters, VerificationRatesRequest,
 };
 
 /// Full analytics screen:
@@ -45,19 +54,16 @@ pub fn AnalyticsScreen() -> Element {
     // Publishing trends filters
     let publishing_interval = use_signal(|| AnalyticsInterval::Day);
 
+    // NOTE: Commented out overkill analytics state for personal blog
     // Registration trends interval
-    let registration_interval = use_signal(|| AnalyticsInterval::Day);
-
+    // let registration_interval = use_signal(|| AnalyticsInterval::Day);
     // Verification rates interval
-    let mut verification_interval = use_signal(|| AnalyticsInterval::Day);
-
-    // Comment rate filters (placeholder for future enhancements using min_views/sort, currently unused)
-
+    // let mut verification_interval = use_signal(|| AnalyticsInterval::Day);
+    // Comment rate filters
     // Newsletter growth interval
-    let newsletter_interval = use_signal(|| AnalyticsInterval::Day);
-
+    // let newsletter_interval = use_signal(|| AnalyticsInterval::Day);
     // Media upload trends interval
-    let media_interval = use_signal(|| AnalyticsInterval::Day);
+    // let media_interval = use_signal(|| AnalyticsInterval::Day);
 
     // Effect to load data when filters change
     use_effect({
@@ -68,10 +74,11 @@ pub fn AnalyticsScreen() -> Element {
         let pv_author_id = pv_author_id;
         let pv_only_unique = pv_only_unique;
         let publishing_interval = publishing_interval;
-        let registration_interval = registration_interval;
-        let verification_interval = verification_interval;
-        let newsletter_interval = newsletter_interval;
-        let media_interval = media_interval;
+        // NOTE: Commented out overkill analytics for personal blog
+        // let registration_interval = registration_interval;
+        // let verification_interval = verification_interval;
+        // let newsletter_interval = newsletter_interval;
+        // let media_interval = media_interval;
         move || {
             let envelope = filters.build_envelope();
             let analytics = analytics;
@@ -107,48 +114,49 @@ pub fn AnalyticsScreen() -> Element {
                 };
                 analytics.fetch_publishing_trends(publishing_req).await;
 
+                // NOTE: Commented out overkill analytics fetches for personal blog
                 // Registration trends
-                let registration_req = RegistrationTrendsRequest {
-                    envelope: envelope.clone(),
-                    filters: RegistrationTrendsFilters {
-                        group_by: *registration_interval.read(),
-                    },
-                };
-                analytics.fetch_registration_trends(registration_req).await;
+                // let registration_req = RegistrationTrendsRequest {
+                //     envelope: envelope.clone(),
+                //     filters: RegistrationTrendsFilters {
+                //         group_by: *registration_interval.read(),
+                //     },
+                // };
+                // analytics.fetch_registration_trends(registration_req).await;
 
                 // Verification rates
-                let verification_req = VerificationRatesRequest {
-                    envelope: envelope.clone(),
-                    filters: VerificationRatesFilters {
-                        group_by: *verification_interval.read(),
-                    },
-                };
-                analytics.fetch_verification_rates(verification_req).await;
+                // let verification_req = VerificationRatesRequest {
+                //     envelope: envelope.clone(),
+                //     filters: VerificationRatesFilters {
+                //         group_by: *verification_interval.read(),
+                //     },
+                // };
+                // analytics.fetch_verification_rates(verification_req).await;
 
                 // Comment rate
-                let comment_req = CommentRateRequest {
-                    envelope: envelope.clone(),
-                    filters: CommentRateFilters { min_views: None },
-                };
-                analytics.fetch_comment_rate(comment_req).await;
+                // let comment_req = CommentRateRequest {
+                //     envelope: envelope.clone(),
+                //     filters: CommentRateFilters { min_views: None },
+                // };
+                // analytics.fetch_comment_rate(comment_req).await;
 
                 // Newsletter growth
-                let newsletter_req = NewsletterGrowthRequest {
-                    envelope: envelope.clone(),
-                    filters: NewsletterGrowthFilters {
-                        group_by: *newsletter_interval.read(),
-                    },
-                };
-                analytics.fetch_newsletter_growth(newsletter_req).await;
+                // let newsletter_req = NewsletterGrowthRequest {
+                //     envelope: envelope.clone(),
+                //     filters: NewsletterGrowthFilters {
+                //         group_by: *newsletter_interval.read(),
+                //     },
+                // };
+                // analytics.fetch_newsletter_growth(newsletter_req).await;
 
                 // Media uploads
-                let media_req = MediaUploadRequest {
-                    envelope,
-                    filters: MediaUploadFilters {
-                        group_by: *media_interval.read(),
-                    },
-                };
-                analytics.fetch_media_upload(media_req).await;
+                // let media_req = MediaUploadRequest {
+                //     envelope,
+                //     filters: MediaUploadFilters {
+                //         group_by: *media_interval.read(),
+                //     },
+                // };
+                // analytics.fetch_media_upload(media_req).await;
             });
         }
     });
@@ -160,9 +168,10 @@ pub fn AnalyticsScreen() -> Element {
     let summary_frame = analytics.dashboard_summary.read();
     let page_views_frame = analytics.page_views.read();
     let publishing_frame = analytics.publishing_trends.read();
-    let registration_frame = analytics.registration_trends.read();
-    let verification_frame = analytics.verification_rates.read();
-    let media_upload_frame = analytics.media_upload.read();
+    // NOTE: Commented out overkill analytics frames for personal blog
+    // let registration_frame = analytics.registration_trends.read();
+    // let verification_frame = analytics.verification_rates.read();
+    // let media_upload_frame = analytics.media_upload.read();
 
     rsx! {
         div { class: "min-h-screen bg-transparent text-foreground",
@@ -212,50 +221,51 @@ pub fn AnalyticsScreen() -> Element {
                         };
                         analytics.fetch_publishing_trends(publishing_req).await;
 
+                        // NOTE: Commented out overkill analytics fetches for personal blog
                         // Registration
-                        let registration_req = RegistrationTrendsRequest {
-                            envelope: envelope.clone(),
-                            filters: RegistrationTrendsFilters {
-                                group_by: *registration_interval.read(),
-                            },
-                        };
-                        analytics.fetch_registration_trends(registration_req).await;
+                        // let registration_req = RegistrationTrendsRequest {
+                        //     envelope: envelope.clone(),
+                        //     filters: RegistrationTrendsFilters {
+                        //         group_by: *registration_interval.read(),
+                        //     },
+                        // };
+                        // analytics.fetch_registration_trends(registration_req).await;
 
                         // Verification
-                        let verification_req = VerificationRatesRequest {
-                            envelope: envelope.clone(),
-                            filters: VerificationRatesFilters {
-                                group_by: *verification_interval.read(),
-                            },
-                        };
-                        analytics.fetch_verification_rates(verification_req).await;
+                        // let verification_req = VerificationRatesRequest {
+                        //     envelope: envelope.clone(),
+                        //     filters: VerificationRatesFilters {
+                        //         group_by: *verification_interval.read(),
+                        //     },
+                        // };
+                        // analytics.fetch_verification_rates(verification_req).await;
 
                         // Comment rate
-                        let comment_req = CommentRateRequest {
-                            envelope: envelope.clone(),
-                            filters: CommentRateFilters {
-                                min_views: None,
-                            },
-                        };
-                        analytics.fetch_comment_rate(comment_req).await;
+                        // let comment_req = CommentRateRequest {
+                        //     envelope: envelope.clone(),
+                        //     filters: CommentRateFilters {
+                        //         min_views: None,
+                        //     },
+                        // };
+                        // analytics.fetch_comment_rate(comment_req).await;
 
                         // Newsletter growth
-                        let newsletter_req = NewsletterGrowthRequest {
-                            envelope: envelope.clone(),
-                            filters: NewsletterGrowthFilters {
-                                group_by: *newsletter_interval.read(),
-                            },
-                        };
-                        analytics.fetch_newsletter_growth(newsletter_req).await;
+                        // let newsletter_req = NewsletterGrowthRequest {
+                        //     envelope: envelope.clone(),
+                        //     filters: NewsletterGrowthFilters {
+                        //         group_by: *newsletter_interval.read(),
+                        //     },
+                        // };
+                        // analytics.fetch_newsletter_growth(newsletter_req).await;
 
                         // Media uploads
-                        let media_req = MediaUploadRequest {
-                            envelope,
-                            filters: MediaUploadFilters {
-                                group_by: *media_interval.read(),
-                            },
-                        };
-                        analytics.fetch_media_upload(media_req).await;
+                        // let media_req = MediaUploadRequest {
+                        //     envelope,
+                        //     filters: MediaUploadFilters {
+                        //         group_by: *media_interval.read(),
+                        //     },
+                        // };
+                        // analytics.fetch_media_upload(media_req).await;
                     });
                 },
             }
@@ -376,64 +386,65 @@ pub fn AnalyticsScreen() -> Element {
                     }
                 }
 
+                // NOTE: Commented out overkill analytics UI for personal blog
                 // Row 2: User funnel & verification
-                div { class: "grid grid-cols-1 xl:grid-cols-2 gap-4",
-                    RegistrationTrendChart {
-                        frame: registration_frame.clone(),
-                        title: "User registrations over time".to_string(),
-                        height: "h-72".to_string(),
-                    }
-
-                    VerificationRatesChart {
-                        frame: verification_frame.clone(),
-                        title: "Verification funnel & success rate".to_string(),
-                        height: "h-72".to_string(),
-                        show_success_rate: true,
-                        on_interval_change: Some(EventHandler::new({
-                            let analytics = analytics;
-                            let filters = filters;
-                            move |interval: AnalyticsInterval| {
-                                *verification_interval.write() = interval;
-                                let analytics = analytics;
-                                let filters = filters;
-                                spawn(async move {
-                                    let envelope = filters.build_envelope();
-                                    let req = VerificationRatesRequest {
-                                        envelope,
-                                        filters: VerificationRatesFilters {
-                                            group_by: interval,
-                                        },
-                                    };
-                                    analytics.fetch_verification_rates(req).await;
-                                });
-                            }
-                        })),
-                    }
-                }
+                // div { class: "grid grid-cols-1 xl:grid-cols-2 gap-4",
+                //     RegistrationTrendChart {
+                //         frame: registration_frame.clone(),
+                //         title: "User registrations over time".to_string(),
+                //         height: "h-72".to_string(),
+                //     }
+                //
+                //     VerificationRatesChart {
+                //         frame: verification_frame.clone(),
+                //         title: "Verification funnel & success rate".to_string(),
+                //         height: "h-72".to_string(),
+                //         show_success_rate: true,
+                //         on_interval_change: Some(EventHandler::new({
+                //             let analytics = analytics;
+                //             let filters = filters;
+                //             move |interval: AnalyticsInterval| {
+                //                 *verification_interval.write() = interval;
+                //                 let analytics = analytics;
+                //                 let filters = filters;
+                //                 spawn(async move {
+                //                     let envelope = filters.build_envelope();
+                //                     let req = VerificationRatesRequest {
+                //                         envelope,
+                //                         filters: VerificationRatesFilters {
+                //                             group_by: interval,
+                //                         },
+                //                     };
+                //                     analytics.fetch_verification_rates(req).await;
+                //                 });
+                //             }
+                //         })),
+                //     }
+                // }
 
                 // Row 3: Engagement ranking & newsletter growth
-                div { class: "grid grid-cols-1 xl:grid-cols-2 gap-4",
-                    CommentRateChartFromStore {
-                        title: Some("Top posts by comment activity".to_string()),
-                        height: Some("h-72".to_string()),
-                        max_items: Some(10),
-                    }
-
-                    NewsletterGrowthChart {
-                        title: "Newsletter growth & churn".to_string(),
-                        height_class: "h-72".to_string(),
-                        default_interval: AnalyticsInterval::Day,
-                    }
-                }
+                // div { class: "grid grid-cols-1 xl:grid-cols-2 gap-4",
+                //     CommentRateChartFromStore {
+                //         title: Some("Top posts by comment activity".to_string()),
+                //         height: Some("h-72".to_string()),
+                //         max_items: Some(10),
+                //     }
+                //
+                //     NewsletterGrowthChart {
+                //         title: "Newsletter growth & churn".to_string(),
+                //         height_class: "h-72".to_string(),
+                //         default_interval: AnalyticsInterval::Day,
+                //     }
+                // }
 
                 // Row 4: Media uploads
-                div { class: "grid grid-cols-1 xl:grid-cols-2 gap-4",
-                    MediaUploadTrendsChart {
-                        frame: media_upload_frame.clone(),
-                        title: "Media upload trends".to_string(),
-                        height_class: "h-72".to_string(),
-                    }
-                }
+                // div { class: "grid grid-cols-1 xl:grid-cols-2 gap-4",
+                //     MediaUploadTrendsChart {
+                //         frame: media_upload_frame.clone(),
+                //         title: "Media upload trends".to_string(),
+                //         height_class: "h-72".to_string(),
+                //     }
+                // }
             }
         }
     }
