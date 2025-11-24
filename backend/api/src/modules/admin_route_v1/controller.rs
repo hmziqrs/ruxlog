@@ -133,7 +133,9 @@ pub async fn list_blocked_routes(
             info!(count = routes.len(), "Retrieved blocked routes list");
             Ok(Json(json!({
                 "data": routes,
-                "total": routes.len()
+                "total": routes.len(),
+                "page": 1,
+                "per_page": routes.len()
             })))
         }
         Err(err) => {

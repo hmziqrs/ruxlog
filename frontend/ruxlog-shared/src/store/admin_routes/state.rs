@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
-use oxstore::StateFrame;
+use oxstore::{PaginatedList, StateFrame};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -28,7 +28,7 @@ pub struct UpdateRoutePayload {
 }
 
 pub struct AdminRoutesState {
-    pub list: GlobalSignal<StateFrame<Vec<RouteStatus>>>,
+    pub list: GlobalSignal<StateFrame<PaginatedList<RouteStatus>>>,
     pub block: GlobalSignal<StateFrame<RouteStatus, BlockRoutePayload>>,
     pub update: GlobalSignal<HashMap<String, StateFrame<(), UpdateRoutePayload>>>,
     pub remove: GlobalSignal<HashMap<String, StateFrame>>,

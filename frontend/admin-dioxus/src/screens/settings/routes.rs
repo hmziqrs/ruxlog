@@ -3,7 +3,6 @@ use ruxlog_shared::store::{use_admin_routes, BlockRoutePayload, RouteStatus, Upd
 
 use crate::components::table::data_table_screen::{DataTableScreen, HeaderColumn};
 use crate::containers::page_header::PageHeaderProps;
-use oxstore::{PaginatedList, StateFrame};
 use oxui::components::form::input::SimpleInput;
 use oxui::shadcn::button::{Button, ButtonVariant};
 
@@ -42,8 +41,8 @@ pub fn RoutesSettingsScreen() -> Element {
         });
     };
 
-    let rows: Vec<RouteStatus> = routes_state.list.read().data.clone().unwrap_or_default();
-    let routes_frame = to_paginated_frame((routes_state.list)());
+    let routes_frame = (routes_state.list)();
+    let rows: Vec<RouteStatus> = routes_frame.data.as_ref().map(|p| p.data.clone()).unwrap_or_default();
 
     // Define header columns
     let headers = vec![
@@ -185,23 +184,5 @@ fn RouteRow(route: RouteStatus) -> Element {
                 }
             }
         }
-    }
-}
-
-fn to_paginated_frame<T: Clone>(frame: StateFrame<Vec<T>>) -> StateFrame<PaginatedList<T>> {
-    let data_vec = frame.data;
-    let count = data_vec.as_ref().map(|d| d.len() as u64).unwrap_or(0);
-    let data = data_vec.map(|items| PaginatedList {
-        data: items,
-        total: count,
-        page: 1,
-        per_page: count.max(1),
-    });
-
-    StateFrame {
-        status: frame.status,
-        data,
-        meta: frame.meta,
-        error: frame.error,
     }
 }
