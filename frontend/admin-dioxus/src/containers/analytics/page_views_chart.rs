@@ -119,7 +119,7 @@ pub fn PageViewsChart(props: PageViewsChartProps) -> Element {
 
     rsx! {
         div {
-            class: "rounded-xl border border-border bg-card \
+            class: "rounded-lg border border-border \
                     flex flex-col {padding}",
             // Header
             div { class: "flex items-center justify-between gap-2 mb-3",

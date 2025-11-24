@@ -63,7 +63,7 @@ pub fn PublishingTrendsChart(props: PublishingTrendsChartProps) -> Element {
 
     rsx! {
         div {
-            class: "rounded-xl border border-border bg-card flex flex-col",
+            class: "rounded-lg border border-border flex flex-col",
 
             // Header
             div {
