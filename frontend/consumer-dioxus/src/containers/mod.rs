@@ -42,9 +42,9 @@ pub fn NavBarContainer() -> Element {
             nav { class: "sticky top-0 z-50 border-b border-border/60 backdrop-blur-xl bg-background/80",
                 div { class: "container mx-auto px-4",
                     div { class: "flex h-16 items-center justify-between",
-                        // Logo
-                        a {
-                            href: "/",
+                        // Logo - use Dioxus Link for client-side navigation
+                        Link {
+                            to: Route::HomeScreen {},
                             class: "flex items-center gap-2 font-bold text-xl",
                             span { class: "text-primary", "Ruxlog" }
                         }
@@ -68,10 +68,10 @@ pub fn NavBarContainer() -> Element {
                                 }
                             }
 
-                            // User menu
+                            // User menu - use Dioxus Link for client-side navigation
                             if let Some(user) = &*user {
-                                a {
-                                    href: "/profile",
+                                Link {
+                                    to: Route::ProfileScreen {},
                                     class: "flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors",
                                     div { class: "w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm",
                                         "{user.name.chars().next().unwrap_or('U').to_uppercase()}"
@@ -79,8 +79,8 @@ pub fn NavBarContainer() -> Element {
                                     span { class: "hidden md:block text-sm font-medium", "{user.name}" }
                                 }
                             } else {
-                                a {
-                                    href: "/login",
+                                Link {
+                                    to: Route::LoginScreen {},
                                     class: "p-2 rounded-lg hover:bg-muted/50 transition-colors",
                                     aria_label: "Sign In",
                                     Icon { icon: LdLogIn, class: "w-5 h-5" }
@@ -98,21 +98,21 @@ pub fn NavBarContainer() -> Element {
             footer { class: "border-t border-border/60 mt-auto",
                 div { class: "container mx-auto px-4 py-8",
                     div { class: "flex flex-col items-center gap-6",
-                        // Navigation links
+                        // Navigation links - use Dioxus Link for client-side navigation
                         div { class: "flex items-center gap-6",
-                            a {
-                                href: "/about",
+                            Link {
+                                to: Route::AboutScreen {},
                                 class: "text-sm text-muted-foreground hover:text-foreground transition-colors",
                                 "About"
                             }
-                            a {
-                                href: "/contact",
+                            Link {
+                                to: Route::ContactScreen {},
                                 class: "text-sm text-muted-foreground hover:text-foreground transition-colors",
                                 "Contact"
                             }
                         }
 
-                        // Social icons
+                        // Social icons (external links - keep as <a> tags)
                         div { class: "flex items-center gap-4",
                             a {
                                 href: "https://twitter.com",
@@ -140,7 +140,7 @@ pub fn NavBarContainer() -> Element {
                             }
                         }
 
-                        // Built with message
+                        // Built with message (external links - keep as <a> tags)
                         div { class: "text-center text-sm text-muted-foreground",
                             "Built from scratch with "
                             a {
@@ -170,4 +170,3 @@ pub fn NavBarContainer() -> Element {
         }
     }
 }
-

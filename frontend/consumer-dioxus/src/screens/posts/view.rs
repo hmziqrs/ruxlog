@@ -89,13 +89,12 @@ pub fn PostViewScreen(id: i32) -> Element {
                                 }
                             }
 
-                            // Tags
+                            // Tags (keeping as <a> for now since there's no TagScreen route)
                             if !post.tags.is_empty() {
                                 div { class: "flex flex-wrap gap-2 mt-6",
                                     for tag in &post.tags {
-                                        a {
-                                            href: "/tags/{tag.slug}",
-                                            class: "px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors",
+                                        span {
+                                            class: "px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary",
                                             "{tag.name}"
                                         }
                                     }

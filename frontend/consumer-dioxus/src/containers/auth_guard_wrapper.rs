@@ -15,8 +15,7 @@ const AUTH_ROUTES: &[Route] = &[Route::LoginScreen {}, Route::RegisterScreen {}]
 
 #[component]
 pub fn AuthGuardContainer() -> Element {
-    // Only block on initial auth check, not on route changes
-    let init_blocked = use_signal(|| true);
+    let render_blocked = use_signal(|| true);
     let auth_store = use_auth();
     let nav = use_navigator();
     let route: Route = use_route();
@@ -33,9 +32,9 @@ pub fn AuthGuardContainer() -> Element {
         }
     });
 
-    // Handle auth redirects (only for auth pages like login/register)
+    // Handle auth logic on route changes
     let nav_for_logic = nav.clone();
-    let mut init_blocked_for_logic = init_blocked.clone();
+    let mut render_blocked_for_logic = render_blocked.clone();
     let route_for_logic = route.clone();
 
     use_effect(use_reactive!(|(route_for_logic)| {
@@ -46,13 +45,17 @@ pub fn AuthGuardContainer() -> Element {
             let is_logged_in = user.is_some();
             let nav = nav_for_logic.clone();
 
-            // Only redirect: logged-in users shouldn't see login/register pages
-            if is_logged_in && is_auth_route {
-                nav.replace(Route::HomeScreen {});
-            }
+            spawn(async move {
+                // Redirect logged-in users away from auth pages (login/register)
+                if is_logged_in && is_auth_route {
+                    render_blocked_for_logic.set(false);
+                    nav.replace(Route::HomeScreen {});
+                    return;
+                }
 
-            // Always unblock - this is a public site
-            init_blocked_for_logic.set(false);
+                // Public site: always unblock, no auth required for any route
+                render_blocked_for_logic.set(false);
+            });
         }
     }));
 
@@ -61,11 +64,21 @@ pub fn AuthGuardContainer() -> Element {
     let login_status = auth_store.login_status.read();
     let logout_status = auth_store.logout_status.read();
 
-    // Determine loader messages (only shown during init)
+    // Determine loader messages
     let (loader_title, loader_copy) = if init_status.is_loading() {
         (
             "Checking your session…".to_string(),
             "Hold tight while we verify your account and get things ready.".to_string(),
+        )
+    } else if login_status.is_loading() {
+        (
+            "Signing you in…".to_string(),
+            "Validating your credentials and preparing your feed.".to_string(),
+        )
+    } else if logout_status.is_loading() {
+        (
+            "Signing you out…".to_string(),
+            "Wrapping up and clearing your session securely.".to_string(),
         )
     } else {
         (
@@ -103,18 +116,14 @@ pub fn AuthGuardContainer() -> Element {
                     spawn(async move {
                         auth_store.init().await;
                     });
-                }
+                },
             }
         };
     }
 
     rsx! {
-        AuthGuardLoader {
-            title: loader_title,
-            copy: loader_copy,
-            show: init_blocked,
-        }
-        if !init_blocked() {
+        AuthGuardLoader { title: loader_title, copy: loader_copy, show: render_blocked }
+        if !render_blocked() {
             Outlet::<Route> {}
             AuthGuardLoader {
                 title: overlay_title,

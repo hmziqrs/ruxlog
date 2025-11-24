@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use ruxlog_shared::store::use_post;
+use crate::router::Route;
 
 #[component]
 pub fn HomeScreen() -> Element {
@@ -39,8 +40,8 @@ pub fn HomeScreen() -> Element {
                     } else {
                         div { class: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
                             for post in &data.data {
-                                a {
-                                    href: "/posts/{post.id}",
+                                Link {
+                                    to: Route::PostViewScreen { id: post.id },
                                     class: "group block rounded-lg border border-border bg-card text-card-foreground shadow-sm hover:shadow-md transition-shadow",
                                     if let Some(featured_image) = &post.featured_image {
                                         div { class: "aspect-video w-full overflow-hidden rounded-t-lg",

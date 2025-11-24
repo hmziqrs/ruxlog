@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 
+use crate::router::Route;
 use crate::screens::auth::{use_login_form, LoginForm};
 use crate::components::MouseTrackingCard;
 use ruxlog_shared::store::use_auth;
@@ -93,9 +94,9 @@ pub fn LoginScreen() -> Element {
                     }
                     p { class: "text-sm text-center text-zinc-600 dark:text-zinc-400 mt-4 transition-colors duration-300",
                         "Don't have an account? "
-                        a {
+                        Link {
+                            to: Route::RegisterScreen {},
                             class: "text-zinc-700 dark:text-zinc-300 font-semibold hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors duration-150",
-                            href: "/register",
                             "Sign up"
                         }
                     }
