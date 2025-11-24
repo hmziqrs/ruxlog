@@ -119,124 +119,51 @@ pub fn PageViewsChart(props: PageViewsChartProps) -> Element {
 
     rsx! {
         div {
-            class: "rounded-2xl border border-border bg-background shadow-none \
-                    flex flex-col gap-2 {padding}",
+            class: "rounded-xl border border-border bg-card \
+                    flex flex-col {padding}",
             // Header
-            div { class: "flex items-center justify-between gap-2",
-                div { class: "flex flex-col",
+            div { class: "flex items-center justify-between gap-2 mb-3",
+                div { class: "flex flex-col gap-0.5",
                     h3 {
-                        class: "text-sm font-semibold text-zinc-900 dark:text-zinc-100",
+                        class: "text-sm font-semibold text-foreground",
                         "{props.title}"
                     }
                     span {
-                        class: "text-[10px] uppercase tracking-wide text-zinc-400",
-                        "Views vs unique visitors"
+                        class: "text-xs text-muted-foreground",
+                        "Total views vs unique visitors over time"
                     }
                 }
 
-                // Interval selector
-                if let Some(handler) = props.on_interval_change {
-                    IntervalSelector {
-                        current: props.current_interval,
-                        on_change: handler,
-                        label: "".to_string(),
-                    }
-                }
-            }
-
-            // Chart-specific filters panel
-            {
-                let has_filters = props.on_post_id_change.is_some()
-                    || props.on_author_id_change.is_some()
-                    || props.on_only_unique_change.is_some();
-
-                if has_filters {
-                    rsx! {
-                        div {
-                            class: "flex flex-wrap items-center gap-3 pt-2 pb-1 border-t border-zinc-200/50 dark:border-zinc-800/50",
-
-                            // Post ID filter
-                            if let Some(post_handler) = props.on_post_id_change {
-                                div {
-                                    class: "flex items-center gap-1.5",
-                                    label {
-                                        class: "text-[9px] font-medium text-zinc-500 whitespace-nowrap",
-                                        "Post ID:"
-                                    }
-                                    input {
-                                        r#type: "number",
-                                        value: props.current_post_id.map(|id| id.to_string()).unwrap_or_default(),
-                                        placeholder: "All",
-                                        oninput: move |evt: Event<FormData>| {
-                                            let value = evt.value();
-                                            let parsed = if value.is_empty() {
-                                                None
-                                            } else {
-                                                value.parse::<i32>().ok()
-                                            };
-                                            post_handler.call(parsed);
-                                        },
-                                        class: "w-20 px-2 py-1 text-[10px] rounded border border-zinc-200 \
-                                               dark:border-zinc-800 bg-transparent focus:border-ring \
-                                               focus:ring-1 focus:ring-ring/40",
-                                    }
-                                }
+                // Interval selector + unique toggle in a row
+                div {
+                    class: "flex items-center gap-3",
+                    // Only unique toggle (simplified)
+                    if let Some(unique_handler) = props.on_only_unique_change {
+                        label {
+                            class: "flex items-center gap-1.5 cursor-pointer",
+                            input {
+                                r#type: "checkbox",
+                                checked: props.current_only_unique,
+                                onchange: move |evt: Event<FormData>| {
+                                    unique_handler.call(evt.checked());
+                                },
+                                class: "w-3.5 h-3.5 rounded border-border \
+                                       text-primary focus:ring-2 focus:ring-ring/40",
                             }
-
-                            // Author ID filter
-                            if let Some(author_handler) = props.on_author_id_change {
-                                div {
-                                    class: "flex items-center gap-1.5",
-                                    label {
-                                        class: "text-[9px] font-medium text-zinc-500 whitespace-nowrap",
-                                        "Author ID:"
-                                    }
-                                    input {
-                                        r#type: "number",
-                                        value: props.current_author_id.map(|id| id.to_string()).unwrap_or_default(),
-                                        placeholder: "All",
-                                        oninput: move |evt: Event<FormData>| {
-                                            let value = evt.value();
-                                            let parsed = if value.is_empty() {
-                                                None
-                                            } else {
-                                                value.parse::<i32>().ok()
-                                            };
-                                            author_handler.call(parsed);
-                                        },
-                                        class: "w-20 px-2 py-1 text-[10px] rounded border border-zinc-200 \
-                                               dark:border-zinc-800 bg-transparent focus:border-ring \
-                                               focus:ring-1 focus:ring-ring/40",
-                                    }
-                                }
-                            }
-
-                            // Only unique toggle
-                            if let Some(unique_handler) = props.on_only_unique_change {
-                                div {
-                                    class: "flex items-center gap-1.5",
-                                    input {
-                                        r#type: "checkbox",
-                                        id: "only-unique-toggle",
-                                        checked: props.current_only_unique,
-                                        onchange: move |evt: Event<FormData>| {
-                                            unique_handler.call(evt.checked());
-                                        },
-                                        class: "w-3 h-3 rounded border-zinc-300 dark:border-zinc-700 \
-                                               text-ring focus:ring-2 focus:ring-ring/40",
-                                    }
-                                    label {
-                                        r#for: "only-unique-toggle",
-                                        class: "text-[9px] font-medium text-zinc-600 dark:text-zinc-400 \
-                                               cursor-pointer select-none",
-                                        "Only unique visitors"
-                                    }
-                                }
+                            span {
+                                class: "text-xs text-muted-foreground",
+                                "Unique only"
                             }
                         }
                     }
-                } else {
-                    rsx! {}
+                    // Interval selector
+                    if let Some(handler) = props.on_interval_change {
+                        IntervalSelector {
+                            current: props.current_interval,
+                            on_change: handler,
+                            label: "".to_string(),
+                        }
+                    }
                 }
             }
 
@@ -249,21 +176,21 @@ pub fn PageViewsChart(props: PageViewsChartProps) -> Element {
 /// Skeleton/loading state while analytics request is in-flight.
 #[component]
 fn LoadingState(height: String, compact: bool) -> Element {
-    let padding_top = if compact { "mt-1" } else { "mt-2" };
+    let _padding_top = if compact { "mt-1" } else { "mt-2" };
 
     rsx! {
-        div { class: "flex-1 flex flex-col justify-end gap-2 {padding_top}",
+        div { class: "flex-1 flex flex-col justify-end gap-3",
             // "Chart" skeleton
             div {
-                class: "w-full {height} rounded-xl bg-muted animate-pulse flex items-end gap-1 px-3 pb-3",
+                class: "w-full {height} rounded-lg bg-muted/50 flex items-end gap-1 px-3 pb-3",
                 // Bars skeleton
-                for i in 0..18 {
+                for i in 0..12 {
                     {
-                        let h = 20 + (i * 3) % 60;
+                        let h = 25 + (i * 5) % 55;
                         rsx! {
                             div {
                                 key: "{i}",
-                                class: "flex-1 bg-muted rounded-t-md",
+                                class: "flex-1 bg-muted rounded-t animate-pulse",
                                 style: "height: {h}%;"
                             }
                         }
@@ -272,7 +199,7 @@ fn LoadingState(height: String, compact: bool) -> Element {
             }
 
             // Legend skeleton
-            div { class: "flex items-center gap-4 text-[10px] text-zinc-400",
+            div { class: "flex items-center gap-4",
                 LegendPillSkeleton { label: "Views" }
                 LegendPillSkeleton { label: "Unique" }
             }
@@ -294,17 +221,33 @@ fn LegendPillSkeleton(label: &'static str) -> Element {
 /// Error state aligned with the shared analytics toast/error patterns.
 #[component]
 fn ErrorState(message: String, compact: bool) -> Element {
-    let padding_y = if compact { "py-4" } else { "py-6" };
+    let padding_y = if compact { "py-6" } else { "py-10" };
 
     rsx! {
         div { class: "flex-1 flex flex-col items-center justify-center gap-2 {padding_y}",
-            div { class: "text-[11px] font-medium text-rose-600 dark:text-rose-400",
+            // Error icon
+            div {
+                class: "w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center",
+                svg {
+                    class: "w-5 h-5 text-destructive",
+                    xmlns: "http://www.w3.org/2000/svg",
+                    fill: "none",
+                    view_box: "0 0 24 24",
+                    stroke_width: "1.5",
+                    stroke: "currentColor",
+                    path {
+                        stroke_linecap: "round",
+                        stroke_linejoin: "round",
+                        d: "M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
+                    }
+                }
+            }
+            div { class: "text-sm font-medium text-foreground",
                 "Unable to load page views"
             }
-            p { class: "text-[10px] text-zinc-500 text-center max-w-xs",
+            p { class: "text-xs text-muted-foreground text-center max-w-xs",
                 "{message}"
             }
-            // In a future iteration, we can accept an `on_retry` callback.
         }
     }
 }
@@ -312,15 +255,32 @@ fn ErrorState(message: String, compact: bool) -> Element {
 /// Empty state when the request succeeds but returns no data.
 #[component]
 fn EmptyState(compact: bool) -> Element {
-    let padding_y = if compact { "py-4" } else { "py-6" };
+    let padding_y = if compact { "py-6" } else { "py-10" };
 
     rsx! {
-        div { class: "flex-1 flex flex-col items-center justify-center gap-1 {padding_y}",
-            div { class: "text-[11px] font-medium text-zinc-700 dark:text-zinc-300",
-                "No page views to display yet"
+        div { class: "flex-1 flex flex-col items-center justify-center gap-2 {padding_y}",
+            // Empty icon
+            div {
+                class: "w-10 h-10 rounded-full bg-muted flex items-center justify-center",
+                svg {
+                    class: "w-5 h-5 text-muted-foreground",
+                    xmlns: "http://www.w3.org/2000/svg",
+                    fill: "none",
+                    view_box: "0 0 24 24",
+                    stroke_width: "1.5",
+                    stroke: "currentColor",
+                    path {
+                        stroke_linecap: "round",
+                        stroke_linejoin: "round",
+                        d: "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"
+                    }
+                }
             }
-            p { class: "text-[10px] text-zinc-500 text-center max-w-xs",
-                "Traffic data will appear here once your site starts receiving visits."
+            div { class: "text-sm font-medium text-foreground",
+                "No page views yet"
+            }
+            p { class: "text-xs text-muted-foreground text-center max-w-xs",
+                "Traffic data will appear here once your blog starts receiving visits."
             }
         }
     }
@@ -490,15 +450,16 @@ fn ChartBody(points: Vec<PageViewPoint>, height: String, compact: bool) -> Eleme
                 }
             }
 
-            // Legend
-            div { class: "flex items-center justify-between gap-2 text-[9px]",
-                div { class: "flex items-center gap-3",
+            // Legend and stats
+            div { class: "flex items-center justify-between gap-2 pt-2 border-t border-border",
+                div { class: "flex items-center gap-4",
                     LegendPill { color: "bg-sky-400", label: "Views" }
-                    LegendPill { color: "bg-emerald-500", label: "Unique visitors" }
+                    LegendPill { color: "bg-emerald-500", label: "Unique visitors", dashed: true }
                 }
-                // Max label
-                div { class: "text-[8px] text-zinc-400",
-                    "Peak: {max_value}"
+                // Peak label
+                div { class: "text-xs text-muted-foreground",
+                    "Peak: "
+                    span { class: "font-medium text-foreground", "{max_value}" }
                 }
             }
         }
@@ -506,10 +467,14 @@ fn ChartBody(points: Vec<PageViewPoint>, height: String, compact: bool) -> Eleme
 }
 
 #[component]
-fn LegendPill(color: &'static str, label: &'static str) -> Element {
+fn LegendPill(color: &'static str, label: &'static str, #[props(default = false)] dashed: bool) -> Element {
     rsx! {
-        div { class: "inline-flex items-center gap-1 text-zinc-500 dark:text-zinc-400",
-            span { class: "w-2 h-2 rounded-full {color}" }
+        div { class: "inline-flex items-center gap-1.5 text-xs text-muted-foreground",
+            if dashed {
+                span { class: "w-3 h-0.5 rounded {color}" }
+            } else {
+                span { class: "w-2.5 h-2.5 rounded-sm {color}" }
+            }
             span { "{label}" }
         }
     }

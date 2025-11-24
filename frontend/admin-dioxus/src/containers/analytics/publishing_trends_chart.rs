@@ -63,53 +63,55 @@ pub fn PublishingTrendsChart(props: PublishingTrendsChartProps) -> Element {
 
     rsx! {
         div {
-            class: "rounded-2xl border border-border bg-background shadow-none flex flex-col",
+            class: "rounded-xl border border-border bg-card flex flex-col",
 
             // Header
             div {
-                class: "flex items-center justify-between px-4 pt-3 pb-2 gap-2",
+                class: "flex items-center justify-between px-4 pt-4 pb-2 gap-2",
                 div {
-                    class: "flex flex-col",
+                    class: "flex flex-col gap-0.5",
                     h2 {
-                        class: "text-sm font-semibold text-zinc-900 dark:text-zinc-50 truncate",
+                        class: "text-sm font-semibold text-foreground",
                         "{title}"
                     }
                     if let Some(desc) = description {
                         p {
-                            class: "text-[10px] text-zinc-500 dark:text-zinc-400 truncate",
+                            class: "text-xs text-muted-foreground",
                             "{desc}"
                         }
                     } else {
                         p {
-                            class: "text-[10px] text-zinc-500 dark:text-zinc-400",
-                            "Stacked view of posts by status over time."
+                            class: "text-xs text-muted-foreground",
+                            "Posts by status over time"
                         }
                     }
                 }
 
-                // Simple legend scaffold (colors/statuses to align with future stacked series)
+                // Simplified legend for personal blog (just Published/Draft)
                 div {
-                    class: "flex items-center gap-2 text-[9px] text-zinc-500 dark:text-zinc-400",
-                    LegendDot { class_name: "bg-emerald-500/80" }
-                    span { "Published" }
-                    LegendDot { class_name: "bg-sky-500/80" }
-                    span { "Draft" }
-                    LegendDot { class_name: "bg-amber-500/80" }
-                    span { "Scheduled" }
+                    class: "flex items-center gap-3 text-xs text-muted-foreground",
+                    div { class: "flex items-center gap-1.5",
+                        span { class: "w-2.5 h-2.5 rounded-sm bg-emerald-500" }
+                        span { "Published" }
+                    }
+                    div { class: "flex items-center gap-1.5",
+                        span { class: "w-2.5 h-2.5 rounded-sm bg-sky-500" }
+                        span { "Draft" }
+                    }
                 }
             }
 
             // Body: different states
             div {
-                class: format!("relative px-3 pb-3 {}", height_class),
+                class: format!("relative px-4 pb-4 {}", height_class),
 
                 // Loading state: skeleton bars
                 if loading {
                     div {
-                        class: "absolute inset-0 flex items-end justify-between gap-1 px-1",
-                        for i in 0..10 {
+                        class: "absolute inset-0 flex items-end justify-around gap-2 px-4 pb-4",
+                        for i in 0..8 {
                             {
-                                let h = 20 + (i * 5) % 60;
+                                let h = 30 + (i * 7) % 50;
                                 rsx! {
                                     div {
                                         key: "{i}",
@@ -126,37 +128,59 @@ pub fn PublishingTrendsChart(props: PublishingTrendsChartProps) -> Element {
                 // Error state
                 } else if has_error {
                     div {
-                        class: "flex flex-col items-start justify-center gap-1 h-full \
-                                rounded-xl border border-destructive bg-background px-3 py-2",
+                        class: "flex flex-col items-center justify-center gap-2 h-full",
+                        div {
+                            class: "w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center",
+                            svg {
+                                class: "w-5 h-5 text-destructive",
+                                xmlns: "http://www.w3.org/2000/svg",
+                                fill: "none",
+                                view_box: "0 0 24 24",
+                                stroke_width: "1.5",
+                                stroke: "currentColor",
+                                path {
+                                    stroke_linecap: "round",
+                                    stroke_linejoin: "round",
+                                    d: "M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
+                                }
+                            }
+                        }
                         span {
-                            class: "text-[11px] font-semibold text-destructive",
+                            class: "text-sm font-medium text-foreground",
                             "Unable to load publishing trends"
                         }
                         if let Some(msg) = error {
                             span {
-                                class: "text-[10px] text-rose-600/90 dark:text-rose-400/90 line-clamp-3",
+                                class: "text-xs text-muted-foreground text-center max-w-xs",
                                 "{msg}"
-                            }
-                        } else {
-                            span {
-                                class: "text-[10px] text-rose-600/90 dark:text-rose-400/90",
-                                "Try adjusting filters or reloading the dashboard."
                             }
                         }
                     }
                 // Empty state
                 } else if is_empty {
                     div {
-                        class: "flex flex-col items-center justify-center gap-1 h-full \
-                                rounded-xl border border-dashed border-zinc-200/70 dark:border-zinc-800/70 \
-                                text-[10px] text-zinc-500 dark:text-zinc-400 px-3",
-                        span { "No publishing activity found for the selected period." }
-                        span { "Publish new posts or widen your date range to see trends here." }
+                        class: "flex flex-col items-center justify-center gap-2 h-full",
+                        div {
+                            class: "w-10 h-10 rounded-full bg-muted flex items-center justify-center",
+                            svg {
+                                class: "w-5 h-5 text-muted-foreground",
+                                xmlns: "http://www.w3.org/2000/svg",
+                                fill: "none",
+                                view_box: "0 0 24 24",
+                                stroke_width: "1.5",
+                                stroke: "currentColor",
+                                path {
+                                    stroke_linecap: "round",
+                                    stroke_linejoin: "round",
+                                    d: "M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
+                                }
+                            }
+                        }
+                        span { class: "text-sm font-medium text-foreground", "No posts in this period" }
+                        span { class: "text-xs text-muted-foreground text-center max-w-xs", "Start writing to see your publishing activity here." }
                     }
-                // Data state (temporary textual visualization)
+                // Data state - clean bar visualization
                 } else {
-                    // Until `dioxus-charts` is wired, show a simple proportional bar layout
-                    // so the component is still informative and testable.
                     {
                         let max_total = data
                             .iter()
@@ -165,83 +189,86 @@ pub fn PublishingTrendsChart(props: PublishingTrendsChartProps) -> Element {
                             .unwrap_or(1)
                             .max(1) as f64;
 
+                        // Calculate total for summary
+                        let total_published: i64 = data.iter()
+                            .map(|p| *p.counts.get("Published").or(p.counts.get("published")).unwrap_or(&0))
+                            .sum();
+                        let total_drafts: i64 = data.iter()
+                            .map(|p| *p.counts.get("Draft").or(p.counts.get("draft")).unwrap_or(&0))
+                            .sum();
+
                         rsx! { div {
-                        class: "flex flex-col gap-1 h-full",
+                        class: "flex flex-col h-full",
 
                         // Buckets row (scrollable for many buckets)
                         div {
-                            class: "flex-1 flex items-end gap-1 overflow-x-auto overflow-y-visible pb-1",
+                            class: "flex-1 flex items-end gap-2 overflow-x-auto pb-2",
                             { data.iter().map(|point| {
                                 let total: i64 = point.counts.values().sum();
-                                let height_pct = ((total as f64 / max_total) * 100.0).max(8.0);
+                                let height_pct = ((total as f64 / max_total) * 100.0).max(12.0);
 
-                                // Extract status buckets with stable ordering.
-                                let published = *point.counts.get("published").unwrap_or(&0);
-                                let draft = *point.counts.get("draft").unwrap_or(&0);
-                                let scheduled = *point.counts.get("scheduled").unwrap_or(&0);
-                                let other_total = total - (published + draft + scheduled);
+                                // Extract status buckets - handle both capitalized and lowercase keys
+                                let published = *point.counts.get("Published")
+                                    .or(point.counts.get("published"))
+                                    .unwrap_or(&0);
+                                let draft = *point.counts.get("Draft")
+                                    .or(point.counts.get("draft"))
+                                    .unwrap_or(&0);
 
                                 rsx! {
                                     div {
                                         key: "{point.bucket}",
-                                        class: "flex flex-col items-center gap-0.5 min-w-[32px]",
-                                        // Column label (bucket)
-                                        span {
-                                            class: "text-[8px] text-zinc-500 dark:text-zinc-500 truncate max-w-[40px]",
-                                            "{point.bucket}"
-                                        }
-                                        // Stacked pseudo-bar
+                                        class: "flex flex-col items-center gap-1 min-w-[36px] group",
+                                        // Stacked bar
                                         div {
-                                            class: "w-full rounded-t-md overflow-hidden flex flex-col-reverse \
-                                                    bg-background border border-border",
-                                            style: "height: {height_pct}%; min-height: 28px;",
+                                            class: "w-full rounded-t overflow-hidden flex flex-col-reverse \
+                                                    bg-muted/30 transition-all group-hover:bg-muted/50",
+                                            style: "height: {height_pct}%; min-height: 24px;",
 
                                             if total > 0 {
-                                                if other_total > 0 {
-                                                    div {
-                                                        class: "w-full bg-muted",
-                                                        style: format!("height: {}%;", (other_total as f64 / total as f64) * 100.0),
-                                                    }
-                                                }
-                                                if scheduled > 0 {
-                                                    div {
-                                                        class: "w-full bg-amber-500/80",
-                                                        style: format!("height: {}%;", (scheduled as f64 / total as f64) * 100.0),
-                                                    }
-                                                }
                                                 if draft > 0 {
                                                     div {
-                                                        class: "w-full bg-sky-500/80",
+                                                        class: "w-full bg-sky-500 transition-colors",
                                                         style: format!("height: {}%;", (draft as f64 / total as f64) * 100.0),
                                                     }
                                                 }
                                                 if published > 0 {
                                                     div {
-                                                        class: "w-full bg-emerald-500/90",
+                                                        class: "w-full bg-emerald-500 transition-colors",
                                                         style: format!("height: {}%;", (published as f64 / total as f64) * 100.0),
                                                     }
                                                 }
                                             }
                                         }
-                                        // Total label
+                                        // Column label (bucket) - format nicely
                                         span {
-                                            class: "text-[8px] text-zinc-600 dark:text-zinc-400 font-medium",
-                                            "{total}"
+                                            class: "text-[10px] text-muted-foreground truncate max-w-[48px]",
+                                            "{format_bucket_label(&point.bucket)}"
                                         }
                                     }
                                 }
                             })}
                         }
 
-                        // Meta hint row
+                        // Summary row
                         div {
-                            class: "flex items-center justify-between text-[8px] text-zinc-500 dark:text-zinc-500 mt-0.5",
-                            span {
-                                "Each column shows total posts by status per interval bucket."
+                            class: "flex items-center justify-between pt-2 border-t border-border text-xs",
+                            div { class: "flex items-center gap-4 text-muted-foreground",
+                                span {
+                                    "Total: "
+                                    span { class: "font-medium text-foreground", "{total_published + total_drafts}" }
+                                    " posts"
+                                }
                             }
-                            span {
-                                class: "hidden xl:inline",
-                                "Upgraded to full dioxus-charts stacked bars in the next step."
+                            div { class: "flex items-center gap-3 text-muted-foreground",
+                                span {
+                                    span { class: "text-emerald-500 font-medium", "{total_published}" }
+                                    " published"
+                                }
+                                span {
+                                    span { class: "text-sky-500 font-medium", "{total_drafts}" }
+                                    " drafts"
+                                }
                             }
                         }
                     }}
@@ -252,13 +279,37 @@ pub fn PublishingTrendsChart(props: PublishingTrendsChartProps) -> Element {
     }
 }
 
+/// Format bucket label for cleaner display
+fn format_bucket_label(bucket: &str) -> String {
+    // Handle week format "2024-W01" -> "W01"
+    if bucket.contains("-W") {
+        return bucket.split('-').last().unwrap_or(bucket).to_string();
+    }
+    // Handle month format "2024-01" -> "Jan"
+    if bucket.len() == 7 && bucket.chars().nth(4) == Some('-') {
+        let month = bucket.split('-').last().unwrap_or("01");
+        return match month {
+            "01" => "Jan", "02" => "Feb", "03" => "Mar", "04" => "Apr",
+            "05" => "May", "06" => "Jun", "07" => "Jul", "08" => "Aug",
+            "09" => "Sep", "10" => "Oct", "11" => "Nov", "12" => "Dec",
+            _ => bucket,
+        }.to_string();
+    }
+    // Handle day format "2024-01-15" -> "15"
+    if bucket.len() == 10 {
+        return bucket.split('-').last().unwrap_or(bucket).to_string();
+    }
+    bucket.to_string()
+}
+
 /// Small legend dot used in the header.
+#[allow(dead_code)]
 #[component]
 fn LegendDot(class_name: &'static str) -> Element {
     rsx! {
         span {
             class: format!(
-                "w-2 h-2 rounded-full inline-block border border-zinc-950/5 {}",
+                "w-2 h-2 rounded-full inline-block {}",
                 class_name
             ),
         }
