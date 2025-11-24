@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use dioxus_time::use_interval;
 use hmziq_dioxus_free_icons::{
     icons::ld_icons::{
         LdShieldCheck, LdShieldOff, LdTrash2, LdPlus, LdRefreshCw, LdPlay, LdPause, LdRotateCcw,
@@ -10,6 +11,7 @@ use oxstore::{ListQuery, ListStore, Order};
 use oxui::components::form::input::SimpleInput;
 use oxui::shadcn::badge::{Badge, BadgeVariant};
 use oxui::shadcn::button::{Button, ButtonVariant};
+use std::time::Duration;
 
 use crate::components::table::data_table_screen::{DataTableScreen, HeaderColumn};
 use crate::components::table::list_empty_state::ListEmptyState;
@@ -40,6 +42,7 @@ pub fn RoutesSettingsScreen() -> Element {
     let mut pattern = use_signal(|| "".to_string());
     let mut reason = use_signal(|| "".to_string());
     let mut interval_input = use_signal(|| "".to_string());
+    let mut countdown_secs = use_signal(|| 0u64);
 
     use_effect({
         let list_state = list_state;
@@ -47,22 +50,47 @@ pub fn RoutesSettingsScreen() -> Element {
             let query = filters();
             let _tick = list_state.reload_tick();
             let routes_state = routes_state;
+            let mut countdown_secs = countdown_secs;
             spawn(async move {
                 routes_state.fetch_list_with_query(query).await;
                 routes_state.fetch_sync_interval().await;
+
+                // Initialize countdown
+                let frame = (routes_state.sync_interval)();
+                if let Some(data) = &frame.data {
+                    if let Some(next_sync) = data.next_sync_at {
+                        let now = chrono::Utc::now();
+                        let remaining = (next_sync - now).num_seconds().max(0);
+                        countdown_secs.set(remaining as u64);
+                    }
+                }
             });
         }
     });
 
-    // Auto-refresh sync interval status every 3 seconds for live countdown
-    use_effect(move || {
-        let routes_state = routes_state;
-        spawn(async move {
-            loop {
-                gloo_timers::future::TimeoutFuture::new(3000).await;
-                routes_state.fetch_sync_interval().await;
+    // Client-side countdown timer - updates every second
+    use_interval(Duration::from_secs(1), move |()| {
+        let frame = (routes_state.sync_interval)();
+        if let Some(data) = &frame.data {
+            if !data.paused && !data.is_running {
+                if let Some(next_sync) = data.next_sync_at {
+                    let now = chrono::Utc::now();
+                    let remaining = (next_sync - now).num_seconds().max(0);
+                    let prev_countdown = countdown_secs();
+                    countdown_secs.set(remaining as u64);
+
+                    // Refetch when countdown just hit 0 to get updated next_sync_at
+                    if prev_countdown > 0 && remaining == 0 {
+                        let routes_state = routes_state;
+                        spawn(async move {
+                            routes_state.fetch_sync_interval().await;
+                        });
+                    }
+                } else {
+                    countdown_secs.set(0);
+                }
             }
-        });
+        }
     });
 
     let block_route = move |event: FormEvent| {
@@ -201,6 +229,7 @@ pub fn RoutesSettingsScreen() -> Element {
         let routes_state = routes_state;
         spawn(async move {
             routes_state.sync().await;
+            routes_state.fetch_sync_interval().await;
         });
     };
 
@@ -223,6 +252,7 @@ pub fn RoutesSettingsScreen() -> Element {
         let routes_state = routes_state;
         spawn(async move {
             routes_state.pause_sync_interval().await;
+            routes_state.fetch_sync_interval().await;
         });
     };
 
@@ -230,6 +260,7 @@ pub fn RoutesSettingsScreen() -> Element {
         let routes_state = routes_state;
         spawn(async move {
             routes_state.resume_sync_interval().await;
+            routes_state.fetch_sync_interval().await;
         });
     };
 
@@ -237,6 +268,7 @@ pub fn RoutesSettingsScreen() -> Element {
         let routes_state = routes_state;
         spawn(async move {
             routes_state.restart_sync_interval().await;
+            routes_state.fetch_sync_interval().await;
         });
     };
 
@@ -285,13 +317,17 @@ pub fn RoutesSettingsScreen() -> Element {
             parts.push("Syncing now...".to_string());
         } else if d.paused {
             parts.push("Paused".to_string());
-        } else if let Some(remaining) = d.remaining_secs {
-            let mins = remaining / 60;
-            let secs = remaining % 60;
-            if mins > 0 {
-                parts.push(format!("Next sync in {}m {}s", mins, secs));
-            } else {
-                parts.push(format!("Next sync in {}s", secs));
+        } else {
+            // Use client-side countdown
+            let remaining = countdown_secs();
+            if remaining > 0 {
+                let mins = remaining / 60;
+                let secs = remaining % 60;
+                if mins > 0 {
+                    parts.push(format!("Next sync in {}m {}s", mins, secs));
+                } else {
+                    parts.push(format!("Next sync in {}s", secs));
+                }
             }
         }
 
