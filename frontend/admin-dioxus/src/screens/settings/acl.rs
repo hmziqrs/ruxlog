@@ -85,10 +85,10 @@ pub fn AclSettingsScreen() -> Element {
     let list_frame = (acl_state.list)();
     let list_loading = list_frame.is_loading();
 
-    let (rows, current_page) = if let Some(p) = &list_frame.data {
-        (p.data.clone(), p.page)
+    let (rows, current_page, _total, _per_page) = if let Some(p) = &list_frame.data {
+        (p.data.clone(), p.page, p.total, p.per_page)
     } else {
-        (Vec::<AppConstant>::new(), 1)
+        (Vec::<AppConstant>::new(), 1, 0, 20)
     };
 
     let filters_snapshot = filters.read().clone();
@@ -277,7 +277,7 @@ pub fn AclSettingsScreen() -> Element {
             below_toolbar: Some(below_toolbar),
             on_prev: move |_| { handlers.handle_prev.call(current_page); },
             on_next: move |_| { handlers.handle_next.call(current_page); },
-            show_pagination: false,
+            show_pagination: true,
             if filtered_rows.is_empty() {
                 if list_loading && !has_rows {
                     SkeletonTableRows {

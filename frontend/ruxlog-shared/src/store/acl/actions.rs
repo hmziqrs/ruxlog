@@ -56,12 +56,9 @@ impl AclState {
     }
 
     pub async fn list(&self) {
-        let _ = list_state_abstraction(
-            &self.list,
-            http::get("/admin/acl/v1/list").send(),
-            "constants",
-        )
-        .await;
+        let mut default_query = AclListQuery::new();
+        default_query.per_page = 20;
+        self.list_with_query(default_query).await;
     }
 
     pub async fn list_with_query(&self, query: AclListQuery) {
