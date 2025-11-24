@@ -191,8 +191,35 @@ pub async fn sync_routes_to_redis(
 #[instrument(skip(_auth))]
 pub async fn get_sync_interval(_auth: AuthSession) -> Result<impl IntoResponse, ErrorResponse> {
     let interval_secs = route_blocker_config::get_sync_interval_secs();
-    info!(interval_secs, "Retrieved route blocker sync interval");
-    Ok(Json(json!({ "interval_secs": interval_secs })))
+    let paused = route_blocker_config::is_paused();
+    let is_running = route_blocker_config::is_sync_running();
+    let last_sync_at = route_blocker_config::get_last_sync_at();
+    let next_sync_at = route_blocker_config::get_next_sync_at();
+
+    let remaining_secs = if !paused && !is_running {
+        next_sync_at.map(|next| {
+            let now = chrono::Utc::now();
+            (next - now).num_seconds().max(0) as u64
+        })
+    } else {
+        None
+    };
+
+    info!(
+        interval_secs,
+        paused,
+        is_running,
+        "Retrieved route blocker sync interval status"
+    );
+
+    Ok(Json(json!({
+        "interval_secs": interval_secs,
+        "paused": paused,
+        "is_running": is_running,
+        "last_sync_at": last_sync_at,
+        "next_sync_at": next_sync_at,
+        "remaining_secs": remaining_secs
+    })))
 }
 
 #[debug_handler]
@@ -208,7 +235,10 @@ pub async fn update_sync_interval(
 
     Ok((
         StatusCode::OK,
-        Json(json!({ "interval_secs": route_blocker_config::get_sync_interval_secs() })),
+        Json(json!({
+            "interval_secs": route_blocker_config::get_sync_interval_secs(),
+            "paused": route_blocker_config::is_paused()
+        })),
     ))
 }
 

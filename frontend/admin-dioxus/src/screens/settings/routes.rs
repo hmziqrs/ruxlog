@@ -54,6 +54,17 @@ pub fn RoutesSettingsScreen() -> Element {
         }
     });
 
+    // Auto-refresh sync interval status every 3 seconds for live countdown
+    use_effect(move || {
+        let routes_state = routes_state;
+        spawn(async move {
+            loop {
+                gloo_timers::future::TimeoutFuture::new(3000).await;
+                routes_state.fetch_sync_interval().await;
+            }
+        });
+    });
+
     let block_route = move |event: FormEvent| {
         event.prevent_default();
         let pattern_value = pattern().trim().to_string();
@@ -254,11 +265,46 @@ pub fn RoutesSettingsScreen() -> Element {
         .as_ref()
         .map(|d| d.paused)
         .unwrap_or(false);
+
+    let is_running = interval_frame
+        .data
+        .as_ref()
+        .map(|d| d.is_running)
+        .unwrap_or(false);
+
     let interval_label = interval_frame
         .data
         .as_ref()
         .map(|d| format!("{} seconds", d.interval_secs))
         .unwrap_or_else(|| "Loading...".to_string());
+
+    let status_info = interval_frame.data.as_ref().map(|d| {
+        let mut parts = Vec::new();
+
+        if d.is_running {
+            parts.push("Syncing now...".to_string());
+        } else if d.paused {
+            parts.push("Paused".to_string());
+        } else if let Some(remaining) = d.remaining_secs {
+            let mins = remaining / 60;
+            let secs = remaining % 60;
+            if mins > 0 {
+                parts.push(format!("Next sync in {}m {}s", mins, secs));
+            } else {
+                parts.push(format!("Next sync in {}s", secs));
+            }
+        }
+
+        if let Some(last_sync) = d.last_sync_at {
+            parts.push(format!("Last: {}", format_short_date_dt(&last_sync)));
+        }
+
+        if parts.is_empty() {
+            "Active".to_string()
+        } else {
+            parts.join(" • ")
+        }
+    }).unwrap_or_else(|| "Loading...".to_string());
 
     let below_toolbar = rsx! {
         div { class: "grid gap-4 md:grid-cols-2",
@@ -311,19 +357,43 @@ pub fn RoutesSettingsScreen() -> Element {
                         variant: ButtonVariant::Outline,
                         class: "h-8 text-xs px-3 flex items-center gap-1.5",
                         onclick: sync_now,
+                        disabled: is_running,
                         Icon { class: "w-3.5 h-3.5", icon: LdRefreshCw }
                         "Sync Now"
                     }
                 }
+
+                // Status display
+                div { class: "bg-muted/30 rounded-md p-3 space-y-1.5",
+                    div { class: "flex items-center justify-between",
+                        span { class: "text-xs font-medium text-foreground", "Status" }
+                        span {
+                            class: if is_running {
+                                "text-xs font-medium text-blue-600 dark:text-blue-400"
+                            } else if paused {
+                                "text-xs font-medium text-orange-600 dark:text-orange-400"
+                            } else {
+                                "text-xs font-medium text-green-600 dark:text-green-400"
+                            },
+                            "{status_info}"
+                        }
+                    }
+                    div { class: "flex items-center justify-between",
+                        span { class: "text-xs text-muted-foreground", "Interval" }
+                        span { class: "text-xs font-mono text-foreground", "{interval_label}" }
+                    }
+                }
+
                 div { class: "space-y-2",
-                    label { class: "text-xs font-semibold text-foreground", "Interval (seconds)" }
+                    label { class: "text-xs font-semibold text-foreground", "Update Interval (seconds)" }
                     SimpleInput {
                         value: interval_input(),
                         oninput: move |value| interval_input.set(value),
                         class: Some("text-sm h-9 font-mono".to_string()),
+                        disabled: interval_loading,
                     }
                     p { class: "text-[10px] text-muted-foreground",
-                        "Current: {interval_label}"
+                        "Enter a value between 60 and 86400 seconds"
                     }
                 }
                 div { class: "flex flex-wrap gap-2 pt-2",

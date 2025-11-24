@@ -88,6 +88,11 @@ pub struct RouteSyncIntervalStatus {
     pub interval_secs: u64,
     #[serde(default)]
     pub paused: bool,
+    #[serde(default)]
+    pub is_running: bool,
+    pub last_sync_at: Option<DateTime<Utc>>,
+    pub next_sync_at: Option<DateTime<Utc>>,
+    pub remaining_secs: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
