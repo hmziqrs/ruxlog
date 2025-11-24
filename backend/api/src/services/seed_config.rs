@@ -38,19 +38,47 @@ pub struct SeedPreset {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum CustomSeedTarget {
+    Users,
+    Categories,
+    Tags,
     Posts,
     PostComments,
     CommentFlags,
     PostViews,
+    UserSessions,
+    EmailVerifications,
+    ForgotPasswords,
+    PostRevisions,
+    PostSeries,
+    ScheduledPosts,
+    Media,
+    MediaVariants,
+    MediaUsage,
+    NewsletterSubscribers,
+    RouteStatus,
 }
 
 impl CustomSeedTarget {
     pub fn label(&self) -> &'static str {
         match self {
+            CustomSeedTarget::Users => "Users",
+            CustomSeedTarget::Categories => "Categories",
+            CustomSeedTarget::Tags => "Tags",
             CustomSeedTarget::Posts => "Posts",
             CustomSeedTarget::PostComments => "Post comments",
             CustomSeedTarget::CommentFlags => "Comment flags",
             CustomSeedTarget::PostViews => "Post views",
+            CustomSeedTarget::UserSessions => "User sessions",
+            CustomSeedTarget::EmailVerifications => "Email verifications",
+            CustomSeedTarget::ForgotPasswords => "Forgot passwords",
+            CustomSeedTarget::PostRevisions => "Post revisions",
+            CustomSeedTarget::PostSeries => "Post series",
+            CustomSeedTarget::ScheduledPosts => "Scheduled posts",
+            CustomSeedTarget::Media => "Media",
+            CustomSeedTarget::MediaVariants => "Media variants",
+            CustomSeedTarget::MediaUsage => "Media usage",
+            CustomSeedTarget::NewsletterSubscribers => "Newsletter subscribers",
+            CustomSeedTarget::RouteStatus => "Route status",
         }
     }
 }
@@ -82,6 +110,30 @@ impl SeedSizePreset {
     /// Get a count for a given target based on the preset.
     pub fn count_for_target(&self, target: CustomSeedTarget) -> u32 {
         match target {
+            CustomSeedTarget::Users => match self {
+                SeedSizePreset::Low => 10,
+                SeedSizePreset::Default => 25,
+                SeedSizePreset::Medium => 50,
+                SeedSizePreset::Large => 100,
+                SeedSizePreset::VeryLarge => 200,
+                SeedSizePreset::Massive => 400,
+            },
+            CustomSeedTarget::Categories => match self {
+                SeedSizePreset::Low => 5,
+                SeedSizePreset::Default => 10,
+                SeedSizePreset::Medium => 20,
+                SeedSizePreset::Large => 40,
+                SeedSizePreset::VeryLarge => 80,
+                SeedSizePreset::Massive => 120,
+            },
+            CustomSeedTarget::Tags => match self {
+                SeedSizePreset::Low => 10,
+                SeedSizePreset::Default => 25,
+                SeedSizePreset::Medium => 50,
+                SeedSizePreset::Large => 100,
+                SeedSizePreset::VeryLarge => 200,
+                SeedSizePreset::Massive => 400,
+            },
             CustomSeedTarget::Posts => match self {
                 SeedSizePreset::Low => 10,
                 SeedSizePreset::Default => 25,
@@ -113,6 +165,94 @@ impl SeedSizePreset {
                 SeedSizePreset::Large => 2500,
                 SeedSizePreset::VeryLarge => 5000,
                 SeedSizePreset::Massive => 10000,
+            },
+            CustomSeedTarget::UserSessions => match self {
+                SeedSizePreset::Low => 20,
+                SeedSizePreset::Default => 50,
+                SeedSizePreset::Medium => 100,
+                SeedSizePreset::Large => 200,
+                SeedSizePreset::VeryLarge => 400,
+                SeedSizePreset::Massive => 800,
+            },
+            CustomSeedTarget::EmailVerifications => match self {
+                SeedSizePreset::Low => 20,
+                SeedSizePreset::Default => 50,
+                SeedSizePreset::Medium => 100,
+                SeedSizePreset::Large => 200,
+                SeedSizePreset::VeryLarge => 400,
+                SeedSizePreset::Massive => 800,
+            },
+            CustomSeedTarget::ForgotPasswords => match self {
+                SeedSizePreset::Low => 20,
+                SeedSizePreset::Default => 50,
+                SeedSizePreset::Medium => 100,
+                SeedSizePreset::Large => 200,
+                SeedSizePreset::VeryLarge => 400,
+                SeedSizePreset::Massive => 800,
+            },
+            CustomSeedTarget::PostRevisions => match self {
+                SeedSizePreset::Low => 20,
+                SeedSizePreset::Default => 50,
+                SeedSizePreset::Medium => 100,
+                SeedSizePreset::Large => 200,
+                SeedSizePreset::VeryLarge => 400,
+                SeedSizePreset::Massive => 800,
+            },
+            CustomSeedTarget::PostSeries => match self {
+                SeedSizePreset::Low => 5,
+                SeedSizePreset::Default => 10,
+                SeedSizePreset::Medium => 20,
+                SeedSizePreset::Large => 40,
+                SeedSizePreset::VeryLarge => 80,
+                SeedSizePreset::Massive => 120,
+            },
+            CustomSeedTarget::ScheduledPosts => match self {
+                SeedSizePreset::Low => 10,
+                SeedSizePreset::Default => 25,
+                SeedSizePreset::Medium => 50,
+                SeedSizePreset::Large => 100,
+                SeedSizePreset::VeryLarge => 200,
+                SeedSizePreset::Massive => 400,
+            },
+            CustomSeedTarget::Media => match self {
+                SeedSizePreset::Low => 20,
+                SeedSizePreset::Default => 50,
+                SeedSizePreset::Medium => 100,
+                SeedSizePreset::Large => 200,
+                SeedSizePreset::VeryLarge => 400,
+                SeedSizePreset::Massive => 800,
+            },
+            CustomSeedTarget::MediaVariants => match self {
+                SeedSizePreset::Low => 50,
+                SeedSizePreset::Default => 120,
+                SeedSizePreset::Medium => 240,
+                SeedSizePreset::Large => 480,
+                SeedSizePreset::VeryLarge => 960,
+                SeedSizePreset::Massive => 1800,
+            },
+            CustomSeedTarget::MediaUsage => match self {
+                SeedSizePreset::Low => 20,
+                SeedSizePreset::Default => 50,
+                SeedSizePreset::Medium => 100,
+                SeedSizePreset::Large => 200,
+                SeedSizePreset::VeryLarge => 400,
+                SeedSizePreset::Massive => 800,
+            },
+            CustomSeedTarget::NewsletterSubscribers => match self {
+                SeedSizePreset::Low => 50,
+                SeedSizePreset::Default => 120,
+                SeedSizePreset::Medium => 240,
+                SeedSizePreset::Large => 480,
+                SeedSizePreset::VeryLarge => 960,
+                SeedSizePreset::Massive => 1800,
+            },
+            CustomSeedTarget::RouteStatus => match self {
+                SeedSizePreset::Low => 5,
+                SeedSizePreset::Default => 10,
+                SeedSizePreset::Medium => 20,
+                SeedSizePreset::Large => 40,
+                SeedSizePreset::VeryLarge => 80,
+                SeedSizePreset::Massive => 120,
             },
         }
     }

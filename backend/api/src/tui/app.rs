@@ -1,7 +1,15 @@
-use std::{error::Error, fs::OpenOptions, io::Write, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    error::Error,
+    fs::OpenOptions,
+    io::{stdin, stdout, Write},
+    path::PathBuf,
+    sync::Arc,
+    time::Duration,
+};
 
 use chrono::Utc;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::Style,
@@ -180,6 +188,7 @@ pub struct App {
     pub seed_menu_state: ratatui::widgets::ListState,
     pub selected_seed_mode: Option<crate::services::seed_config::SeedMode>,
     pub custom_seed_size: crate::services::seed_config::SeedSizePreset,
+    pub custom_size_override: Option<u32>,
     pub should_quit: bool,
     pub theme: ThemeKind,
     pub logs: Vec<String>,
@@ -201,6 +210,7 @@ impl App {
             seed_menu_state: ratatui::widgets::ListState::default(),
             selected_seed_mode: None,
             custom_seed_size: crate::services::seed_config::SeedSizePreset::Default,
+            custom_size_override: None,
             should_quit: false,
             theme,
             logs: Vec::new(),
@@ -406,7 +416,8 @@ impl App {
             }
             KeyCode::Down | KeyCode::Char('j') => {
                 let selected = self.seed_menu_state.selected().unwrap_or(0);
-                if selected < 7 {
+                let menu_len = 22;
+                if selected + 1 < menu_len {
                     self.seed_menu_state.select(Some(selected + 1));
                 }
             }
@@ -447,25 +458,48 @@ impl App {
                     ));
                 }
             }
+            KeyCode::Char('p') => {
+                self.cycle_seed_mode();
+            }
+            KeyCode::Char('s') => {
+                if let Some(seed) = prompt_for_u64("Enter custom seed") {
+                    self.selected_seed_mode =
+                        Some(crate::services::seed_config::SeedMode::Static { value: seed });
+                    self.push_log(format!("Selected: STATIC seed mode (seed: {})", seed));
+                }
+            }
+            KeyCode::Char('c') => {
+                if let Some(count) = prompt_for_u32("Enter custom size (count)") {
+                    self.custom_size_override = Some(count);
+                    self.push_log(format!("Custom size override set to {}", count));
+                }
+            }
+            KeyCode::Char('x') => {
+                self.custom_size_override = None;
+                self.push_log("Custom size override cleared".to_string());
+            }
             KeyCode::Char('5') => {
-                self.start_seed_custom(
-                    crate::services::seed_config::CustomSeedTarget::Posts,
-                    tx,
-                );
+                self.start_seed_custom(crate::services::seed_config::CustomSeedTarget::Users, tx);
             }
             KeyCode::Char('6') => {
                 self.start_seed_custom(
-                    crate::services::seed_config::CustomSeedTarget::PostComments,
+                    crate::services::seed_config::CustomSeedTarget::Categories,
                     tx,
                 );
             }
             KeyCode::Char('7') => {
                 self.start_seed_custom(
-                    crate::services::seed_config::CustomSeedTarget::CommentFlags,
+                    crate::services::seed_config::CustomSeedTarget::Tags,
                     tx,
                 );
             }
             KeyCode::Char('8') => {
+                self.start_seed_custom(
+                    crate::services::seed_config::CustomSeedTarget::Posts,
+                    tx,
+                );
+            }
+            KeyCode::Char('9') => {
                 self.start_seed_custom(
                     crate::services::seed_config::CustomSeedTarget::PostViews,
                     tx,
@@ -505,20 +539,85 @@ impl App {
                             ));
                         }
                     }
-                    4 => self.start_seed_custom(
-                        crate::services::seed_config::CustomSeedTarget::Posts,
-                        tx,
-                    ),
+                    4 => {
+                        let presets = crate::services::seed_config::list_presets();
+                        for preset in presets {
+                            self.push_log(format!(
+                                "Preset '{}': seed={}, {}",
+                                preset.name, preset.seed, preset.description
+                            ));
+                        }
+                    }
                     5 => self.start_seed_custom(
-                        crate::services::seed_config::CustomSeedTarget::PostComments,
+                        crate::services::seed_config::CustomSeedTarget::Users,
                         tx,
                     ),
                     6 => self.start_seed_custom(
-                        crate::services::seed_config::CustomSeedTarget::CommentFlags,
+                        crate::services::seed_config::CustomSeedTarget::Categories,
                         tx,
                     ),
                     7 => self.start_seed_custom(
+                        crate::services::seed_config::CustomSeedTarget::Tags,
+                        tx,
+                    ),
+                    8 => self.start_seed_custom(
+                        crate::services::seed_config::CustomSeedTarget::Posts,
+                        tx,
+                    ),
+                    9 => self.start_seed_custom(
+                        crate::services::seed_config::CustomSeedTarget::PostComments,
+                        tx,
+                    ),
+                    10 => self.start_seed_custom(
+                        crate::services::seed_config::CustomSeedTarget::CommentFlags,
+                        tx,
+                    ),
+                    11 => self.start_seed_custom(
                         crate::services::seed_config::CustomSeedTarget::PostViews,
+                        tx,
+                    ),
+                    12 => self.start_seed_custom(
+                        crate::services::seed_config::CustomSeedTarget::UserSessions,
+                        tx,
+                    ),
+                    13 => self.start_seed_custom(
+                        crate::services::seed_config::CustomSeedTarget::EmailVerifications,
+                        tx,
+                    ),
+                    14 => self.start_seed_custom(
+                        crate::services::seed_config::CustomSeedTarget::ForgotPasswords,
+                        tx,
+                    ),
+                    15 => self.start_seed_custom(
+                        crate::services::seed_config::CustomSeedTarget::PostRevisions,
+                        tx,
+                    ),
+                    16 => self.start_seed_custom(
+                        crate::services::seed_config::CustomSeedTarget::PostSeries,
+                        tx,
+                    ),
+                    17 => self.start_seed_custom(
+                        crate::services::seed_config::CustomSeedTarget::ScheduledPosts,
+                        tx,
+                    ),
+                    18 => self.start_seed_custom(
+                        crate::services::seed_config::CustomSeedTarget::Media,
+                        tx,
+                    ),
+                    19 => self.start_seed_custom(
+                        crate::services::seed_config::CustomSeedTarget::MediaVariants,
+                        tx,
+                    ),
+                    20 => self.start_seed_custom(
+                        crate::services::seed_config::CustomSeedTarget::MediaUsage,
+                        tx,
+                    ),
+                    21 => self.start_seed_custom(
+                        crate::services::seed_config::CustomSeedTarget::NewsletterSubscribers,
+                        tx,
+                    ),
+                    22 => self.start_seed_custom(
+                        crate::services::seed_config::CustomSeedTarget::RouteStatus,
                         tx,
                     ),
                     _ => {}
@@ -686,14 +785,22 @@ impl App {
         let tx_progress = tx.clone();
         let seed_mode = self.selected_seed_mode.clone();
         let size = self.custom_seed_size;
+        let custom_count = self.custom_size_override;
 
         tokio::spawn(async move {
             let progress_callback = Box::new(move |msg: String| {
                 let _ = tx_progress.send(AppEvent::SeedProgress(msg));
             });
-            let res = seed::seed_custom(&core.db, target, size, seed_mode, Some(progress_callback))
-                .await
-                .map_err(|e| SeedFlowError::Failed(e.to_string()));
+            let res = seed::seed_custom(
+                &core.db,
+                target,
+                size,
+                seed_mode,
+                custom_count,
+                Some(progress_callback),
+            )
+            .await
+            .map_err(|e| SeedFlowError::Failed(e.to_string()));
             let _ = tx_clone.send(AppEvent::SeedCompleted(res));
         });
     }
@@ -718,6 +825,24 @@ impl App {
             "Seed size preset: {}",
             self.custom_seed_size.label()
         ));
+    }
+
+    fn cycle_seed_mode(&mut self) {
+        use crate::services::seed_config::SeedMode;
+        let current = self.selected_seed_mode.clone().unwrap_or(SeedMode::Random);
+        let next = match current {
+            SeedMode::Random => SeedMode::Static { value: 1000 },
+            SeedMode::Static { value: 1000 } => SeedMode::Static { value: 2000 },
+            SeedMode::Static { value: 2000 } => SeedMode::Static { value: 3000 },
+            SeedMode::Static { value: 3000 } => SeedMode::Static { value: 4000 },
+            SeedMode::Static { .. } => SeedMode::Random,
+        };
+        self.selected_seed_mode = Some(next.clone());
+        let label = match next {
+            SeedMode::Random => "Random".to_string(),
+            SeedMode::Static { value } => format!("Static seed {}", value),
+        };
+        self.push_log(format!("Seed mode set to {}", label));
     }
 
     fn load_tags(&mut self, tx: &mpsc::UnboundedSender<AppEvent>) {
@@ -919,4 +1044,32 @@ async fn fetch_users(core: Arc<CoreState>) -> Result<Vec<user::Model>, UserError
         .all(&core.db)
         .await
         .map_err(|e| UserError::LoadFailed(e.to_string()))
+}
+
+fn prompt_for_u64(label: &str) -> Option<u64> {
+    let _ = disable_raw_mode();
+    let mut out = stdout();
+    let _ = write!(out, "\n{}: ", label);
+    let _ = out.flush();
+    let mut line = String::new();
+    let res = match stdin().read_line(&mut line) {
+        Ok(_) => line.trim().parse::<u64>().ok(),
+        Err(_) => None,
+    };
+    let _ = enable_raw_mode();
+    res
+}
+
+fn prompt_for_u32(label: &str) -> Option<u32> {
+    let _ = disable_raw_mode();
+    let mut out = stdout();
+    let _ = write!(out, "\n{}: ", label);
+    let _ = out.flush();
+    let mut line = String::new();
+    let res = match stdin().read_line(&mut line) {
+        Ok(_) => line.trim().parse::<u32>().ok(),
+        Err(_) => None,
+    };
+    let _ = enable_raw_mode();
+    res
 }

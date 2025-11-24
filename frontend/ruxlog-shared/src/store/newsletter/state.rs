@@ -5,13 +5,21 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub enum SubscriberStatus {
+    Pending,
+    Confirmed,
+    Unsubscribed,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct NewsletterSubscriber {
     pub id: i32,
     pub email: String,
-    pub confirmed: bool,
+    pub status: SubscriberStatus,
     pub created_at: DateTime<Utc>,
-    pub token: Option<String>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -41,6 +49,7 @@ pub struct SendNewsletterPayload {
 pub struct SubscriberListQuery {
     pub page: u64,
     pub search: Option<String>,
+    pub status: Option<SubscriberStatus>,
     pub sorts: Option<Vec<SortParam>>,
     pub created_at_gt: Option<DateTime<Utc>>,
     pub created_at_lt: Option<DateTime<Utc>>,
