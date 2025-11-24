@@ -1,4 +1,4 @@
-use axum::{http::HeaderName, middleware, routing};
+use axum::{extract::State, http::HeaderName, middleware, routing};
 use axum_client_ip::ClientIpSource;
 use axum_extra::extract::cookie::SameSite;
 use axum_login::AuthManagerLayerBuilder;
@@ -15,8 +15,8 @@ use ruxlog::utils::cors::get_allowed_origins;
 use ruxlog::{
     db, middlewares, modules, router,
     services::{
-        self, auth::AuthBackend, redis::init_redis_store, route_blocker_config,
-        route_blocker_service::RouteBlockerService,
+        self, acl_service::AclService, auth::AuthBackend, redis::init_redis_store,
+        route_blocker_config, route_blocker_service::RouteBlockerService,
     },
     state::{AppState, ObjectStorageConfig, OptimizerConfig},
     utils::telemetry,
@@ -180,6 +180,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         meter: telemetry::global_meter(),
         supabase,
     };
+
+    // Bootstrap application constants from environment (only fills missing keys) and warm Redis.
+    if let Err(err) = AclService::bootstrap_from_env(State(state.clone())).await {
+        tracing::error!(error = %err, "Failed to bootstrap ACL constants from env");
+    } else {
+        tracing::info!("ACL constants bootstrapped from env");
+    }
 
     let sync_interval_secs = env_u64("ROUTE_BLOCKER_SYNC_INTERVAL_SECS", 60 * 30);
     route_blocker_config::set_sync_interval_secs(sync_interval_secs);

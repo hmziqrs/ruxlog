@@ -4,6 +4,7 @@ pub mod email_verification;
 pub mod forgot_password;
 pub mod newsletter_subscriber;
 
+pub mod app_constant;
 pub mod media;
 pub mod media_usage;
 pub mod media_variant;

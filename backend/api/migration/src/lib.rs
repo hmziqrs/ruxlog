@@ -35,6 +35,7 @@ mod m20251201_000029_alter_user_add_oauth_fields;
 mod m20251202_000030_create_seed_runs_table;
 mod m20251203_000031_alter_email_and_forgot_password_add_updated_at;
 mod m20251204_000032_rename_media_variant_table;
+mod m20251205_000033_create_app_constants_table;
 
 pub struct Migrator;
 
@@ -79,6 +80,7 @@ impl MigratorTrait for Migrator {
                 m20251203_000031_alter_email_and_forgot_password_add_updated_at::Migration,
             ),
             Box::new(m20251204_000032_rename_media_variant_table::Migration),
+            Box::new(m20251205_000033_create_app_constants_table::Migration),
         ]
     }
 }

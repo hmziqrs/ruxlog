@@ -10,8 +10,8 @@ use crate::modules::post_comment_v1;
 use crate::{
     middlewares::route_blocker::block_routes,
     modules::{
-        admin_route_v1, analytics_v1, category_v1, feed_v1, media_v1, newsletter_v1, post_v1,
-        seed_v1, tag_v1,
+        admin_acl_v1, admin_route_v1, analytics_v1, category_v1, feed_v1, media_v1, newsletter_v1,
+        post_v1, seed_v1, tag_v1,
     },
 };
 
@@ -38,6 +38,7 @@ pub fn router() -> Router<AppState> {
         .nest("/newsletter/v1", newsletter_v1::routes())
         .nest("/analytics/v1", analytics_v1::routes())
         .nest("/admin/route/v1", admin_route_v1::routes())
+        .nest("/admin/acl/v1", admin_acl_v1::routes())
         .nest("/admin/seed/v1", seed_v1::routes())
         .layer(middleware::from_fn(request_id_middleware))
         .layer(middleware::from_fn(http_metrics::track_metrics))

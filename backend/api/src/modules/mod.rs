@@ -10,6 +10,7 @@ pub mod google_auth_v1;
 pub mod media_v1;
 pub mod newsletter_v1;
 
+pub mod admin_acl_v1;
 pub mod admin_route_v1;
 pub mod post_comment_v1;
 pub mod post_v1;
