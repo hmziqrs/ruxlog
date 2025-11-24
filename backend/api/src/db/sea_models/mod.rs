@@ -11,6 +11,7 @@ pub mod media_variant;
 pub mod pagination;
 pub mod post;
 pub mod post_comment;
+pub mod post_like;
 pub mod post_revision;
 pub mod post_series;
 pub mod post_series_post;

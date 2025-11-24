@@ -515,3 +515,149 @@ pub async fn series_remove(
         Err(err) => Err(err.into()),
     }
 }
+
+// ============================================================================
+// Like/Unlike endpoints
+// ============================================================================
+
+use crate::db::sea_models::post_like;
+
+/// Like a post
+#[debug_handler]
+#[instrument(skip(state, auth), fields(user_id, post_id))]
+pub async fn like_post(
+    State(state): State<AppState>,
+    auth: AuthSession,
+    Path(post_id): Path<i32>,
+) -> Result<impl IntoResponse, ErrorResponse> {
+    let user = auth.user.unwrap();
+    tracing::Span::current().record("user_id", user.id);
+    tracing::Span::current().record("post_id", post_id);
+
+    match post_like::Entity::like_post(&state.sea_db, post_id, user.id).await {
+        Ok((true, likes_count)) => {
+            info!(user_id = user.id, post_id, likes_count, "Post liked");
+            Ok((
+                StatusCode::OK,
+                Json(json!(post_like::LikeActionResponse {
+                    post_id,
+                    is_liked: true,
+                    likes_count,
+                    message: "Post liked successfully".to_string(),
+                })),
+            ))
+        }
+        Ok((false, likes_count)) => {
+            warn!(user_id = user.id, post_id, "Post already liked");
+            Ok((
+                StatusCode::OK,
+                Json(json!(post_like::LikeActionResponse {
+                    post_id,
+                    is_liked: true,
+                    likes_count,
+                    message: "Post was already liked".to_string(),
+                })),
+            ))
+        }
+        Err(err) => {
+            error!(user_id = user.id, post_id, "Failed to like post: {}", err);
+            Err(err.into())
+        }
+    }
+}
+
+/// Unlike a post
+#[debug_handler]
+#[instrument(skip(state, auth), fields(user_id, post_id))]
+pub async fn unlike_post(
+    State(state): State<AppState>,
+    auth: AuthSession,
+    Path(post_id): Path<i32>,
+) -> Result<impl IntoResponse, ErrorResponse> {
+    let user = auth.user.unwrap();
+    tracing::Span::current().record("user_id", user.id);
+    tracing::Span::current().record("post_id", post_id);
+
+    match post_like::Entity::unlike_post(&state.sea_db, post_id, user.id).await {
+        Ok((true, likes_count)) => {
+            info!(user_id = user.id, post_id, likes_count, "Post unliked");
+            Ok((
+                StatusCode::OK,
+                Json(json!(post_like::LikeActionResponse {
+                    post_id,
+                    is_liked: false,
+                    likes_count,
+                    message: "Post unliked successfully".to_string(),
+                })),
+            ))
+        }
+        Ok((false, likes_count)) => {
+            warn!(user_id = user.id, post_id, "Post was not liked");
+            Ok((
+                StatusCode::OK,
+                Json(json!(post_like::LikeActionResponse {
+                    post_id,
+                    is_liked: false,
+                    likes_count,
+                    message: "Post was not liked".to_string(),
+                })),
+            ))
+        }
+        Err(err) => {
+            error!(user_id = user.id, post_id, "Failed to unlike post: {}", err);
+            Err(err.into())
+        }
+    }
+}
+
+/// Get like status for a single post
+#[debug_handler]
+#[instrument(skip(state, auth), fields(user_id, post_id))]
+pub async fn like_status(
+    State(state): State<AppState>,
+    auth: AuthSession,
+    Path(post_id): Path<i32>,
+) -> Result<impl IntoResponse, ErrorResponse> {
+    let user = auth.user.unwrap();
+    tracing::Span::current().record("user_id", user.id);
+    tracing::Span::current().record("post_id", post_id);
+
+    match post_like::Entity::get_like_status(&state.sea_db, post_id, user.id).await {
+        Ok(status) => Ok((StatusCode::OK, Json(json!(status)))),
+        Err(err) => {
+            error!(
+                user_id = user.id,
+                post_id, "Failed to get like status: {}", err
+            );
+            Err(err.into())
+        }
+    }
+}
+
+/// Get like status for multiple posts
+#[debug_handler]
+#[instrument(skip(state, auth, payload), fields(user_id, post_count))]
+pub async fn like_status_batch(
+    State(state): State<AppState>,
+    auth: AuthSession,
+    payload: ValidatedJson<post_like::LikeStatusBatchRequest>,
+) -> Result<impl IntoResponse, ErrorResponse> {
+    let user = auth.user.unwrap();
+    tracing::Span::current().record("user_id", user.id);
+    tracing::Span::current().record("post_count", payload.post_ids.len());
+
+    match post_like::Entity::get_like_status_batch(&state.sea_db, &payload.post_ids, user.id).await
+    {
+        Ok(statuses) => Ok((
+            StatusCode::OK,
+            Json(json!(post_like::LikeStatusBatchResponse { statuses })),
+        )),
+        Err(err) => {
+            error!(
+                user_id = user.id,
+                "Failed to get batch like status: {}", err
+            );
+            Err(err.into())
+        }
+    }
+}

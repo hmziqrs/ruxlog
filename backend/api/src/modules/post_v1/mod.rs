@@ -53,11 +53,19 @@ pub fn routes() -> Router<AppState> {
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend));
 
+    // Routes requiring authentication (any logged-in user)
+    let authenticated = Router::new()
+        .route("/like/{post_id}", post(controller::like_post))
+        .route("/unlike/{post_id}", post(controller::unlike_post))
+        .route("/like/status/{post_id}", post(controller::like_status))
+        .route("/like/status/batch", post(controller::like_status_batch))
+        .route_layer(login_required!(AuthBackend));
+
     let public = Router::new()
         .route("/view/{id_or_slug}", post(controller::find_by_id_or_slug))
         .route("/list/published", post(controller::find_published_posts))
         .route("/sitemap", post(controller::sitemap))
         .route("/track_view/{post_id}", post(controller::track_view));
 
-    protected.merge(public)
+    protected.merge(authenticated).merge(public)
 }

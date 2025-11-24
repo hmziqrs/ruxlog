@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use ruxlog_shared::store::use_post;
+use ruxlog_shared::store::{use_auth, use_likes, use_post};
 use crate::utils::editorjs::render_editorjs_content;
 use crate::components::{CommentsSection, EngagementBar, estimate_reading_time};
 use hmziq_dioxus_free_icons::icons::ld_icons::{LdCalendar, LdClock};
@@ -8,6 +8,8 @@ use hmziq_dioxus_free_icons::Icon;
 #[component]
 pub fn PostViewScreen(id: i32) -> Element {
     let posts = use_post();
+    let likes = use_likes();
+    let auth = use_auth();
     let nav = use_navigator();
 
     // Get post by id
@@ -29,6 +31,47 @@ pub fn PostViewScreen(id: i32) -> Element {
             });
         }
     });
+
+    // Fetch like status when post is loaded and user is logged in
+    use_effect(move || {
+        let is_logged_in = auth.user.read().is_some();
+        if is_logged_in && post().is_some() {
+            let likes_state = likes;
+            spawn(async move {
+                likes_state.fetch_status(id).await;
+            });
+        }
+    });
+
+    // Get like status from store
+    let like_status = use_memo(move || {
+        let status_map = likes.status.read();
+        status_map.get(&id).and_then(|frame| frame.data.clone())
+    });
+
+    // Check if like action is loading
+    let is_like_loading = use_memo(move || {
+        let action_map = likes.action.read();
+        action_map
+            .get(&id)
+            .map(|frame| frame.is_loading())
+            .unwrap_or(false)
+    });
+
+    // Handle like toggle
+    let handle_like = move |_| {
+        let is_logged_in = auth.user.read().is_some();
+        if !is_logged_in {
+            // Could show a login prompt here
+            dioxus::logger::tracing::info!("User must be logged in to like posts");
+            return;
+        }
+
+        let likes_state = likes;
+        spawn(async move {
+            likes_state.toggle(id).await;
+        });
+    };
 
     // Handle share
     let handle_share = move |_| {
@@ -61,6 +104,12 @@ pub fn PostViewScreen(id: i32) -> Element {
 
         let reading_time = estimate_reading_time(&post.content);
         let post_id = post.id;
+
+        // Get likes data - prefer from store if available, fallback to post data
+        let (is_liked, likes_count) = match like_status() {
+            Some(status) => (status.is_liked, status.likes_count),
+            None => (false, post.likes_count),
+        };
 
         rsx! {
             div { class: "min-h-screen bg-background text-foreground",
@@ -135,13 +184,11 @@ pub fn PostViewScreen(id: i32) -> Element {
                         // Engagement bar
                         EngagementBar {
                             view_count: post.view_count,
-                            likes_count: post.likes_count,
+                            likes_count: likes_count,
                             comment_count: post.comment_count,
-                            is_liked: false, // TODO: Track user's like state when backend supports it
-                            on_like: move |_| {
-                                // TODO: Implement like/unlike when backend supports it
-                                dioxus::logger::tracing::info!("Like clicked - backend endpoint needed");
-                            },
+                            is_liked: is_liked,
+                            is_like_loading: is_like_loading(),
+                            on_like: handle_like,
                             on_share: handle_share,
                             on_scroll_to_comments: handle_scroll_to_comments,
                         }

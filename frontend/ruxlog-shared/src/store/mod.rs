@@ -10,6 +10,7 @@ pub mod comments;
 pub mod email_verification;
 #[cfg(feature = "image-editor")]
 pub mod image_editor;
+pub mod likes;
 pub mod media;
 #[cfg(feature = "newsletter-store")]
 pub mod newsletter;
@@ -31,6 +32,7 @@ pub use comments::*;
 pub use email_verification::*;
 #[cfg(feature = "image-editor")]
 pub use image_editor::*;
+pub use likes::*;
 pub use media::*;
 #[cfg(feature = "newsletter-store")]
 pub use newsletter::*;

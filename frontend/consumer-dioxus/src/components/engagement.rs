@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use hmziq_dioxus_free_icons::icons::ld_icons::LdHeart;
+use hmziq_dioxus_free_icons::icons::ld_icons::{LdHeart, LdLoader};
 use hmziq_dioxus_free_icons::Icon;
 
 #[derive(Props, Clone, PartialEq)]
@@ -8,17 +8,19 @@ pub struct LikeButtonProps {
     #[props(default = false)]
     pub is_liked: bool,
     #[props(default = false)]
+    pub is_loading: bool,
+    #[props(default = false)]
     pub disabled: bool,
     #[props(into)]
     pub on_click: Option<EventHandler<()>>,
 }
 
-/// Like/heart button for posts
-/// Note: Currently display-only. Backend like/unlike endpoints need to be implemented.
+/// Like/heart button for posts with loading state
 #[component]
 pub fn LikeButton(props: LikeButtonProps) -> Element {
     let is_liked = props.is_liked;
-    let disabled = props.disabled;
+    let is_loading = props.is_loading;
+    let disabled = props.disabled || is_loading;
     
     let button_class = if is_liked {
         "flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500/30 bg-red-500/10 text-red-500 transition-all duration-200 hover:bg-red-500/20"
@@ -41,7 +43,11 @@ pub fn LikeButton(props: LikeButtonProps) -> Element {
                     handler.call(());
                 }
             },
-            Icon { icon: LdHeart, class: "{heart_class}" }
+            if is_loading {
+                Icon { icon: LdLoader, class: "w-5 h-5 animate-spin" }
+            } else {
+                Icon { icon: LdHeart, class: "{heart_class}" }
+            }
             span { class: "font-medium", "{props.likes_count}" }
         }
     }
@@ -54,6 +60,8 @@ pub struct EngagementBarProps {
     pub comment_count: i64,
     #[props(default = false)]
     pub is_liked: bool,
+    #[props(default = false)]
+    pub is_like_loading: bool,
     #[props(into)]
     pub on_like: Option<EventHandler<()>>,
     #[props(into)]
@@ -80,6 +88,7 @@ pub fn EngagementBar(props: EngagementBarProps) -> Element {
                 LikeButton {
                     likes_count: props.likes_count,
                     is_liked: props.is_liked,
+                    is_loading: props.is_like_loading,
                     on_click: move |_| {
                         if let Some(handler) = &props.on_like {
                             handler.call(());
