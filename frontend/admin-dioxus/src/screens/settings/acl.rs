@@ -32,6 +32,7 @@ pub fn AclSettingsScreen() -> Element {
     let mut value_type = use_signal(|| "".to_string());
     let mut description = use_signal(|| "".to_string());
     let mut is_sensitive = use_signal(|| false);
+    let editing_key = use_signal(|| None::<String>);
 
     use_effect({
         let list_state = list_state;
@@ -72,13 +73,19 @@ pub fn AclSettingsScreen() -> Element {
         let mut value_type = value_type;
         let mut description = description;
         let mut is_sensitive = is_sensitive;
+        let mut editing_key = editing_key;
         spawn(async move {
-            acl_state.create(payload).await;
+            if let Some(existing_key) = editing_key() {
+                acl_state.update(existing_key, payload).await;
+            } else {
+                acl_state.create(payload).await;
+            }
             key.set(String::new());
             value.set(String::new());
             value_type.set(String::new());
             description.set(String::new());
             is_sensitive.set(false);
+            editing_key.set(None);
         });
     };
 
@@ -245,7 +252,34 @@ pub fn AclSettingsScreen() -> Element {
                 }
                 span { class: "text-xs text-muted-foreground", "Mark as sensitive (value will be masked in UI)" }
             }
-            Button { r#type: "submit", class: "w-full md:w-auto", "Create/Update constant" }
+            div { class: "flex flex-wrap gap-2",
+                Button { r#type: "submit", class: "w-full md:w-auto",
+                    if editing_key().is_some() { "Update constant" } else { "Create constant" }
+                }
+                if editing_key().is_some() {
+                    Button {
+                        variant: ButtonVariant::Outline,
+                        class: "w-full md:w-auto",
+                        onclick: {
+                            let mut key = key;
+                            let mut value = value;
+                            let mut value_type = value_type;
+                            let mut description = description;
+                            let mut is_sensitive = is_sensitive;
+                            let mut editing_key = editing_key;
+                            move |_| {
+                                key.set(String::new());
+                                value.set(String::new());
+                                value_type.set(String::new());
+                                description.set(String::new());
+                                is_sensitive.set(false);
+                                editing_key.set(None);
+                            }
+                        },
+                        "Cancel edit"
+                    }
+                }
+            }
         }
     };
 
@@ -307,8 +341,31 @@ pub fn AclSettingsScreen() -> Element {
                 }
             } else {
                 {filtered_rows.into_iter().map(|constant| {
+                    let mut key_signal = key;
+                    let mut value_signal = value;
+                    let mut value_type_signal = value_type;
+                    let mut description_signal = description;
+                    let mut sensitive_signal = is_sensitive;
+                    let mut editing_key_signal = editing_key;
+                    let row_constant = constant.clone();
                     rsx!{
-                        AclRow { constant }
+                        AclRow {
+                            constant,
+                            on_edit: EventHandler::new(move |_| {
+                                key_signal.set(row_constant.key.clone());
+                                value_signal.set(if row_constant.is_sensitive {
+                                    String::new()
+                                } else {
+                                    row_constant.value.clone()
+                                });
+                                value_type_signal
+                                    .set(row_constant.value_type.clone().unwrap_or_default());
+                                description_signal
+                                    .set(row_constant.description.clone().unwrap_or_default());
+                                sensitive_signal.set(row_constant.is_sensitive);
+                                editing_key_signal.set(Some(row_constant.key.clone()));
+                            })
+                        }
                     }
                 })}
             }
@@ -317,7 +374,7 @@ pub fn AclSettingsScreen() -> Element {
 }
 
 #[component]
-fn AclRow(constant: AppConstant) -> Element {
+fn AclRow(constant: AppConstant, on_edit: EventHandler<()>) -> Element {
     let acl_state = use_acl();
     let value_display = if constant.is_sensitive {
         "********".to_string()
@@ -354,7 +411,13 @@ fn AclRow(constant: AppConstant) -> Element {
                 Badge { variant: badge_variant, class: "text-[10px] uppercase tracking-wide", if constant.is_sensitive { "Sensitive" } else { "Public" } }
             }
             td { class: "py-2 px-3 text-xs text-muted-foreground whitespace-nowrap", "{format_short_date_dt(&constant.updated_at)}" }
-            td { class: "py-2 px-3 text-right space-x-2",
+            td { class: "py-2 px-3 text-right space-x-2 flex justify-end",
+                Button {
+                    variant: ButtonVariant::Outline,
+                    class: "h-8 px-2 text-xs",
+                    onclick: move |_| { on_edit.call(()); },
+                    "Edit"
+                }
                 Button {
                     variant: ButtonVariant::Destructive,
                     class: "h-8 px-2 text-xs",
