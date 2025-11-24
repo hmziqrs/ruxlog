@@ -107,6 +107,7 @@ impl AdminRoutesState {
         .await;
 
         self.list().await;
+        self.fetch_sync_interval().await;
     }
 
     pub async fn fetch_sync_interval(&self) {
