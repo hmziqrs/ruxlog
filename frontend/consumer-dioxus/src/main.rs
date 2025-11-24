@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use dioxus::{logger::tracing, prelude::*};
 
 use oxui::components::SonnerToaster;
 use crate::utils::persist;
@@ -19,19 +19,17 @@ fn main() {
     use base64::prelude::*;
 
     // Configure HTTP client
-    let app_api_url = env::app_api_url();
-    let app_csrf_token = env::app_csrf_token();
-    println!("APP_API_URL: {}", app_api_url);
-    println!("APP_CSRF_TOKEN: {}", app_csrf_token);
+    println!("APP_API_URL: {}", env::APP_API_URL);
+    println!("APP_CSRF_TOKEN: {}", env::APP_CSRF_TOKEN);
 
     // Ensure URL has protocol
-    let base_url = if app_api_url.starts_with("http") {
-        app_api_url
+    let base_url = if env::APP_API_URL.starts_with("http") {
+        env::APP_API_URL.to_string()
     } else {
-        format!("http://{}", app_api_url)
+        format!("http://{}", env::APP_API_URL)
     };
 
-    let csrf_token = BASE64_STANDARD.encode(app_csrf_token.as_bytes());
+    let csrf_token = BASE64_STANDARD.encode((env::APP_CSRF_TOKEN).as_bytes());
     oxcore::http::configure(base_url, csrf_token);
 
     dioxus::launch(App);
@@ -41,6 +39,8 @@ const TAILWIND_CSS: Asset = asset!("/assets/tailwind.css");
 
 #[component]
 fn App() -> Element {
+    tracing::info!("APP_API_URL: {}", env::APP_API_URL);
+    tracing::info!("APP_CSRF_TOKEN: {}", env::APP_CSRF_TOKEN);
     // Initialize document theme from persistent storage on app mount.
     use_effect(|| {
         let stored = persist::get_theme();

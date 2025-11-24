@@ -1,7 +1,9 @@
-pub fn app_api_url() -> String {
-    std::env::var("SITE_URL").unwrap_or_else(|_| "http://localhost:8080".to_string())
-}
+pub const APP_API_URL: &str = match std::option_env!("SITE_URL") {
+    Some(url) => url,
+    None => "http://localhost:1100",
+};
 
-pub fn app_csrf_token() -> String {
-    std::env::var("CSRF_KEY").unwrap_or_else(|_| "default-csrf-token".to_string())
-}
+pub const APP_CSRF_TOKEN: &str = match std::option_env!("CSRF_KEY") {
+    Some(key) => key,
+    None => "dev-csrf-key",
+};

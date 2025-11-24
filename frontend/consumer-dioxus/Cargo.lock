@@ -5407,6 +5407,7 @@ dependencies = [
  "oxui",
  "serde",
  "serde_json",
+ "urlencoding",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
