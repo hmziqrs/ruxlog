@@ -1,4 +1,11 @@
 use dioxus::prelude::*;
+use hmziq_dioxus_free_icons::{
+    icons::ld_icons::{
+        LdShieldCheck, LdShieldOff, LdTrash2, LdPlus, LdRefreshCw, LdPlay, LdPause, LdRotateCcw,
+        LdSave,
+    },
+    Icon,
+};
 use oxstore::{ListQuery, ListStore, Order};
 use oxui::components::form::input::SimpleInput;
 use oxui::shadcn::badge::{Badge, BadgeVariant};
@@ -14,8 +21,8 @@ use crate::containers::page_header::PageHeaderProps;
 use crate::hooks::{use_list_screen_with_handlers, ListScreenConfig};
 use crate::utils::dates::format_short_date_dt;
 use ruxlog_shared::store::{
-    use_admin_routes, AdminRoutesListQuery, BlockRoutePayload, RouteStatus, UpdateRoutePayload,
-    UpdateSyncIntervalPayload,
+    use_admin_routes, AdminRoutesListQuery, BlockFilter, BlockRoutePayload, RouteStatus,
+    UpdateRoutePayload, UpdateSyncIntervalPayload,
 };
 
 #[component]
@@ -106,8 +113,12 @@ pub fn RoutesSettingsScreen() -> Element {
                         .map(|reason| reason.to_lowercase().contains(&needle))
                         .unwrap_or(false);
             }
-            if let Some(blocked) = filters_snapshot.is_blocked {
-                keep &= route.is_blocked == blocked;
+            if let Some(ref block_filter) = filters_snapshot.block_filter {
+                keep &= match block_filter {
+                    BlockFilter::All => true,
+                    BlockFilter::Blocked => route.is_blocked,
+                    BlockFilter::Unblocked => !route.is_blocked,
+                };
             }
             keep
         })
@@ -165,10 +176,11 @@ pub fn RoutesSettingsScreen() -> Element {
         move |value: String| {
             let mut query = filters.peek().clone();
             query.set_page(1);
-            query.is_blocked = match value.to_lowercase().as_str() {
-                "blocked" => Some(true),
-                "allowed" => Some(false),
-                _ => None,
+            query.block_filter = match value.to_lowercase().as_str() {
+                "blocked" => Some(BlockFilter::Blocked),
+                "allowed" => Some(BlockFilter::Unblocked),
+                "unblocked" => Some(BlockFilter::Unblocked),
+                _ => Some(BlockFilter::All),
             };
             filters.set(query);
         }
@@ -217,10 +229,10 @@ pub fn RoutesSettingsScreen() -> Element {
         });
     };
 
-    let status_label = match filters_snapshot.is_blocked {
-        Some(true) => "Blocked".to_string(),
-        Some(false) => "Allowed".to_string(),
-        None => "All".to_string(),
+    let status_label = match &filters_snapshot.block_filter {
+        Some(BlockFilter::Blocked) => "Blocked".to_string(),
+        Some(BlockFilter::Unblocked) => "Allowed".to_string(),
+        Some(BlockFilter::All) | None => "All".to_string(),
     };
 
     let toolbar = ListToolbarProps {
@@ -250,70 +262,101 @@ pub fn RoutesSettingsScreen() -> Element {
 
     let below_toolbar = rsx! {
         div { class: "grid gap-4 md:grid-cols-2",
-            form { class: "bg-card border border-border rounded-lg p-4 space-y-3", onsubmit: block_route,
-                div { class: "space-y-1",
-                    label { class: "text-xs font-medium text-muted-foreground", "Pattern" }
+            form { class: "bg-card border border-border rounded-lg p-5 space-y-4 shadow-sm", onsubmit: block_route,
+                div { class: "flex items-center justify-between mb-2",
+                    h3 { class: "text-sm font-semibold flex items-center gap-2",
+                        Icon { class: "w-4 h-4", icon: LdShieldOff }
+                        "Block Route"
+                    }
+                }
+                div { class: "space-y-2",
+                    label { class: "text-xs font-semibold text-foreground flex items-center gap-1.5",
+                        "Pattern"
+                        span { class: "text-destructive", "*" }
+                    }
                     SimpleInput {
                         placeholder: Some("/admin/*".to_string()),
                         value: pattern(),
                         oninput: move |value| pattern.set(value),
-                        class: Some("text-sm font-mono".to_string()),
+                        class: Some("text-sm font-mono h-9".to_string()),
                     }
+                    p { class: "text-[10px] text-muted-foreground", "Use wildcards like /admin/* or exact paths" }
                 }
-                div { class: "space-y-1",
-                    label { class: "text-xs font-medium text-muted-foreground", "Reason (optional)" }
+                div { class: "space-y-2",
+                    label { class: "text-xs font-semibold text-foreground", "Reason" }
                     SimpleInput {
                         placeholder: Some("Maintenance window".to_string()),
                         value: reason(),
                         oninput: move |value| reason.set(value),
-                        class: Some("text-sm".to_string()),
+                        class: Some("text-sm h-9".to_string()),
                     }
+                    p { class: "text-[10px] text-muted-foreground", "Optional context for blocking this route" }
                 }
-                Button { r#type: "submit", class: "w-full md:w-auto", "Block route" }
+                Button {
+                    r#type: "submit",
+                    class: "w-full h-9 text-sm font-medium flex items-center justify-center gap-2",
+                    disabled: pattern().trim().is_empty(),
+                    Icon { class: "w-4 h-4", icon: LdPlus }
+                    "Block Route"
+                }
             }
 
-            div { class: "bg-card border border-border rounded-lg p-4 space-y-4",
+            div { class: "bg-card border border-border rounded-lg p-5 space-y-4 shadow-sm",
                 div { class: "flex items-center justify-between",
-                    h3 { class: "text-sm font-semibold", "Sync interval" }
+                    h3 { class: "text-sm font-semibold flex items-center gap-2",
+                        Icon { class: "w-4 h-4", icon: LdRefreshCw }
+                        "Sync Interval"
+                    }
                     Button {
                         variant: ButtonVariant::Outline,
-                        class: "h-8 text-xs",
+                        class: "h-8 text-xs px-3 flex items-center gap-1.5",
                         onclick: sync_now,
-                        "Sync now"
+                        Icon { class: "w-3.5 h-3.5", icon: LdRefreshCw }
+                        "Sync Now"
                     }
                 }
-                div { class: "grid gap-2",
-                    label { class: "text-xs font-medium text-muted-foreground", "Interval (seconds)" }
+                div { class: "space-y-2",
+                    label { class: "text-xs font-semibold text-foreground", "Interval (seconds)" }
                     SimpleInput {
                         value: interval_input(),
                         oninput: move |value| interval_input.set(value),
-                        class: Some("text-sm".to_string()),
+                        class: Some("text-sm h-9 font-mono".to_string()),
+                    }
+                    p { class: "text-[10px] text-muted-foreground",
+                        "Current: {interval_label}"
                     }
                 }
-                p { class: "text-xs text-muted-foreground", "{interval_label}" }
-                div { class: "flex flex-wrap gap-2",
+                div { class: "flex flex-wrap gap-2 pt-2",
                     Button {
                         variant: ButtonVariant::Secondary,
                         disabled: interval_loading,
                         onclick: update_interval,
+                        class: "h-8 px-3 text-xs flex items-center gap-1.5",
+                        Icon { class: "w-3.5 h-3.5", icon: LdSave }
                         "Update"
                     }
                     Button {
                         variant: ButtonVariant::Outline,
                         disabled: interval_loading || paused,
                         onclick: pause_interval,
+                        class: "h-8 px-3 text-xs flex items-center gap-1.5",
+                        Icon { class: "w-3.5 h-3.5", icon: LdPause }
                         "Pause"
                     }
                     Button {
                         variant: ButtonVariant::Outline,
                         disabled: interval_loading || !paused,
                         onclick: resume_interval,
+                        class: "h-8 px-3 text-xs flex items-center gap-1.5",
+                        Icon { class: "w-3.5 h-3.5", icon: LdPlay }
                         "Resume"
                     }
                     Button {
                         variant: ButtonVariant::Outline,
                         disabled: interval_loading,
                         onclick: restart_interval,
+                        class: "h-8 px-3 text-xs flex items-center gap-1.5",
+                        Icon { class: "w-3.5 h-3.5", icon: LdRotateCcw }
                         "Restart"
                     }
                 }
@@ -445,18 +488,26 @@ fn RouteRow(route: RouteStatus) -> Element {
             td { class: "py-2 px-3 text-xs text-muted-foreground break-words", "{reason}" }
             td { class: "py-2 px-3 text-xs text-muted-foreground whitespace-nowrap", "{format_short_date_dt(&route.created_at)}" }
             td { class: "py-2 px-3 text-xs text-muted-foreground whitespace-nowrap", "{format_short_date_dt(&route.updated_at)}" }
-            td { class: "py-2 px-3 text-right space-x-2",
-                Button {
-                    variant: ButtonVariant::Outline,
-                    class: "h-8 px-2 text-xs",
-                    onclick: toggle_block,
-                    if route.is_blocked { "Unblock" } else { "Block" }
-                }
-                Button {
-                    variant: ButtonVariant::Destructive,
-                    class: "h-8 px-2 text-xs",
-                    onclick: delete_route,
-                    "Delete"
+            td { class: "py-2 px-3 text-right",
+                div { class: "flex items-center justify-end gap-1",
+                    Button {
+                        variant: if route.is_blocked { ButtonVariant::Outline } else { ButtonVariant::Ghost },
+                        class: "h-8 w-8 p-0 hover:bg-muted",
+                        onclick: toggle_block,
+                        title: if route.is_blocked { "Unblock route" } else { "Block route" },
+                        if route.is_blocked {
+                            Icon { class: "w-4 h-4 text-green-600 dark:text-green-500 pointer-events-none", icon: LdShieldCheck }
+                        } else {
+                            Icon { class: "w-4 h-4 text-orange-600 dark:text-orange-500 pointer-events-none", icon: LdShieldOff }
+                        }
+                    }
+                    Button {
+                        variant: ButtonVariant::Ghost,
+                        class: "h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive",
+                        onclick: delete_route,
+                        title: "Delete route",
+                        Icon { class: "w-4 h-4 pointer-events-none", icon: LdTrash2 }
+                    }
                 }
             }
         }
