@@ -98,6 +98,9 @@ pub fn PageHeader(props: PageHeaderProps) -> Element {
         Route::RoutesSettingsScreen {} => {
             vec![("settings".to_string(), None), ("routes".to_string(), None)]
         }
+        Route::AclSettingsScreen {} => {
+            vec![("settings".to_string(), None), ("acl".to_string(), None)]
+        }
         Route::ProfileSecurityScreen {} => vec![
             ("profile".to_string(), None),
             ("security".to_string(), None),

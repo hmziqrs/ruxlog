@@ -34,6 +34,7 @@ futures-channel = { version = "0.3", optional = true }
 oxcore = { path = "../oxcore" }
 oxstore = { path = "../oxstore" }
 oxui = { path = "../oxui" }
+urlencoding = "2.1.3"
 
 [features]
 default = []

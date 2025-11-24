@@ -4,6 +4,7 @@ use std::sync::LazyLock;
 use crate::containers::AuthGuardContainer;
 use crate::containers::NavBarContainer;
 
+use crate::screens::AclSettingsScreen;
 use crate::screens::AnalyticsScreen;
 use crate::screens::CategoriesAddScreen;
 use crate::screens::CategoriesEditScreen;
@@ -56,6 +57,8 @@ pub enum Route {
 
     #[route("/settings/routes")]
     RoutesSettingsScreen {},
+    #[route("/settings/acl")]
+    AclSettingsScreen {},
 
     #[route("/profile/security")]
     ProfileSecurityScreen {},

@@ -204,6 +204,13 @@ pub fn Sidebar(expanded: Signal<bool>, toggle: EventHandler<()>) -> Element {
                     on_close: move |_| toggle.call(()),
                 }
                 SidebarModuleLink {
+                    main_route: Route::AclSettingsScreen {},
+                    icon: rsx! { Icon { icon: LdFolder } },
+                    label: "ACL",
+                    is_active: is_active(Route::AclSettingsScreen {}),
+                    on_close: move |_| toggle.call(()),
+                }
+                SidebarModuleLink {
                     main_route: Route::ProfileSecurityScreen {},
                     icon: rsx! { Icon { icon: LdUser } },
                     label: "Security",

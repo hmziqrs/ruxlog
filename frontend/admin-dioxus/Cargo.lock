@@ -5501,6 +5501,7 @@ dependencies = [
  "photon-rs",
  "serde",
  "serde_json",
+ "urlencoding",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
