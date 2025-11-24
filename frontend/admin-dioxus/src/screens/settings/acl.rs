@@ -439,7 +439,10 @@ fn AclRow(constant: AppConstant, on_edit: EventHandler<()>) -> Element {
                     DropdownMenuContent {
                         class: "bg-background border-zinc-200 dark:border-zinc-800",
                         DropdownMenuItem {
-                            onclick: move |_| { on_edit.call(()); },
+                            onclick: {
+                                let on_edit = on_edit.clone();
+                                move |_| { on_edit.call(()); }
+                            },
                             "Edit"
                         }
                         DropdownMenuItem {
