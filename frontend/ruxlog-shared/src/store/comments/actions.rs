@@ -6,7 +6,7 @@ use dioxus::prelude::ReadableExt;
 use oxcore::http;
 use oxstore::{
     edit_state_abstraction, list_state_abstraction, remove_state_abstraction,
-    state_request_abstraction, view_state_abstraction, StateFrame,
+    simple_list_state_abstraction, state_request_abstraction, view_state_abstraction, StateFrame,
 };
 
 impl CommentState {
@@ -125,9 +125,9 @@ impl CommentState {
         }
     }
 
-    /// List comments for a post
+    /// List comments for a post (consumer endpoint - returns plain array)
     pub async fn list(&self, post_id: i32) {
-        let _ = list_state_abstraction(
+        let _ = simple_list_state_abstraction(
             &self.list,
             http::post(
                 &format!("/post/comment/v1/{}", post_id),

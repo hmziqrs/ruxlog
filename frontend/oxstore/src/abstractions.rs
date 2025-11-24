@@ -428,3 +428,61 @@ where
         }
     }
 }
+
+/// Abstraction for fetching a simple array/list from the backend and wrapping it
+/// in a PaginatedList structure. Use this when the backend returns a plain `Vec<T>`
+/// instead of a paginated response.
+pub async fn simple_list_state_abstraction<T, Req>(
+    state: &GlobalSignal<StateFrame<PaginatedList<T>>>,
+    request: Req,
+    parse_label: &str,
+) -> Option<PaginatedList<T>>
+where
+    T: DeserializeOwned + Clone + 'static,
+    Req: Future<Output = Result<http::Response, http::Error>>,
+{
+    state.write().set_loading();
+    match request.await {
+        Ok(response) => {
+            if (200..300).contains(&response.status()) {
+                let body_text = response.body_text();
+                match response.json::<Vec<T>>().await {
+                    Ok(data) => {
+                        let paginated = PaginatedList {
+                            total: data.len() as u64,
+                            page: 1,
+                            per_page: data.len() as u64,
+                            data,
+                        };
+                        state.write().set_success(Some(paginated.clone()));
+                        Some(paginated)
+                    }
+                    Err(e) => {
+                        dioxus::logger::tracing::error!(
+                            "Failed to parse {}: {:?}\nResponse: {}",
+                            parse_label,
+                            e,
+                            body_text
+                        );
+                        state.write().set_decode_error(
+                            parse_label,
+                            format!("{}", e),
+                            Some(body_text),
+                        );
+                        None
+                    }
+                }
+            } else {
+                let status = response.status();
+                let body = response.text().await.unwrap_or_default();
+                state.write().set_api_error(status, body);
+                None
+            }
+        }
+        Err(e) => {
+            let (kind, msg) = classify_transport_error(&e);
+            state.write().set_transport_error(kind, Some(msg));
+            None
+        }
+    }
+}

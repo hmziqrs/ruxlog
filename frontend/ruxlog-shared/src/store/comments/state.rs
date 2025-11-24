@@ -34,12 +34,35 @@ pub struct Comment {
     pub post_id: i32,
     pub user_id: i32,
     pub content: String,
+    #[serde(default)]
     pub parent_id: Option<i32>,
     pub created_at: DateTime<Utc>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
     #[serde(default, alias = "is_hidden")]
     pub hidden: bool,
     #[serde(default)]
+    pub likes_count: i32,
+    #[serde(default)]
+    pub flags_count: i32,
+    /// User name from consumer endpoint (flat field)
+    #[serde(default)]
+    pub user_name: Option<String>,
+    /// Author object from admin endpoint (nested object)
+    #[serde(default)]
     pub author: Option<CommentAuthor>,
+}
+
+impl Comment {
+    /// Get the display name for the comment author
+    /// Prefers author.name if available, falls back to user_name
+    pub fn author_name(&self) -> String {
+        self.author
+            .as_ref()
+            .map(|a| a.name.clone())
+            .or_else(|| self.user_name.clone())
+            .unwrap_or_else(|| "Anonymous".to_string())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

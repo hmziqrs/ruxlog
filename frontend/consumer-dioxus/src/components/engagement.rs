@@ -35,7 +35,7 @@ pub fn LikeButton(props: LikeButtonProps) -> Element {
     rsx! {
         button {
             class: "{button_class} disabled:opacity-50 disabled:cursor-not-allowed",
-            disabled: disabled,
+            disabled,
             onclick: move |_| {
                 if let Some(handler) = &props.on_click {
                     handler.call(());

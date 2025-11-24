@@ -186,7 +186,7 @@ fn CommentItem(props: CommentItemProps) -> Element {
     let comment = &props.comment;
     let comment_id = comment.id;
     let created_at = comment.created_at.format("%b %d, %Y at %H:%M").to_string();
-    let author_name = comment.author.as_ref().map(|a| a.name.clone()).unwrap_or_else(|| "Anonymous".to_string());
+    let author_name = comment.author_name();
     let author_initial = author_name.chars().next().unwrap_or('A').to_uppercase();
 
     rsx! {
