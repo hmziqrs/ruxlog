@@ -202,12 +202,19 @@ pub fn AclSettingsScreen() -> Element {
 
     let below_toolbar = rsx! {
         form { class: "bg-card border border-border rounded-lg p-4 space-y-3", onsubmit: create_constant,
+            if let Some(editing) = editing_key() {
+                div { class: "flex items-center justify-between gap-3 rounded-md bg-muted/50 px-3 py-2 border border-border/70",
+                    span { class: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", "Editing" }
+                    span { class: "text-xs font-mono", "{editing}" }
+                }
+            }
             div { class: "grid gap-3 md:grid-cols-2",
                 div { class: "space-y-1",
                     label { class: "text-xs font-medium text-muted-foreground", "Key" }
                     SimpleInput {
                         placeholder: Some("S3_BUCKET".to_string()),
                         value: key(),
+                        disabled: editing_key().is_some(),
                         oninput: move |val| key.set(val),
                         class: Some("text-sm font-mono".to_string()),
                     }
@@ -230,6 +237,9 @@ pub fn AclSettingsScreen() -> Element {
                         value: value(),
                         oninput: move |val| value.set(val),
                         class: Some("text-sm".to_string()),
+                    }
+                    p { class: "text-[11px] text-muted-foreground",
+                        "Sensitive values are not shown. Enter a new value to update."
                     }
                 }
                 div { class: "space-y-1",
