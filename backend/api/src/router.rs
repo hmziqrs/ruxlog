@@ -7,12 +7,9 @@ use tracing::Level;
 
 use crate::middlewares::{http_metrics, request_id_middleware};
 use crate::modules::post_comment_v1;
-use crate::{
-    middlewares::route_blocker::block_routes,
-    modules::{
-        admin_acl_v1, admin_route_v1, analytics_v1, category_v1, feed_v1, media_v1, newsletter_v1,
-        post_v1, seed_v1, tag_v1,
-    },
+use crate::modules::{
+    admin_acl_v1, admin_route_v1, analytics_v1, category_v1, feed_v1, media_v1, newsletter_v1,
+    post_v1, seed_v1, tag_v1,
 };
 
 use super::{
@@ -23,7 +20,6 @@ use super::{
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/healthz", get(health_check))
-        .layer(middleware::from_fn(block_routes))
         .nest("/auth/v1", auth_v1::routes())
         .nest("/auth/google/v1", google_auth_v1::routes())
         .nest("/user/v1", user_v1::routes())

@@ -93,6 +93,7 @@ imagesize = "0.12.0"
 bytes = "1.7.2"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "tiff"] }
 reqwest = { version = "0.12", features = ["json"] }
+tower = { version = "0.5", features = ["util"] }
 oauth2 = "4.4"
 jsonwebtoken = { version = "10.2.0", features = ["aws_lc_rs"] }
 ratatui = "0.29"
