@@ -3,13 +3,12 @@ use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use ruxlog_shared::store::use_post;
 use ruxlog_shared::store::posts::PostContent;
 use crate::router::Route;
-use hmziq_dioxus_free_icons::icons::ld_icons::{LdCalendar, LdClock, LdArrowRight, LdEye};
+use hmziq_dioxus_free_icons::icons::ld_icons::{LdArrowRight, LdBookOpen};
 use hmziq_dioxus_free_icons::Icon;
 use chrono::{DateTime, Utc};
 
 /// Estimate reading time based on content blocks (avg 200 words per minute)
 fn estimate_reading_time(content: &PostContent) -> u32 {
-    // Extract text from blocks and count words
     let mut word_count = 0;
     for block in &content.blocks {
         let text = match block {
@@ -32,11 +31,24 @@ fn format_date(date: &DateTime<Utc>) -> String {
     date.format("%b %d, %Y").to_string()
 }
 
+/// Generate a gradient class based on tag name for fallback backgrounds
+fn get_gradient_for_tag(tag: Option<&str>) -> &'static str {
+    match tag.unwrap_or("").to_lowercase().as_str() {
+        s if s.contains("rust") => "from-orange-500/20 via-red-500/10 to-transparent",
+        s if s.contains("react") || s.contains("frontend") => "from-cyan-500/20 via-blue-500/10 to-transparent",
+        s if s.contains("backend") || s.contains("api") => "from-green-500/20 via-emerald-500/10 to-transparent",
+        s if s.contains("devops") || s.contains("infra") => "from-purple-500/20 via-violet-500/10 to-transparent",
+        s if s.contains("database") || s.contains("sql") => "from-yellow-500/20 via-amber-500/10 to-transparent",
+        s if s.contains("security") => "from-red-500/20 via-rose-500/10 to-transparent",
+        s if s.contains("ai") || s.contains("ml") => "from-pink-500/20 via-fuchsia-500/10 to-transparent",
+        _ => "from-primary/20 via-primary/5 to-transparent",
+    }
+}
+
 #[component]
 pub fn HomeScreen() -> Element {
     let posts_store = use_post();
 
-    // Fetch posts on mount
     use_effect(move || {
         let posts = posts_store;
         spawn(async move {
@@ -48,37 +60,38 @@ pub fn HomeScreen() -> Element {
 
     rsx! {
         div { class: "min-h-screen bg-background text-foreground",
-            // Hero Section
-            div { class: "border-b border-border/60",
-                div { class: "container mx-auto px-4 py-16 md:py-24",
-                    div { class: "max-w-3xl",
-                        h1 { class: "text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-6",
-                            "Engineering "
-                            span { class: "text-primary", "Insights" }
-                        }
-                        p { class: "text-lg md:text-xl text-muted-foreground leading-relaxed",
-                            "Deep dives into software architecture, system design, and the craft of building scalable applications. Written for engineers who care about the details."
-                        }
-                    }
-                }
-            }
-
-            // Posts Section
-            div { class: "container mx-auto px-4 py-12 md:py-16",
+            div { class: "container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-6xl",
                 if (*posts_frame).is_loading() {
                     // Loading skeleton
-                    div { class: "space-y-6",
-                        for _ in 0..3 {
-                            div { class: "animate-pulse",
-                                div { class: "rounded-lg border border-border/40 bg-card/30 p-6 md:p-8",
-                                    div { class: "flex flex-col md:flex-row gap-6",
-                                        div { class: "flex-1 space-y-4",
-                                            div { class: "h-4 bg-muted/50 rounded w-24" }
-                                            div { class: "h-8 bg-muted/50 rounded w-3/4" }
-                                            div { class: "h-4 bg-muted/50 rounded w-full" }
-                                            div { class: "h-4 bg-muted/50 rounded w-2/3" }
+                    div { class: "space-y-8",
+                        // Featured skeleton
+                        div { class: "animate-pulse",
+                            div { class: "rounded-2xl bg-gradient-to-br from-muted/50 to-muted/20 p-1",
+                                div { class: "rounded-xl bg-card/80 overflow-hidden",
+                                    div { class: "aspect-[21/9] bg-muted/40" }
+                                    div { class: "p-6 space-y-4",
+                                        div { class: "flex gap-2",
+                                            div { class: "h-6 w-16 bg-muted/50 rounded-full" }
+                                            div { class: "h-6 w-20 bg-muted/50 rounded-full" }
                                         }
-                                        div { class: "w-full md:w-64 h-40 bg-muted/50 rounded-lg" }
+                                        div { class: "h-8 bg-muted/50 rounded w-3/4" }
+                                        div { class: "h-4 bg-muted/40 rounded w-full" }
+                                        div { class: "h-4 bg-muted/40 rounded w-2/3" }
+                                    }
+                                }
+                            }
+                        }
+                        // Grid skeleton
+                        div { class: "grid md:grid-cols-2 lg:grid-cols-3 gap-6",
+                            for _ in 0..3 {
+                                div { class: "animate-pulse",
+                                    div { class: "rounded-xl border border-border/40 bg-card/50 overflow-hidden",
+                                        div { class: "aspect-[16/9] bg-muted/40" }
+                                        div { class: "p-5 space-y-3",
+                                            div { class: "h-5 w-16 bg-muted/50 rounded-full" }
+                                            div { class: "h-6 bg-muted/50 rounded w-full" }
+                                            div { class: "h-4 bg-muted/40 rounded w-3/4" }
+                                        }
                                     }
                                 }
                             }
@@ -96,174 +109,162 @@ pub fn HomeScreen() -> Element {
                 } else if let Some(data) = &(*posts_frame).data {
                     if data.data.is_empty() {
                         // Empty state
-                        div { class: "flex flex-col items-center justify-center py-20 text-center",
-                            div { class: "w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-6",
-                                Icon { icon: LdCalendar, class: "w-8 h-8 text-muted-foreground" }
+                        div { class: "flex flex-col items-center justify-center py-24 text-center",
+                            div { class: "w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mb-6",
+                                Icon { icon: LdBookOpen, class: "w-10 h-10 text-primary" }
                             }
-                            h3 { class: "text-xl font-semibold mb-2", "No posts yet" }
-                            p { class: "text-muted-foreground max-w-sm",
-                                "Check back soon for new articles on software engineering, architecture, and best practices."
+                            h3 { class: "text-2xl font-bold mb-3", "No posts yet" }
+                            p { class: "text-muted-foreground max-w-md text-lg",
+                                "The first article is on its way. Check back soon."
                             }
                         }
                     } else {
-                        // Featured post (first post)
-                        if let Some(featured) = data.data.first() {
-                            div { class: "mb-12",
+                        div { class: "space-y-10",
+                            // Featured post (hero card)
+                            if let Some(featured) = data.data.first() {
                                 Link {
                                     to: Route::PostViewScreen { id: featured.id },
                                     class: "group block",
-                                    div { class: "rounded-xl border border-border/60 bg-card/50 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:border-border hover:bg-card/80 hover:shadow-lg",
-                                        div { class: "flex flex-col lg:flex-row",
-                                            // Featured image
-                                            if let Some(img) = &featured.featured_image {
-                                                div { class: "lg:w-1/2 aspect-video lg:aspect-auto",
+                                    // Gradient border wrapper
+                                    div { class: "rounded-2xl bg-gradient-to-br from-primary/30 via-primary/10 to-transparent p-[1px] transition-all duration-500 group-hover:from-primary/50 group-hover:via-primary/20",
+                                        div { class: "rounded-2xl bg-card/95 backdrop-blur-sm overflow-hidden",
+                                            // Media section
+                                            div { class: "relative aspect-[21/9] overflow-hidden",
+                                                if let Some(img) = &featured.featured_image {
                                                     img {
                                                         src: "{img.file_url}",
                                                         alt: "{featured.title}",
-                                                        class: "w-full h-full object-cover group-hover:scale-105 transition-transform duration-500",
+                                                        class: "w-full h-full object-cover transition-transform duration-700 group-hover:scale-105",
+                                                    }
+                                                    // Overlay gradient
+                                                    div { class: "absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent" }
+                                                } else {
+                                                    // Fallback gradient based on tag
+                                                    div {
+                                                        class: "w-full h-full bg-gradient-to-br {get_gradient_for_tag(featured.tags.first().map(|t| t.name.as_str()))}",
+                                                        div { class: "absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" }
+                                                        // Pattern overlay
+                                                        div {
+                                                            class: "absolute inset-0 opacity-[0.03]",
+                                                            style: "background-image: url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\");",
+                                                        }
+                                                    }
+                                                }
+
+                                                // Category tags - top left
+                                                if !featured.tags.is_empty() {
+                                                    div { class: "absolute top-4 left-4 flex flex-wrap gap-2",
+                                                        for tag in featured.tags.iter().take(2) {
+                                                            span { class: "px-3 py-1.5 rounded-full text-xs font-semibold bg-background/90 backdrop-blur-sm text-foreground border border-border/50 shadow-sm",
+                                                                "{tag.name}"
+                                                            }
+                                                        }
                                                     }
                                                 }
                                             }
 
                                             // Content
-                                            div { class: "flex-1 p-6 md:p-8 lg:p-10 flex flex-col justify-center",
-                                                // Label
-                                                div { class: "flex items-center gap-3 mb-4",
-                                                    span { class: "px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20",
-                                                        "Featured"
-                                                    }
-                                                    if !featured.tags.is_empty() {
-                                                        span { class: "text-muted-foreground text-sm",
-                                                            "{featured.tags.first().map(|t| t.name.as_str()).unwrap_or(\"\")}"
-                                                        }
-                                                    }
-                                                }
-
-                                                h2 { class: "text-2xl md:text-3xl lg:text-4xl font-bold mb-4 group-hover:text-primary transition-colors leading-tight",
+                                            div { class: "p-6 md:p-8 -mt-16 relative z-10",
+                                                h2 { class: "text-2xl md:text-3xl lg:text-4xl font-bold mb-3 leading-tight group-hover:text-primary transition-colors duration-300",
                                                     "{featured.title}"
                                                 }
 
                                                 if let Some(excerpt) = &featured.excerpt {
-                                                    p { class: "text-muted-foreground text-base md:text-lg leading-relaxed mb-6 line-clamp-3",
+                                                    p { class: "text-muted-foreground text-base md:text-lg leading-relaxed mb-5 line-clamp-2",
                                                         "{excerpt}"
                                                     }
                                                 }
 
-                                                // Meta info
-                                                div { class: "flex flex-wrap items-center gap-4 text-sm text-muted-foreground",
-                                                    // Author
-                                                    div { class: "flex items-center gap-2",
-                                                        div { class: "w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary",
-                                                            "{featured.author.name.chars().next().unwrap_or('A').to_uppercase()}"
+                                                // Meta row
+                                                div { class: "flex flex-wrap items-center justify-between gap-4",
+                                                    div { class: "flex items-center gap-4 text-sm text-muted-foreground",
+                                                        // Author
+                                                        div { class: "flex items-center gap-2",
+                                                            div { class: "w-8 h-8 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center text-sm font-bold text-primary",
+                                                                "{featured.author.name.chars().next().unwrap_or('A').to_uppercase()}"
+                                                            }
+                                                            span { class: "font-medium text-foreground", "{featured.author.name}" }
                                                         }
-                                                        span { "{featured.author.name}" }
-                                                    }
-
-                                                    span { class: "text-border", "•" }
-
-                                                    // Date
-                                                    if let Some(published) = &featured.published_at {
-                                                        div { class: "flex items-center gap-1.5",
-                                                            Icon { icon: LdCalendar, class: "w-4 h-4" }
+                                                        span { class: "text-border", "·" }
+                                                        if let Some(published) = &featured.published_at {
                                                             span { "{format_date(published)}" }
                                                         }
-                                                    }
-
-                                                    span { class: "text-border", "•" }
-
-                                                    // Reading time
-                                                    div { class: "flex items-center gap-1.5",
-                                                        Icon { icon: LdClock, class: "w-4 h-4" }
+                                                        span { class: "text-border", "·" }
                                                         span { "{estimate_reading_time(&featured.content)} min read" }
                                                     }
-                                                }
 
-                                                // Read more indicator
-                                                div { class: "mt-6 flex items-center gap-2 text-primary font-medium group-hover:gap-3 transition-all",
-                                                    span { "Read article" }
-                                                    Icon { icon: LdArrowRight, class: "w-4 h-4" }
+                                                    // CTA
+                                                    div { class: "flex items-center gap-2 text-primary font-semibold text-sm group-hover:gap-3 transition-all duration-300",
+                                                        span { "Read article" }
+                                                        Icon { icon: LdArrowRight, class: "w-4 h-4" }
+                                                    }
                                                 }
                                             }
                                         }
                                     }
                                 }
                             }
-                        }
 
-                        // Section header
-                        if data.data.len() > 1 {
-                            div { class: "flex items-center justify-between mb-8",
-                                h2 { class: "text-2xl font-bold", "Latest Articles" }
-                                div { class: "h-px flex-1 bg-border/60 ml-6" }
-                            }
-                        }
+                            // Posts grid
+                            if data.data.len() > 1 {
+                                div { class: "grid md:grid-cols-2 lg:grid-cols-3 gap-6",
+                                    for post in data.data.iter().skip(1) {
+                                        Link {
+                                            to: Route::PostViewScreen { id: post.id },
+                                            class: "group block",
+                                            article { class: "h-full rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:border-primary/30 hover:bg-card/80 hover:shadow-lg hover:shadow-primary/5",
+                                                // Media
+                                                div { class: "relative aspect-[16/9] overflow-hidden",
+                                                    if let Some(img) = &post.featured_image {
+                                                        img {
+                                                            src: "{img.file_url}",
+                                                            alt: "{post.title}",
+                                                            class: "w-full h-full object-cover transition-transform duration-500 group-hover:scale-105",
+                                                        }
+                                                    } else {
+                                                        // Fallback
+                                                        div {
+                                                            class: "w-full h-full bg-gradient-to-br {get_gradient_for_tag(post.tags.first().map(|t| t.name.as_str()))}",
+                                                            div { class: "absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" }
+                                                        }
+                                                    }
 
-                        // Posts list (excluding featured)
-                        div { class: "space-y-4",
-                            for post in data.data.iter().skip(1) {
-                                Link {
-                                    to: Route::PostViewScreen { id: post.id },
-                                    class: "group block",
-                                    article { class: "rounded-lg border border-border/40 bg-transparent hover:bg-card/50 hover:border-border/80 transition-all duration-300 p-6",
-                                        div { class: "flex flex-col md:flex-row gap-6",
-                                            // Text content
-                                            div { class: "flex-1 min-w-0",
-                                                // Tags
-                                                if !post.tags.is_empty() {
-                                                    div { class: "flex flex-wrap gap-2 mb-3",
-                                                        for tag in post.tags.iter().take(2) {
-                                                            span { class: "px-2 py-0.5 rounded text-xs font-medium bg-muted/50 text-muted-foreground",
+                                                    // Tag badge
+                                                    if let Some(tag) = post.tags.first() {
+                                                        div { class: "absolute top-3 left-3",
+                                                            span { class: "px-2.5 py-1 rounded-full text-xs font-semibold bg-background/90 backdrop-blur-sm text-foreground border border-border/50",
                                                                 "{tag.name}"
                                                             }
                                                         }
                                                     }
                                                 }
 
-                                                h3 { class: "text-xl font-semibold mb-2 group-hover:text-primary transition-colors line-clamp-2",
-                                                    "{post.title}"
-                                                }
-
-                                                if let Some(excerpt) = &post.excerpt {
-                                                    p { class: "text-muted-foreground text-sm leading-relaxed mb-4 line-clamp-2",
-                                                        "{excerpt}"
-                                                    }
-                                                }
-
-                                                // Meta
-                                                div { class: "flex flex-wrap items-center gap-3 text-xs text-muted-foreground",
-                                                    span { class: "font-medium", "{post.author.name}" }
-
-                                                    if let Some(published) = &post.published_at {
-                                                        span { class: "text-border", "•" }
-                                                        span { "{format_date(published)}" }
+                                                // Content
+                                                div { class: "p-5",
+                                                    h3 { class: "text-lg font-bold mb-2 leading-snug group-hover:text-primary transition-colors duration-300 line-clamp-2",
+                                                        "{post.title}"
                                                     }
 
-                                                    span { class: "text-border", "•" }
+                                                    if let Some(excerpt) = &post.excerpt {
+                                                        p { class: "text-muted-foreground text-sm leading-relaxed mb-4 line-clamp-2",
+                                                            "{excerpt}"
+                                                        }
+                                                    }
 
-                                                    div { class: "flex items-center gap-1",
-                                                        Icon { icon: LdClock, class: "w-3 h-3" }
+                                                    // Meta
+                                                    div { class: "flex items-center gap-3 text-xs text-muted-foreground",
+                                                        div { class: "flex items-center gap-1.5",
+                                                            div { class: "w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary",
+                                                                "{post.author.name.chars().next().unwrap_or('A').to_uppercase()}"
+                                                            }
+                                                            span { "{post.author.name}" }
+                                                        }
+                                                        span { class: "text-border", "·" }
+                                                        if let Some(published) = &post.published_at {
+                                                            span { "{format_date(published)}" }
+                                                        }
+                                                        span { class: "text-border", "·" }
                                                         span { "{estimate_reading_time(&post.content)} min" }
-                                                    }
-
-                                                    if post.view_count > 0 {
-                                                        span { class: "text-border", "•" }
-                                                        div { class: "flex items-center gap-1",
-                                                            Icon { icon: LdEye, class: "w-3 h-3" }
-                                                            span { "{post.view_count}" }
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            // Thumbnail
-                                            if let Some(img) = &post.featured_image {
-                                                div { class: "w-full md:w-48 lg:w-56 flex-shrink-0",
-                                                    div { class: "aspect-video md:aspect-[4/3] rounded-lg overflow-hidden bg-muted/30",
-                                                        img {
-                                                            src: "{img.file_url}",
-                                                            alt: "{post.title}",
-                                                            class: "w-full h-full object-cover group-hover:scale-105 transition-transform duration-300",
-                                                        }
                                                     }
                                                 }
                                             }
