@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
-use oxstore::{PaginatedList, StateFrame};
+use oxstore::{ListQuery, ListStore, PaginatedList, SortParam, StateFrame};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -8,7 +8,8 @@ use std::sync::OnceLock;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RouteStatus {
     pub id: i32,
-    pub pattern: String,
+    #[serde(rename = "route_pattern")]
+    pub route_pattern: String,
     pub is_blocked: bool,
     pub reason: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -23,8 +24,67 @@ pub struct BlockRoutePayload {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct UpdateRoutePayload {
-    pub is_blocked: Option<bool>,
+    pub is_blocked: bool,
     pub reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct AdminRoutesListQuery {
+    pub page: Option<u64>,
+    pub per_page: Option<u64>,
+    pub is_blocked: Option<bool>,
+    pub search: Option<String>,
+}
+
+impl AdminRoutesListQuery {
+    pub fn new() -> Self {
+        Self {
+            page: Some(1),
+            ..Default::default()
+        }
+    }
+}
+
+impl ListQuery for AdminRoutesListQuery {
+    fn new() -> Self {
+        Self::new()
+    }
+
+    fn page(&self) -> u64 {
+        self.page.unwrap_or(1)
+    }
+
+    fn set_page(&mut self, page: u64) {
+        self.page = Some(page);
+    }
+
+    fn search(&self) -> Option<String> {
+        self.search.clone()
+    }
+
+    fn set_search(&mut self, search: Option<String>) {
+        self.search = search;
+    }
+
+    fn sorts(&self) -> Option<Vec<SortParam>> {
+        None
+    }
+
+    fn set_sorts(&mut self, sorts: Option<Vec<SortParam>>) {
+        let _ = sorts;
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct RouteSyncIntervalStatus {
+    pub interval_secs: u64,
+    #[serde(default)]
+    pub paused: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct UpdateSyncIntervalPayload {
+    pub interval_secs: u64,
 }
 
 pub struct AdminRoutesState {
@@ -33,6 +93,7 @@ pub struct AdminRoutesState {
     pub update: GlobalSignal<HashMap<String, StateFrame<(), UpdateRoutePayload>>>,
     pub remove: GlobalSignal<HashMap<String, StateFrame>>,
     pub sync: GlobalSignal<StateFrame>,
+    pub sync_interval: GlobalSignal<StateFrame<RouteSyncIntervalStatus, UpdateSyncIntervalPayload>>,
 }
 
 impl PartialEq for AdminRoutesState {
@@ -49,6 +110,7 @@ impl AdminRoutesState {
             update: GlobalSignal::new(|| HashMap::new()),
             remove: GlobalSignal::new(|| HashMap::new()),
             sync: GlobalSignal::new(|| StateFrame::new()),
+            sync_interval: GlobalSignal::new(|| StateFrame::new()),
         }
     }
 
@@ -58,6 +120,7 @@ impl AdminRoutesState {
         *self.update.write() = HashMap::new();
         *self.remove.write() = HashMap::new();
         *self.sync.write() = StateFrame::new();
+        *self.sync_interval.write() = StateFrame::new();
     }
 }
 
@@ -65,4 +128,18 @@ static ADMIN_ROUTES_STATE: OnceLock<AdminRoutesState> = OnceLock::new();
 
 pub fn use_admin_routes() -> &'static AdminRoutesState {
     ADMIN_ROUTES_STATE.get_or_init(AdminRoutesState::new)
+}
+
+impl ListStore<RouteStatus, AdminRoutesListQuery> for AdminRoutesState {
+    fn list_frame(&self) -> &GlobalSignal<StateFrame<PaginatedList<RouteStatus>>> {
+        &self.list
+    }
+
+    async fn fetch_list(&self) {
+        self.list().await;
+    }
+
+    async fn fetch_list_with_query(&self, query: AdminRoutesListQuery) {
+        self.list_with_query(query).await;
+    }
 }

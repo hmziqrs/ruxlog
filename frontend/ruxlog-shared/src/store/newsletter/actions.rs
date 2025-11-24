@@ -1,6 +1,6 @@
 use super::{
-    ConfirmPayload, NewsletterState, SendNewsletterPayload, SubscribePayload,
-    SubscriberListQuery, UnsubscribePayload,
+    ConfirmPayload, NewsletterState, SendNewsletterPayload, SubscribePayload, SubscriberListQuery,
+    UnsubscribePayload,
 };
 use oxcore::http;
 use oxstore::list_state_abstraction;
@@ -9,7 +9,10 @@ impl NewsletterState {
     pub async fn subscribe(&self, payload: SubscribePayload) {
         let email = payload.email.clone();
 
-        match http::post("/newsletter/v1/subscribe", &payload).send().await {
+        match http::post("/newsletter/v1/subscribe", &payload)
+            .send()
+            .await
+        {
             Ok(response) => {
                 if (200..300).contains(&response.status()) {
                     let mut map = self.subscribe.write();
@@ -30,7 +33,10 @@ impl NewsletterState {
     pub async fn unsubscribe(&self, payload: UnsubscribePayload) {
         let email = payload.email.clone().unwrap_or_default();
 
-        match http::post("/newsletter/v1/unsubscribe", &payload).send().await {
+        match http::post("/newsletter/v1/unsubscribe", &payload)
+            .send()
+            .await
+        {
             Ok(response) => {
                 if (200..300).contains(&response.status()) {
                     let mut map = self.unsubscribe.write();

@@ -1,9 +1,9 @@
 use super::{
-    Comment, CommentCreatePayload, CommentFlagPayload, CommentFlagSummary,
-    CommentListQuery, CommentState, CommentUpdatePayload,
+    Comment, CommentCreatePayload, CommentFlagPayload, CommentFlagSummary, CommentListQuery,
+    CommentState, CommentUpdatePayload,
 };
-use oxcore::http;
 use dioxus::prelude::ReadableExt;
+use oxcore::http;
 use oxstore::{
     edit_state_abstraction, list_state_abstraction, remove_state_abstraction,
     state_request_abstraction, view_state_abstraction, StateFrame,
@@ -38,18 +38,19 @@ impl CommentState {
 
     /// Update an existing comment
     pub async fn update(&self, comment_id: i32, payload: CommentUpdatePayload) {
-        let updated_comment = edit_state_abstraction::<i32, Comment, CommentUpdatePayload, _, _, fn(&Comment)>(
-            &self.edit,
-            comment_id,
-            payload.clone(),
-            http::post(&format!("/post/comment/v1/update/{}", comment_id), &payload).send(),
-            "comment",
-            None,
-            Some(&self.view),
-            |comment: &Comment| comment.id,
-            None,
-        )
-        .await;
+        let updated_comment =
+            edit_state_abstraction::<i32, Comment, CommentUpdatePayload, _, _, fn(&Comment)>(
+                &self.edit,
+                comment_id,
+                payload.clone(),
+                http::post(&format!("/post/comment/v1/update/{}", comment_id), &payload).send(),
+                "comment",
+                None,
+                Some(&self.view),
+                |comment: &Comment| comment.id,
+                None,
+            )
+            .await;
 
         if let Some(comment) = updated_comment {
             self.cache_comment(comment.clone());
@@ -128,7 +129,11 @@ impl CommentState {
     pub async fn list(&self, post_id: i32) {
         let _ = list_state_abstraction(
             &self.list,
-            http::post(&format!("/post/comment/v1/{}", post_id), &serde_json::json!({})).send(),
+            http::post(
+                &format!("/post/comment/v1/{}", post_id),
+                &serde_json::json!({}),
+            )
+            .send(),
             "comments",
         )
         .await;
@@ -185,10 +190,7 @@ impl CommentState {
     pub async fn clear_flags(&self, comment_id: i32) {
         self.run_moderation_action(
             comment_id,
-            format!(
-                "/post/comment/v1/admin/flags/clear/{}",
-                comment_id
-            ),
+            format!("/post/comment/v1/admin/flags/clear/{}", comment_id),
         )
         .await;
 
@@ -211,11 +213,7 @@ impl CommentState {
         .await;
     }
 
-    async fn run_moderation_action(
-        &self,
-        comment_id: i32,
-        url: String,
-    ) {
+    async fn run_moderation_action(&self, comment_id: i32, url: String) {
         {
             let mut map = self.moderation.write();
             map.entry(comment_id)

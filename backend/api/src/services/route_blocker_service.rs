@@ -5,6 +5,7 @@ use axum::extract::State;
 use serde_json::json;
 use std::error::Error;
 use tower_sessions_redis_store::fred::prelude::*;
+use tracing::{debug, info};
 
 pub struct RouteBlockerService;
 
@@ -22,6 +23,7 @@ impl RouteBlockerService {
             .await?;
 
         if already_cached {
+            debug!(pattern, "Route pattern already cached in known_routes set");
             return Ok(());
         }
 
@@ -33,6 +35,8 @@ impl RouteBlockerService {
             .redis_pool
             .sadd::<(), _, _>(Self::KNOWN_ROUTES_KEY, pattern)
             .await?;
+
+        info!(pattern, "Recorded route pattern in valkey known_routes set");
 
         Ok(())
     }
@@ -159,11 +163,13 @@ impl RouteBlockerService {
             .await?;
 
         if is_blocked {
+            info!(pattern, "Adding route to blocked_routes set in valkey");
             state
                 .redis_pool
                 .sadd::<(), _, _>(Self::BLOCKED_ROUTES_KEY, pattern)
                 .await?;
         } else {
+            info!(pattern, "Removing route from blocked_routes set in valkey");
             state
                 .redis_pool
                 .srem::<(), _, _>(Self::BLOCKED_ROUTES_KEY, pattern)

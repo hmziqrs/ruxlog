@@ -1,8 +1,8 @@
+use crate::store::auth::{use_auth, AuthUser};
 use dioxus::prelude::*;
-use crate::store::auth::{AuthUser, use_auth};
+use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use std::sync::Arc;
 use std::time::Duration;
-use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 
 const FADE_MS: u64 = 400;
 
@@ -79,10 +79,7 @@ pub fn AuthGuardLoader(props: AuthGuardLoaderProps) -> Element {
 }
 
 #[component]
-pub fn AuthGuardError(
-    on_retry: EventHandler<()>,
-) -> Element
-{
+pub fn AuthGuardError(on_retry: EventHandler<()>) -> Element {
     let auth_store = use_auth();
     let init_status = auth_store.init_status.read();
     let mut is_visible = use_signal(|| false);
@@ -168,8 +165,7 @@ impl<R: Clone + PartialEq + 'static> PartialEq for AuthGuardContainerProps<R> {
     }
 }
 
-#[derive(Default, Clone)]
-#[derive(PartialEq)]
+#[derive(Default, Clone, PartialEq)]
 pub struct LoadingMessages {
     pub init: Option<(String, String)>,
     pub login: Option<(String, String)>,
@@ -228,7 +224,10 @@ where
 
             spawn(async move {
                 let is_logged_in = user.is_some();
-                let has_permission = permission_check.as_ref().map(|check| check(user.as_ref())).unwrap_or(true);
+                let has_permission = permission_check
+                    .as_ref()
+                    .map(|check| check(user.as_ref()))
+                    .unwrap_or(true);
                 let is_on_authenticated_route = if let Some(matcher) = &route_matcher {
                     matcher(&authenticated_route, &_route)
                 } else {
@@ -269,25 +268,33 @@ where
     let messages = props.loading_messages.as_ref().unwrap_or(&default_messages);
 
     let (loader_title, loader_copy) = if init_status.is_loading() {
-        messages.init.clone().unwrap_or_else(|| (
-            "Checking your session…".to_string(),
-            "Hold tight while we verify your account and get things ready.".to_string(),
-        ))
+        messages.init.clone().unwrap_or_else(|| {
+            (
+                "Checking your session…".to_string(),
+                "Hold tight while we verify your account and get things ready.".to_string(),
+            )
+        })
     } else if login_status.is_loading() {
-        messages.login.clone().unwrap_or_else(|| (
-            "Signing you in…".to_string(),
-            "Validating your credentials and preparing your workspace.".to_string(),
-        ))
+        messages.login.clone().unwrap_or_else(|| {
+            (
+                "Signing you in…".to_string(),
+                "Validating your credentials and preparing your workspace.".to_string(),
+            )
+        })
     } else if logout_status.is_loading() {
-        messages.logout.clone().unwrap_or_else(|| (
-            "Signing you out…".to_string(),
-            "Wrapping up and clearing your session securely.".to_string(),
-        ))
+        messages.logout.clone().unwrap_or_else(|| {
+            (
+                "Signing you out…".to_string(),
+                "Wrapping up and clearing your session securely.".to_string(),
+            )
+        })
     } else {
-        messages.default.clone().unwrap_or_else(|| (
-            "Preparing…".to_string(),
-            "Bringing everything online.".to_string(),
-        ))
+        messages.default.clone().unwrap_or_else(|| {
+            (
+                "Preparing…".to_string(),
+                "Bringing everything online.".to_string(),
+            )
+        })
     };
 
     let show_overlay = use_memo(move || {
@@ -297,15 +304,19 @@ where
     });
 
     let (overlay_title, overlay_copy) = if login_status.is_loading() {
-        messages.login.clone().unwrap_or_else(|| (
-            "Signing you in…".to_string(),
-            "Validating your credentials and preparing your workspace.".to_string(),
-        ))
+        messages.login.clone().unwrap_or_else(|| {
+            (
+                "Signing you in…".to_string(),
+                "Validating your credentials and preparing your workspace.".to_string(),
+            )
+        })
     } else if logout_status.is_loading() {
-        messages.logout.clone().unwrap_or_else(|| (
-            "Signing you out…".to_string(),
-            "Wrapping up and clearing your session securely.".to_string(),
-        ))
+        messages.logout.clone().unwrap_or_else(|| {
+            (
+                "Signing you out…".to_string(),
+                "Wrapping up and clearing your session securely.".to_string(),
+            )
+        })
     } else {
         ("".to_string(), "".to_string())
     };

@@ -1,6 +1,12 @@
-use super::{AdminRoutesState, BlockRoutePayload, RouteStatus, UpdateRoutePayload};
+use super::{
+    AdminRoutesListQuery, AdminRoutesState, BlockRoutePayload, RouteStatus,
+    RouteSyncIntervalStatus, UpdateRoutePayload, UpdateSyncIntervalPayload,
+};
 use oxcore::http;
-use oxstore::{list_state_abstraction, state_request_abstraction};
+use oxstore::{
+    edit_state_abstraction, list_state_abstraction, remove_state_abstraction,
+    state_request_abstraction,
+};
 
 impl AdminRoutesState {
     pub async fn block(&self, payload: BlockRoutePayload) {
@@ -33,7 +39,7 @@ impl AdminRoutesState {
     }
 
     pub async fn update(&self, pattern: String, payload: UpdateRoutePayload) {
-        let updated_route = oxstore::edit_state_abstraction(
+        let updated_route = edit_state_abstraction(
             &self.update,
             pattern.clone(),
             payload.clone(),
@@ -41,7 +47,7 @@ impl AdminRoutesState {
             "route_status",
             None,
             None,
-            |route: &RouteStatus| route.pattern.clone(),
+            |route: &RouteStatus| route.route_pattern.clone(),
             None::<fn(&RouteStatus)>,
         )
         .await;
@@ -52,14 +58,14 @@ impl AdminRoutesState {
     }
 
     pub async fn remove(&self, pattern: String) {
-        let removed = oxstore::remove_state_abstraction(
+        let removed = remove_state_abstraction(
             &self.remove,
             pattern.clone(),
             http::delete(&format!("/admin/route/v1/delete/{}", pattern)).send(),
             "route_status",
             None,
             None,
-            |route: &RouteStatus| route.pattern.clone(),
+            |route: &RouteStatus| route.route_pattern.clone(),
             None::<fn()>,
         )
         .await;
@@ -70,12 +76,14 @@ impl AdminRoutesState {
     }
 
     pub async fn list(&self) {
-        let _ = list_state_abstraction(
-            &self.list,
-            http::get("/admin/route/v1/list").send(),
-            "routes",
-        )
-        .await;
+        let _ =
+            list_state_abstraction(&self.list, http::get("/admin/route/v1/list").send(), "data")
+                .await;
+    }
+
+    pub async fn list_with_query(&self, _query: AdminRoutesListQuery) {
+        // Backend currently returns all blocked routes without filters.
+        self.list().await;
     }
 
     pub async fn sync(&self) {
@@ -89,5 +97,60 @@ impl AdminRoutesState {
         .await;
 
         self.list().await;
+    }
+
+    pub async fn fetch_sync_interval(&self) {
+        let _ = state_request_abstraction(
+            &self.sync_interval,
+            None::<UpdateSyncIntervalPayload>,
+            http::get("/admin/route/v1/sync_interval").send(),
+            "interval_secs",
+            |status: &RouteSyncIntervalStatus| (Some(status.clone()), None),
+        )
+        .await;
+    }
+
+    pub async fn update_sync_interval(&self, payload: UpdateSyncIntervalPayload) {
+        let _ = state_request_abstraction(
+            &self.sync_interval,
+            Some(payload.clone()),
+            http::post("/admin/route/v1/sync_interval", &payload).send(),
+            "interval_secs",
+            |status: &RouteSyncIntervalStatus| (Some(status.clone()), None),
+        )
+        .await;
+    }
+
+    pub async fn pause_sync_interval(&self) {
+        let _ = state_request_abstraction(
+            &self.sync_interval,
+            None::<UpdateSyncIntervalPayload>,
+            http::post("/admin/route/v1/sync_interval/pause", &()).send(),
+            "interval_secs",
+            |status: &RouteSyncIntervalStatus| (Some(status.clone()), None),
+        )
+        .await;
+    }
+
+    pub async fn resume_sync_interval(&self) {
+        let _ = state_request_abstraction(
+            &self.sync_interval,
+            None::<UpdateSyncIntervalPayload>,
+            http::post("/admin/route/v1/sync_interval/resume", &()).send(),
+            "interval_secs",
+            |status: &RouteSyncIntervalStatus| (Some(status.clone()), None),
+        )
+        .await;
+    }
+
+    pub async fn restart_sync_interval(&self) {
+        let _ = state_request_abstraction(
+            &self.sync_interval,
+            None::<UpdateSyncIntervalPayload>,
+            http::post("/admin/route/v1/sync_interval/restart", &()).send(),
+            "interval_secs",
+            |status: &RouteSyncIntervalStatus| (Some(status.clone()), None),
+        )
+        .await;
     }
 }

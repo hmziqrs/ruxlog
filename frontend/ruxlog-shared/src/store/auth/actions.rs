@@ -1,10 +1,10 @@
 use super::{
-    AuthState, AuthUser, LoginPayload, RegisterPayload, TwoFactorSetup, TwoFactorVerifyPayload, UserRole,
-    UserSession,
+    AuthState, AuthUser, LoginPayload, RegisterPayload, TwoFactorSetup, TwoFactorVerifyPayload,
+    UserRole, UserSession,
 };
 use crate::store::{
-    use_categories, use_comments, use_email_verification,
-    use_media, use_password_reset, use_post, use_tag,
+    use_categories, use_comments, use_email_verification, use_media, use_password_reset, use_post,
+    use_tag,
 };
 
 #[cfg(feature = "analytics-store")]
@@ -64,9 +64,7 @@ impl AuthState {
     pub async fn logout(&self) {
         self.logout_status.write().set_loading();
         let empty_body = {};
-        let result = http::post("/auth/v1/log_out", &empty_body)
-            .send()
-            .await;
+        let result = http::post("/auth/v1/log_out", &empty_body).send().await;
         match result {
             Ok(response) => {
                 if (200..300).contains(&response.status()) {

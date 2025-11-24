@@ -1,6 +1,7 @@
 use super::{
     Post, PostAutosavePayload, PostCreatePayload, PostEditPayload, PostListQuery, PostRevision,
-    PostSchedulePayload, PostState, Series, SeriesCreatePayload, SeriesEditPayload, SeriesListQuery,
+    PostSchedulePayload, PostState, Series, SeriesCreatePayload, SeriesEditPayload,
+    SeriesListQuery,
 };
 
 use dioxus::prelude::GlobalSignal;
@@ -157,9 +158,7 @@ impl PostState {
         let key = payload.post_id;
         {
             let mut map = self.autosave.write();
-            map.entry(key)
-                .or_insert_with(StateFrame::new)
-                .set_loading();
+            map.entry(key).or_insert_with(StateFrame::new).set_loading();
         }
 
         let result = http::post("/post/v1/autosave", &payload).send().await;

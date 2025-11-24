@@ -70,17 +70,30 @@ impl ListQuery for SubscriberListQuery {
     fn new() -> Self {
         Self::new()
     }
-    fn page(&self) -> u64 { self.page }
-    fn set_page(&mut self, page: u64) { self.page = page; }
-    fn search(&self) -> Option<String> { self.search.clone() }
-    fn set_search(&mut self, search: Option<String>) { self.search = search; }
-    fn sorts(&self) -> Option<Vec<SortParam>> { self.sorts.clone() }
-    fn set_sorts(&mut self, sorts: Option<Vec<SortParam>>) { self.sorts = sorts; }
+    fn page(&self) -> u64 {
+        self.page
+    }
+    fn set_page(&mut self, page: u64) {
+        self.page = page;
+    }
+    fn search(&self) -> Option<String> {
+        self.search.clone()
+    }
+    fn set_search(&mut self, search: Option<String>) {
+        self.search = search;
+    }
+    fn sorts(&self) -> Option<Vec<SortParam>> {
+        self.sorts.clone()
+    }
+    fn set_sorts(&mut self, sorts: Option<Vec<SortParam>>) {
+        self.sorts = sorts;
+    }
 }
 
 pub struct NewsletterState {
     pub subscribers: GlobalSignal<StateFrame<PaginatedList<NewsletterSubscriber>>>,
-    pub subscribe: GlobalSignal<HashMap<String, StateFrame<NewsletterSubscriber, SubscribePayload>>>,
+    pub subscribe:
+        GlobalSignal<HashMap<String, StateFrame<NewsletterSubscriber, SubscribePayload>>>,
     pub unsubscribe: GlobalSignal<HashMap<String, StateFrame<(), UnsubscribePayload>>>,
     pub confirm: GlobalSignal<HashMap<String, StateFrame<(), ConfirmPayload>>>,
     pub send: GlobalSignal<HashMap<String, StateFrame<(), SendNewsletterPayload>>>,

@@ -65,8 +65,7 @@ impl TagsState {
 
     /// Public list endpoint without filters
     pub async fn list_all(&self) {
-        let _ = list_state_abstraction(&self.list, http::get("/tag/v1/list").send(), "tags")
-            .await;
+        let _ = list_state_abstraction(&self.list, http::get("/tag/v1/list").send(), "tags").await;
     }
 
     pub async fn list_with_query(&self, query: TagsListQuery) {

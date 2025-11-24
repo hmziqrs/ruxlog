@@ -132,11 +132,15 @@ impl MediaState {
             use super::use_media;
             let media_state = use_media();
 
-            dioxus::logger::tracing::debug!("[MediaState::upload background] Creating HTTP request");
+            dioxus::logger::tracing::debug!(
+                "[MediaState::upload background] Creating HTTP request"
+            );
 
             match http::post_multipart("/media/v1/create", &form_data) {
                 Ok(request) => {
-                    dioxus::logger::tracing::debug!("[MediaState::upload background] Request created, sending...");
+                    dioxus::logger::tracing::debug!(
+                        "[MediaState::upload background] Request created, sending..."
+                    );
 
                     match request.send().await {
                         Ok(response) => {
@@ -201,7 +205,10 @@ impl MediaState {
                                 }
                             } else {
                                 let err_msg = format!("Upload failed with status: {}", status);
-                                dioxus::logger::tracing::error!("[MediaState::upload background] {}", &err_msg);
+                                dioxus::logger::tracing::error!(
+                                    "[MediaState::upload background] {}",
+                                    &err_msg
+                                );
 
                                 let mut status_map = media_state.upload_status.write();
                                 status_map.insert(blob_url_clone, UploadStatus::Error(err_msg));
@@ -209,7 +216,10 @@ impl MediaState {
                         }
                         Err(e) => {
                             let err_msg = format!("Request failed: {:?}", e);
-                            dioxus::logger::tracing::error!("[MediaState::upload background] {}", &err_msg);
+                            dioxus::logger::tracing::error!(
+                                "[MediaState::upload background] {}",
+                                &err_msg
+                            );
 
                             let mut status_map = media_state.upload_status.write();
                             status_map.insert(blob_url_clone, UploadStatus::Error(err_msg));
