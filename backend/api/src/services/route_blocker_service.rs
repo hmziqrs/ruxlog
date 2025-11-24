@@ -9,13 +9,42 @@ use tower_sessions_redis_store::fred::prelude::*;
 pub struct RouteBlockerService;
 
 impl RouteBlockerService {
-    pub const REDIS_KEY: &'static str = "blocked_routes";
+    pub const BLOCKED_ROUTES_KEY: &'static str = "blocked_routes";
+    pub const KNOWN_ROUTES_KEY: &'static str = "known_routes";
+
+    pub async fn record_route_pattern(
+        state: &AppState,
+        pattern: &str,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let already_cached: bool = state
+            .redis_pool
+            .sismember(Self::KNOWN_ROUTES_KEY, pattern)
+            .await?;
+
+        if already_cached {
+            return Ok(());
+        }
+
+        RouteStatus::ensure_exists(&state.sea_db, pattern)
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
+
+        state
+            .redis_pool
+            .sadd::<(), _, _>(Self::KNOWN_ROUTES_KEY, pattern)
+            .await?;
+
+        Ok(())
+    }
 
     pub async fn is_route_blocked(
         State(state): State<AppState>,
         path: &str,
     ) -> Result<bool, Box<dyn Error + Send + Sync>> {
-        let is_blocked: bool = state.redis_pool.sismember(Self::REDIS_KEY, path).await?;
+        let is_blocked: bool = state
+            .redis_pool
+            .sismember(Self::BLOCKED_ROUTES_KEY, path)
+            .await?;
 
         Ok(is_blocked)
     }
@@ -98,18 +127,23 @@ impl RouteBlockerService {
     pub async fn sync_all_routes_to_redis(
         State(state): State<AppState>,
     ) -> Result<serde_json::Value, ErrorResponse> {
-        RouteStatus::sync_all_to_redis(&state.sea_db, state.redis_pool)
-            .await
-            .map_err(|e| {
-                let err_str = e.to_string();
-                if let Some(redis_err) = err_str.strip_prefix("Redis error: ") {
-                    ErrorResponse::new(crate::error::ErrorCode::InternalServerError)
-                        .with_message(format!("Redis sync failed: {}", redis_err))
-                } else {
-                    ErrorResponse::new(crate::error::ErrorCode::InternalServerError)
-                        .with_message(format!("Database sync failed: {}", err_str))
-                }
-            })?;
+        RouteStatus::sync_all_to_redis(
+            &state.sea_db,
+            state.redis_pool,
+            Self::KNOWN_ROUTES_KEY,
+            Self::BLOCKED_ROUTES_KEY,
+        )
+        .await
+        .map_err(|e| {
+            let err_str = e.to_string();
+            if let Some(redis_err) = err_str.strip_prefix("Redis error: ") {
+                ErrorResponse::new(crate::error::ErrorCode::InternalServerError)
+                    .with_message(format!("Redis sync failed: {}", redis_err))
+            } else {
+                ErrorResponse::new(crate::error::ErrorCode::InternalServerError)
+                    .with_message(format!("Database sync failed: {}", err_str))
+            }
+        })?;
 
         Ok(json!({ "message": "All routes synced to Redis successfully" }))
     }
@@ -119,15 +153,20 @@ impl RouteBlockerService {
         pattern: &str,
         is_blocked: bool,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        state
+            .redis_pool
+            .sadd::<(), _, _>(Self::KNOWN_ROUTES_KEY, pattern)
+            .await?;
+
         if is_blocked {
             state
                 .redis_pool
-                .sadd::<(), _, _>(Self::REDIS_KEY, pattern)
+                .sadd::<(), _, _>(Self::BLOCKED_ROUTES_KEY, pattern)
                 .await?;
         } else {
             state
                 .redis_pool
-                .srem::<(), _, _>(Self::REDIS_KEY, pattern)
+                .srem::<(), _, _>(Self::BLOCKED_ROUTES_KEY, pattern)
                 .await?;
         }
 
@@ -140,7 +179,11 @@ impl RouteBlockerService {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         state
             .redis_pool
-            .srem::<(), _, _>(Self::REDIS_KEY, pattern)
+            .srem::<(), _, _>(Self::BLOCKED_ROUTES_KEY, pattern)
+            .await?;
+        state
+            .redis_pool
+            .srem::<(), _, _>(Self::KNOWN_ROUTES_KEY, pattern)
             .await?;
         Ok(())
     }

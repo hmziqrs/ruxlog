@@ -397,7 +397,11 @@ pub async fn admin_flags_details(
 
     match comment_flag::Entity::list(&state.sea_db, q).await {
         Ok((items, _total)) => {
-            info!(comment_id, count = items.len(), "Admin viewed comment flags details");
+            info!(
+                comment_id,
+                count = items.len(),
+                "Admin viewed comment flags details"
+            );
             Ok(Json(json!(items)))
         }
         Err(err) => {

@@ -6,11 +6,11 @@ use fake::{
     Fake,
 };
 use rand::{seq::IndexedRandom, Rng};
+use sea_orm::sea_query::Expr;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
     QueryOrder, Set,
 };
-use sea_orm::sea_query::Expr;
 
 use crate::db::sea_models::{
     category, comment_flag, email_verification, forgot_password, media, media_usage, media_variant,
@@ -131,12 +131,19 @@ where
         .map(|m| m.id)
         .unwrap_or(0);
 
-    let roles = [user::UserRole::Admin, user::UserRole::Author, user::UserRole::User];
+    let roles = [
+        user::UserRole::Admin,
+        user::UserRole::Author,
+        user::UserRole::User,
+    ];
 
     for i in 0..count {
         let name: String = Name().fake_with_rng(&mut rng);
         let email = FreeEmail().fake_with_rng::<String, _>(&mut rng);
-        let role = roles.choose(&mut rng).cloned().unwrap_or(user::UserRole::User);
+        let role = roles
+            .choose(&mut rng)
+            .cloned()
+            .unwrap_or(user::UserRole::User);
         let new_user = user::AdminCreateUser {
             name: name.clone(),
             email: email.clone(),
@@ -182,7 +189,11 @@ where
 
     for i in 0..count {
         let name: String = l::Word(EN).fake_with_rng(&mut rng);
-        let slug = format!("{}-{}", name.to_lowercase().replace(' ', "-"), rng.random::<u32>());
+        let slug = format!(
+            "{}-{}",
+            name.to_lowercase().replace(' ', "-"),
+            rng.random::<u32>()
+        );
         let new_category = category::NewCategory {
             name: name.clone(),
             slug,
@@ -231,7 +242,11 @@ where
 
     for i in 0..count {
         let name: String = l::Word(EN).fake_with_rng(&mut rng);
-        let slug = format!("{}-{}", name.to_lowercase().replace(' ', "-"), rng.random::<u32>());
+        let slug = format!(
+            "{}-{}",
+            name.to_lowercase().replace(' ', "-"),
+            rng.random::<u32>()
+        );
         let new_tag = tag::NewTag {
             name: name.clone(),
             slug,
@@ -522,9 +537,7 @@ where
     let ips = vec!["203.0.113.10", "198.51.100.42", "10.0.0.24", "172.16.1.15"];
 
     if posts.is_empty() {
-        return Err(SeedError::Db(
-            "Need posts to seed post views".to_string(),
-        ));
+        return Err(SeedError::Db("Need posts to seed post views".to_string()));
     }
 
     log(format!(
@@ -604,8 +617,8 @@ where
 
     for i in 0..count {
         let user = users.choose(&mut rng).unwrap();
-        let last_seen = chrono::Utc::now().fixed_offset()
-            - chrono::Duration::hours(rng.random_range(1..720));
+        let last_seen =
+            chrono::Utc::now().fixed_offset() - chrono::Duration::hours(rng.random_range(1..720));
         let new_session = user_session::Model {
             id: 0,
             user_id: user.id,
@@ -672,8 +685,8 @@ where
     for i in 0..count {
         let user = users.choose(&mut rng).unwrap();
         let code = email_verification::Entity::generate_code();
-        let created_at = chrono::Utc::now().fixed_offset()
-            - chrono::Duration::minutes(rng.random_range(0..90));
+        let created_at =
+            chrono::Utc::now().fixed_offset() - chrono::Duration::minutes(rng.random_range(0..90));
 
         let verification = email_verification::Model {
             id: 0,
@@ -758,7 +771,11 @@ where
             let _ = active_model.insert(db).await;
 
             if (i + 1) % 20 == 0 || i + 1 == count {
-                log(format!("Created {} / {} forgot password codes", i + 1, count));
+                log(format!(
+                    "Created {} / {} forgot password codes",
+                    i + 1,
+                    count
+                ));
             }
         }
     }
@@ -858,7 +875,11 @@ where
         let series = post_series::Model {
             id: 0,
             name: title.clone(),
-            slug: format!("{}-{}", title.to_lowercase().replace(' ', "-"), rng.random::<u32>()),
+            slug: format!(
+                "{}-{}",
+                title.to_lowercase().replace(' ', "-"),
+                rng.random::<u32>()
+            ),
             description: Some(description),
             created_at: chrono::Utc::now().fixed_offset(),
             updated_at: chrono::Utc::now().fixed_offset(),
@@ -919,8 +940,8 @@ where
 
     for i in 0..count {
         let post = posts.choose(&mut rng).unwrap();
-        let scheduled_at = chrono::Utc::now().fixed_offset()
-            + chrono::Duration::hours(rng.random_range(24..240));
+        let scheduled_at =
+            chrono::Utc::now().fixed_offset() + chrono::Duration::hours(rng.random_range(24..240));
         let scheduled = scheduled_post::Model {
             id: 0,
             post_id: post.id,
@@ -1066,9 +1087,27 @@ where
             break;
         }
         let variants = vec![
-            (format!("{}-thumb", media_item.object_key), 200, 200, 32, "thumbnail"),
-            (format!("{}-small", media_item.object_key), 400, 400, 64, "small"),
-            (format!("{}-medium", media_item.object_key), 800, 800, 128, "medium"),
+            (
+                format!("{}-thumb", media_item.object_key),
+                200,
+                200,
+                32,
+                "thumbnail",
+            ),
+            (
+                format!("{}-small", media_item.object_key),
+                400,
+                400,
+                64,
+                "small",
+            ),
+            (
+                format!("{}-medium", media_item.object_key),
+                800,
+                800,
+                128,
+                "medium",
+            ),
         ];
 
         for (key, w, h, size, variant_type) in variants {
@@ -1243,7 +1282,11 @@ where
         }
 
         if (i + 1) % 25 == 0 || i + 1 == count {
-            log(format!("Created {} / {} newsletter subscribers", i + 1, count));
+            log(format!(
+                "Created {} / {} newsletter subscribers",
+                i + 1,
+                count
+            ));
         }
     }
 

@@ -1,7 +1,7 @@
 use crate::error::RouteBlockerError;
 use crate::services::route_blocker_service::RouteBlockerService;
 use axum::{
-    extract::{Request, State},
+    extract::{MatchedPath, Request, State},
     middleware::Next,
     response::Response,
 };
@@ -10,6 +10,11 @@ use tracing::{debug, error, warn};
 
 pub async fn block_routes(req: Request, next: Next) -> Result<Response, RouteBlockerError> {
     let path = req.uri().path().to_string();
+    let matched_pattern = req
+        .extensions()
+        .get::<MatchedPath>()
+        .map(|matched| matched.as_str().to_string());
+    let pattern = matched_pattern.clone().unwrap_or_else(|| path.clone());
 
     let is_development =
         env::var("APP_ENV").unwrap_or_else(|_| "development".to_string()) == "development";
@@ -28,16 +33,26 @@ pub async fn block_routes(req: Request, next: Next) -> Result<Response, RouteBlo
             RouteBlockerError::CheckFailed("Application state unavailable".to_string())
         })?;
 
-    match RouteBlockerService::is_route_blocked(State(state), &path).await {
+    if let Some(_) = matched_pattern {
+        if let Err(err) = RouteBlockerService::record_route_pattern(&state, &pattern).await {
+            error!(
+                pattern = %pattern,
+                error = %err,
+                "Failed to record route pattern in cache"
+            );
+        }
+    }
+
+    match RouteBlockerService::is_route_blocked(State(state.clone()), &pattern).await {
         Ok(true) => {
-            warn!(path, "Route blocked by dynamic route_blocker middleware");
+            warn!(path = %path, pattern = %pattern, "Route blocked by dynamic route_blocker middleware");
             return Err(RouteBlockerError::Blocked { path });
         }
         Ok(false) => {
-            debug!(path, "Route allowed");
+            debug!(path = %path, pattern = %pattern, "Route allowed");
         }
         Err(e) => {
-            error!(error = %e, path, "Failed to check route status");
+            error!(error = %e, path = %path, pattern = %pattern, "Failed to check route status");
             return Err(RouteBlockerError::CheckFailed(e.to_string()));
         }
     }

@@ -47,6 +47,31 @@ impl Entity {
         }
     }
 
+    pub async fn ensure_exists(
+        db: &DatabaseConnection,
+        route_pattern: &str,
+    ) -> Result<Model, DbErr> {
+        if let Some(existing) = Self::find_by_pattern(db, route_pattern).await? {
+            return Ok(existing);
+        }
+
+        let new_route = ActiveModel {
+            route_pattern: Set(route_pattern.to_string()),
+            is_blocked: Set(false),
+            reason: Set(None),
+            ..Default::default()
+        };
+
+        match new_route.insert(db).await {
+            Ok(model) => Ok(model),
+            Err(DbErr::Exec(exec_err)) => match Self::find_by_pattern(db, route_pattern).await? {
+                Some(existing) => Ok(existing),
+                None => Err(DbErr::Exec(exec_err)),
+            },
+            Err(err) => Err(err),
+        }
+    }
+
     pub async fn search(
         db: &DatabaseConnection,
         page: u64,
@@ -84,48 +109,27 @@ impl Entity {
     pub async fn sync_all_to_redis(
         db: &DatabaseConnection,
         redis_pool: tower_sessions_redis_store::fred::prelude::Pool,
+        known_routes_key: &str,
+        blocked_routes_key: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let blocked_routes = Self::find_blocked_routes(db).await?;
+        let routes = Entity::find()
+            .order_by_asc(Column::RoutePattern)
+            .all(db)
+            .await?;
 
-        let patterns: Vec<String> = blocked_routes
-            .iter()
-            .map(|r| r.route_pattern.clone())
-            .collect();
+        redis_pool.del::<(), _>(known_routes_key).await?;
+        redis_pool.del::<(), _>(blocked_routes_key).await?;
 
-        redis_pool.del::<(), _>("blocked_routes").await?;
+        for route in routes {
+            redis_pool
+                .sadd::<(), _, _>(known_routes_key, route.route_pattern.clone())
+                .await?;
 
-        if !patterns.is_empty() {
-            for pattern in patterns {
-                redis_pool
-                    .sadd::<(), _, _>("blocked_routes", pattern)
-                    .await?;
-            }
-        }
-
-        Ok(())
-    }
-
-    pub async fn sync_route_to_redis(
-        db: &DatabaseConnection,
-        redis_pool: tower_sessions_redis_store::fred::prelude::Pool,
-        pattern: &str,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let route = Self::find_by_pattern(db, pattern).await?;
-
-        if let Some(route) = route {
             if route.is_blocked {
                 redis_pool
-                    .sadd::<(), _, _>("blocked_routes", pattern)
-                    .await?;
-            } else {
-                redis_pool
-                    .srem::<(), _, _>("blocked_routes", pattern)
+                    .sadd::<(), _, _>(blocked_routes_key, route.route_pattern.clone())
                     .await?;
             }
-        } else {
-            redis_pool
-                .srem::<(), _, _>("blocked_routes", pattern)
-                .await?;
         }
 
         Ok(())

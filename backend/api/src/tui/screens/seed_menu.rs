@@ -64,7 +64,10 @@ pub fn draw_seed_menu(f: &mut Frame, area: Rect, app: &App, palette: &ThemePalet
         format!("18) Seed MORE MEDIA (preset: {})", size_label),
         format!("19) Seed MORE MEDIA VARIANTS (preset: {})", size_label),
         format!("20) Seed MORE MEDIA USAGE (preset: {})", size_label),
-        format!("21) Seed MORE NEWSLETTER SUBSCRIBERS (preset: {})", size_label),
+        format!(
+            "21) Seed MORE NEWSLETTER SUBSCRIBERS (preset: {})",
+            size_label
+        ),
         format!("22) Seed MORE ROUTE STATUS (preset: {})", size_label),
     ];
 

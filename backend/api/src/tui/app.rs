@@ -488,16 +488,10 @@ impl App {
                 );
             }
             KeyCode::Char('7') => {
-                self.start_seed_custom(
-                    crate::services::seed_config::CustomSeedTarget::Tags,
-                    tx,
-                );
+                self.start_seed_custom(crate::services::seed_config::CustomSeedTarget::Tags, tx);
             }
             KeyCode::Char('8') => {
-                self.start_seed_custom(
-                    crate::services::seed_config::CustomSeedTarget::Posts,
-                    tx,
-                );
+                self.start_seed_custom(crate::services::seed_config::CustomSeedTarget::Posts, tx);
             }
             KeyCode::Char('9') => {
                 self.start_seed_custom(

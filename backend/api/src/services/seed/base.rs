@@ -5,11 +5,11 @@ use fake::{
     Dummy, Fake, Faker,
 };
 use rand::{seq::IndexedRandom, Rng};
+use sea_orm::sea_query::Expr;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
     QueryOrder, Set,
 };
-use sea_orm::sea_query::Expr;
 
 use crate::db::sea_models::{
     category, comment_flag, email_verification, forgot_password, media, media_usage, media_variant,
@@ -618,15 +618,13 @@ pub async fn seed_all_with_progress(
     log("Finalizing seed run...".to_string());
     let seed_run_record = seed_run::ActiveModel {
         key: Set("seed".to_string()),
-        ranges: Set(
-            SeedOutcome {
-                ranges: ranges.clone(),
-                seed_run_id: None,
-                errors: vec![],
-                warnings: vec![],
-            }
-            .ranges_json(),
-        ),
+        ranges: Set(SeedOutcome {
+            ranges: ranges.clone(),
+            seed_run_id: None,
+            errors: vec![],
+            warnings: vec![],
+        }
+        .ranges_json()),
         ..Default::default()
     };
     let inserted = seed_run_record.insert(db).await.ok();
@@ -703,8 +701,8 @@ async fn seed_email_verifications(db: &DatabaseConnection) -> SeedResult<()> {
     for user in users {
         let code = email_verification::Entity::generate_code();
         // Spread creation times a bit for realism
-        let created_at = chrono::Utc::now().fixed_offset()
-            - chrono::Duration::minutes(rng.random_range(0..90));
+        let created_at =
+            chrono::Utc::now().fixed_offset() - chrono::Duration::minutes(rng.random_range(0..90));
 
         let verification = email_verification::Model {
             id: 0,
@@ -868,8 +866,8 @@ async fn seed_scheduled_posts(db: &DatabaseConnection) -> SeedResult<()> {
     let mut rng = seeded_rng(None);
 
     for post in posts.into_iter().take(20) {
-        let scheduled_at = chrono::Utc::now().fixed_offset()
-            + chrono::Duration::hours(rng.random_range(24..240));
+        let scheduled_at =
+            chrono::Utc::now().fixed_offset() + chrono::Duration::hours(rng.random_range(24..240));
         let scheduled = scheduled_post::Model {
             id: 0,
             post_id: post.id,
@@ -952,9 +950,27 @@ async fn seed_media_variants(db: &DatabaseConnection) -> SeedResult<()> {
 
     for media_item in media_items.into_iter().take(30) {
         let variants = vec![
-            (format!("{}-thumb", media_item.object_key), 200, 200, 32, "thumbnail"),
-            (format!("{}-small", media_item.object_key), 400, 400, 64, "small"),
-            (format!("{}-medium", media_item.object_key), 800, 800, 128, "medium"),
+            (
+                format!("{}-thumb", media_item.object_key),
+                200,
+                200,
+                32,
+                "thumbnail",
+            ),
+            (
+                format!("{}-small", media_item.object_key),
+                400,
+                400,
+                64,
+                "small",
+            ),
+            (
+                format!("{}-medium", media_item.object_key),
+                800,
+                800,
+                128,
+                "medium",
+            ),
         ];
 
         for (key, w, h, size, variant_type) in variants {
