@@ -14,7 +14,10 @@ use modules::csrf_v1;
 use ruxlog::utils::cors::get_allowed_origins;
 use ruxlog::{
     db, middlewares, modules, router,
-    services::{self, auth::AuthBackend, redis::init_redis_store},
+    services::{
+        self, auth::AuthBackend, redis::init_redis_store, route_blocker_config,
+        route_blocker_service::RouteBlockerService,
+    },
     state::{AppState, ObjectStorageConfig, OptimizerConfig},
     utils::telemetry,
 };
@@ -177,6 +180,61 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         meter: telemetry::global_meter(),
         supabase,
     };
+
+    let sync_interval_secs = env_u64("ROUTE_BLOCKER_SYNC_INTERVAL_SECS", 60 * 30);
+    route_blocker_config::set_sync_interval_secs(sync_interval_secs);
+
+    if let Err(err) = RouteBlockerService::initialize_redis_sync(&state).await {
+        tracing::error!(
+            error = %err,
+            "Initial route blocker Redis sync failed; continuing without warm cache"
+        );
+    } else {
+        tracing::info!("Initial route blocker Redis sync completed successfully");
+    }
+
+    let state_for_blocker = state.clone();
+    tokio::spawn(async move {
+        let notify = route_blocker_config::notifier();
+        loop {
+            if route_blocker_config::is_paused() {
+                tokio::select! {
+                    _ = notify.notified() => {},
+                    _ = tokio::time::sleep(Duration::from_secs(5)) => {},
+                }
+                continue;
+            }
+
+            let force_sync = route_blocker_config::take_force_sync_flag();
+
+            if !force_sync {
+                let interval_secs = route_blocker_config::get_sync_interval_secs();
+                let sleep = tokio::time::sleep(Duration::from_secs(interval_secs));
+                tokio::pin!(sleep);
+
+                tokio::select! {
+                    _ = &mut sleep => {},
+                    _ = notify.notified() => {
+                        // config change: restart loop to re-read state.
+                        continue;
+                    }
+                }
+            }
+
+            if route_blocker_config::is_paused() {
+                continue;
+            }
+
+            if let Err(err) = RouteBlockerService::initialize_redis_sync(&state_for_blocker).await {
+                tracing::error!(
+                    error = %err,
+                    "Periodic route blocker Redis sync failed"
+                );
+            } else {
+                tracing::info!("Periodic route blocker Redis sync completed successfully");
+            }
+        }
+    });
 
     tracing::info!("Redis successfully established.");
     let session_store = RedisStore::new(redis_pool);

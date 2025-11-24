@@ -22,6 +22,22 @@ pub fn routes() -> Router<AppState> {
         .route("/delete/{pattern}", delete(controller::delete_route))
         .route("/list", get(controller::list_blocked_routes))
         .route("/sync", get(controller::sync_routes_to_redis))
+        .route(
+            "/sync_interval",
+            get(controller::get_sync_interval).post(controller::update_sync_interval),
+        )
+        .route(
+            "/sync_interval/pause",
+            post(controller::pause_sync_interval),
+        )
+        .route(
+            "/sync_interval/resume",
+            post(controller::resume_sync_interval),
+        )
+        .route(
+            "/sync_interval/restart",
+            post(controller::restart_sync_interval),
+        )
         .route_layer(middleware::from_fn(user_permission::admin))
         .route_layer(middleware::from_fn(user_status::only_verified))
         .route_layer(login_required!(AuthBackend));

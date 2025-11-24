@@ -3,6 +3,7 @@ pub mod auth;
 pub mod image_optimizer;
 pub mod mail;
 pub mod redis;
+pub mod route_blocker_config;
 pub mod route_blocker_service;
 pub mod seed;
 pub mod seed_config;

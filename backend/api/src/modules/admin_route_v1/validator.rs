@@ -40,3 +40,13 @@ impl Default for V1RouteStatusQueryParams {
         }
     }
 }
+
+#[derive(Debug, Deserialize, Serialize, Validate)]
+pub struct V1UpdateSyncIntervalPayload {
+    #[validate(range(
+        min = 60,
+        max = 86400,
+        message = "Interval must be between 60 and 86400 seconds"
+    ))]
+    pub interval_secs: u64,
+}
