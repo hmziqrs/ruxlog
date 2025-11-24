@@ -3,6 +3,10 @@ use oxstore::{ListQuery, ListStore, Order};
 use oxui::components::form::input::SimpleInput;
 use oxui::shadcn::badge::{Badge, BadgeVariant};
 use oxui::shadcn::button::{Button, ButtonVariant};
+use oxui::shadcn::dropdown_menu::{
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+};
+use hmziq_dioxus_free_icons::{icons::ld_icons::LdEllipsis, Icon};
 
 use crate::components::table::data_table_screen::{DataTableScreen, HeaderColumn};
 use crate::components::table::list_empty_state::ListEmptyState;
@@ -165,7 +169,7 @@ pub fn AclSettingsScreen() -> Element {
             "py-2 px-3 text-left font-medium text-xs md:text-sm whitespace-nowrap",
             Some("updated_at"),
         ),
-        HeaderColumn::new("", false, "w-32 py-2 px-3 text-right", None),
+        HeaderColumn::new("", false, "w-12 py-2 px-3", None),
     ];
 
     let handle_status_select = {
@@ -421,18 +425,29 @@ fn AclRow(constant: AppConstant, on_edit: EventHandler<()>) -> Element {
                 Badge { variant: badge_variant, class: "text-[10px] uppercase tracking-wide", if constant.is_sensitive { "Sensitive" } else { "Public" } }
             }
             td { class: "py-2 px-3 text-xs text-muted-foreground whitespace-nowrap", "{format_short_date_dt(&constant.updated_at)}" }
-            td { class: "py-2 px-3 text-right space-x-2 flex justify-end",
-                Button {
-                    variant: ButtonVariant::Outline,
-                    class: "h-8 px-2 text-xs",
-                    onclick: move |_| { on_edit.call(()); },
-                    "Edit"
-                }
-                Button {
-                    variant: ButtonVariant::Destructive,
-                    class: "h-8 px-2 text-xs",
-                    onclick: delete_constant,
-                    "Delete"
+            td { class: "py-2 px-3 text-xs md:text-sm",
+                DropdownMenu {
+                    DropdownMenuTrigger {
+                        Button {
+                            variant: ButtonVariant::Ghost,
+                            class: "h-8 w-8 p-0 bg-transparent hover:bg-muted/50",
+                            div { class: "w-4 h-4",
+                                Icon { icon: LdEllipsis {} }
+                            }
+                        }
+                    }
+                    DropdownMenuContent {
+                        class: "bg-background border-zinc-200 dark:border-zinc-800",
+                        DropdownMenuItem {
+                            onclick: move |_| { on_edit.call(()); },
+                            "Edit"
+                        }
+                        DropdownMenuItem {
+                            class: "text-red-600",
+                            onclick: delete_constant,
+                            "Delete"
+                        }
+                    }
                 }
             }
         }
