@@ -1616,11 +1616,17 @@
       margin-block-end: calc(calc(0.25rem * 10) * calc(1 - var(--tw-space-y-reverse)));
     }
   }
+  .gap-x-6 {
+    column-gap: calc(0.25rem * 6);
+  }
   .gap-y-0 {
     row-gap: calc(0.25rem * 0);
   }
   .gap-y-0\.5 {
     row-gap: calc(0.25rem * 0.5);
+  }
+  .gap-y-3 {
+    row-gap: calc(0.25rem * 3);
   }
   .self-start {
     align-self: flex-start;
@@ -3905,6 +3911,16 @@
       line-height: var(--tw-leading, var(--text-4xl--line-height));
     }
   }
+  .md\:order-1 {
+    @media (width >= 48rem) {
+      order: 1;
+    }
+  }
+  .md\:order-2 {
+    @media (width >= 48rem) {
+      order: 2;
+    }
+  }
   .md\:block {
     @media (width >= 48rem) {
       display: block;
@@ -3950,6 +3966,26 @@
       flex-direction: row;
     }
   }
+  .md\:items-end {
+    @media (width >= 48rem) {
+      align-items: flex-end;
+    }
+  }
+  .md\:items-start {
+    @media (width >= 48rem) {
+      align-items: flex-start;
+    }
+  }
+  .md\:justify-between {
+    @media (width >= 48rem) {
+      justify-content: space-between;
+    }
+  }
+  .md\:justify-end {
+    @media (width >= 48rem) {
+      justify-content: flex-end;
+    }
+  }
   .md\:p-8 {
     @media (width >= 48rem) {
       padding: calc(0.25rem * 8);
@@ -3973,6 +4009,11 @@
   .md\:py-24 {
     @media (width >= 48rem) {
       padding-block: calc(0.25rem * 24);
+    }
+  }
+  .md\:text-left {
+    @media (width >= 48rem) {
+      text-align: left;
     }
   }
   .md\:text-3xl {
