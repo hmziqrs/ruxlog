@@ -118,17 +118,13 @@ pub fn PostViewScreen(id: i32) -> Element {
                     // Category & Tags
                     div { class: "flex flex-wrap items-center gap-2 mb-6 text-sm",
                         // Category
-                        span { class: "text-primary font-medium",
-                            "{post.category.name}"
-                        }
+                        span { class: "text-primary font-medium", "{post.category.name}" }
 
                         // Tags (if any)
                         if !post.tags.is_empty() {
                             span { class: "text-muted-foreground", "·" }
-                            for (i, tag) in post.tags.iter().take(2).enumerate() {
-                                span { class: "text-muted-foreground",
-                                    "{tag.name}"
-                                }
+                            for (i , tag) in post.tags.iter().take(2).enumerate() {
+                                span { class: "text-muted-foreground", "{tag.name}" }
                                 if i < post.tags.len().min(2) - 1 {
                                     span { class: "text-muted-foreground", "·" }
                                 }
@@ -182,7 +178,7 @@ pub fn PostViewScreen(id: i32) -> Element {
                         img {
                             src: "{image.file_url}",
                             alt: "{post.title}",
-                            class: "w-full rounded-lg"
+                            class: "w-full rounded-lg",
                         }
                     }
                 }
@@ -209,9 +205,9 @@ pub fn PostViewScreen(id: i32) -> Element {
                     div { class: "py-6 border-y border-border mb-12",
                         EngagementBar {
                             view_count: post.view_count,
-                            likes_count: likes_count,
+                            likes_count,
                             comment_count: post.comment_count,
-                            is_liked: is_liked,
+                            is_liked,
                             is_like_loading: is_like_loading(),
                             on_like: handle_like,
                             on_share: handle_share,
@@ -226,8 +222,12 @@ pub fn PostViewScreen(id: i32) -> Element {
                                 "{post.author.name.chars().next().unwrap_or('U').to_uppercase()}"
                             }
                             div {
-                                div { class: "text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1", "Written by" }
-                                div { class: "text-lg font-semibold text-foreground mb-2", "{post.author.name}" }
+                                div { class: "text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1",
+                                    "Written by"
+                                }
+                                div { class: "text-lg font-semibold text-foreground mb-2",
+                                    "{post.author.name}"
+                                }
                                 p { class: "text-sm text-muted-foreground leading-relaxed",
                                     "Thanks for reading! If you found this article helpful, consider sharing it with others."
                                 }
@@ -237,7 +237,7 @@ pub fn PostViewScreen(id: i32) -> Element {
 
                     // Comments section
                     div { id: "comments-section", class: "mb-12",
-                        CommentsSection { post_id: post_id }
+                        CommentsSection { post_id }
                     }
                 }
 
@@ -245,8 +245,14 @@ pub fn PostViewScreen(id: i32) -> Element {
                 div { class: "container mx-auto px-4 max-w-4xl pb-16 pt-4",
                     button {
                         class: "flex items-center gap-2 mx-auto text-muted-foreground hover:text-foreground transition-colors group",
-                        onclick: move |_| { nav.push(crate::router::Route::HomeScreen {}); },
-                        Icon { icon: LdArrowLeft, class: "w-4 h-4 transition-transform group-hover:-translate-x-1" }
+                        onclick: move |_| {
+                            nav.push(crate::router::Route::HomeScreen {
+                            });
+                        },
+                        Icon {
+                            icon: LdArrowLeft,
+                            class: "w-4 h-4 transition-transform group-hover:-translate-x-1",
+                        }
                         span { class: "text-sm", "Back to all posts" }
                     }
                 }
