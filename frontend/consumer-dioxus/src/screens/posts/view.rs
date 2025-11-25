@@ -115,14 +115,21 @@ pub fn PostViewScreen(id: i32) -> Element {
             div { class: "min-h-screen bg-background text-foreground",
                 // Article header
                 header { class: "container mx-auto px-4 max-w-4xl pt-12 pb-8",
-                    // Tags
-                    if !post.tags.is_empty() {
-                        div { class: "flex flex-wrap items-center gap-2 mb-6",
-                            for (i, tag) in post.tags.iter().take(3).enumerate() {
-                                span { class: "text-sm text-primary font-medium",
+                    // Category & Tags
+                    div { class: "flex flex-wrap items-center gap-2 mb-6 text-sm",
+                        // Category
+                        span { class: "text-primary font-medium",
+                            "{post.category.name}"
+                        }
+
+                        // Tags (if any)
+                        if !post.tags.is_empty() {
+                            span { class: "text-muted-foreground", "·" }
+                            for (i, tag) in post.tags.iter().take(2).enumerate() {
+                                span { class: "text-muted-foreground",
                                     "{tag.name}"
                                 }
-                                if i < post.tags.len().min(3) - 1 {
+                                if i < post.tags.len().min(2) - 1 {
                                     span { class: "text-muted-foreground", "·" }
                                 }
                             }
