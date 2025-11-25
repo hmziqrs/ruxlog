@@ -52,20 +52,17 @@ pub struct PostCardProps {
 pub fn PostCard(props: PostCardProps) -> Element {
     let post = props.post.clone();
     let post_id = post.id;
-    let first_tag = post.tags.first().map(|t| t.name.clone());
-    let first_tag_str = first_tag.as_deref();
-    let gradient = get_gradient_for_tag(first_tag_str);
     
     rsx! {
         article {
-            class: "group h-full rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:border-primary/30 hover:bg-card/80 hover:shadow-lg hover:shadow-primary/5 cursor-pointer",
+            class: "group h-full rounded-lg border border-border overflow-hidden transition-colors duration-200 hover:border-primary/50 cursor-pointer",
             onclick: move |_| {
                 if let Some(handler) = &props.on_click {
                     handler.call(post_id);
                 }
             },
             // Media
-            div { class: "relative aspect-[16/9] overflow-hidden",
+            div { class: "relative aspect-[16/9] overflow-hidden bg-muted",
                 if let Some(img) = &post.featured_image {
                     img {
                         src: "{img.file_url}",
@@ -73,48 +70,49 @@ pub fn PostCard(props: PostCardProps) -> Element {
                         class: "w-full h-full object-cover transition-transform duration-500 group-hover:scale-105",
                     }
                 } else {
-                    // Fallback gradient
-                    div {
-                        class: "w-full h-full bg-gradient-to-br {gradient}",
-                        div { class: "absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" }
-                    }
+                    // Fallback - simple muted background
+                    div { class: "w-full h-full bg-muted" }
                 }
 
-                // Tag badge
-                if let Some(tag) = post.tags.first() {
-                    div { class: "absolute top-3 left-3",
-                        span { class: "px-2.5 py-1 rounded-full text-xs font-semibold bg-background/90 backdrop-blur-sm text-foreground border border-border/50",
-                            "{tag.name}"
-                        }
+                // Category badge
+                div { class: "absolute top-3 left-3",
+                    span { class: "px-2 py-1 text-xs font-medium border border-border rounded bg-background text-foreground",
+                        "{post.category.name}"
                     }
                 }
             }
 
             // Content
-            div { class: "p-5",
-                h3 { class: "text-lg font-bold mb-2 leading-snug group-hover:text-primary transition-colors duration-300 line-clamp-2",
+            div { class: "p-4",
+                // Tags
+                if !post.tags.is_empty() {
+                    div { class: "flex flex-wrap gap-2 mb-2",
+                        for tag in post.tags.iter().take(2) {
+                            span { class: "text-xs text-muted-foreground",
+                                "{tag.name}"
+                            }
+                        }
+                    }
+                }
+
+                h3 { class: "text-lg font-semibold mb-2 leading-snug group-hover:text-primary transition-colors line-clamp-2",
                     "{post.title}"
                 }
 
                 if let Some(excerpt) = &post.excerpt {
-                    p { class: "text-muted-foreground text-sm leading-relaxed mb-4 line-clamp-2",
+                    p { class: "text-muted-foreground text-sm leading-relaxed mb-3 line-clamp-2",
                         "{excerpt}"
                     }
                 }
 
                 // Meta
-                div { class: "flex items-center gap-3 text-xs text-muted-foreground",
-                    div { class: "flex items-center gap-1.5",
-                        div { class: "w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary",
-                            "{post.author.name.chars().next().unwrap_or('A').to_uppercase()}"
-                        }
-                        span { "{post.author.name}" }
-                    }
-                    span { class: "text-border", "·" }
+                div { class: "flex items-center gap-2 text-xs text-muted-foreground",
+                    span { "{post.author.name}" }
+                    span { "·" }
                     if let Some(published) = &post.published_at {
                         span { "{format_date(published)}" }
                     }
-                    span { class: "text-border", "·" }
+                    span { "·" }
                     span { "{estimate_reading_time(&post.content)} min" }
                 }
             }
