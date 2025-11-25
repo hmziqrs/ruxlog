@@ -118,15 +118,33 @@ pub fn PostViewScreen(id: i32) -> Element {
                     // Category & Tags
                     div { class: "flex flex-wrap items-center gap-3 mb-6",
                         // Category (with border)
-                        span { class: "px-2.5 py-1 text-xs font-medium border border-border rounded-md text-foreground",
+                        button {
+                            class: "px-2.5 py-1 text-xs font-medium border border-border rounded-md text-foreground hover:bg-accent transition-colors",
+                            onclick: move |_| {
+                                nav.push(crate::router::Route::CategoryDetailScreen {
+                                    slug: post.category.slug.clone(),
+                                });
+                            },
                             "{post.category.name}"
                         }
 
-                        // Tags (plain text)
+                        // Tags (clickable)
                         if !post.tags.is_empty() {
                             for tag in post.tags.iter().take(2) {
-                                span { class: "text-sm text-muted-foreground",
-                                    "{tag.name}"
+                                {
+                                    let tag_slug = tag.slug.clone();
+                                    let tag_name = tag.name.clone();
+                                    rsx! {
+                                        button {
+                                            class: "text-sm text-muted-foreground hover:text-primary transition-colors",
+                                            onclick: move |_| {
+                                                nav.push(crate::router::Route::TagDetailScreen {
+                                                    slug: tag_slug.clone(),
+                                                });
+                                            },
+                                            "{tag_name}"
+                                        }
+                                    }
                                 }
                             }
                         }

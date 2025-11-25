@@ -1,7 +1,8 @@
 use dioxus::prelude::*;
 use crate::containers::{AuthGuardContainer, NavBarContainer};
 use crate::screens::{
-    AboutScreen, ContactScreen, HomeScreen, LoginScreen, PostViewScreen, ProfileEditScreen, ProfileScreen, RegisterScreen,
+    AboutScreen, CategoriesScreen, CategoryDetailScreen, ContactScreen, HomeScreen, LoginScreen,
+    PostViewScreen, ProfileEditScreen, ProfileScreen, RegisterScreen, TagDetailScreen, TagsScreen,
 };
 
 #[derive(Debug, Clone, Routable, PartialEq)]
@@ -14,6 +15,18 @@ pub enum Route {
 
     #[route("/posts/:id")]
     PostViewScreen { id: i32 },
+
+    #[route("/tags")]
+    TagsScreen {},
+
+    #[route("/tags/:slug")]
+    TagDetailScreen { slug: String },
+
+    #[route("/categories")]
+    CategoriesScreen {},
+
+    #[route("/categories/:slug")]
+    CategoryDetailScreen { slug: String },
 
     #[route("/login")]
     LoginScreen {},
