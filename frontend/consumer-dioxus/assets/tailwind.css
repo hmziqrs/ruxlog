@@ -2582,6 +2582,12 @@
   .pb-8 {
     padding-bottom: calc(0.25rem * 8);
   }
+  .pb-12 {
+    padding-bottom: calc(0.25rem * 12);
+  }
+  .pb-16 {
+    padding-bottom: calc(0.25rem * 16);
+  }
   .pl-2 {
     padding-left: calc(0.25rem * 2);
   }

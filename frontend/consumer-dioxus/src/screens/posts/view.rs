@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use ruxlog_shared::store::{use_auth, use_likes, use_post};
 use crate::utils::editorjs::render_editorjs_content;
 use crate::components::{CommentsSection, EngagementBar, estimate_reading_time, format_date};
-use hmziq_dioxus_free_icons::icons::ld_icons::{LdCalendar, LdClock, LdArrowLeft, LdBookOpen};
+use hmziq_dioxus_free_icons::icons::ld_icons::{LdCalendar, LdClock, LdArrowLeft};
 use hmziq_dioxus_free_icons::Icon;
 
 #[component]
@@ -113,25 +113,6 @@ pub fn PostViewScreen(id: i32) -> Element {
 
         rsx! {
             div { class: "min-h-screen bg-background text-foreground",
-                // Top navigation bar
-                div { class: "sticky top-0 z-50 bg-background border-b border-border",
-                    div { class: "container mx-auto px-4 max-w-4xl",
-                        div { class: "flex items-center justify-between h-14",
-                            button {
-                                class: "flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group",
-                                onclick: move |_| { nav.push(crate::router::Route::HomeScreen {}); },
-                                Icon { icon: LdArrowLeft, class: "w-4 h-4 transition-transform group-hover:-translate-x-1" }
-                                span { class: "text-sm font-medium", "All posts" }
-                            }
-
-                            div { class: "flex items-center gap-2 text-sm text-muted-foreground",
-                                Icon { icon: LdBookOpen, class: "w-4 h-4" }
-                                span { "{reading_time} min read" }
-                            }
-                        }
-                    }
-                }
-
                 // Article header
                 header { class: "container mx-auto px-4 max-w-4xl pt-12 pb-8",
                     // Tags
@@ -253,15 +234,13 @@ pub fn PostViewScreen(id: i32) -> Element {
                     }
                 }
 
-                // Footer navigation
-                div { class: "border-t border-border",
-                    div { class: "container mx-auto px-4 max-w-4xl py-8",
-                        button {
-                            class: "flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group",
-                            onclick: move |_| { nav.push(crate::router::Route::HomeScreen {}); },
-                            Icon { icon: LdArrowLeft, class: "w-4 h-4 transition-transform group-hover:-translate-x-1" }
-                            span { class: "font-medium", "Back to all posts" }
-                        }
+                // Back button
+                div { class: "container mx-auto px-4 max-w-4xl pb-16 pt-4",
+                    button {
+                        class: "flex items-center gap-2 mx-auto text-muted-foreground hover:text-foreground transition-colors group",
+                        onclick: move |_| { nav.push(crate::router::Route::HomeScreen {}); },
+                        Icon { icon: LdArrowLeft, class: "w-4 h-4 transition-transform group-hover:-translate-x-1" }
+                        span { class: "text-sm", "Back to all posts" }
                     }
                 }
             }
@@ -270,17 +249,7 @@ pub fn PostViewScreen(id: i32) -> Element {
         // Loading state
         rsx! {
             div { class: "min-h-screen bg-background text-foreground",
-                // Skeleton header
-                div { class: "sticky top-0 z-50 bg-background border-b border-border",
-                    div { class: "container mx-auto px-4 max-w-4xl",
-                        div { class: "flex items-center justify-between h-14",
-                            div { class: "h-4 w-24 bg-muted rounded animate-pulse" }
-                            div { class: "h-4 w-20 bg-muted rounded animate-pulse" }
-                        }
-                    }
-                }
-
-                div { class: "container mx-auto px-4 max-w-4xl py-12",
+                div { class: "container mx-auto px-4 max-w-4xl pt-12 pb-12",
                     // Skeleton tags
                     div { class: "flex gap-2 mb-6",
                         div { class: "h-5 w-16 bg-muted rounded animate-pulse" }
