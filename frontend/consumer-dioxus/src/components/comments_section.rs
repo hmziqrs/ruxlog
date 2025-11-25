@@ -56,11 +56,11 @@ pub fn CommentsSection(props: CommentsSectionProps) -> Element {
     };
 
     rsx! {
-        section { class: "mt-12 pt-8 border-t border-border",
+        section { class: "pt-8 border-t border-border",
             // Header
             div { class: "flex items-center gap-3 mb-6",
-                Icon { icon: LdMessageCircle, class: "w-6 h-6 text-primary" }
-                h2 { class: "text-2xl font-bold", "Comments" }
+                Icon { icon: LdMessageCircle, class: "w-5 h-5 text-foreground" }
+                h2 { class: "text-xl font-semibold", "Comments" }
                 if let Some(data) = &(*comments_frame).data {
                     span { class: "text-muted-foreground", "({data.data.len()})" }
                 }
@@ -84,7 +84,7 @@ pub fn CommentsSection(props: CommentsSectionProps) -> Element {
                     div { class: "flex gap-3",
                         // Avatar
                         div { class: "flex-shrink-0",
-                            div { class: "w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold",
+                            div { class: "w-10 h-10 rounded-full bg-muted flex items-center justify-center text-foreground font-medium",
                                 if let Some(user) = &*current_user {
                                     "{user.name.chars().next().unwrap_or('U').to_uppercase()}"
                                 } else {
@@ -96,7 +96,7 @@ pub fn CommentsSection(props: CommentsSectionProps) -> Element {
                         // Input
                         div { class: "flex-1",
                             textarea {
-                                class: "w-full px-4 py-3 rounded-lg border border-border bg-card/50 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary resize-none min-h-[100px]",
+                                class: "w-full px-4 py-3 rounded-lg border border-border bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary resize-none min-h-[100px]",
                                 placeholder: "Share your thoughts...",
                                 value: "{new_comment}",
                                 oninput: move |e| new_comment.set(e.value()),
@@ -130,7 +130,7 @@ pub fn CommentsSection(props: CommentsSectionProps) -> Element {
                     }
                 }
             } else {
-                div { class: "mb-8 p-4 rounded-lg border border-border bg-muted/30 text-center",
+                div { class: "mb-8 py-4 text-center",
                     p { class: "text-muted-foreground",
                         "Please "
                         a { class: "text-primary hover:underline", href: "/auth/login", "sign in" }
@@ -152,9 +152,7 @@ pub fn CommentsSection(props: CommentsSectionProps) -> Element {
             } else if let Some(data) = &(*comments_frame).data {
                 if data.data.is_empty() {
                     div { class: "text-center py-12",
-                        div { class: "w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-4",
-                            Icon { icon: LdMessageCircle, class: "w-8 h-8 text-muted-foreground" }
-                        }
+                        Icon { icon: LdMessageCircle, class: "w-8 h-8 text-muted-foreground mx-auto mb-4" }
                         p { class: "text-muted-foreground", "No comments yet. Be the first to share your thoughts!" }
                     }
                 } else {
@@ -237,14 +235,14 @@ fn CommentsLoadingSkeleton() -> Element {
         div { class: "space-y-6",
             for _ in 0..3 {
                 div { class: "flex gap-3 animate-pulse",
-                    div { class: "w-10 h-10 rounded-full bg-muted/50" }
+                    div { class: "w-10 h-10 rounded-full bg-muted" }
                     div { class: "flex-1 space-y-2",
                         div { class: "flex gap-2",
-                            div { class: "h-4 w-24 bg-muted/50 rounded" }
-                            div { class: "h-4 w-16 bg-muted/40 rounded" }
+                            div { class: "h-4 w-24 bg-muted rounded" }
+                            div { class: "h-4 w-16 bg-muted rounded" }
                         }
-                        div { class: "h-4 w-full bg-muted/40 rounded" }
-                        div { class: "h-4 w-3/4 bg-muted/40 rounded" }
+                        div { class: "h-4 w-full bg-muted rounded" }
+                        div { class: "h-4 w-3/4 bg-muted rounded" }
                     }
                 }
             }

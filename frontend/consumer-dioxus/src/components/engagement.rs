@@ -23,9 +23,9 @@ pub fn LikeButton(props: LikeButtonProps) -> Element {
     let disabled = props.disabled || is_loading;
     
     let button_class = if is_liked {
-        "flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500/30 bg-red-500/10 text-red-500 transition-all duration-200 hover:bg-red-500/20"
+        "flex items-center gap-2 text-red-500 hover:text-red-400 transition-colors"
     } else {
-        "flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-card/50 text-muted-foreground transition-all duration-200 hover:border-red-500/30 hover:text-red-500 hover:bg-red-500/5"
+        "flex items-center gap-2 text-muted-foreground hover:text-red-500 transition-colors"
     };
 
     let heart_class = if is_liked {
@@ -76,8 +76,8 @@ pub fn EngagementBar(props: EngagementBarProps) -> Element {
     use hmziq_dioxus_free_icons::icons::ld_icons::{LdEye, LdMessageCircle, LdShare2};
 
     rsx! {
-        div { class: "flex items-center justify-between p-6 bg-muted/30 rounded-lg border border-border/50",
-            div { class: "flex items-center gap-4",
+        div { class: "flex items-center justify-between",
+            div { class: "flex items-center gap-6",
                 // Views (display only)
                 div { class: "flex items-center gap-2 text-muted-foreground",
                     Icon { icon: LdEye, class: "w-5 h-5" }
@@ -98,7 +98,7 @@ pub fn EngagementBar(props: EngagementBarProps) -> Element {
 
                 // Comments (clickable to scroll)
                 button {
-                    class: "flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-card/50 text-muted-foreground transition-all duration-200 hover:border-primary/30 hover:text-primary hover:bg-primary/5",
+                    class: "flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors",
                     onclick: move |_| {
                         if let Some(handler) = &props.on_scroll_to_comments {
                             handler.call(());
@@ -111,14 +111,14 @@ pub fn EngagementBar(props: EngagementBarProps) -> Element {
 
             // Share button
             button {
-                class: "flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors",
+                class: "flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors",
                 onclick: move |_| {
                     if let Some(handler) = &props.on_share {
                         handler.call(());
                     }
                 },
-                Icon { icon: LdShare2, class: "w-4 h-4" }
-                "Share"
+                Icon { icon: LdShare2, class: "w-5 h-5" }
+                span { class: "font-medium", "Share" }
             }
         }
     }

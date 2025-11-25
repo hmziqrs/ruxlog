@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use ruxlog_shared::store::{use_auth, use_likes, use_post};
 use crate::utils::editorjs::render_editorjs_content;
-use crate::components::{CommentsSection, EngagementBar, estimate_reading_time, format_date, get_gradient_for_tag};
+use crate::components::{CommentsSection, EngagementBar, estimate_reading_time, format_date};
 use hmziq_dioxus_free_icons::icons::ld_icons::{LdCalendar, LdClock, LdArrowLeft, LdBookOpen};
 use hmziq_dioxus_free_icons::Icon;
 
@@ -104,9 +104,6 @@ pub fn PostViewScreen(id: i32) -> Element {
 
         let reading_time = estimate_reading_time(&post.content);
         let post_id = post.id;
-        let first_tag = post.tags.first().map(|t| t.name.clone());
-        let first_tag_str = first_tag.as_deref();
-        let gradient = get_gradient_for_tag(first_tag_str);
 
         // Get likes data - prefer from store if available, fallback to post data
         let (is_liked, likes_count) = match like_status() {
@@ -117,8 +114,8 @@ pub fn PostViewScreen(id: i32) -> Element {
         rsx! {
             div { class: "min-h-screen bg-background text-foreground",
                 // Top navigation bar
-                div { class: "sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50",
-                    div { class: "container mx-auto px-4 max-w-6xl",
+                div { class: "sticky top-0 z-50 bg-background border-b border-border",
+                    div { class: "container mx-auto px-4 max-w-4xl",
                         div { class: "flex items-center justify-between h-14",
                             button {
                                 class: "flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group",
@@ -127,8 +124,7 @@ pub fn PostViewScreen(id: i32) -> Element {
                                 span { class: "text-sm font-medium", "All posts" }
                             }
 
-                            // Reading progress could go here
-                            div { class: "flex items-center gap-2 text-xs text-muted-foreground",
+                            div { class: "flex items-center gap-2 text-sm text-muted-foreground",
                                 Icon { icon: LdBookOpen, class: "w-4 h-4" }
                                 span { "{reading_time} min read" }
                             }
@@ -136,121 +132,93 @@ pub fn PostViewScreen(id: i32) -> Element {
                     }
                 }
 
-                // Hero section
-                div { class: "relative",
-                    // Background image/gradient
-                    div { class: "absolute inset-0 h-[50vh] overflow-hidden",
-                        if let Some(image) = &post.featured_image {
-                            img {
-                                src: "{image.file_url}",
-                                alt: "{post.title}",
-                                class: "w-full h-full object-cover opacity-30"
+                // Article header
+                header { class: "container mx-auto px-4 max-w-4xl pt-12 pb-8",
+                    // Tags
+                    if !post.tags.is_empty() {
+                        div { class: "flex flex-wrap items-center gap-2 mb-6",
+                            for (i, tag) in post.tags.iter().take(3).enumerate() {
+                                span { class: "text-sm text-primary font-medium",
+                                    "{tag.name}"
+                                }
+                                if i < post.tags.len().min(3) - 1 {
+                                    span { class: "text-muted-foreground", "·" }
+                                }
                             }
-                            div { class: "absolute inset-0 bg-gradient-to-b from-background/60 via-background/80 to-background" }
-                        } else {
-                            // Fallback gradient
-                            div {
-                                class: "w-full h-full bg-gradient-to-br {gradient}",
-                                div { class: "absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" }
-                            }
-                            div { class: "absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background" }
                         }
                     }
 
-                    // Hero content
-                    div { class: "container mx-auto px-4 max-w-4xl relative pt-12 pb-8",
-                        // Tags
-                        if !post.tags.is_empty() {
-                            div { class: "flex flex-wrap gap-2 mb-6",
-                                for tag in post.tags.iter().take(3) {
-                                    span { class: "px-3 py-1.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20 backdrop-blur-sm",
-                                        "{tag.name}"
-                                    }
-                                }
+                    // Title
+                    h1 { class: "text-3xl sm:text-4xl md:text-5xl font-bold leading-tight tracking-tight mb-6",
+                        "{post.title}"
+                    }
+
+                    // Excerpt
+                    if let Some(excerpt) = &post.excerpt {
+                        p { class: "text-lg text-muted-foreground leading-relaxed mb-8",
+                            "{excerpt}"
+                        }
+                    }
+
+                    // Author & Meta
+                    div { class: "flex flex-wrap items-center gap-4 text-sm text-muted-foreground",
+                        // Author
+                        div { class: "flex items-center gap-2",
+                            div { class: "w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-foreground",
+                                "{post.author.name.chars().next().unwrap_or('U').to_uppercase()}"
                             }
+                            span { class: "font-medium text-foreground", "{post.author.name}" }
                         }
 
-                        // Title
-                        h1 { class: "text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight mb-6",
-                            "{post.title}"
+                        span { "·" }
+
+                        // Date
+                        div { class: "flex items-center gap-1",
+                            Icon { icon: LdCalendar, class: "w-4 h-4" }
+                            span { "{published_date}" }
                         }
 
-                        // Excerpt
-                        if let Some(excerpt) = &post.excerpt {
-                            p { class: "text-lg md:text-xl text-muted-foreground leading-relaxed mb-8 max-w-3xl",
-                                "{excerpt}"
-                            }
-                        }
+                        span { "·" }
 
-                        // Author & Meta
-                        div { class: "flex flex-wrap items-center gap-6",
-                            // Author
-                            div { class: "flex items-center gap-3",
-                                div { class: "w-12 h-12 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center text-lg font-bold text-primary ring-2 ring-background shadow-lg",
-                                    "{post.author.name.chars().next().unwrap_or('U').to_uppercase()}"
-                                }
-                                div {
-                                    div { class: "font-semibold text-foreground", "{post.author.name}" }
-                                    div { class: "text-sm text-muted-foreground", "Author" }
-                                }
-                            }
-
-                            div { class: "hidden sm:block w-px h-10 bg-border" }
-
-                            // Date
-                            div { class: "flex items-center gap-2 text-muted-foreground",
-                                Icon { icon: LdCalendar, class: "w-4 h-4 text-primary/70" }
-                                span { class: "text-sm", "{published_date}" }
-                            }
-
-                            div { class: "hidden sm:block w-px h-10 bg-border" }
-
-                            // Reading time
-                            div { class: "flex items-center gap-2 text-muted-foreground",
-                                Icon { icon: LdClock, class: "w-4 h-4 text-primary/70" }
-                                span { class: "text-sm", "{reading_time} min read" }
-                            }
+                        // Reading time
+                        div { class: "flex items-center gap-1",
+                            Icon { icon: LdClock, class: "w-4 h-4" }
+                            span { "{reading_time} min read" }
                         }
                     }
                 }
 
-                // Featured image card (if exists)
+                // Featured image
                 if let Some(image) = &post.featured_image {
-                    div { class: "container mx-auto px-4 max-w-4xl -mt-4 mb-8",
-                        div { class: "rounded-2xl overflow-hidden border border-border/50 shadow-2xl shadow-black/10",
-                            img {
-                                src: "{image.file_url}",
-                                alt: "{post.title}",
-                                class: "w-full aspect-[21/9] object-cover"
-                            }
+                    div { class: "container mx-auto px-4 max-w-4xl mb-10",
+                        img {
+                            src: "{image.file_url}",
+                            alt: "{post.title}",
+                            class: "w-full rounded-lg"
                         }
                     }
                 }
 
                 // Main content
                 article { class: "container mx-auto px-4 max-w-4xl",
-                    // Article content with gradient border
-                    div { class: "rounded-2xl bg-gradient-to-br from-border/50 via-border/30 to-transparent p-[1px] mb-8",
-                        div { class: "rounded-2xl bg-card/50 backdrop-blur-sm p-6 sm:p-8 md:p-10",
-                            // Prose content
-                            div { class: "prose prose-lg prose-neutral dark:prose-invert max-w-none
-                                prose-headings:font-bold prose-headings:tracking-tight
-                                prose-h2:text-2xl prose-h2:mt-10 prose-h2:mb-4
-                                prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-3
-                                prose-p:leading-relaxed prose-p:text-muted-foreground
-                                prose-a:text-primary prose-a:no-underline hover:prose-a:underline
-                                prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
-                                prose-pre:bg-muted/50 prose-pre:border prose-pre:border-border/50
-                                prose-img:rounded-xl prose-img:shadow-lg
-                                prose-blockquote:border-l-primary prose-blockquote:bg-muted/30 prose-blockquote:rounded-r-lg prose-blockquote:py-1
-                                prose-li:text-muted-foreground",
-                                {render_editorjs_content(&post.content)}
-                            }
-                        }
+                    // Prose content
+                    div { class: "prose prose-lg prose-neutral dark:prose-invert max-w-none
+                        prose-headings:font-bold prose-headings:tracking-tight
+                        prose-h2:text-2xl prose-h2:mt-10 prose-h2:mb-4
+                        prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-3
+                        prose-p:leading-relaxed prose-p:text-muted-foreground
+                        prose-a:text-primary prose-a:no-underline hover:prose-a:underline
+                        prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
+                        prose-pre:bg-muted prose-pre:border prose-pre:border-border
+                        prose-img:rounded-lg
+                        prose-blockquote:border-l-primary prose-blockquote:pl-4 prose-blockquote:italic
+                        prose-li:text-muted-foreground
+                        mb-12",
+                        {render_editorjs_content(&post.content)}
                     }
 
                     // Engagement bar
-                    div { class: "mb-8",
+                    div { class: "py-6 border-y border-border mb-12",
                         EngagementBar {
                             view_count: post.view_count,
                             likes_count: likes_count,
@@ -263,19 +231,17 @@ pub fn PostViewScreen(id: i32) -> Element {
                         }
                     }
 
-                    // Author bio card
-                    div { class: "rounded-2xl bg-gradient-to-br from-primary/10 via-transparent to-transparent p-[1px] mb-8",
-                        div { class: "rounded-2xl bg-card/50 backdrop-blur-sm p-6",
-                            div { class: "flex items-start gap-4",
-                                div { class: "w-16 h-16 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center text-2xl font-bold text-primary flex-shrink-0",
-                                    "{post.author.name.chars().next().unwrap_or('U').to_uppercase()}"
-                                }
-                                div {
-                                    div { class: "text-xs font-medium text-primary uppercase tracking-wider mb-1", "Written by" }
-                                    div { class: "text-xl font-bold text-foreground mb-2", "{post.author.name}" }
-                                    p { class: "text-sm text-muted-foreground leading-relaxed",
-                                        "Thanks for reading! If you found this article helpful, consider sharing it with others."
-                                    }
+                    // Author section
+                    div { class: "mb-12",
+                        div { class: "flex items-start gap-4",
+                            div { class: "w-14 h-14 rounded-full bg-muted flex items-center justify-center text-xl font-semibold text-foreground flex-shrink-0",
+                                "{post.author.name.chars().next().unwrap_or('U').to_uppercase()}"
+                            }
+                            div {
+                                div { class: "text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1", "Written by" }
+                                div { class: "text-lg font-semibold text-foreground mb-2", "{post.author.name}" }
+                                p { class: "text-sm text-muted-foreground leading-relaxed",
+                                    "Thanks for reading! If you found this article helpful, consider sharing it with others."
                                 }
                             }
                         }
@@ -288,10 +254,10 @@ pub fn PostViewScreen(id: i32) -> Element {
                 }
 
                 // Footer navigation
-                div { class: "border-t border-border/50 bg-muted/20",
+                div { class: "border-t border-border",
                     div { class: "container mx-auto px-4 max-w-4xl py-8",
                         button {
-                            class: "flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors group",
+                            class: "flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group",
                             onclick: move |_| { nav.push(crate::router::Route::HomeScreen {}); },
                             Icon { icon: LdArrowLeft, class: "w-4 h-4 transition-transform group-hover:-translate-x-1" }
                             span { class: "font-medium", "Back to all posts" }
@@ -305,11 +271,11 @@ pub fn PostViewScreen(id: i32) -> Element {
         rsx! {
             div { class: "min-h-screen bg-background text-foreground",
                 // Skeleton header
-                div { class: "sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50",
-                    div { class: "container mx-auto px-4 max-w-6xl",
+                div { class: "sticky top-0 z-50 bg-background border-b border-border",
+                    div { class: "container mx-auto px-4 max-w-4xl",
                         div { class: "flex items-center justify-between h-14",
-                            div { class: "h-4 w-24 bg-muted/50 rounded animate-pulse" }
-                            div { class: "h-4 w-20 bg-muted/50 rounded animate-pulse" }
+                            div { class: "h-4 w-24 bg-muted rounded animate-pulse" }
+                            div { class: "h-4 w-20 bg-muted rounded animate-pulse" }
                         }
                     }
                 }
@@ -317,39 +283,37 @@ pub fn PostViewScreen(id: i32) -> Element {
                 div { class: "container mx-auto px-4 max-w-4xl py-12",
                     // Skeleton tags
                     div { class: "flex gap-2 mb-6",
-                        div { class: "h-7 w-20 bg-muted/50 rounded-full animate-pulse" }
-                        div { class: "h-7 w-24 bg-muted/50 rounded-full animate-pulse" }
+                        div { class: "h-5 w-16 bg-muted rounded animate-pulse" }
+                        div { class: "h-5 w-20 bg-muted rounded animate-pulse" }
                     }
 
                     // Skeleton title
                     div { class: "space-y-3 mb-8",
-                        div { class: "h-12 w-full bg-muted/50 rounded animate-pulse" }
-                        div { class: "h-12 w-3/4 bg-muted/50 rounded animate-pulse" }
+                        div { class: "h-10 w-full bg-muted rounded animate-pulse" }
+                        div { class: "h-10 w-3/4 bg-muted rounded animate-pulse" }
                     }
 
                     // Skeleton excerpt
-                    div { class: "h-6 w-full bg-muted/40 rounded animate-pulse mb-2" }
-                    div { class: "h-6 w-2/3 bg-muted/40 rounded animate-pulse mb-8" }
+                    div { class: "h-6 w-full bg-muted rounded animate-pulse mb-2" }
+                    div { class: "h-6 w-2/3 bg-muted rounded animate-pulse mb-8" }
 
                     // Skeleton meta
                     div { class: "flex items-center gap-4 mb-12",
-                        div { class: "w-12 h-12 rounded-full bg-muted/50 animate-pulse" }
-                        div { class: "space-y-2",
-                            div { class: "h-4 w-32 bg-muted/50 rounded animate-pulse" }
-                            div { class: "h-3 w-20 bg-muted/40 rounded animate-pulse" }
-                        }
+                        div { class: "w-8 h-8 rounded-full bg-muted animate-pulse" }
+                        div { class: "h-4 w-24 bg-muted rounded animate-pulse" }
+                        div { class: "h-4 w-20 bg-muted rounded animate-pulse" }
                     }
 
                     // Skeleton image
-                    div { class: "aspect-[21/9] w-full bg-muted/30 rounded-2xl animate-pulse mb-8" }
+                    div { class: "aspect-video w-full bg-muted rounded-lg animate-pulse mb-10" }
 
                     // Skeleton content
                     div { class: "space-y-4",
-                        div { class: "h-4 w-full bg-muted/40 rounded animate-pulse" }
-                        div { class: "h-4 w-full bg-muted/40 rounded animate-pulse" }
-                        div { class: "h-4 w-3/4 bg-muted/40 rounded animate-pulse" }
-                        div { class: "h-4 w-full bg-muted/40 rounded animate-pulse" }
-                        div { class: "h-4 w-5/6 bg-muted/40 rounded animate-pulse" }
+                        div { class: "h-4 w-full bg-muted rounded animate-pulse" }
+                        div { class: "h-4 w-full bg-muted rounded animate-pulse" }
+                        div { class: "h-4 w-3/4 bg-muted rounded animate-pulse" }
+                        div { class: "h-4 w-full bg-muted rounded animate-pulse" }
+                        div { class: "h-4 w-5/6 bg-muted rounded animate-pulse" }
                     }
                 }
             }
