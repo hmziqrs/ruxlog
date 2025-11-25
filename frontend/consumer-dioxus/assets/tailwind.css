@@ -1242,6 +1242,9 @@
   .h-48 {
     height: calc(0.25rem * 48);
   }
+  .h-64 {
+    height: calc(0.25rem * 64);
+  }
   .h-\[1px\] {
     height: 1px;
   }
@@ -2478,6 +2481,9 @@
   .fill-current {
     fill: currentcolor;
   }
+  .object-contain {
+    object-fit: contain;
+  }
   .object-cover {
     object-fit: cover;
   }
@@ -2486,6 +2492,9 @@
   }
   .p-1 {
     padding: calc(0.25rem * 1);
+  }
+  .p-1\.5 {
+    padding: calc(0.25rem * 1.5);
   }
   .p-2 {
     padding: calc(0.25rem * 2);
