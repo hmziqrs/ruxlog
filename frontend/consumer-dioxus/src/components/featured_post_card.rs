@@ -40,7 +40,7 @@ pub fn FeaturedPostCard(props: FeaturedPostCardProps) -> Element {
 
                 // Category badge - top left
                 div { class: "absolute top-4 left-4",
-                    span { class: "px-2.5 py-1 text-xs font-medium border border-border rounded bg-background text-foreground",
+                    span { class: "px-2.5 py-1 text-xs font-medium border border-border rounded bg-background",
                         "{post.category.name}"
                     }
                 }
@@ -52,26 +52,26 @@ pub fn FeaturedPostCard(props: FeaturedPostCardProps) -> Element {
                 if !post.tags.is_empty() {
                     div { class: "flex flex-wrap gap-2 mb-3",
                         for tag in post.tags.iter().take(3) {
-                            span { class: "text-sm text-muted-foreground",
+                            span { class: "text-sm",
                                 "{tag.name}"
                             }
                         }
                     }
                 }
 
-                h2 { class: "text-2xl md:text-3xl font-bold mb-3 leading-tight group-hover:text-primary transition-colors",
+                h2 { class: "text-2xl md:text-3xl font-bold mb-3 leading-tight",
                     "{post.title}"
                 }
 
                 if let Some(excerpt) = &post.excerpt {
-                    p { class: "text-muted-foreground text-base leading-relaxed mb-4 line-clamp-2",
+                    p { class: "text-base leading-relaxed mb-4 line-clamp-2",
                         "{excerpt}"
                     }
                 }
 
                 // Meta row
                 div { class: "flex flex-wrap items-center justify-between gap-4",
-                    div { class: "flex items-center gap-2 text-sm text-muted-foreground",
+                    div { class: "flex items-center gap-2 text-sm",
                         span { "{post.author.name}" }
                         span { "·" }
                         if let Some(published) = &post.published_at {
@@ -82,7 +82,7 @@ pub fn FeaturedPostCard(props: FeaturedPostCardProps) -> Element {
                     }
 
                     // CTA
-                    div { class: "flex items-center gap-2 text-primary font-medium text-sm",
+                    div { class: "flex items-center gap-2 font-medium text-sm",
                         span { "Read article" }
                         Icon { icon: LdArrowRight, class: "w-4 h-4" }
                     }

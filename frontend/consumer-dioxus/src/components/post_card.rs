@@ -76,7 +76,7 @@ pub fn PostCard(props: PostCardProps) -> Element {
 
                 // Category badge
                 div { class: "absolute top-3 left-3",
-                    span { class: "px-2 py-1 text-xs font-medium border border-border rounded bg-background text-foreground",
+                    span { class: "px-2 py-1 text-xs font-medium border border-border rounded bg-background",
                         "{post.category.name}"
                     }
                 }
@@ -88,25 +88,25 @@ pub fn PostCard(props: PostCardProps) -> Element {
                 if !post.tags.is_empty() {
                     div { class: "flex flex-wrap gap-2 mb-2",
                         for tag in post.tags.iter().take(2) {
-                            span { class: "text-xs text-muted-foreground",
+                            span { class: "text-xs",
                                 "{tag.name}"
                             }
                         }
                     }
                 }
 
-                h3 { class: "text-lg font-semibold mb-2 leading-snug group-hover:text-primary transition-colors line-clamp-2",
+                h3 { class: "text-lg font-semibold mb-2 leading-snug line-clamp-2",
                     "{post.title}"
                 }
 
                 if let Some(excerpt) = &post.excerpt {
-                    p { class: "text-muted-foreground text-sm leading-relaxed mb-3 line-clamp-2",
+                    p { class: "text-sm leading-relaxed mb-3 line-clamp-2",
                         "{excerpt}"
                     }
                 }
 
                 // Meta
-                div { class: "flex items-center gap-2 text-xs text-muted-foreground",
+                div { class: "flex items-center gap-2 text-xs",
                     span { "{post.author.name}" }
                     span { "·" }
                     if let Some(published) = &post.published_at {

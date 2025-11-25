@@ -22,11 +22,7 @@ pub fn LikeButton(props: LikeButtonProps) -> Element {
     let is_loading = props.is_loading;
     let disabled = props.disabled || is_loading;
     
-    let button_class = if is_liked {
-        "flex items-center gap-2 text-red-500 hover:text-red-400 transition-colors"
-    } else {
-        "flex items-center gap-2 text-muted-foreground hover:text-red-500 transition-colors"
-    };
+    let button_class = "flex items-center gap-2";
 
     let heart_class = if is_liked {
         "w-5 h-5 fill-current"
@@ -79,7 +75,7 @@ pub fn EngagementBar(props: EngagementBarProps) -> Element {
         div { class: "flex items-center justify-between",
             div { class: "flex items-center gap-6",
                 // Views (display only)
-                div { class: "flex items-center gap-2 text-muted-foreground",
+                div { class: "flex items-center gap-2",
                     Icon { icon: LdEye, class: "w-5 h-5" }
                     span { class: "font-medium", "{props.view_count}" }
                 }
@@ -98,7 +94,7 @@ pub fn EngagementBar(props: EngagementBarProps) -> Element {
 
                 // Comments (clickable to scroll)
                 button {
-                    class: "flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors",
+                    class: "flex items-center gap-2",
                     onclick: move |_| {
                         if let Some(handler) = &props.on_scroll_to_comments {
                             handler.call(());
@@ -107,14 +103,14 @@ pub fn EngagementBar(props: EngagementBarProps) -> Element {
                     Icon { icon: LdMessageCircle, class: "w-5 h-5" }
                     span { class: "font-medium", "{props.comment_count}" }
                 }
-            }
+        }
 
-            // Share button
-            button {
-                class: "flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors",
-                onclick: move |_| {
-                    if let Some(handler) = &props.on_share {
-                        handler.call(());
+        // Share button
+        button {
+            class: "flex items-center gap-2",
+            onclick: move |_| {
+                if let Some(handler) = &props.on_share {
+                    handler.call(());
                     }
                 },
                 Icon { icon: LdShare2, class: "w-5 h-5" }

@@ -48,12 +48,12 @@ pub fn CategoryCard(props: CategoryCardProps) -> Element {
 
             // Content
             div { class: "p-4",
-                h3 { class: "text-lg font-semibold mb-2 leading-snug group-hover:text-primary transition-colors line-clamp-2",
+                h3 { class: "text-lg font-semibold mb-2 leading-snug line-clamp-2",
                     "{category.name}"
                 }
 
                 if let Some(description) = &category.description {
-                    p { class: "text-muted-foreground text-sm leading-relaxed mb-3 line-clamp-2",
+                    p { class: "text-sm leading-relaxed mb-3 line-clamp-2",
                         "{description}"
                     }
                 }

@@ -13,12 +13,12 @@ pub fn ProfileScreen() -> Element {
     if let Some(user) = &*user {
 
         rsx! {
-            div { class: "min-h-screen bg-background text-foreground",
+            div { class: "min-h-screen bg-background",
                 div { class: "container mx-auto px-4 py-12 max-w-4xl",
                     // Header
                     div { class: "mb-8",
                         h1 { class: "text-3xl font-bold mb-2", "Profile" }
-                        p { class: "text-muted-foreground", "Manage your account settings and preferences" }
+                        p { "Manage your account settings and preferences" }
                     }
 
                     // Profile card
@@ -37,7 +37,7 @@ pub fn ProfileScreen() -> Element {
                                             class: "w-full h-full rounded-full object-cover"
                                         }
                                     } else {
-                                        span { class: "text-4xl font-bold text-primary",
+                                        span { class: "text-4xl font-bold",
                                             "{user.name.chars().next().unwrap_or('U').to_uppercase()}"
                                         }
                                     }
@@ -48,10 +48,10 @@ pub fn ProfileScreen() -> Element {
                                 // Name
                                 div { class: "flex items-start gap-4",
                                     div { class: "w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0",
-                                        Icon { icon: LdUser, class: "w-6 h-6 text-primary" }
+                                        Icon { icon: LdUser, class: "w-6 h-6" }
                                     }
                                     div { class: "flex-1",
-                                        p { class: "text-sm text-muted-foreground mb-1", "Name" }
+                                        p { class: "text-sm mb-1", "Name" }
                                         p { class: "text-lg font-medium", "{user.name}" }
                                     }
                                 }
@@ -59,17 +59,17 @@ pub fn ProfileScreen() -> Element {
                                 // Email
                                 div { class: "flex items-start gap-4",
                                     div { class: "w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0",
-                                        Icon { icon: LdMail, class: "w-6 h-6 text-primary" }
+                                        Icon { icon: LdMail, class: "w-6 h-6" }
                                     }
                                     div { class: "flex-1",
-                                        p { class: "text-sm text-muted-foreground mb-1", "Email" }
+                                        p { class: "text-sm mb-1", "Email" }
                                         p { class: "text-lg font-medium", "{user.email}" }
                                         if user.is_verified {
-                                            span { class: "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400 mt-1",
+                                            span { class: "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 mt-1",
                                                 "✓ Verified"
                                             }
                                         } else {
-                                            span { class: "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 mt-1",
+                                            span { class: "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 mt-1",
                                                 "⚠ Not verified"
                                             }
                                         }
@@ -110,7 +110,7 @@ pub fn ProfileScreen() -> Element {
 
         rsx! {
             div { class: "min-h-screen bg-background flex items-center justify-center",
-                div { class: "text-muted-foreground", "Redirecting to login..." }
+                div { "Redirecting to login..." }
             }
         }
     }

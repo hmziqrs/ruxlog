@@ -25,7 +25,7 @@ pub fn ProfileEditScreen() -> Element {
 
         return rsx! {
             div { class: "min-h-screen bg-background flex items-center justify-center",
-                div { class: "text-muted-foreground", "Redirecting to login..." }
+                div { "Redirecting to login..." }
             }
         };
     }
@@ -90,30 +90,30 @@ pub fn ProfileEditScreen() -> Element {
     };
 
     rsx! {
-        div { class: "min-h-screen bg-background text-foreground",
+        div { class: "min-h-screen bg-background",
             div { class: "container mx-auto px-4 py-12 max-w-2xl",
                 // Header
                 div { class: "mb-8",
                     button {
                         onclick: move |_| { nav.push(crate::router::Route::ProfileScreen {}); },
-                        class: "text-primary hover:underline mb-4",
+                        class: "hover:underline mb-4",
                         "← Back to profile"
                     }
                     h1 { class: "text-3xl font-bold mb-2", "Edit Profile" }
-                    p { class: "text-muted-foreground", "Update your account information" }
+                    p { "Update your account information" }
                 }
 
                 div { class: "space-y-6",
                     // Success message
                     if let Some(msg) = success_message() {
-                        div { class: "p-4 rounded-lg bg-green-500/10 border border-green-500/50 text-green-600 dark:text-green-400",
+                        div { class: "p-4 rounded-lg bg-green-500/10 border border-green-500/50",
                             "{msg}"
                         }
                     }
 
                     // Validation error
                     if let Some(error) = validation_error() {
-                        div { class: "p-4 rounded-lg bg-destructive/10 border border-destructive/50 text-destructive",
+                        div { class: "p-4 rounded-lg bg-destructive/10 border border-destructive/50",
                             "{error}"
                         }
                     }
@@ -181,7 +181,7 @@ pub fn ProfileEditScreen() -> Element {
                                         value: new_password(),
                                         oninput: move |value| new_password.set(value),
                                     }
-                                    p { class: "text-xs text-muted-foreground", "Must be at least 8 characters" }
+                                    p { class: "text-xs", "Must be at least 8 characters" }
                                 }
 
                                 div { class: "space-y-2",

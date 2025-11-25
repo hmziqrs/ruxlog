@@ -31,12 +31,12 @@ pub fn TagCard(props: TagCardProps) -> Element {
                     }
                 }
 
-                h3 { class: "text-lg font-semibold mb-2 leading-snug group-hover:text-primary transition-colors",
+                h3 { class: "text-lg font-semibold mb-2 leading-snug",
                     "{tag.name}"
                 }
 
                 if let Some(description) = &tag.description {
-                    p { class: "text-muted-foreground text-sm leading-relaxed line-clamp-2",
+                    p { class: "text-sm leading-relaxed line-clamp-2",
                         "{description}"
                     }
                 }

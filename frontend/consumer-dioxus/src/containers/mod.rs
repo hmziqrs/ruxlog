@@ -46,7 +46,7 @@ pub fn NavBarContainer() -> Element {
                         Link {
                             to: Route::HomeScreen {},
                             class: "flex items-center gap-2 font-bold text-xl",
-                            span { class: "text-primary", "Ruxlog" }
+                            span { "Ruxlog" }
                         }
                         div { class: "flex items-center gap-3 ml-auto",
                             a {
@@ -73,7 +73,7 @@ pub fn NavBarContainer() -> Element {
                                 Link {
                                     to: Route::ProfileScreen {},
                                     class: "flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors",
-                                    div { class: "w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm",
+                                    div { class: "w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center font-semibold text-sm",
                                         "{user.name.chars().next().unwrap_or('U').to_uppercase()}"
                                     }
                                     span { class: "hidden md:block text-sm font-medium", "{user.name}" }
@@ -103,37 +103,37 @@ pub fn NavBarContainer() -> Element {
                             div { class: "flex flex-wrap items-center justify-center gap-x-6 gap-y-3 md:justify-end",
                                 Link {
                                     to: Route::AboutScreen {},
-                                    class: "text-sm text-muted-foreground hover:text-foreground transition-colors",
+                                    class: "text-sm hover:underline",
                                     "About"
                                 }
                                 Link {
                                     to: Route::ContactScreen {},
-                                    class: "text-sm text-muted-foreground hover:text-foreground transition-colors",
+                                    class: "text-sm hover:underline",
                                     "Contact"
                                 }
                                 Link {
                                     to: Route::TagsScreen {},
-                                    class: "text-sm text-muted-foreground hover:text-foreground transition-colors",
+                                    class: "text-sm hover:underline",
                                     "Tags"
                                 }
                                 Link {
                                     to: Route::CategoriesScreen {},
-                                    class: "text-sm text-muted-foreground hover:text-foreground transition-colors",
+                                    class: "text-sm hover:underline",
                                     "Categories"
                                 }
                                 Link {
                                     to: Route::PrivacyPolicyScreen {},
-                                    class: "text-sm text-muted-foreground hover:text-foreground transition-colors",
+                                    class: "text-sm hover:underline",
                                     "Privacy Policy"
                                 }
                                 Link {
                                     to: Route::TermsScreen {},
-                                    class: "text-sm text-muted-foreground hover:text-foreground transition-colors",
+                                    class: "text-sm hover:underline",
                                     "Terms"
                                 }
                                 Link {
                                     to: Route::AdvertiseScreen {},
-                                    class: "text-sm text-muted-foreground hover:text-foreground transition-colors",
+                                    class: "text-sm hover:underline",
                                     "Advertise"
                                 }
                             }
@@ -144,7 +144,7 @@ pub fn NavBarContainer() -> Element {
                                     href: "https://twitter.com",
                                     target: "_blank",
                                     rel: "noopener noreferrer",
-                                    class: "p-2 rounded-lg hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground",
+                                    class: "p-2 rounded-lg hover:bg-muted/50 transition-colors",
                                     aria_label: "Twitter",
                                     Icon { icon: LdTwitter, class: "w-5 h-5" }
                                 }
@@ -152,7 +152,7 @@ pub fn NavBarContainer() -> Element {
                                     href: "https://github.com",
                                     target: "_blank",
                                     rel: "noopener noreferrer",
-                                    class: "p-2 rounded-lg hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground",
+                                    class: "p-2 rounded-lg hover:bg-muted/50 transition-colors",
                                     aria_label: "GitHub",
                                     Icon { icon: LdGithub, class: "w-5 h-5" }
                                 }
@@ -160,7 +160,7 @@ pub fn NavBarContainer() -> Element {
                                     href: "https://linkedin.com",
                                     target: "_blank",
                                     rel: "noopener noreferrer",
-                                    class: "p-2 rounded-lg hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground",
+                                    class: "p-2 rounded-lg hover:bg-muted/50 transition-colors",
                                     aria_label: "LinkedIn",
                                     Icon { icon: LdLinkedin, class: "w-5 h-5" }
                                 }
@@ -169,18 +169,18 @@ pub fn NavBarContainer() -> Element {
 
                         div { class: "flex flex-col items-center gap-2 text-center md:items-start md:text-left md:order-1",
                             // Powered by slot for ad messaging
-                            div { class: "text-sm text-muted-foreground",
+                            div { class: "text-sm",
                                 "Powered by \"Your brand\""
                             }
 
                             // Built with message (external links - keep as <a> tags)
-                            div { class: "text-sm text-muted-foreground",
+                            div { class: "text-sm",
                                 "Built from scratch with "
                                 a {
                                     href: "https://dioxuslabs.com",
                                     target: "_blank",
                                     rel: "noopener noreferrer",
-                                    class: "text-primary hover:underline",
+                                    class: "hover:underline",
                                     "Dioxus"
                                 }
                                 " by "
@@ -188,13 +188,13 @@ pub fn NavBarContainer() -> Element {
                                     href: "https://hmziq.rs",
                                     target: "_blank",
                                     rel: "noopener noreferrer",
-                                    class: "text-primary hover:underline",
+                                    class: "hover:underline",
                                     "hmziqrs"
                                 }
                             }
 
                             // Copyright
-                            div { class: "text-sm text-muted-foreground",
+                            div { class: "text-sm",
                                 "© 2024 Ruxlog. All rights reserved."
                             }
                         }

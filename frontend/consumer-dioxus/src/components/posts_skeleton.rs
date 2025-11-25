@@ -8,10 +8,10 @@ pub fn PostsEmptyState() -> Element {
     rsx! {
         div { class: "flex flex-col items-center justify-center py-24 text-center",
             div { class: "w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mb-6",
-                Icon { icon: LdBookOpen, class: "w-10 h-10 text-primary" }
+                Icon { icon: LdBookOpen, class: "w-10 h-10" }
             }
             h3 { class: "text-2xl font-bold mb-3", "No posts yet" }
-            p { class: "text-muted-foreground max-w-md text-lg",
+            p { class: "max-w-md text-lg",
                 "The first article is on its way. Check back soon."
             }
         }

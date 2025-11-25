@@ -59,10 +59,10 @@ pub fn CommentsSection(props: CommentsSectionProps) -> Element {
         section { class: "pt-8 border-t border-border",
             // Header
             div { class: "flex items-center gap-3 mb-6",
-                Icon { icon: LdMessageCircle, class: "w-5 h-5 text-foreground" }
+                Icon { icon: LdMessageCircle, class: "w-5 h-5" }
                 h2 { class: "text-xl font-semibold", "Comments" }
                 if let Some(data) = &(*comments_frame).data {
-                    span { class: "text-muted-foreground", "({data.data.len()})" }
+                    span { "({data.data.len()})" }
                 }
             }
 
@@ -70,11 +70,11 @@ pub fn CommentsSection(props: CommentsSectionProps) -> Element {
             if is_logged_in {
                 div { class: "mb-8",
                     if reply_to().is_some() {
-                        div { class: "flex items-center gap-2 mb-2 text-sm text-muted-foreground",
+                        div { class: "flex items-center gap-2 mb-2 text-sm",
                             Icon { icon: LdCornerDownRight, class: "w-4 h-4" }
                             span { "Replying to comment" }
                             button {
-                                class: "text-primary hover:underline",
+                                class: "hover:underline",
                                 onclick: move |_| reply_to.set(None),
                                 "Cancel"
                             }
@@ -84,7 +84,7 @@ pub fn CommentsSection(props: CommentsSectionProps) -> Element {
                     div { class: "flex gap-3",
                         // Avatar
                         div { class: "flex-shrink-0",
-                            div { class: "w-10 h-10 rounded-full bg-muted flex items-center justify-center text-foreground font-medium",
+                            div { class: "w-10 h-10 rounded-full bg-muted flex items-center justify-center font-medium",
                                 if let Some(user) = &*current_user {
                                     "{user.name.chars().next().unwrap_or('U').to_uppercase()}"
                                 } else {
@@ -96,7 +96,7 @@ pub fn CommentsSection(props: CommentsSectionProps) -> Element {
                         // Input
                         div { class: "flex-1",
                             textarea {
-                                class: "w-full px-4 py-3 rounded-lg border border-border bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary resize-none min-h-[100px]",
+                                class: "w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary resize-none min-h-[100px]",
                                 placeholder: "Share your thoughts...",
                                 value: "{new_comment}",
                                 oninput: move |e| new_comment.set(e.value()),
@@ -114,7 +114,7 @@ pub fn CommentsSection(props: CommentsSectionProps) -> Element {
 
                             div { class: "flex justify-end mt-3",
                                 button {
-                                    class: "flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                                    class: "flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
                                     disabled: new_comment().trim().is_empty() || (*add_frame).is_loading(),
                                     onclick: handle_submit,
                                     if (*add_frame).is_loading() {
@@ -131,9 +131,9 @@ pub fn CommentsSection(props: CommentsSectionProps) -> Element {
                 }
             } else {
                 div { class: "mb-8 py-4 text-center",
-                    p { class: "text-muted-foreground",
+                    p {
                         "Please "
-                        a { class: "text-primary hover:underline", href: "/auth/login", "sign in" }
+                        a { class: "hover:underline", href: "/auth/login", "sign in" }
                         " to leave a comment."
                     }
                 }
@@ -152,8 +152,8 @@ pub fn CommentsSection(props: CommentsSectionProps) -> Element {
             } else if let Some(data) = &(*comments_frame).data {
                 if data.data.is_empty() {
                     div { class: "text-center py-12",
-                        Icon { icon: LdMessageCircle, class: "w-8 h-8 text-muted-foreground mx-auto mb-4" }
-                        p { class: "text-muted-foreground", "No comments yet. Be the first to share your thoughts!" }
+                        Icon { icon: LdMessageCircle, class: "w-8 h-8 mx-auto mb-4" }
+                        p { "No comments yet. Be the first to share your thoughts!" }
                     }
                 } else {
                     div { class: "space-y-6",
@@ -191,7 +191,7 @@ fn CommentItem(props: CommentItemProps) -> Element {
         div { class: "flex gap-3",
             // Avatar
             div { class: "flex-shrink-0",
-                div { class: "w-10 h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground font-semibold",
+                div { class: "w-10 h-10 rounded-full bg-muted flex items-center justify-center font-semibold",
                     "{author_initial}"
                 }
             }
@@ -199,11 +199,11 @@ fn CommentItem(props: CommentItemProps) -> Element {
             // Content
             div { class: "flex-1 min-w-0",
                 div { class: "flex items-center gap-2 mb-1",
-                    span { class: "font-semibold text-foreground", "{author_name}" }
-                    span { class: "text-xs text-muted-foreground", "{created_at}" }
+                    span { class: "font-semibold", "{author_name}" }
+                    span { class: "text-xs", "{created_at}" }
                 }
 
-                p { class: "text-foreground leading-relaxed whitespace-pre-wrap break-words",
+                p { class: "leading-relaxed whitespace-pre-wrap break-words",
                     "{comment.content}"
                 }
 
@@ -211,14 +211,14 @@ fn CommentItem(props: CommentItemProps) -> Element {
                 div { class: "flex items-center gap-4 mt-2",
                     if props.is_logged_in {
                         button {
-                            class: "flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors",
+                            class: "flex items-center gap-1.5 text-xs",
                             onclick: move |_| props.on_reply.call(comment_id),
                             Icon { icon: LdCornerDownRight, class: "w-3.5 h-3.5" }
                             "Reply"
                         }
 
                         button {
-                            class: "flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors",
+                            class: "flex items-center gap-1.5 text-xs",
                             Icon { icon: LdFlag, class: "w-3.5 h-3.5" }
                             "Report"
                         }

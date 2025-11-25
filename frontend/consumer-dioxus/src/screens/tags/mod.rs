@@ -27,7 +27,7 @@ pub fn TagsScreen() -> Element {
     };
 
     rsx! {
-        div { class: "min-h-screen bg-background text-foreground",
+        div { class: "min-h-screen bg-background",
             div { class: "container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-6xl",
                 if (*tags_frame).is_loading() {
                     div { class: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6",
@@ -47,7 +47,7 @@ pub fn TagsScreen() -> Element {
                 } else if let Some(data) = &(*tags_frame).data {
                     if data.data.is_empty() {
                         div { class: "flex items-center justify-center py-20",
-                            div { class: "text-muted-foreground", "No tags found" }
+                            div { "No tags found" }
                         }
                     } else {
                         div { class: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6",
@@ -62,7 +62,7 @@ pub fn TagsScreen() -> Element {
                     }
                 } else {
                     div { class: "flex items-center justify-center py-20",
-                        div { class: "text-muted-foreground", "No content available" }
+                        div { "No content available" }
                     }
                 }
             }

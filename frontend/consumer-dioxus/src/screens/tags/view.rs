@@ -51,7 +51,7 @@ pub fn TagDetailScreen(slug: String) -> Element {
     };
 
     rsx! {
-        div { class: "min-h-screen bg-background text-foreground",
+        div { class: "min-h-screen bg-background",
             div { class: "container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-6xl",
                 if (*posts_frame).is_loading() {
                     PostsLoadingSkeleton {}
@@ -67,7 +67,7 @@ pub fn TagDetailScreen(slug: String) -> Element {
                 } else if let Some(data) = &(*posts_frame).data {
                     if data.data.is_empty() {
                         div { class: "flex items-center justify-center py-20",
-                            div { class: "text-muted-foreground", "No posts found" }
+                            div { "No posts found" }
                         }
                     } else {
                         div { class: "grid md:grid-cols-2 lg:grid-cols-3 gap-6",
@@ -82,7 +82,7 @@ pub fn TagDetailScreen(slug: String) -> Element {
                     }
                 } else {
                     div { class: "flex items-center justify-center py-20",
-                        div { class: "text-muted-foreground", "No content available" }
+                        div { "No content available" }
                     }
                 }
             }

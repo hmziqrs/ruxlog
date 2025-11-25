@@ -23,7 +23,7 @@ pub fn HomeScreen() -> Element {
     };
 
     rsx! {
-        div { class: "min-h-screen bg-background text-foreground",
+        div { class: "min-h-screen bg-background",
             div { class: "container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-6xl",
                 if (*posts_frame).is_loading() {
                     PostsLoadingSkeleton {}
@@ -65,7 +65,7 @@ pub fn HomeScreen() -> Element {
                     }
                 } else {
                     div { class: "flex items-center justify-center py-20",
-                        div { class: "text-muted-foreground", "No content available" }
+                        div { "No content available" }
                     }
                 }
             }
