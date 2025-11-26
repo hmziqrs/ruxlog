@@ -96,55 +96,66 @@ pub fn NavBarContainer() -> Element {
 
             // Footer
             footer { class: "border-t border-border/60 mt-auto",
-                div { class: "container mx-auto px-4 py-6",
-                    div { class: "flex flex-col gap-5 md:flex-row md:items-start md:justify-between",
-                        div { class: "flex flex-col items-center gap-4 md:items-end md:order-2",
-                            // Navigation links - use Dioxus Link for client-side navigation
-                            div { class: "flex flex-wrap items-center justify-center gap-x-6 gap-y-3 md:justify-end",
-                                Link {
-                                    to: Route::AboutScreen {},
-                                    class: "text-sm hover:underline",
-                                    "About"
+                div { class: "container mx-auto px-4 py-8 md:py-12",
+                    div { class: "flex flex-col gap-8 md:flex-row md:items-start md:justify-between",
+                        div { class: "flex flex-col items-center gap-6 md:items-end md:order-2",
+                            // Navigation link groups
+                            div { class: "flex flex-col gap-4 md:flex-row md:gap-8",
+                                // Discover group
+                                div { class: "flex flex-col items-center gap-2 md:items-start",
+                                    Link {
+                                        to: Route::TagsScreen {},
+                                        class: "text-sm text-foreground/80 hover:text-foreground hover:underline transition-colors",
+                                        "Tags"
+                                    }
+                                    Link {
+                                        to: Route::CategoriesScreen {},
+                                        class: "text-sm text-foreground/80 hover:text-foreground hover:underline transition-colors",
+                                        "Categories"
+                                    }
                                 }
-                                Link {
-                                    to: Route::ContactScreen {},
-                                    class: "text-sm hover:underline",
-                                    "Contact"
+
+                                // Company group
+                                div { class: "flex flex-col items-center gap-2 md:items-start",
+                                    Link {
+                                        to: Route::AboutScreen {},
+                                        class: "text-sm text-foreground/80 hover:text-foreground hover:underline transition-colors",
+                                        "About"
+                                    }
+                                    Link {
+                                        to: Route::ContactScreen {},
+                                        class: "text-sm text-foreground/80 hover:text-foreground hover:underline transition-colors",
+                                        "Contact"
+                                    }
+                                    Link {
+                                        to: Route::AdvertiseScreen {},
+                                        class: "text-sm text-foreground/80 hover:text-foreground hover:underline transition-colors",
+                                        "Advertise"
+                                    }
                                 }
-                                Link {
-                                    to: Route::TagsScreen {},
-                                    class: "text-sm hover:underline",
-                                    "Tags"
-                                }
-                                Link {
-                                    to: Route::CategoriesScreen {},
-                                    class: "text-sm hover:underline",
-                                    "Categories"
-                                }
-                                Link {
-                                    to: Route::PrivacyPolicyScreen {},
-                                    class: "text-sm hover:underline",
-                                    "Privacy Policy"
-                                }
-                                Link {
-                                    to: Route::TermsScreen {},
-                                    class: "text-sm hover:underline",
-                                    "Terms"
-                                }
-                                Link {
-                                    to: Route::AdvertiseScreen {},
-                                    class: "text-sm hover:underline",
-                                    "Advertise"
+
+                                // Legal group
+                                div { class: "flex flex-col items-center gap-2 md:items-start",
+                                    Link {
+                                        to: Route::PrivacyPolicyScreen {},
+                                        class: "text-sm text-foreground/80 hover:text-foreground hover:underline transition-colors",
+                                        "Privacy Policy"
+                                    }
+                                    Link {
+                                        to: Route::TermsScreen {},
+                                        class: "text-sm text-foreground/80 hover:text-foreground hover:underline transition-colors",
+                                        "Terms"
+                                    }
                                 }
                             }
 
                             // Social icons (external links - keep as <a> tags)
-                            div { class: "flex items-center gap-4",
+                            div { class: "flex items-center gap-3 pt-2",
                                 a {
                                     href: "https://twitter.com",
                                     target: "_blank",
                                     rel: "noopener noreferrer",
-                                    class: "p-2 rounded-lg hover:bg-muted/50 transition-colors",
+                                    class: "p-2 rounded-lg hover:bg-muted/50 transition-all opacity-70 hover:opacity-100",
                                     aria_label: "Twitter",
                                     Icon { icon: LdTwitter, class: "w-5 h-5" }
                                 }
@@ -152,7 +163,7 @@ pub fn NavBarContainer() -> Element {
                                     href: "https://github.com",
                                     target: "_blank",
                                     rel: "noopener noreferrer",
-                                    class: "p-2 rounded-lg hover:bg-muted/50 transition-colors",
+                                    class: "p-2 rounded-lg hover:bg-muted/50 transition-all opacity-70 hover:opacity-100",
                                     aria_label: "GitHub",
                                     Icon { icon: LdGithub, class: "w-5 h-5" }
                                 }
@@ -160,21 +171,21 @@ pub fn NavBarContainer() -> Element {
                                     href: "https://linkedin.com",
                                     target: "_blank",
                                     rel: "noopener noreferrer",
-                                    class: "p-2 rounded-lg hover:bg-muted/50 transition-colors",
+                                    class: "p-2 rounded-lg hover:bg-muted/50 transition-all opacity-70 hover:opacity-100",
                                     aria_label: "LinkedIn",
                                     Icon { icon: LdLinkedin, class: "w-5 h-5" }
                                 }
                             }
                         }
 
-                        div { class: "flex flex-col items-center gap-2 text-center md:items-start md:text-left md:order-1",
+                        div { class: "flex flex-col items-center gap-3 text-center md:items-start md:text-left md:order-1",
                             // Powered by slot for ad messaging
-                            div { class: "text-sm",
+                            div { class: "text-sm text-muted-foreground",
                                 "Powered by \"Your brand\""
                             }
 
                             // Built with message (external links - keep as <a> tags)
-                            div { class: "text-sm",
+                            div { class: "text-sm text-muted-foreground",
                                 "Built from scratch with "
                                 a {
                                     href: "https://dioxuslabs.com",
@@ -194,7 +205,7 @@ pub fn NavBarContainer() -> Element {
                             }
 
                             // Copyright
-                            div { class: "text-sm",
+                            div { class: "text-sm text-muted-foreground",
                                 "© 2024 Ruxlog. All rights reserved."
                             }
                         }

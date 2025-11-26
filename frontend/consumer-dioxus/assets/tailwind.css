@@ -1560,6 +1560,9 @@
   .gap-6 {
     gap: calc(0.25rem * 6);
   }
+  .gap-8 {
+    gap: calc(0.25rem * 8);
+  }
   .space-y-1 {
     :where(& > :not(:last-child)) {
       --tw-space-y-reverse: 0;
@@ -3984,6 +3987,16 @@
   .md\:justify-end {
     @media (width >= 48rem) {
       justify-content: flex-end;
+    }
+  }
+  .md\:gap-8 {
+    @media (width >= 48rem) {
+      gap: calc(0.25rem * 8);
+    }
+  }
+  .md\:gap-12 {
+    @media (width >= 48rem) {
+      gap: calc(0.25rem * 12);
     }
   }
   .md\:p-8 {
