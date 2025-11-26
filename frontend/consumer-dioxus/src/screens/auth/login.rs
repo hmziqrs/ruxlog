@@ -34,7 +34,7 @@ pub fn LoginScreen() -> Element {
                             alt: "Logo",
                         }
                     }
-                    h1 { class: "text-3xl font-extrabold text-center text-zinc-800 dark:text-zinc-100 tracking-tight transition-colors duration-300",
+                    h1 { class: "text-3xl font-extrabold text-center tracking-tight",
                         "Consumer Login"
                     }
                     form { class: "space-y-5",
@@ -61,9 +61,9 @@ pub fn LoginScreen() -> Element {
                                 class: "mb-2",
                             }
                         }
-                        div { class: "flex justify-end text-xs text-zinc-600 dark:text-zinc-400 transition-colors duration-300",
+                        div { class: "flex justify-end text-xs",
                             a {
-                                class: "hover:underline text-zinc-700 dark:text-zinc-300 font-medium hover:text-zinc-900 dark:hover:text-white transition-colors duration-150",
+                                class: "hover:underline font-medium",
                                 href: "#",
                                 "Forgot password?"
                             }
@@ -92,11 +92,11 @@ pub fn LoginScreen() -> Element {
                             span { "Login" }
                         }
                     }
-                    p { class: "text-sm text-center text-zinc-600 dark:text-zinc-400 mt-4 transition-colors duration-300",
+                    p { class: "text-sm text-center mt-4",
                         "Don't have an account? "
                         Link {
                             to: Route::RegisterScreen {},
-                            class: "text-zinc-700 dark:text-zinc-300 font-semibold hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors duration-150",
+                            class: "font-semibold hover:underline",
                             "Sign up"
                         }
                     }

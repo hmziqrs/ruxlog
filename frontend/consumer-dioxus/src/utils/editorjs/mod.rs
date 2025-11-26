@@ -34,7 +34,7 @@ fn render_paragraph_block(block: &EditorJsBlock) -> Element {
             .replace("&amp;", "&");
 
         rsx! {
-            p { class: "mb-4 leading-7 text-foreground/90", dangerous_inner_html: "{text}" }
+            p { class: "mb-4 leading-7", dangerous_inner_html: "{text}" }
         }
     } else {
         rsx! {}
@@ -70,7 +70,7 @@ fn render_quote_block(block: &EditorJsBlock) -> Element {
             blockquote { class: "my-6 pl-6 border-l-4 border-primary/30 italic text-lg",
                 p { class: "mb-2 {alignment}", "{text}" }
                 if let Some(caption) = caption {
-                    footer { class: "text-sm text-muted-foreground not-italic {alignment}", "— {caption}" }
+                    footer { class: "text-sm not-italic {alignment}", "— {caption}" }
                 }
             }
         }
@@ -119,7 +119,7 @@ fn render_image_block(block: &EditorJsBlock) -> Element {
                     class: "w-full h-auto rounded-lg shadow-md"
                 }
                 if let Some(ref caption) = data.caption {
-                    figcaption { class: "mt-3 text-sm text-center text-muted-foreground italic", "{caption}" }
+                    figcaption { class: "mt-3 text-sm text-center italic", "{caption}" }
                 }
             }
         }
@@ -142,7 +142,7 @@ fn render_delimiter_block(_block: &EditorJsBlock) -> Element {
 
 pub fn render_editorjs_content(content: &PostContent) -> Element {
     rsx! {
-        div { class: "prose prose-neutral dark:prose-invert max-w-none",
+        div { class: "prose max-w-none",
             for block in &content.blocks {
                 match block {
                     EditorJsBlock::Header { .. } => render_header_block(block),

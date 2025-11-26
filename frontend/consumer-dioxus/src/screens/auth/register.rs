@@ -46,7 +46,7 @@ pub fn RegisterScreen() -> Element {
                             alt: "Logo",
                         }
                     }
-                    h1 { class: "text-3xl font-extrabold text-center text-zinc-800 dark:text-zinc-100 tracking-tight transition-colors duration-300",
+                    h1 { class: "text-3xl font-extrabold text-center tracking-tight",
                         "Create Account"
                     }
                     form { class: "space-y-5",
@@ -83,7 +83,7 @@ pub fn RegisterScreen() -> Element {
 
                         // Password match error
                         if let Some(error) = password_match_error() {
-                            div { class: "p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-red-600 dark:text-red-400 text-sm",
+                            div { class: "p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-sm",
                                 "{error}"
                             }
                         }
@@ -145,11 +145,11 @@ pub fn RegisterScreen() -> Element {
                             }
                         }
                     }
-                    p { class: "text-sm text-center text-zinc-600 dark:text-zinc-400 mt-4 transition-colors duration-300",
+                    p { class: "text-sm text-center mt-4",
                         "Already have an account? "
                         Link {
                             to: Route::LoginScreen {},
-                            class: "text-zinc-700 dark:text-zinc-300 font-semibold hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors duration-150",
+                            class: "font-semibold hover:underline",
                             "Sign in"
                         }
                     }

@@ -112,14 +112,14 @@ pub fn PostViewScreen(id: i32) -> Element {
         };
 
         rsx! {
-            div { class: "min-h-screen bg-background text-foreground",
+            div { class: "min-h-screen bg-background",
                 // Article header
                 header { class: "container mx-auto px-4 max-w-4xl pt-12 pb-8",
                     // Category & Tags
                     div { class: "flex flex-wrap items-center gap-3 mb-6",
                         // Category (with border)
                         button {
-                            class: "px-2.5 py-1 text-xs font-medium border border-border rounded-md text-foreground hover:bg-accent transition-colors",
+                            class: "px-2.5 py-1 text-xs font-medium border border-border rounded-md hover:bg-accent transition-colors",
                             onclick: move |_| {
                                 nav.push(crate::router::Route::CategoryDetailScreen {
                                     slug: post.category.slug.clone(),
@@ -136,7 +136,7 @@ pub fn PostViewScreen(id: i32) -> Element {
                                     let tag_name = tag.name.clone();
                                     rsx! {
                                         button {
-                                            class: "text-sm text-muted-foreground hover:text-primary transition-colors",
+                                            class: "text-sm hover:underline",
                                             onclick: move |_| {
                                                 nav.push(crate::router::Route::TagDetailScreen {
                                                     slug: tag_slug.clone(),
@@ -157,19 +157,19 @@ pub fn PostViewScreen(id: i32) -> Element {
 
                     // Excerpt
                     if let Some(excerpt) = &post.excerpt {
-                        p { class: "text-lg text-muted-foreground leading-relaxed mb-8",
+                        p { class: "text-lg leading-relaxed mb-8",
                             "{excerpt}"
                         }
                     }
 
                     // Author & Meta
-                    div { class: "flex flex-wrap items-center gap-4 text-sm text-muted-foreground",
+                    div { class: "flex flex-wrap items-center gap-4 text-sm",
                         // Author
                         div { class: "flex items-center gap-2",
-                            div { class: "w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-foreground",
+                            div { class: "w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium",
                                 "{post.author.name.chars().next().unwrap_or('U').to_uppercase()}"
                             }
-                            span { class: "font-medium text-foreground", "{post.author.name}" }
+                            span { class: "font-medium", "{post.author.name}" }
                         }
 
                         span { "·" }
@@ -204,17 +204,16 @@ pub fn PostViewScreen(id: i32) -> Element {
                 // Main content
                 article { class: "container mx-auto px-4 max-w-4xl",
                     // Prose content
-                    div { class: "prose prose-lg prose-neutral dark:prose-invert max-w-none
+                    div { class: "prose prose-lg max-w-none
                         prose-headings:font-bold prose-headings:tracking-tight
                         prose-h2:text-2xl prose-h2:mt-10 prose-h2:mb-4
                         prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-3
-                        prose-p:leading-relaxed prose-p:text-muted-foreground
-                        prose-a:text-primary prose-a:no-underline hover:prose-a:underline
+                        prose-p:leading-relaxed
+                        prose-a:no-underline hover:prose-a:underline
                         prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
                         prose-pre:bg-muted prose-pre:border prose-pre:border-border
                         prose-img:rounded-lg
                         prose-blockquote:border-l-primary prose-blockquote:pl-4 prose-blockquote:italic
-                        prose-li:text-muted-foreground
                         mb-12",
                         {render_editorjs_content(&post.content)}
                     }
@@ -236,17 +235,17 @@ pub fn PostViewScreen(id: i32) -> Element {
                     // Author section
                     div { class: "mb-12",
                         div { class: "flex items-start gap-4",
-                            div { class: "w-14 h-14 rounded-full bg-muted flex items-center justify-center text-xl font-semibold text-foreground flex-shrink-0",
+                            div { class: "w-14 h-14 rounded-full bg-muted flex items-center justify-center text-xl font-semibold flex-shrink-0",
                                 "{post.author.name.chars().next().unwrap_or('U').to_uppercase()}"
                             }
                             div {
-                                div { class: "text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1",
+                                div { class: "text-xs font-medium uppercase tracking-wider mb-1",
                                     "Written by"
                                 }
-                                div { class: "text-lg font-semibold text-foreground mb-2",
+                                div { class: "text-lg font-semibold mb-2",
                                     "{post.author.name}"
                                 }
-                                p { class: "text-sm text-muted-foreground leading-relaxed",
+                                p { class: "text-sm leading-relaxed",
                                     "Thanks for reading! If you found this article helpful, consider sharing it with others."
                                 }
                             }
@@ -262,7 +261,7 @@ pub fn PostViewScreen(id: i32) -> Element {
                 // Back button
                 div { class: "container mx-auto px-4 max-w-4xl pb-16 pt-4",
                     button {
-                        class: "flex items-center gap-2 mx-auto text-muted-foreground hover:text-foreground transition-colors group",
+                        class: "flex items-center gap-2 mx-auto group",
                         onclick: move |_| {
                             nav.push(crate::router::Route::HomeScreen {
                             });
@@ -279,7 +278,7 @@ pub fn PostViewScreen(id: i32) -> Element {
     } else {
         // Loading state
         rsx! {
-            div { class: "min-h-screen bg-background text-foreground",
+            div { class: "min-h-screen bg-background",
                 div { class: "container mx-auto px-4 max-w-4xl pt-12 pb-12",
                     // Skeleton tags
                     div { class: "flex gap-2 mb-6",
