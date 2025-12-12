@@ -1,0 +1,12 @@
+{
+  "rust-analyzer.linkedProjects": [
+    "backend/api/Cargo.toml",
+    "frontend/admin-dioxus/Cargo.toml",
+    "frontend/consumer-dioxus/Cargo.toml",
+    "frontend/ruxlog-shared/Cargo.toml",
+    "frontend/oxcore/Cargo.toml",
+    "frontend/oxform/Cargo.toml",
+    "frontend/oxstore/Cargo.toml",
+    "frontend/oxui/Cargo.toml"
+  ]
+}
