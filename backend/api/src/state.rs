@@ -1,4 +1,3 @@
-use crate::services::supabase::SupabaseClient;
 use lettre;
 use opentelemetry::metrics::Meter;
 use sea_orm::DatabaseConnection;
@@ -33,5 +32,4 @@ pub struct AppState {
     pub s3_client: aws_sdk_s3::Client,
     pub optimizer: OptimizerConfig,
     pub meter: Meter,
-    pub supabase: SupabaseClient,
 }

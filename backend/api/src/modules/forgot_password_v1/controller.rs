@@ -9,7 +9,7 @@ use crate::{
     db::sea_models::{forgot_password, user},
     error::{ErrorCode, ErrorResponse},
     extractors::ValidatedJson,
-    services::abuse_limiter,
+    services::{abuse_limiter, mail::send_forgot_password_email},
     AppState,
 };
 
@@ -42,9 +42,9 @@ pub async fn generate(
         }
     }
 
-    // Verify user exists
-    match user::Entity::find_by_email(&state.sea_db, payload.email.clone()).await {
-        Ok(Some(_)) => (),
+    let pool = &state.sea_db;
+    let user = match user::Entity::find_by_email(pool, payload.email.clone()).await {
+        Ok(Some(user)) => user,
         Ok(None) => {
             warn!("Forgot password requested for non-existent email");
             return Err(
@@ -55,25 +55,42 @@ pub async fn generate(
             error!("Database error finding user: {}", err);
             return Err(err.into());
         }
+    };
+    let user_id = user.id;
+
+    match forgot_password::Entity::find_query(pool, Some(user_id), None, None).await {
+        Ok(verification) => {
+            if verification.is_in_delay() {
+                warn!(user_id, "Forgot password in delay period");
+                return Err(ErrorResponse::new(ErrorCode::TooManyAttempts).with_message(
+                    "You have already requested a verification code. Please try again after 1 minute",
+                ));
+            }
+        }
+        Err(err) => {
+            if err.code != ErrorCode::InvalidInput {
+                error!(user_id, "Error checking forgot password delay: {}", err);
+                return Err(err.into());
+            }
+        }
     }
 
-    // Send recovery email via Supabase
-    match state.supabase.send_recovery_email(&payload.email).await {
-        Ok(_) => {
-            info!(email = %payload.email, "Recovery email sent");
-            Ok((
-                StatusCode::OK,
-                Json(json!({
-                    "message": "Verification code sent to your email successfully",
-                })),
-            ))
-        }
-        Err(e) => {
-            error!(email = %payload.email, "Supabase recovery email failed: {}", e);
-            Err(ErrorResponse::new(ErrorCode::ExternalServiceError)
-                .with_message("Failed to send recovery email"))
-        }
+    let result = forgot_password::Entity::regenerate(pool, user_id).await?;
+    let code = result.code;
+    if let Err(err) = send_forgot_password_email(&state.mailer, &payload.email, &code).await {
+        error!(user_id, email = %payload.email, "Failed to send forgot password email: {}", err);
+        return Err(ErrorResponse::new(ErrorCode::ExternalServiceError)
+            .with_message("Failed to send verification code")
+            .with_details(err));
     }
+
+    info!(user_id, email = %payload.email, "Recovery email sent");
+    Ok((
+        StatusCode::OK,
+        Json(json!({
+            "message": "Verification code sent to your email successfully",
+        })),
+    ))
 }
 
 #[debug_handler]
@@ -82,27 +99,35 @@ pub async fn verify(
     state: State<AppState>,
     payload: ValidatedJson<V1VerifyPayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    // Verify OTP with Supabase
-    match state
-        .supabase
-        .verify_otp(&payload.email, &payload.code, "recovery")
-        .await
-    {
-        Ok(_) => {
-            info!(email = %payload.email, "Forgot password code verified");
-            Ok((
-                StatusCode::OK,
-                Json(json!({
-                    "message": "code verified successfully",
-                })),
-            ))
+    let result = forgot_password::Entity::find_query(
+        &state.sea_db,
+        None,
+        Some(&payload.email),
+        Some(&payload.code),
+    )
+    .await;
+
+    match result {
+        Ok(verification) => {
+            if verification.is_expired() {
+                warn!(email = %payload.email, "Forgot password code expired");
+                return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                    .with_message("The verification code has expired"));
+            }
         }
-        Err(e) => {
-            warn!(email = %payload.email, "Supabase OTP verification failed: {}", e);
-            Err(ErrorResponse::new(ErrorCode::InvalidInput)
-                .with_message("The provided verification code is invalid"))
+        Err(err) => {
+            warn!(email = %payload.email, "Invalid forgot password code");
+            return Err(err.into());
         }
     }
+
+    info!(email = %payload.email, "Forgot password code verified");
+    Ok((
+        StatusCode::OK,
+        Json(json!({
+            "message": "code verified successfully",
+        })),
+    ))
 }
 
 #[debug_handler]
@@ -117,52 +142,34 @@ pub async fn reset(
             .with_message("Password and confirm password do not match"));
     }
 
-    // Verify OTP with Supabase first
-    let supabase_user_id = match state
-        .supabase
-        .verify_otp(&payload.email, &payload.code, "recovery")
-        .await
-    {
-        Ok(user_id) => user_id,
-        Err(e) => {
-            warn!(email = %payload.email, "Supabase OTP verification failed: {}", e);
-            return Err(ErrorResponse::new(ErrorCode::InvalidInput)
-                .with_message("The provided verification code is invalid"));
-        }
-    };
+    let result = forgot_password::Entity::find_query(
+        &state.sea_db,
+        None,
+        Some(&payload.email),
+        Some(&payload.code),
+    )
+    .await;
 
-    // Find user in PostgreSQL
-    let user = match user::Entity::find_by_email(&state.sea_db, payload.email.clone()).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
-            warn!(email = %payload.email, "User not found");
-            return Err(
-                ErrorResponse::new(ErrorCode::RecordNotFound).with_message("User not found")
-            );
+    let verification = match &result {
+        Ok(verification) => {
+            if verification.is_expired() {
+                warn!(email = %payload.email, "Expired code during reset");
+                return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                    .with_message("The verification code has expired"));
+            }
+            verification
         }
         Err(err) => {
-            error!(email = %payload.email, "Database error: {}", err);
-            return Err(err.into());
+            warn!(email = %payload.email, "Invalid code during reset");
+            return Err(err.to_owned().into());
         }
     };
+    let user_id = verification.user_id;
 
     // Reset password in PostgreSQL
-    match forgot_password::Entity::reset(&state.sea_db, user.id, payload.password.clone()).await {
+    match forgot_password::Entity::reset(&state.sea_db, user_id, payload.password.clone()).await {
         Ok(_) => {
-            info!(user_id = user.id, email = %payload.email, "Password reset in PostgreSQL");
-
-            // Update password in Supabase (non-blocking)
-            let supabase = state.supabase.clone();
-            let password = payload.password.clone();
-            tokio::spawn(async move {
-                match supabase
-                    .admin_update_password(&supabase_user_id, &password)
-                    .await
-                {
-                    Ok(_) => tracing::info!("Supabase password updated"),
-                    Err(e) => tracing::error!("Failed to update Supabase password: {}", e),
-                }
-            });
+            info!(user_id, email = %payload.email, "Password reset in PostgreSQL");
 
             Ok((
                 StatusCode::OK,
@@ -172,7 +179,7 @@ pub async fn reset(
             ))
         }
         Err(err) => {
-            error!(user_id = user.id, "Failed to reset password: {}", err);
+            error!(user_id, "Failed to reset password: {}", err);
             Err(err.into())
         }
     }

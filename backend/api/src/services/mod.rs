@@ -8,4 +8,3 @@ pub mod route_blocker_config;
 pub mod route_blocker_service;
 pub mod seed;
 pub mod seed_config;
-pub mod supabase;

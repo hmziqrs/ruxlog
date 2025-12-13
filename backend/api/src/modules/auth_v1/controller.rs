@@ -13,13 +13,16 @@ use serde_json::json;
 use tracing::{error, info, instrument, warn};
 
 use crate::{
-    db::sea_models::{user, user_session},
+    db::sea_models::{email_verification, user, user_session},
     error::{ErrorCode, ErrorResponse},
     extractors::ValidatedJson,
     modules::auth_v1::validator::{
         V1LoginPayload, V1RegisterPayload, V1TwoFADisablePayload, V1TwoFAVerifyPayload,
     },
-    services::auth::{AuthSession, Credentials},
+    services::{
+        auth::{AuthSession, Credentials},
+        mail::send_email_verification_code,
+    },
     utils::twofa,
     AppState,
 };
@@ -112,7 +115,7 @@ pub async fn log_in(
 #[debug_handler]
 #[instrument(skip(state, payload), fields(user_id, result))]
 pub async fn register(
-    state: State<AppState>,
+    State(state): State<AppState>,
     payload: ValidatedJson<V1RegisterPayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let payload = payload.0;
@@ -120,7 +123,6 @@ pub async fn register(
     info!("User registration attempt");
 
     let email = payload.email.clone();
-    let password = payload.password.clone();
 
     match user::Entity::create(&state.sea_db, payload.into_new_user()).await {
         Ok(user) => {
@@ -128,12 +130,41 @@ pub async fn register(
             tracing::Span::current().record("user_id", user.id);
             tracing::Span::current().record("result", "success");
 
-            // Create user in Supabase (non-blocking)
-            let supabase = state.supabase.clone();
+            // Send first-party email verification code (non-blocking)
+            let app_state = state.clone();
+            let user_id = user.id;
+            let email_for_task = email.clone();
             tokio::spawn(async move {
-                match supabase.admin_create_user(&email, &password).await {
-                    Ok(_) => tracing::info!("Supabase user created for {}", email),
-                    Err(e) => tracing::error!("Failed to create Supabase user: {}", e),
+                match email_verification::Entity::find_by_user_id_or_code(
+                    &app_state.sea_db,
+                    Some(user_id),
+                    None,
+                )
+                .await
+                {
+                    Ok(verification) => {
+                        if let Err(err) = send_email_verification_code(
+                            &app_state.mailer,
+                            &email_for_task,
+                            &verification.code,
+                        )
+                        .await
+                        {
+                            tracing::error!(
+                                user_id,
+                                email = %email_for_task,
+                                "Failed to send verification email: {}",
+                                err
+                            );
+                        }
+                    }
+                    Err(err) => {
+                        tracing::error!(
+                            user_id,
+                            "Failed to load verification code for email: {}",
+                            err
+                        );
+                    }
                 }
             });
 

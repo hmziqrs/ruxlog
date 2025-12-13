@@ -165,11 +165,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         default_webp_quality: env_u8("OPTIMIZER_WEBP_QUALITY_DEFAULT", 80),
     };
 
-    let supabase_url = env::var("SUPABASE_URL").expect("SUPABASE_URL must be set");
-    let supabase_key =
-        env::var("SUPABASE_SERVICE_ROLE_KEY").expect("SUPABASE_SERVICE_ROLE_KEY must be set");
-    let supabase = services::supabase::SupabaseClient::new(supabase_url, supabase_key);
-
     let state = AppState {
         sea_db,
         redis_pool: redis_pool.clone(),
@@ -178,7 +173,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         s3_client,
         optimizer,
         meter: telemetry::global_meter(),
-        supabase,
     };
 
     // Bootstrap application constants from environment (only fills missing keys) and warm Redis.
@@ -320,7 +314,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             routing::post(csrf_v1::controller::generate),
         )
         .layer(cors)
-        .layer(middlewares::route_blocker::RouteBlockerLayer::new(state.clone()))
+        .layer(middlewares::route_blocker::RouteBlockerLayer::new(
+            state.clone(),
+        ))
         .with_state(state);
 
     let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());

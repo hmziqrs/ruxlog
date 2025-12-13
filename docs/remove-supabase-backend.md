@@ -2,41 +2,27 @@
 
 This document outlines how to fully remove Supabase from the backend API and replace its email verification / password‑recovery responsibilities with the existing first‑party OTP + SMTP mailer flow.
 
+**Status:** Supabase has been removed from the backend; remaining work is to add/adjust tests and smoke scripts if desired.
+
 ## 1) Current Supabase Inventory
 
-**Implementation**
+**Implementation (removed)**
 
-- Supabase client implementation: `backend/api/src/services/supabase.rs` (entire file).
-- Service module export: `backend/api/src/services/mod.rs:11` (`pub mod supabase;`).
-- App state wiring:
-  - Import: `backend/api/src/state.rs:1`
-  - Field: `backend/api/src/state.rs:36` (`pub supabase: SupabaseClient,`)
-- Initialization:
-  - Env reads + client construction: `backend/api/src/main.rs:168-171`
-  - Injected into `AppState`: `backend/api/src/main.rs:173-182`
+- Supabase client file `backend/api/src/services/supabase.rs` deleted.
+- Service module export removed from `backend/api/src/services/mod.rs`.
+- `AppState` Supabase field and import removed from `backend/api/src/state.rs`.
+- Supabase env reads and state injection removed from `backend/api/src/main.rs`.
 
-**Call sites**
+**Former call sites (refactored)**
 
-- Registration triggers Supabase signup/verification email:
-  - `backend/api/src/modules/auth_v1/controller.rs:131-138`
-- Email verification endpoints use Supabase OTP + resend:
-  - Verify: `backend/api/src/modules/email_verification_v1/controller.rs:35-64`
-  - Resend: `backend/api/src/modules/email_verification_v1/controller.rs:89-104`
-- Forgot‑password endpoints use Supabase recovery OTP + admin password update:
-  - Generate: `backend/api/src/modules/forgot_password_v1/controller.rs:60-75`
-  - Verify: `backend/api/src/modules/forgot_password_v1/controller.rs:85-105`
-  - Reset + Supabase password update: `backend/api/src/modules/forgot_password_v1/controller.rs:120-165`
+- Registration: `backend/api/src/modules/auth_v1/controller.rs` now sends first‑party verification code.
+- Email verification: `backend/api/src/modules/email_verification_v1/controller.rs` now validates DB OTP and resends via SMTP.
+- Forgot‑password: `backend/api/src/modules/forgot_password_v1/controller.rs` now uses DB OTP and SMTP for generate/verify/reset.
 
-**Configuration / docs**
+**Configuration / docs (removed)**
 
-- Env vars:
-  - `.env.example:104`
-  - `.env.dev:93`
-  - `.env.test:93`
-  - `.env.stage:92-93`
-  - `.env.prod:92-93`
-  - `.env.remote:93`
-- Integration doc (to remove/archive): `backend/SUPABASE_INTEGRATION.md`
+- Supabase env vars removed from `.env.example`, `.env.dev`, `.env.test`, `.env.stage`, `.env.prod`, `.env.remote`.
+- Integration doc `backend/SUPABASE_INTEGRATION.md` deleted.
 
 ## 2) First‑Party Flow We Should Use Instead
 
@@ -65,18 +51,14 @@ You already have DB‑backed OTP models and SMTP mail helpers.
 
 ### 3.1 Delete Supabase plumbing
 
-1. Delete `backend/api/src/services/supabase.rs`.
-2. Remove module export `pub mod supabase;` from `backend/api/src/services/mod.rs:11`.
-3. Remove Supabase from state:
-   - Delete import in `backend/api/src/state.rs:1`.
-   - Remove field `pub supabase: SupabaseClient,` in `backend/api/src/state.rs:36`.
-4. Remove initialization:
-   - Delete env reads and client creation in `backend/api/src/main.rs:168-171`.
-   - Remove `supabase,` from `AppState` construction in `backend/api/src/main.rs:173-182`.
+1. Delete `backend/api/src/services/supabase.rs`. (done)
+2. Remove Supabase module export from `backend/api/src/services/mod.rs`. (done)
+3. Remove Supabase client from `backend/api/src/state.rs`. (done)
+4. Remove Supabase initialization from `backend/api/src/main.rs`. (done)
 
 ### 3.2 Replace Supabase usage in registration
 
-Target: `backend/api/src/modules/auth_v1/controller.rs:114-148`
+Target: `backend/api/src/modules/auth_v1/controller.rs`
 
 1. Remove the Supabase spawn block at `backend/api/src/modules/auth_v1/controller.rs:131-138`.
 2. After successful `user::Entity::create(...)`:
@@ -132,18 +114,18 @@ Targets: `backend/api/src/modules/forgot_password_v1/controller.rs`
 2. New logic:
    - Validate OTP with `find_query` + `is_expired` as above.
    - Then proceed with existing Postgres reset:
-     - `forgot_password::Entity::reset(&state.sea_db, user.id, payload.password.clone())` (`backend/api/src/modules/forgot_password_v1/controller.rs:149-177`).
+     - `forgot_password::Entity::reset(&state.sea_db, user_id, payload.password.clone())` in `backend/api/src/modules/forgot_password_v1/controller.rs`.
 
 ## 4) Configuration and Docs Cleanup
 
-1. Remove `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from all env templates:
-   - `.env.example:104`
-   - `.env.dev:93`
-   - `.env.test:93`
-   - `.env.stage:92-93`
-   - `.env.prod:92-93`
-   - `.env.remote:93`
-2. Delete or archive `backend/SUPABASE_INTEGRATION.md`.
+1. Remove `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from all env templates. (done)
+   - `.env.example`
+   - `.env.dev`
+   - `.env.test`
+   - `.env.stage`
+   - `.env.prod`
+   - `.env.remote`
+2. Delete or archive `backend/SUPABASE_INTEGRATION.md`. (done)
 3. Add/adjust internal docs describing:
    - Registration -> create OTP -> send verification email.
    - Email verification -> validate OTP -> mark verified.
@@ -160,4 +142,3 @@ After implementation:
    - `cd backend/api && cargo test --all-features`
    - `cd backend/api && cargo fmt`
    - `cd backend/api && cargo clippy --all-targets --all-features`
-
