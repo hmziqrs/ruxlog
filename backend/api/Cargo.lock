@@ -4630,6 +4630,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e819f2bc632f285be6d7cd36e25940d45b2391dd6d9b939e79de557f7014248"
 
 [[package]]
+name = "rux-auth"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum 0.8.4",
+ "axum-core 0.5.2",
+ "chrono",
+ "futures-util",
+ "http 1.3.1",
+ "oauth2",
+ "pin-project-lite",
+ "reqwest 0.12.12",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.12",
+ "tower",
+ "tower-layer",
+ "tower-service",
+ "tower-sessions",
+ "tracing",
+]
+
+[[package]]
 name = "ruxlog"
 version = "0.1.0"
 dependencies = [
@@ -4676,6 +4699,7 @@ dependencies = [
  "ratatui",
  "regex",
  "reqwest 0.12.12",
+ "rux-auth",
  "sea-orm",
  "serde",
  "serde_json",

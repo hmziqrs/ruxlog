@@ -1,7 +1,10 @@
+use axum::extract::FromRef;
 use lettre;
 use opentelemetry::metrics::Meter;
 use sea_orm::DatabaseConnection;
 use tower_sessions_redis_store::fred::prelude::Pool as RedisPool;
+
+use crate::services::auth::AuthBackend;
 
 #[derive(Clone, Debug)]
 pub struct ObjectStorageConfig {
@@ -32,4 +35,10 @@ pub struct AppState {
     pub s3_client: aws_sdk_s3::Client,
     pub optimizer: OptimizerConfig,
     pub meter: Meter,
+}
+
+impl FromRef<AppState> for AuthBackend {
+    fn from_ref(state: &AppState) -> Self {
+        AuthBackend::new(&state.sea_db)
+    }
 }

@@ -21,6 +21,7 @@ pub mod scheduled_post;
 pub mod seed_run;
 pub mod tag;
 pub mod user;
+pub mod user_ban;
 pub mod user_session;
 
 pub use crate::utils::color as color_utils;

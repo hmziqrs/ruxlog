@@ -37,6 +37,7 @@ mod m20251203_000031_alter_email_and_forgot_password_add_updated_at;
 mod m20251204_000032_rename_media_variant_table;
 mod m20251205_000033_create_app_constants_table;
 mod m20251125_000034_create_post_likes_table;
+mod m20251220_000035_create_user_bans_table;
 
 pub struct Migrator;
 
@@ -83,6 +84,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20251204_000032_rename_media_variant_table::Migration),
             Box::new(m20251205_000033_create_app_constants_table::Migration),
             Box::new(m20251125_000034_create_post_likes_table::Migration),
+            Box::new(m20251220_000035_create_user_bans_table::Migration),
         ]
     }
 }
