@@ -1,9 +1,4 @@
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    Json,
-};
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_macros::debug_handler;
 use serde_json::json;
 use tracing::{error, info, instrument};
@@ -213,14 +208,14 @@ fn get_sync_status_json() -> serde_json::Value {
     })
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 #[instrument(skip(_auth))]
 pub async fn get_sync_interval(_auth: AuthSession) -> Result<impl IntoResponse, ErrorResponse> {
     info!("Retrieved route blocker sync interval status");
     Ok(Json(get_sync_status_json()))
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 #[instrument(skip(_auth, payload))]
 pub async fn update_sync_interval(
     _auth: AuthSession,
@@ -234,7 +229,7 @@ pub async fn update_sync_interval(
     Ok((StatusCode::OK, Json(get_sync_status_json())))
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 #[instrument(skip(_auth))]
 pub async fn pause_sync_interval(_auth: AuthSession) -> Result<impl IntoResponse, ErrorResponse> {
     route_blocker_config::pause_sync();
@@ -242,7 +237,7 @@ pub async fn pause_sync_interval(_auth: AuthSession) -> Result<impl IntoResponse
     Ok((StatusCode::OK, Json(get_sync_status_json())))
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 #[instrument(skip(_auth))]
 pub async fn resume_sync_interval(_auth: AuthSession) -> Result<impl IntoResponse, ErrorResponse> {
     route_blocker_config::resume_sync();
@@ -250,7 +245,7 @@ pub async fn resume_sync_interval(_auth: AuthSession) -> Result<impl IntoRespons
     Ok((StatusCode::OK, Json(get_sync_status_json())))
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 #[instrument(skip(_auth))]
 pub async fn restart_sync_interval(_auth: AuthSession) -> Result<impl IntoResponse, ErrorResponse> {
     route_blocker_config::resume_sync();

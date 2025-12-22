@@ -39,6 +39,44 @@ pub struct AuthSession<B: AuthBackend> {
 }
 
 impl<B: AuthBackend> AuthSession<B> {
+    /// Create a new AuthSession from a backend and session
+    ///
+    /// This is useful when constructing AuthSession outside of the extractor
+    /// (e.g., in middleware that extracts State and Session separately).
+    pub async fn new(backend: B, session: Session) -> Self {
+        // Try to load auth state from session
+        let auth_state: Option<AuthSessionState<<B::User as AuthUser>::Id>> =
+            session.get(SESSION_KEY).await.ok().flatten();
+
+        // If we have auth state, load the user
+        let user = if let Some(ref state) = auth_state {
+            match backend.get_user(&state.user_id).await {
+                Ok(Some(user)) => Some(user),
+                Ok(None) => {
+                    // User was deleted - clear the session
+                    let _ = session.delete().await;
+                    None
+                }
+                Err(e) => {
+                    tracing::error!(error = ?e, "Failed to load user from session");
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        // If user load failed, clear auth state
+        let auth_state = if user.is_some() { auth_state } else { None };
+
+        Self {
+            user,
+            state: auth_state,
+            session,
+            backend,
+        }
+    }
+
     /// Log in a user, creating session state
     ///
     /// Creates a new session with the user's current verification status.

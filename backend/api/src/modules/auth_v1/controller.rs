@@ -19,15 +19,12 @@ use crate::{
     modules::auth_v1::validator::{
         V1LoginPayload, V1RegisterPayload, V1TwoFADisablePayload, V1TwoFAVerifyPayload,
     },
-    services::{
-        auth::{AuthSession, Credentials},
-        mail::send_email_verification_code,
-    },
+    services::{auth::AuthSession, mail::send_email_verification_code},
     utils::twofa,
     AppState,
 };
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 #[instrument(skip(auth), fields(user_id))]
 pub async fn log_out(mut auth: AuthSession) -> Result<impl IntoResponse, ErrorResponse> {
     if let Some(user) = &auth.user {
@@ -59,21 +56,25 @@ pub async fn log_in(
 ) -> Result<impl IntoResponse, ErrorResponse> {
     info!(client_ip = %secure_ip, "Login attempt");
 
-    let user = auth.authenticate(Credentials::Password(payload.0)).await;
+    let payload = payload.0;
+    let user = auth
+        .backend()
+        .authenticate_password(payload.email, payload.password)
+        .await;
 
     match user {
         Ok(Some(user)) => {
             tracing::Span::current().record("user_id", user.id);
             tracing::Span::current().record("user_role", user.role.to_string());
 
-            match auth.login(&user).await {
-                Ok(_) => {
-                    let ip = Some(secure_ip.to_string());
-                    let device = headers
-                        .get("user-agent")
-                        .and_then(|v| v.to_str().ok())
-                        .map(|s| s.to_string());
+            let ip = Some(secure_ip.to_string());
+            let device = headers
+                .get("user-agent")
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.to_string());
 
+            match auth.login_with_metadata(&user, device.clone(), ip.clone()).await {
+                Ok(_) => {
                     info!(
                         user_id = user.id,
                         user_role = user.role.to_string(),
@@ -107,7 +108,8 @@ pub async fn log_in(
         Err(err) => {
             error!(error = ?err, client_ip = %secure_ip, "Authentication error");
             tracing::Span::current().record("result", "auth_error");
-            Err(err.into())
+            Err(ErrorResponse::new(ErrorCode::InternalServerError)
+                .with_message("Authentication error"))
         }
     }
 }

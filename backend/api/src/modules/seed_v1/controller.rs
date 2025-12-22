@@ -24,7 +24,7 @@ use fake::Fake;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use sea_orm::{ActiveModelTrait, EntityTrait, Set};
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn seed_tags(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
     let mut tags: Vec<tag::Model> = vec![];
     let mut fake_tags_set: HashSet<String> = HashSet::new();
@@ -62,7 +62,7 @@ pub async fn seed_tags(State(state): State<AppState>, _auth: AuthSession) -> imp
         .into_response()
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn seed_categories(
     State(state): State<AppState>,
     _auth: AuthSession,
@@ -106,7 +106,7 @@ pub async fn seed_categories(
         .into_response()
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
     let tags = match tag::Entity::find_all(&state.sea_db).await {
         Ok(t) => t,
@@ -252,7 +252,7 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
         .into_response()
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn seed_post_comments(
     State(state): State<AppState>,
     _auth: AuthSession,
@@ -354,7 +354,7 @@ pub async fn seed_post_comments(
 }
 
 // Authentication related seeds
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn seed_user_sessions(
     State(state): State<AppState>,
     _auth: AuthSession,
@@ -424,7 +424,7 @@ pub async fn seed_user_sessions(
         .into_response()
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn seed_email_verifications(
     State(state): State<AppState>,
     _auth: AuthSession,
@@ -475,7 +475,7 @@ pub async fn seed_email_verifications(
         .into_response()
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn seed_forgot_passwords(
     State(state): State<AppState>,
     _auth: AuthSession,
@@ -527,7 +527,7 @@ pub async fn seed_forgot_passwords(
 }
 
 // Post-related seeds
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn seed_post_revisions(
     State(state): State<AppState>,
     _auth: AuthSession,
@@ -593,7 +593,7 @@ pub async fn seed_post_revisions(
         .into_response()
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn seed_post_series(
     State(state): State<AppState>,
     _auth: AuthSession,
@@ -642,7 +642,7 @@ pub async fn seed_post_series(
         .into_response()
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn seed_post_views(
     State(state): State<AppState>,
     _auth: AuthSession,
@@ -719,7 +719,7 @@ pub async fn seed_post_views(
         .into_response()
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn seed_scheduled_posts(
     State(state): State<AppState>,
     _auth: AuthSession,
@@ -774,7 +774,7 @@ pub async fn seed_scheduled_posts(
 }
 
 // Media related seeds
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn seed_media(State(state): State<AppState>, _auth: AuthSession) -> impl IntoResponse {
     let users = match user::Entity::find().all(&state.sea_db).await {
         Ok(u) => u,
@@ -890,7 +890,7 @@ pub async fn seed_media(State(state): State<AppState>, _auth: AuthSession) -> im
         .into_response()
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn seed_media_variants(
     State(state): State<AppState>,
     _auth: AuthSession,
@@ -980,7 +980,7 @@ pub async fn seed_media_variants(
         .into_response()
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn seed_media_usage(
     State(state): State<AppState>,
     _auth: AuthSession,
@@ -1091,7 +1091,7 @@ pub async fn seed_media_usage(
 }
 
 // Community and system seeds
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn seed_comment_flags(
     State(state): State<AppState>,
     _auth: AuthSession,
@@ -1161,7 +1161,7 @@ pub async fn seed_comment_flags(
         .into_response()
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn seed_newsletter_subscribers(
     State(state): State<AppState>,
     _auth: AuthSession,
@@ -1216,7 +1216,7 @@ pub async fn seed_newsletter_subscribers(
         .into_response()
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn seed_route_status(
     State(state): State<AppState>,
     _auth: AuthSession,
@@ -1266,7 +1266,7 @@ pub async fn seed_route_status(
         .into_response()
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn seed(
     State(state): State<AppState>,
     _auth: AuthSession,
@@ -1318,7 +1318,7 @@ pub async fn seed(
     }
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn list_presets(_auth: AuthSession) -> impl IntoResponse {
     let presets = crate::services::seed_config::list_presets();
     (StatusCode::OK, Json(json!({ "presets": presets }))).into_response()

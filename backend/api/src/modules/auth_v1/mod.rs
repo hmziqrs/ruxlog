@@ -3,15 +3,15 @@ pub mod validator;
 
 use axum::{middleware, routing::post, Router};
 
-use crate::{middlewares::user_status, AppState};
+use crate::{middlewares::auth_guard, AppState};
 
 pub fn routes() -> Router<AppState> {
-    let public = Router::new()
+    let public = Router::<AppState>::new()
         .route("/register", post(controller::register))
         .route("/log_in", post(controller::log_in))
-        .route_layer(middleware::from_fn(user_status::only_unauthenticated));
+        .route_layer(middleware::from_fn(auth_guard::unauthenticated));
 
-    let authenticated = Router::new()
+    let authenticated = Router::<AppState>::new()
         .route("/log_out", post(controller::log_out))
         .route("/2fa/setup", post(controller::twofa_setup))
         .route("/2fa/verify", post(controller::twofa_verify))
@@ -21,7 +21,7 @@ pub fn routes() -> Router<AppState> {
             "/sessions/terminate/{id}",
             post(controller::sessions_terminate),
         )
-        .route_layer(middleware::from_fn(user_status::only_authenticated));
+        .route_layer(middleware::from_fn(auth_guard::authenticated));
 
     public.merge(authenticated)
 }

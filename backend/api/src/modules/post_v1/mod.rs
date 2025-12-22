@@ -2,23 +2,17 @@ pub mod controller;
 pub mod validator;
 
 use axum::{extract::DefaultBodyLimit, middleware, routing::post, Router};
-use axum_login::login_required;
 
-use crate::{
-    config,
-    middlewares::{user_permission, user_status},
-    services::auth::AuthBackend,
-    AppState,
-};
+use crate::{config, middlewares::auth_guard, AppState};
 
 pub fn routes() -> Router<AppState> {
-    let post_limited = Router::new()
+    let post_limited = Router::<AppState>::new()
         .route("/create", post(controller::create))
         .route("/update/{post_id}", post(controller::update))
         .route("/autosave", post(controller::autosave))
         .layer(DefaultBodyLimit::max(config::body_limits::POST));
 
-    let protected = Router::new()
+    let protected = Router::<AppState>::new()
         .route("/query", post(controller::query))
         .route("/delete/{post_id}", post(controller::delete))
         .route(
@@ -49,19 +43,17 @@ pub fn routes() -> Router<AppState> {
             post(controller::series_remove),
         )
         .merge(post_limited)
-        .route_layer(middleware::from_fn(user_permission::author))
-        .route_layer(middleware::from_fn(user_status::only_verified))
-        .route_layer(login_required!(AuthBackend));
+        .route_layer(middleware::from_fn(auth_guard::verified_with_role::<{ auth_guard::ROLE_AUTHOR }>));
 
     // Routes requiring authentication (any logged-in user)
-    let authenticated = Router::new()
+    let authenticated = Router::<AppState>::new()
         .route("/like/{post_id}", post(controller::like_post))
         .route("/unlike/{post_id}", post(controller::unlike_post))
         .route("/like/status/{post_id}", post(controller::like_status))
         .route("/like/status/batch", post(controller::like_status_batch))
-        .route_layer(login_required!(AuthBackend));
+        .route_layer(middleware::from_fn(auth_guard::authenticated));
 
-    let public = Router::new()
+    let public = Router::<AppState>::new()
         .route("/view/{id_or_slug}", post(controller::find_by_id_or_slug))
         .route("/list/published", post(controller::find_published_posts))
         .route("/sitemap", post(controller::sitemap))

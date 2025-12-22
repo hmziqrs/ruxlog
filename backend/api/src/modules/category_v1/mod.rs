@@ -6,25 +6,18 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use axum_login::login_required;
 
-use crate::{
-    middlewares::{user_permission, user_status},
-    services::auth::AuthBackend,
-    AppState,
-};
+use crate::{middlewares::auth_guard, AppState};
 
 pub fn routes() -> Router<AppState> {
-    let admin = Router::new()
+    let admin = Router::<AppState>::new()
         .route("/create", post(controller::create))
         .route("/update/{category_id}", post(controller::update))
         .route("/delete/{category_id}", post(controller::delete))
         .route("/list/query", post(controller::find_with_query))
-        .route_layer(middleware::from_fn(user_permission::admin))
-        .route_layer(middleware::from_fn(user_status::only_verified))
-        .route_layer(login_required!(AuthBackend));
+        .route_layer(middleware::from_fn(auth_guard::verified_with_role::<{ auth_guard::ROLE_ADMIN }>));
 
-    let public = Router::new()
+    let public = Router::<AppState>::new()
         .route("/list", get(controller::find_all))
         .route("/view/{category_id}", get(controller::find_by_id_or_slug));
 

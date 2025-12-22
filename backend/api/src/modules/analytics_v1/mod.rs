@@ -2,17 +2,12 @@ pub mod controller;
 pub mod validator;
 
 use axum::{middleware, routing::post, Router};
-use axum_login::login_required;
 
-use crate::{
-    middlewares::{user_permission, user_status},
-    services::auth::AuthBackend,
-    AppState,
-};
+use crate::{middlewares::auth_guard, AppState};
 
 /// Routes for the analytics v1 module.
 pub fn routes() -> Router<AppState> {
-    Router::new()
+    Router::<AppState>::new()
         .route(
             "/user/registration-trends",
             post(controller::registration_trends),
@@ -36,7 +31,5 @@ pub fn routes() -> Router<AppState> {
             post(controller::media_upload_trends),
         )
         .route("/dashboard/summary", post(controller::dashboard_summary))
-        .route_layer(middleware::from_fn(user_permission::admin))
-        .route_layer(middleware::from_fn(user_status::only_verified))
-        .route_layer(login_required!(AuthBackend))
+        .route_layer(middleware::from_fn(auth_guard::verified_with_role::<{ auth_guard::ROLE_ADMIN }>))
 }

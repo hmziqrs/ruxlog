@@ -1,10 +1,7 @@
 use axum::response::IntoResponse;
-use serde_json::{json, Value};
+use serde_json::json;
 
-use crate::{
-    db::sea_models::user::UserRole,
-    error::{ErrorCode, ErrorResponse, IntoErrorResponse},
-};
+use crate::error::{ErrorCode, ErrorResponse, IntoErrorResponse};
 
 /// Errors originating from the CSRF middleware
 #[derive(Debug, thiserror::Error)]
@@ -83,95 +80,6 @@ impl From<CorsError> for ErrorResponse {
 }
 
 impl IntoResponse for CorsError {
-    fn into_response(self) -> axum::response::Response {
-        ErrorResponse::from(self).into_response()
-    }
-}
-
-/// Errors emitted by the role-based permission middleware.
-#[derive(Debug, thiserror::Error)]
-pub enum PermissionError {
-    #[error("No authenticated user")]
-    NoUser,
-    #[error("Insufficient role for the requested resource")]
-    InsufficientRole {
-        required: UserRole,
-        actual: UserRole,
-    },
-}
-
-impl IntoErrorResponse for PermissionError {
-    fn into_error_response(self) -> ErrorResponse {
-        match self {
-            Self::NoUser => ErrorResponse::new(ErrorCode::Unauthorized)
-                .with_message("You must be logged in to access this resource"),
-            Self::InsufficientRole { required, actual } => {
-                ErrorResponse::new(ErrorCode::OperationNotAllowed)
-                    .with_message("You don't have the required permission level")
-                    .with_context(role_context(required, actual))
-            }
-        }
-    }
-}
-
-impl From<PermissionError> for ErrorResponse {
-    fn from(err: PermissionError) -> Self {
-        err.into_error_response()
-    }
-}
-
-impl IntoResponse for PermissionError {
-    fn into_response(self) -> axum::response::Response {
-        ErrorResponse::from(self).into_response()
-    }
-}
-
-fn role_context(required: UserRole, actual: UserRole) -> Value {
-    json!({
-        "requiredRole": required,
-        "userRole": actual,
-    })
-}
-
-/// Errors emitted by the `user_status` middleware family.
-#[derive(Debug, thiserror::Error)]
-pub enum UserStatusError {
-    #[error("User has not completed verification")]
-    NotVerified,
-    #[error("Resource is only available to unverified users")]
-    VerifiedOnly,
-    #[error("Resource is only available to unauthenticated users")]
-    AuthenticatedOnly,
-    #[error("Resource is only available to authenticated users")]
-    UnauthenticatedOnly,
-}
-
-impl IntoErrorResponse for UserStatusError {
-    fn into_error_response(self) -> ErrorResponse {
-        match self {
-            Self::NotVerified => ErrorResponse::new(ErrorCode::EmailVerificationRequired)
-                .with_message("User not verified")
-                .with_context(json!({ "gate": "only_verified" })),
-            Self::VerifiedOnly => ErrorResponse::new(ErrorCode::OperationNotAllowed)
-                .with_message("Resource not available")
-                .with_context(json!({ "gate": "only_unverified" })),
-            Self::AuthenticatedOnly => ErrorResponse::new(ErrorCode::OperationNotAllowed)
-                .with_message("Resource not available")
-                .with_context(json!({ "gate": "only_unauthenticated" })),
-            Self::UnauthenticatedOnly => ErrorResponse::new(ErrorCode::Unauthorized)
-                .with_message("Resource not available")
-                .with_context(json!({ "gate": "only_authenticated" })),
-        }
-    }
-}
-
-impl From<UserStatusError> for ErrorResponse {
-    fn from(err: UserStatusError) -> Self {
-        err.into_error_response()
-    }
-}
-
-impl IntoResponse for UserStatusError {
     fn into_response(self) -> axum::response::Response {
         ErrorResponse::from(self).into_response()
     }

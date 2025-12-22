@@ -6,16 +6,11 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use axum_login::login_required;
 
-use crate::{
-    middlewares::{user_permission, user_status},
-    services::auth::AuthBackend,
-    AppState,
-};
+use crate::{middlewares::auth_guard, AppState};
 
 pub fn routes() -> Router<AppState> {
-    let admin = Router::new()
+    let admin = Router::<AppState>::new()
         .route("/block", post(controller::block_route))
         .route("/unblock", post(controller::unblock_route))
         .route("/update", post(controller::update_route_status))
@@ -38,9 +33,7 @@ pub fn routes() -> Router<AppState> {
             "/sync_interval/restart",
             post(controller::restart_sync_interval),
         )
-        .route_layer(middleware::from_fn(user_permission::admin))
-        .route_layer(middleware::from_fn(user_status::only_verified))
-        .route_layer(login_required!(AuthBackend));
+        .route_layer(middleware::from_fn(auth_guard::verified_with_role::<{ auth_guard::ROLE_ADMIN }>));
 
     admin
 }

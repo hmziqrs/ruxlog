@@ -1,7 +1,6 @@
-use axum::{extract::State, http::HeaderName, middleware, routing};
+use axum::{extract::State, http::HeaderName, middleware, routing, Extension};
 use axum_client_ip::ClientIpSource;
 use axum_extra::extract::cookie::SameSite;
-use axum_login::AuthManagerLayerBuilder;
 use std::{env, net::SocketAddr, time::Duration};
 use tower_http::{
     compression::CompressionLayer,
@@ -15,8 +14,8 @@ use ruxlog::utils::cors::get_allowed_origins;
 use ruxlog::{
     db, middlewares, modules, router,
     services::{
-        self, acl_service::AclService, auth::AuthBackend, redis::init_redis_store,
-        route_blocker_config, route_blocker_service::RouteBlockerService,
+        self, acl_service::AclService, redis::init_redis_store, route_blocker_config,
+        route_blocker_service::RouteBlockerService,
     },
     state::{AppState, ObjectStorageConfig, OptimizerConfig},
     utils::telemetry,
@@ -86,7 +85,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let sea_db = db::sea_connect::get_sea_connection().await;
 
-    let backend = AuthBackend::new(&sea_db);
     let (redis_pool, redis_connection) = init_redis_store().await?;
     let mailer = services::mail::smtp::create_connection().await;
 
@@ -288,16 +286,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .allow_credentials(true)
         .max_age(Duration::from_secs(360));
 
-    let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
-
     let ip_source: ClientIpSource = env::var("IP_SOURCE")
         .unwrap_or_else(|_| "ConnectInfo".to_string())
         .parse()
         .expect("Invalid IP_SOURCE value");
 
+    // Clone the database connection for the Extension layer (used by auth middleware)
+    let db_extension = Extension(state.sea_db.clone());
+
     let app = router::router()
         .layer(ip_source.into_extension())
-        .layer(auth_layer)
+        .layer(db_extension)
+        .layer(session_layer)
         //     config: governor_conf,
         // })
         .layer(compression)

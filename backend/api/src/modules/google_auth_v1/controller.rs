@@ -119,7 +119,7 @@ pub async fn google_callback(
     Ok(Redirect::temporary(&redirect_url))
 }
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 pub async fn google_user_info(auth: AuthSession) -> Result<impl IntoResponse, ErrorResponse> {
     match auth.user {
         Some(user) => Ok((StatusCode::OK, Json(json!(user)))),

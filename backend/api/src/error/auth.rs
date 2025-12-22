@@ -1,27 +1,41 @@
 //! Error handling for the authentication module
 
 use crate::error::{response::IntoErrorResponse, ErrorCode, ErrorResponse};
-use crate::services::auth::AuthError;
+use rux_auth::{AuthError, AuthErrorCode};
 
-/// Implementation of IntoErrorResponse for the AuthError type
+/// Implementation of IntoErrorResponse for the rux_auth::AuthError type
 impl IntoErrorResponse for AuthError {
     fn into_error_response(self) -> ErrorResponse {
-        match self {
-            AuthError::InvalidCredentials => ErrorResponse::new(ErrorCode::InvalidCredentials),
-            AuthError::PasswordVerificationError => {
-                // Map to the same error code as invalid credentials for security
-                ErrorResponse::new(ErrorCode::InvalidCredentials)
+        match self.code() {
+            AuthErrorCode::Unauthenticated => ErrorResponse::new(ErrorCode::Unauthorized),
+            AuthErrorCode::AlreadyAuthenticated => {
+                ErrorResponse::new(ErrorCode::OperationNotAllowed)
+                    .with_message("Already authenticated")
             }
-            AuthError::UserNotFound => {
-                // In APIs, we might want to map this to InvalidCredentials as well
-                ErrorResponse::new(ErrorCode::InvalidCredentials)
+            AuthErrorCode::InvalidCredentials => ErrorResponse::new(ErrorCode::InvalidCredentials),
+            AuthErrorCode::SessionExpired => ErrorResponse::new(ErrorCode::SessionExpired),
+            AuthErrorCode::SessionError => ErrorResponse::new(ErrorCode::InternalServerError),
+            AuthErrorCode::VerificationRequired => {
+                ErrorResponse::new(ErrorCode::EmailVerificationRequired)
             }
-            AuthError::Unauthorized => ErrorResponse::new(ErrorCode::Unauthorized),
-            AuthError::SessionExpired => ErrorResponse::new(ErrorCode::SessionExpired),
-            AuthError::DatabaseError(err_resp) => err_resp,
-            AuthError::InternalError(err) => {
-                ErrorResponse::new(ErrorCode::InternalServerError).with_details(err)
+            AuthErrorCode::AlreadyVerified => ErrorResponse::new(ErrorCode::OperationNotAllowed)
+                .with_message("Already verified"),
+            AuthErrorCode::TotpRequired => ErrorResponse::new(ErrorCode::Unauthorized)
+                .with_message("Two-factor authentication required"),
+            AuthErrorCode::TotpInvalid => {
+                ErrorResponse::new(ErrorCode::InvalidToken).with_message("Invalid 2FA code")
             }
+            AuthErrorCode::ReauthRequired => ErrorResponse::new(ErrorCode::Unauthorized)
+                .with_message("Password confirmation required"),
+            AuthErrorCode::Banned => {
+                ErrorResponse::new(ErrorCode::AccountLocked).with_message("Account banned")
+            }
+            AuthErrorCode::InsufficientRole => ErrorResponse::new(ErrorCode::OperationNotAllowed),
+            AuthErrorCode::PermissionDenied => ErrorResponse::new(ErrorCode::OperationNotAllowed),
+            AuthErrorCode::OAuthError => ErrorResponse::new(ErrorCode::ExternalServiceError),
+            AuthErrorCode::CsrfInvalid => ErrorResponse::new(ErrorCode::InvalidToken),
+            AuthErrorCode::BackendError => ErrorResponse::new(ErrorCode::InternalServerError),
+            AuthErrorCode::InternalError => ErrorResponse::new(ErrorCode::InternalServerError),
         }
     }
 }

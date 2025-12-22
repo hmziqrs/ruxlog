@@ -26,8 +26,7 @@ sea-orm = { version = "1.1.0", features = [
     "with-json",
     "debug-print",
 ] }
-axum-login = { version = "0.17.0" }
-# axum-login = { path = "../axum-login/axum-login" }
+# axum-login removed - replaced by rux-auth
 fake = { version = "4.3.0", features = ["derive"] }
 validator = { version = "0.20.0", features = ["derive"] }
 axum-valid = { version = "0.23.0", default-features = false, features = [

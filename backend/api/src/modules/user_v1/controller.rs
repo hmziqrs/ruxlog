@@ -17,7 +17,7 @@ use crate::{
     AppState,
 };
 
-#[debug_handler]
+#[debug_handler(state = AppState)]
 #[instrument(skip(auth), fields(user_id = auth.user.as_ref().map(|u| u.id)))]
 pub async fn get_profile(auth: AuthSession) -> Result<impl IntoResponse, ErrorResponse> {
     match auth.user {

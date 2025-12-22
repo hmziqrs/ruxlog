@@ -968,26 +968,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "axum-login"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0da8e8e4cf127a9b71b578e9a8fa9833e70f893e428ed5453c85e44bf0fd8eb"
-dependencies = [
- "async-trait",
- "axum 0.8.4",
- "form_urlencoded",
- "serde",
- "subtle",
- "thiserror 2.0.12",
- "tower-cookies 0.11.0",
- "tower-layer",
- "tower-service",
- "tower-sessions",
- "tracing",
- "urlencoding",
-]
-
-[[package]]
 name = "axum-macros"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4662,7 +4642,6 @@ dependencies = [
  "axum 0.8.4",
  "axum-client-ip",
  "axum-extra",
- "axum-login",
  "axum-macros",
  "axum-valid",
  "axum_csrf",

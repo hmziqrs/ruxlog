@@ -1,27 +1,20 @@
 use axum::{middleware, routing::post, Router};
-use axum_login::login_required;
 
-use crate::{
-    middlewares::{user_permission, user_status},
-    services::auth::AuthBackend,
-    AppState,
-};
+use crate::{middlewares::auth_guard, AppState};
 
 pub mod controller;
 pub mod validator;
 
 pub fn routes() -> Router<AppState> {
-    let public = Router::new()
+    let public = Router::<AppState>::new()
         .route("/subscribe", post(controller::subscribe))
         .route("/unsubscribe", post(controller::unsubscribe))
         .route("/confirm", post(controller::confirm));
 
-    let admin = Router::new()
+    let admin = Router::<AppState>::new()
         .route("/send", post(controller::send))
         .route("/subscribers/list", post(controller::list_subscribers))
-        .route_layer(middleware::from_fn(user_permission::admin))
-        .route_layer(middleware::from_fn(user_status::only_verified))
-        .route_layer(login_required!(AuthBackend));
+        .route_layer(middleware::from_fn(auth_guard::verified_with_role::<{ auth_guard::ROLE_ADMIN }>));
 
     public.merge(admin)
 }
