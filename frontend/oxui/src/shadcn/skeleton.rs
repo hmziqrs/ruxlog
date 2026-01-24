@@ -1,14 +1,19 @@
 use dioxus::prelude::*;
 
 /// Properties for the Skeleton component
-#[derive(Props, PartialEq, Clone)]
+#[derive(Props, Clone)]
 pub struct SkeletonProps {
     /// Additional CSS classes to apply
-    #[props(default)]
     pub class: Option<String>,
     /// Optional child elements to render inside the skeleton
     #[props(default)]
-    pub children: Option<Element>,
+    pub children: Element,
+}
+
+impl PartialEq for SkeletonProps {
+    fn eq(&self, _other: &Self) -> bool {
+        false
+    }
 }
 
 /// Skeleton component for loading placeholders
@@ -24,9 +29,7 @@ pub fn Skeleton(props: SkeletonProps) -> Element {
         div {
             "data-slot": "skeleton",
             class: class.join(" "),
-            if let Some(children) = &props.children {
-                {children}
-            }
+            {props.children}
         }
     }
 }

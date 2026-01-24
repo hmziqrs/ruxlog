@@ -15,8 +15,8 @@ use super::types::{
 pub struct SonnerToasterProps {
     #[props(default = ToasterProps::default())]
     pub defaults: ToasterProps,
-    #[props(default = None)]
-    pub children: Option<Element>,
+    #[props(default)]
+    pub children: Element,
 }
 
 impl PartialEq for SonnerToasterProps {
@@ -425,7 +425,7 @@ pub fn SonnerToaster(props: SonnerToasterProps) -> Element {
                 style: container_style,
 
                 // Visible list with stacking/offsets
-                for (i, toast) in toasts_vec.iter().enumerate() {
+                for (i , toast) in toasts_vec.iter().enumerate() {
                     SonnerToast {
                         key: "{toast.id}",
                         id: toast.id,
@@ -439,107 +439,123 @@ pub fn SonnerToaster(props: SonnerToasterProps) -> Element {
                         on_auto_close: toast.on_auto_close.clone(),
                         action: toast.action.clone(),
                         cancel: toast.cancel.clone(),
-                        layout_css: {Some(match props.defaults.position {
-                            // Top cluster (mirror bottom semantics: show the last N toasts)
-                            Position::TopLeft | Position::TopRight | Position::TopCenter => {
-                                let h_align = match props.defaults.position {
-                                    Position::TopLeft => "left:0;",
-                                    Position::TopRight => "right:0;",
-                                    Position::TopCenter => "left:50%;",
-                                    _ => "",
-                                };
-                                if visible_count == 0 {
-                                    format!("position:absolute; {} top:0px; pointer-events: none; z-index:{}; will-change: transform, opacity, top;", h_align, 1000)
-                                } else {
-                                    let visible_start = count - visible_count;
-                                    if i >= visible_start {
-                                        // Visible region: newest at top (top:0), older pushed down
-                                        let base_top = offsets.get(visible_start).cloned().unwrap_or(0);
-                                        let dist_from_slice_top = offsets.get(i).cloned().unwrap_or(0) - base_top;
-                                        let h_i = heights_px.get(i).cloned().unwrap_or(fallback_h);
-                                        let top_px = (visible_height - (dist_from_slice_top + h_i)).max(0);
-                                        let z = 1000 - (count - i) as i32;
-                                        // tracing::info!(
-                                        //     "Sonner top render: id={}, i={}, z-index={}, height_px={}, top={}px, pos={:?}",
-                                        //     toast.id, i, z, h_i, top_px, props.defaults.position
-                                        // );
-                                        format!(
-                                            "position:absolute; {} top:{}px; pointer-events: auto; z-index:{}; will-change: transform, opacity, top;",
-                                            h_align,
-                                            top_px,
-                                            z
-                                        )
+                        layout_css: {
+                            Some(
+                                match props.defaults.position {
+                                    Position::TopLeft | Position::TopRight | Position::TopCenter => {
+                                        let h_align = match props.defaults.position {
+                                            Position::TopLeft => "left:0;",
+                                            Position::TopRight => "right:0;",
+                                            Position::TopCenter => "left:50%;",
+                                            _ => "",
+                                        };
+                                        if visible_count == 0 {
+                                            format!(
+                                                "position:absolute; {} top:0px; pointer-events: none; z-index:{}; will-change: transform, opacity, top;",
+                                                h_align,
+                                                1000,
+                                            )
+                                        } else {
+                                            let visible_start = count - visible_count;
+                                            if i >= visible_start {
+                                                let base_top = offsets
+                                                    .get(visible_start)
+                                                    .cloned()
+                                                    .unwrap_or(0);
+                                                let dist_from_slice_top = offsets
+                                                    .get(i)
+                                                    .cloned()
+                                                    .unwrap_or(0) - base_top;
+                                                let h_i = heights_px.get(i).cloned().unwrap_or(fallback_h);
+                                                let top_px = (visible_height - (dist_from_slice_top + h_i))
+                                                    .max(0);
+                                                let z = 1000 - (count - i) as i32;
+                                                format!(
+                                                    "position:absolute; {} top:{}px; pointer-events: auto; z-index:{}; will-change: transform, opacity, top;",
+                                                    h_align,
+                                                    top_px,
+                                                    z,
+                                                )
+                                            } else {
+                                                let base_top = 0;
+                                                let z = 1000 - (count - visible_start) as i32;
+                                                format!(
+                                                    "position:absolute; {} top:{}px; pointer-events: none; z-index:{}; will-change: transform, opacity, top;",
+                                                    h_align,
+                                                    base_top,
+                                                    z,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Position::BottomLeft
+                                    | Position::BottomRight
+                                    | Position::BottomCenter => {
+                                        let h_align = match props.defaults.position {
+                                            Position::BottomLeft => "left:0;",
+                                            Position::BottomRight => "right:0;",
+                                            Position::BottomCenter => "left:50%;",
+                                            _ => "",
+                                        };
+                                        if visible_count == 0 {
+                                            format!(
+                                                "position:absolute; {} bottom:0px; pointer-events: none; z-index:{}; will-change: transform, opacity, bottom;",
+                                                h_align,
+                                                1000,
+                                            )
+                                        } else {
+                                            let visible_start = count - visible_count;
+                                            if i >= visible_start {
+                                                let bottom_px = offsets.get(i).cloned().unwrap_or(0);
+                                                let z = 1000 + (count - i) as i32;
+                                                format!(
+                                                    "position:absolute; {} bottom:{}px; pointer-events: auto; z-index:{}; will-change: transform, opacity, bottom;",
+                                                    h_align,
+                                                    bottom_px,
+                                                    z,
+                                                )
+                                            } else {
+                                                let base_bottom = offsets
+                                                    .get(visible_start)
+                                                    .cloned()
+                                                    .unwrap_or(0);
+                                                let z = 1000 - (count - visible_start) as i32;
+                                                format!(
+                                                    "position:absolute; {} bottom:{}px; pointer-events: none; z-index:{}; will-change: transform, opacity, bottom;",
+                                                    h_align,
+                                                    base_bottom,
+                                                    z,
+                                                )
+                                            }
+                                        }
+                                    }
+                                },
+                            )
+                        },
+                        base_transform: {
+                            match props.defaults.position {
+                                Position::TopLeft | Position::TopRight | Position::TopCenter => {
+                                    let visible_start = count.saturating_sub(visible_count);
+                                    if visible_count > 0 && i < visible_start {
+                                        let overflow_index = visible_start - i;
+                                        let scale = (1.0 - (overflow_index as f32) * 0.06).max(0.82);
+                                        Some(format!("scale({:.3})", scale))
                                     } else {
-                                        // Overflow above the visible cluster (older toasts)
-                                        let base_top = 0; // stack at top edge
-                                        let z = 1000 - (count - visible_start) as i32;
-                                        format!(
-                                            "position:absolute; {} top:{}px; pointer-events: none; z-index:{}; will-change: transform, opacity, top;",
-                                            h_align,
-                                            base_top,
-                                            z
-                                        )
+                                        None
+                                    }
+                                }
+                                Position::BottomLeft | Position::BottomRight | Position::BottomCenter => {
+                                    let visible_start = count.saturating_sub(visible_count);
+                                    if visible_count > 0 && i < visible_start {
+                                        let overflow_index = visible_start - i;
+                                        let scale = (1.0 - (overflow_index as f32) * 0.06).max(0.82);
+                                        Some(format!("scale({:.3})", scale))
+                                    } else {
+                                        None
                                     }
                                 }
                             }
-                            // Bottom cluster
-                            Position::BottomLeft | Position::BottomRight | Position::BottomCenter => {
-                                let h_align = match props.defaults.position {
-                                    Position::BottomLeft => "left:0;",
-                                    Position::BottomRight => "right:0;",
-                                    Position::BottomCenter => "left:50%;",
-                                    _ => "",
-                                };
-                                if visible_count == 0 {
-                                    format!("position:absolute; {} bottom:0px; pointer-events: none; z-index:{}; will-change: transform, opacity, bottom;", h_align, 1000)
-                                } else {
-                                    let visible_start = count - visible_count;
-                                    if i >= visible_start {
-                                        let bottom_px = offsets.get(i).cloned().unwrap_or(0);
-                                        let z = 1000 + (count - i) as i32;
-                                        // let h_i = heights_px.get(i).cloned().unwrap_or(fallback_h);
-                                        // tracing::info!(
-                                        //     "Sonner bottom render: id={}, i={}, z-index={}, height_px={}, bottom={}px, pos={:?}",
-                                        //     toast.id, i, z, h_i, bottom_px, props.defaults.position
-                                        // );
-                                        format!(
-                                            "position:absolute; {} bottom:{}px; pointer-events: auto; z-index:{}; will-change: transform, opacity, bottom;",
-                                            h_align,
-                                            bottom_px,
-                                            z
-                                        )
-                                    } else {
-                                        let base_bottom = offsets.get(visible_start).cloned().unwrap_or(0);
-                                        let z = 1000 - (count - visible_start) as i32;
-                                        format!(
-                                            "position:absolute; {} bottom:{}px; pointer-events: none; z-index:{}; will-change: transform, opacity, bottom;",
-                                            h_align,
-                                            base_bottom,
-                                            z
-                                        )
-                                    }
-                                }
-                            }
-                        })},
-                        base_transform: {match props.defaults.position {
-                            Position::TopLeft | Position::TopRight | Position::TopCenter => {
-                                let visible_start = count.saturating_sub(visible_count);
-                                if visible_count > 0 && i < visible_start {
-                                    // Overflow above visible cluster
-                                    let overflow_index = visible_start - i; // 1,2,..
-                                    let scale = (1.0 - (overflow_index as f32) * 0.06).max(0.82);
-                                    Some(format!("scale({:.3})", scale))
-                                } else { None }
-                            }
-                            Position::BottomLeft | Position::BottomRight | Position::BottomCenter => {
-                                let visible_start = count.saturating_sub(visible_count);
-                                if visible_count > 0 && i < visible_start {
-                                    let overflow_index = visible_start - i;
-                                    let scale = (1.0 - (overflow_index as f32) * 0.06).max(0.82);
-                                    Some(format!("scale({:.3})", scale))
-                                } else { None }
-                            }
-                        }},
+                        },
                         on_close: {
                             let dismiss_toast = dismiss_toast.clone();
                             let id = toast.id;
