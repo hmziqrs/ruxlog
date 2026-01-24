@@ -87,32 +87,30 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  garage:
+  rustfs:
     <<: *service-defaults
     profiles: ["storage"]
-    image: dxflrs/garage:v2.1.0
-    command:
-      [
-        "/garage",
-        "--config",
-        "/etc/garage/garage.toml",
-        "--rpc-secret",
-        "${GARAGE_RPC_SECRET}",
-        "--admin-token",
-        "${GARAGE_ADMIN_TOKEN}",
-        "--metrics-token",
-        "${GARAGE_METRICS_TOKEN}",
-        "server",
-      ]
+    image: rustfs/rustfs:1.0.0-alpha.81
+    command: /data
+    environment:
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_EXTERNAL_ADDRESS: ":9000"
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      RUSTFS_CONSOLE_ENABLE: "true"
     ports:
-      - "${GARAGE_RPC_PORT:-1103}:3900"
-      - "${GARAGE_ADMIN_PORT:-1104}:3901"
-      - "${GARAGE_S3_PORT:-1105}:3902"
-      - "${GARAGE_WEB_PORT:-1106}:3903"
+      - "${RUSTFS_API_PORT:-1105}:9000"
+      - "${RUSTFS_CONSOLE_PORT:-1106}:9001"
     volumes:
-      - ./backend/docker/garage/garage.toml:/etc/garage/garage.toml:ro
-      - garage_meta:/meta
-      - garage_data:/data
+      - rustfs_data:/data
+    user: "10001:10001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
 
 networks:
   ruxlog:
@@ -123,7 +121,5 @@ volumes:
     driver: local
   valkey_data:
     driver: local
-  garage_meta:
-    driver: local
-  garage_data:
+  rustfs_data:
     driver: local
