@@ -183,7 +183,7 @@ if [[ "${ready}" -ne 1 ]]; then
   exit 1
 fi
 
-# Create bucket using S3 REST API (no external dependencies)
+# Create bucket using AWS CLI with proper S3 authentication
 echo "[rustfs-bootstrap] Setting up bucket ${bucket_name}" >&2
 
 api_port="${RUSTFS_API_PORT:-1105}"
@@ -342,7 +342,8 @@ Optional: Update comment in `state.rs` line 11:
 - RustFS runs as non-root (UID 10001) - Docker named volumes handle permissions automatically
 - Apache 2.0 license (more permissive than Garage's AGPL)
 - RustFS supports clustering for high availability (future consideration)
-- No MinIO dependency - bucket creation uses S3 REST API directly via curl
+- Bucket creation uses AWS CLI Docker image (amazon/aws-cli) for proper AWS Signature V4 authentication
+- RustFS requires AWS Signature V4 auth (not basic auth) - AWS CLI handles this automatically
 
 ## Success Criteria
 

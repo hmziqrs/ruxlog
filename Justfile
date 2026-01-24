@@ -26,7 +26,15 @@ prod:
     just dev-full env=prod
 
 storage-init env='dev':
-    scripts/garage-bootstrap.sh .env.{{env}}
+    scripts/rustfs-bootstrap.sh .env.{{env}}
+
+storage-console env='dev':
+    @echo "RustFS Console: http://localhost:$(grep RUSTFS_CONSOLE_PORT .env.{{env}} | cut -d= -f2)"
+
+storage-reset env='dev':
+    docker compose --env-file .env.{{env}} stop rustfs
+    docker volume rm -f $(grep PROJECT .env.{{env}} | cut -d= -f2)_rustfs_data || true
+    just storage-init {{env}}
 
 logs env='dev':
     docker compose --env-file .env.{{env}} logs -f
