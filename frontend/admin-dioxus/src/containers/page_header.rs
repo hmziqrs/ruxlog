@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use hmziq_dioxus_free_icons::{icons::ld_icons::LdChevronRight, Icon};
 
 use crate::router::Route;
 use oxui::shadcn::breadcrumb::{
@@ -118,7 +119,7 @@ pub fn PageHeader(props: PageHeaderProps) -> Element {
         .enumerate()
         .map(|(i, (text, link_route))| {
             let separator = if i < segments.len() - 1 {
-                rsx! { BreadcrumbSeparator {} }
+                rsx! { BreadcrumbSeparator { Icon { icon: LdChevronRight } } }
             } else {
                 rsx! {}
             };
@@ -154,7 +155,7 @@ pub fn PageHeader(props: PageHeaderProps) -> Element {
                             "Dashboard"
                         }
                     }
-                    BreadcrumbSeparator {}
+                    BreadcrumbSeparator { Icon { icon: LdChevronRight } }
 
                     // Segments
                     for element in &segments_elements { {element} }
@@ -188,7 +189,7 @@ pub fn PageHeader(props: PageHeaderProps) -> Element {
                                     "Dashboard"
                                 }
                             }
-                            BreadcrumbSeparator {}
+                            BreadcrumbSeparator { Icon { icon: LdChevronRight } }
 
                             // Segments
                             for element in &segments_elements { {element} }
