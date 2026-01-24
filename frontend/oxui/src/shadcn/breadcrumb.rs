@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::{
-    icons::ld_icons::{LdChevronRight, LdEllipsis},
+    icons::ld_icons::LdEllipsis,
     Icon,
 };
 
@@ -43,12 +43,17 @@ pub struct BreadcrumbPageProps {
     pub class: Option<String>,
 }
 
-#[derive(Props, PartialEq, Clone)]
+#[derive(Props, Clone)]
 pub struct BreadcrumbSeparatorProps {
     #[props(default)]
-    pub children: Option<Element>,
-    #[props(default)]
+    pub children: Element,
     pub class: Option<String>,
+}
+
+impl PartialEq for BreadcrumbSeparatorProps {
+    fn eq(&self, _other: &Self) -> bool {
+        false
+    }
 }
 
 #[derive(Props, PartialEq, Clone)]
@@ -151,29 +156,14 @@ pub fn BreadcrumbSeparator(props: BreadcrumbSeparatorProps) -> Element {
         class.push(custom_class.clone());
     }
 
-    // Using match for conditional rendering based on props.children
-    match &props.children {
-        Some(children) => {
-            rsx! {
-                li {
-                    "data-slot": "breadcrumb-separator",
-                    role: "presentation",
-                    "aria-hidden": "true",
-                    class: class.join(" "),
-                    {children}
-                }
-            }
-        }
-        None => {
-            rsx! {
-                li {
-                    "data-slot": "breadcrumb-separator",
-                    role: "presentation",
-                    "aria-hidden": "true",
-                    class: class.join(" "),
-                    Icon { icon: LdChevronRight }
-                }
-            }
+    // Using conditional rendering based on props.children
+    rsx! {
+        li {
+            "data-slot": "breadcrumb-separator",
+            role: "presentation",
+            "aria-hidden": "true",
+            class: class.join(" "),
+            {props.children}
         }
     }
 }

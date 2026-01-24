@@ -4,7 +4,7 @@
 This document tracks all dioxus logger usage throughout the codebase for debugging and browser console logging. Previously used gloo-console, now migrated to dioxus::logger::tracing.
 
 ## Dependency
-- **Dioxus**: `dioxus = { version = "0.7.1" }` (includes logger)
+- **Dioxus**: `dioxus = { version = "0.7.2" }` (includes logger)
 
 ## Import Statements
 
