@@ -46,12 +46,11 @@ Replace garage service (lines 90-116) with:
 rustfs:
   <<: *service-defaults
   profiles: ["storage"]
-  image: rustfs/rustfs:latest
-  command:
-    - server
-    - /data
+  image: rustfs/rustfs:1.0.0-alpha.81  # Pin version; latest as of 2026-01-22
+  command: /data
   environment:
     RUSTFS_ADDRESS: ":9000"
+    RUSTFS_EXTERNAL_ADDRESS: ":9000"
     RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
     RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
     RUSTFS_CONSOLE_ENABLE: "true"
@@ -62,7 +61,7 @@ rustfs:
     - rustfs_data:/data
   user: "10001:10001"
   healthcheck:
-    test: ["CMD-SHELL", "wget -q -O- http://localhost:9000/minio/health/live || exit 1"]
+    test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
     interval: 10s
     timeout: 5s
     retries: 5
@@ -171,7 +170,7 @@ echo "[rustfs-bootstrap] Ensuring RustFS is running (env: ${ENV_PATH})" >&2
 # Wait for RustFS health check
 ready=0
 for i in {1..30}; do
-  if curl -sf "http://localhost:${RUSTFS_API_PORT:-1105}/minio/health/live" >/dev/null 2>&1; then
+  if curl -sf "http://localhost:${RUSTFS_API_PORT:-1105}/health" >/dev/null 2>&1; then
     ready=1
     echo "[rustfs-bootstrap] RustFS is healthy after ${i} attempts" >&2
     break
@@ -184,15 +183,29 @@ if [[ "${ready}" -ne 1 ]]; then
   exit 1
 fi
 
-# Create bucket using MinIO client
+# Create bucket using S3 REST API (no external dependencies)
 echo "[rustfs-bootstrap] Setting up bucket ${bucket_name}" >&2
-docker run --rm --network "${PROJECT:-rux_local}_ruxlog" \
-  minio/mc:latest \
-  sh -c "
-    mc alias set rustfs http://rustfs:9000 ${access_key} ${secret_key} &&
-    mc mb -p rustfs/${bucket_name} 2>/dev/null || true &&
-    mc anonymous set download rustfs/${bucket_name} 2>/dev/null || true
-  " || echo "[rustfs-bootstrap] Bucket setup completed (may already exist)"
+
+api_port="${RUSTFS_API_PORT:-1105}"
+date_header=$(date -u +"%a, %d %b %Y %H:%M:%S GMT")
+
+# Create bucket via PUT request
+http_code=$(curl -sf -o /dev/null -w "%{http_code}" \
+  -X PUT "http://localhost:${api_port}/${bucket_name}" \
+  -H "Host: localhost:${api_port}" \
+  -H "Date: ${date_header}" \
+  -u "${access_key}:${secret_key}" \
+  2>/dev/null) || true
+
+if [[ "${http_code}" == "200" || "${http_code}" == "409" ]]; then
+  echo "[rustfs-bootstrap] Bucket '${bucket_name}' ready (${http_code})" >&2
+else
+  echo "[rustfs-bootstrap] Warning: bucket creation returned ${http_code}, trying via docker exec..." >&2
+  # Fallback: use docker exec into the running container
+  "${COMPOSE_CMD[@]}" exec -T rustfs sh -c \
+    "curl -sf -X PUT http://localhost:9000/${bucket_name} -u ${access_key}:${secret_key}" \
+    2>/dev/null || echo "[rustfs-bootstrap] Bucket may already exist" >&2
+fi
 
 echo "[rustfs-bootstrap] RustFS ready!" >&2
 echo "[rustfs-bootstrap] Console: http://localhost:${RUSTFS_CONSOLE_PORT:-1106}" >&2
@@ -257,11 +270,11 @@ Keep backups until verification complete.
 
 ### Service Health
 - [ ] RustFS container starts: `docker ps | grep rustfs`
-- [ ] Health check passes: `curl http://localhost:1105/minio/health/live`
-- [ ] Console accessible: Open `http://localhost:1106` (login: rustfsadmin/rustfsadmin)
+- [ ] Health check passes: `curl http://localhost:1105/health`
+- [ ] Console accessible: Open `http://localhost:1106` (login with configured credentials)
 
 ### Bucket Operations
-- [ ] Bucket created: Check via console or MinIO client
+- [ ] Bucket created: Check via console or `curl http://localhost:1105/${S3_BUCKET}`
 - [ ] Files accessible via S3 API
 
 ### Backend Integration
@@ -325,10 +338,11 @@ Optional: Update comment in `state.rs` line 11:
 ## Notes
 
 - **Production** (`.env.prod`) uses Cloudflare R2 - no changes needed
-- RustFS default credentials: `rustfsadmin/rustfsadmin` (change in production)
-- RustFS is 2.3x faster than MinIO for 4KB objects
+- RustFS default credentials: `rustfsadmin/rustfsadmin` (override via RUSTFS_ACCESS_KEY/SECRET_KEY env vars)
+- RustFS runs as non-root (UID 10001) - Docker named volumes handle permissions automatically
 - Apache 2.0 license (more permissive than Garage's AGPL)
 - RustFS supports clustering for high availability (future consideration)
+- No MinIO dependency - bucket creation uses S3 REST API directly via curl
 
 ## Success Criteria
 
