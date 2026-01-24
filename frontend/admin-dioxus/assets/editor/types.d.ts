@@ -7,6 +7,7 @@ declare global {
       success: number;
       file: { url: string };
     }>;
+    __on_editor_change?: (detail: string) => void;
   }
 }
 
