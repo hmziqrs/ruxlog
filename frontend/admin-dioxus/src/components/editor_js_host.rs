@@ -6,6 +6,7 @@ use wasm_bindgen::JsValue;
 pub fn EditorJsHost(initial_json: Option<String>) -> Element {
     let initial_json_clone = initial_json.clone();
 
+    // Run once on mount - the key prop on parent ensures remount on post change
     use_effect(move || {
         if let Some(window) = web_sys::window() {
             let window_js = JsValue::from(window.clone());
@@ -13,15 +14,22 @@ pub fn EditorJsHost(initial_json: Option<String>) -> Element {
 
             if let Some(raw_json) = initial_json_clone.clone() {
                 let value = JsValue::from_str(&raw_json);
-
-                if let Err(err) = js_sys::Reflect::set(&window_js, &key, &value) {
-                    tracing::error!("[EditorJsHost] Failed setting initial data: {:?}", err);
-                }
+                let _ = js_sys::Reflect::set(&window_js, &key, &value);
             } else {
-                if let Err(err) = js_sys::Reflect::set(&window_js, &key, &JsValue::UNDEFINED) {
-                    tracing::error!("[EditorJsHost] Failed clearing initial data: {:?}", err);
-                }
+                let _ = js_sys::Reflect::set(&window_js, &key, &JsValue::UNDEFINED);
             }
+
+            // Dispatch remount event so JS editor reinitializes
+            if let Ok(event) = web_sys::CustomEvent::new("editor:remount") {
+                let _ = window.dispatch_event(&event);
+            }
+        }
+    });
+
+    // Set up upload function once on mount
+    use_effect(move || {
+        if let Some(window) = web_sys::window() {
+            let window_js = JsValue::from(window.clone());
 
             // Expose upload function to window
             let upload_fn = Closure::wrap(Box::new(move |file: web_sys::File| {

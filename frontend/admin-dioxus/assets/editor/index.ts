@@ -344,3 +344,11 @@ ready(() => {
     console.error("[EditorJS] Mount failed:", err);
   });
 });
+
+// Listen for remount requests (for SPA navigation)
+window.addEventListener("editor:remount", () => {
+  console.log("[EditorJS] Remount requested");
+  mountEditor().catch((err) => {
+    console.error("[EditorJS] Remount failed:", err);
+  });
+});

@@ -160,6 +160,7 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
                 if let Some(window) = web_sys::window() {
                     if let Ok(Some(storage)) = window.local_storage() {
                         let cache_key = get_draft_cache_key(current_post_id);
+                        tracing::debug!("[BlogForm] Saving draft to key: {}, content length: {}", cache_key, detail.len());
                         let _ = storage.set_item(&cache_key, &detail);
                     }
                 }
@@ -498,13 +499,19 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
                             Some(content_value)
                         };
 
+                        // Generate unique key to force editor remount when switching posts
+                        let editor_key = match post_id {
+                            Some(id) => format!("editor-{}", id),
+                            None => "editor-new".to_string(),
+                        };
+
                         rsx! {
                             div { class: "space-y-2",
                                 label { class: "block text-sm font-medium text-foreground",
                                     "Content "
                                     span { class: "text-red-500", "*" }
                                 }
-                                EditorJsHost { initial_json }
+                                EditorJsHost { key: "{editor_key}", initial_json }
                             }
                         }
                     }
