@@ -25,6 +25,22 @@ use serde_json;
 use wasm_bindgen::{closure::Closure, JsCast};
 use web_sys::{Blob, Url};
 
+/// Generate localStorage cache key based on post ID
+/// - For new posts: "blog_form_draft_new"
+/// - For existing posts: "blog_form_draft_{post_id}"
+fn get_draft_cache_key(post_id: Option<i32>) -> String {
+    match post_id {
+        Some(id) => format!("blog_form_draft_{}", id),
+        None => "blog_form_draft_new".to_string(),
+    }
+}
+
+/// Clean up legacy localStorage cache
+fn cleanup_legacy_cache(storage: &web_sys::Storage) {
+    // Remove old single-key draft (for migration)
+    let _ = storage.remove_item("blog_form_draft_content");
+}
+
 #[component]
 pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
     let posts = use_post();
@@ -69,7 +85,7 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
             let view_frame = posts.view.read();
             if let Some(post_frame) = view_frame.get(&id) {
                 if let Some(post) = &post_frame.data {
-                    let form = BlogForm {
+                    let mut form = BlogForm {
                         title: post.title.clone(),
                         content: serde_json::to_string(&post.content).unwrap_or_default(),
                         slug: post.slug.clone(),
@@ -83,6 +99,18 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
                         category_id: Some(post.category.id),
                         tag_ids: post.tags.iter().map(|t| t.id).collect(),
                     };
+
+                    // Check for draft content specific to this post
+                    if let Some(window) = web_sys::window() {
+                        if let Ok(Some(storage)) = window.local_storage() {
+                            let cache_key = get_draft_cache_key(Some(id));
+                            if let Ok(Some(draft)) = storage.get_item(&cache_key) {
+                                form.content = draft;
+                            }
+                            cleanup_legacy_cache(&storage);
+                        }
+                    }
+
                     initial_form.set(Some(form));
                 }
             }
@@ -91,9 +119,11 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
             let mut form = BlogForm::new();
             if let Some(window) = web_sys::window() {
                 if let Ok(Some(storage)) = window.local_storage() {
-                    if let Ok(Some(draft)) = storage.get_item("blog_form_draft_content") {
+                    let cache_key = get_draft_cache_key(None);
+                    if let Ok(Some(draft)) = storage.get_item(&cache_key) {
                         form.content = draft;
                     }
+                    cleanup_legacy_cache(&storage);
                 }
             }
             initial_form.set(Some(form));
@@ -119,6 +149,7 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
     // Use coroutine to handle editor changes from JavaScript
     let editor_change_handler = {
         let form_signal = form;
+        let current_post_id = post_id;
 
         use_coroutine(move |mut rx: UnboundedReceiver<String>| async move {
             let mut form_signal = form_signal;
@@ -128,7 +159,8 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
 
                 if let Some(window) = web_sys::window() {
                     if let Ok(Some(storage)) = window.local_storage() {
-                        let _ = storage.set_item("blog_form_draft_content", &detail);
+                        let cache_key = get_draft_cache_key(current_post_id);
+                        let _ = storage.set_item(&cache_key, &detail);
                     }
                 }
             }
@@ -327,10 +359,12 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
         if let Some(prev) = prev_success {
             if !prev && any_success {
                 // Success state just transitioned from false to true
-                // Clean up localStorage draft
+                // Clean up localStorage draft for this specific post
                 if let Some(window) = web_sys::window() {
                     if let Ok(Some(storage)) = window.local_storage() {
-                        let _ = storage.remove_item("blog_form_draft_content");
+                        let cache_key = get_draft_cache_key(post_id);
+                        let _ = storage.remove_item(&cache_key);
+                        cleanup_legacy_cache(&storage);
                     }
                 }
 
