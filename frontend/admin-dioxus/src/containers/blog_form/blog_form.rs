@@ -22,7 +22,7 @@ use ruxlog_shared::store::{
     use_post, use_tag,
 };
 use serde_json;
-use wasm_bindgen::{closure::Closure, JsCast};
+use wasm_bindgen::{closure::Closure, JsValue};
 use web_sys::{Blob, Url};
 
 /// Generate localStorage cache key based on post ID
@@ -147,14 +147,14 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
     let mut form = blog_form_hook.form;
     let mut auto_slug = blog_form_hook.auto_slug;
     // Use coroutine to handle editor changes from JavaScript
+    // Message format: (detail: String, post_id: Option<i32>)
     let editor_change_handler = {
         let form_signal = form;
-        let current_post_id = post_id;
 
-        use_coroutine(move |mut rx: UnboundedReceiver<String>| async move {
+        use_coroutine(move |mut rx: UnboundedReceiver<(String, Option<i32>)>| async move {
             let mut form_signal = form_signal;
 
-            while let Some(detail) = rx.next().await {
+            while let Some((detail, current_post_id)) = rx.next().await {
                 form_signal.write().update_field("content", detail.clone());
 
                 if let Some(window) = web_sys::window() {
@@ -168,42 +168,25 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
         })
     };
 
-    let mut listener_handle =
-        use_signal(|| None::<(web_sys::EventTarget, Closure<dyn FnMut(web_sys::Event)>)>);
-
-    use_effect(move || {
-        if let Some((event_target, listener)) = listener_handle.write().take() {
-            let _ = event_target.remove_event_listener_with_callback(
-                "editor:change",
-                listener.as_ref().unchecked_ref(),
-            );
-        }
-
+    // Set up editor change handler - must re-run when post_id changes
+    // to capture the correct post_id for localStorage caching
+    use_effect(use_reactive!(|post_id| {
         if let Some(window) = web_sys::window() {
-            let event_target: web_sys::EventTarget = window.clone().into();
+            tracing::debug!("[BlogForm] Setting up __on_editor_change handler for post_id: {:?}", post_id);
             let handler = editor_change_handler.clone();
-            let listener = Closure::wrap(Box::new(move |event: web_sys::Event| {
-                if let Ok(custom_event) = event.dyn_into::<web_sys::CustomEvent>() {
-                    if let Some(detail) = custom_event.detail().as_string() {
-                        // Send to coroutine which runs in Dioxus context
-                        handler.send(detail);
-                    }
-                }
-            }) as Box<dyn FnMut(_)>);
+            let current_post_id = post_id;
+            let on_change = Closure::wrap(Box::new(move |detail: String| {
+                tracing::debug!("[BlogForm] __on_editor_change called with {} chars for post_id: {:?}", detail.len(), current_post_id);
+                handler.send((detail, current_post_id));
+            }) as Box<dyn Fn(String)>);
 
-            if event_target
-                .add_event_listener_with_callback(
-                    "editor:change",
-                    listener.as_ref().unchecked_ref(),
-                )
-                .is_ok()
-            {
-                listener_handle.set(Some((event_target, listener)));
-            } else {
-                listener.forget();
-            }
+            let window_js = JsValue::from(&window);
+            let key = JsValue::from_str("__on_editor_change");
+            let _ = js_sys::Reflect::set(&window_js, &key, on_change.as_ref());
+            on_change.forget();
+            tracing::debug!("[BlogForm] __on_editor_change handler set up successfully");
         }
-    });
+    }));
 
     // Track upload status and resolve media IDs
     use_effect(move || {
@@ -347,14 +330,6 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
             posts.add.read().data.as_ref().map(|d| d.id)
         }
     });
-
-    tracing::debug!(
-        "[BlogForm] dialog_postid: {:?} add_success: {}, any_success: {}, prev_success: {:?}",
-        *dialog_post_id.read(),
-        add_state.is_success(),
-        any_success,
-        prev_success
-    );
 
     use_effect(use_reactive!(|(any_success,)| {
         if let Some(prev) = prev_success {

@@ -37,7 +37,6 @@ import Undo from "editorjs-undo";
 
 // Constants
 const READY_EVENT = "DOMContentLoaded";
-const CHANGE_EVENT = "editor:change";
 const SAVE_EVENT = "editor:save";
 const HOLDER_ID = "editorjs";
 
@@ -286,13 +285,15 @@ const mountEditor = async (): Promise<void> => {
 
       emitEvent("editor:ready", null);
 
-      // Emit initial change event
+      // Emit initial change
       try {
         if (editor) {
           const data = await editor.save();
           const detail = withStringDetail(data);
-          if (detail) {
-            emitEvent(CHANGE_EVENT, detail);
+          console.log("[EditorJS] onReady: __on_editor_change available?", typeof (window as any).__on_editor_change);
+          if (detail && typeof (window as any).__on_editor_change === "function") {
+            console.log("[EditorJS] onReady: Calling __on_editor_change with", detail.length, "chars");
+            (window as any).__on_editor_change(detail);
           }
         }
       } catch (err) {
@@ -303,8 +304,10 @@ const mountEditor = async (): Promise<void> => {
       try {
         const data = await api.saver.save();
         const detail = withStringDetail(data);
-        if (detail) {
-          emitEvent(CHANGE_EVENT, detail);
+        console.log("[EditorJS] onChange: __on_editor_change available?", typeof (window as any).__on_editor_change);
+        if (detail && typeof (window as any).__on_editor_change === "function") {
+          console.log("[EditorJS] onChange: Calling __on_editor_change with", detail.length, "chars");
+          (window as any).__on_editor_change(detail);
         }
       } catch (err) {
         console.error("[EditorJS] onChange save failed", err);
