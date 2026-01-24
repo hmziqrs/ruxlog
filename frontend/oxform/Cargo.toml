@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 validator = "0.20"
-dioxus = { version = "0.7.2" }
+dioxus = { version = "0.7.3" }
 
 [lib]
 name = "oxform"

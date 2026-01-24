@@ -5,7 +5,7 @@ authors = ["hmziqrs <hmziqrs@gmail.com>"]
 edition = "2021"
 
 [dependencies]
-dioxus = { version = "0.7.2" }
+dioxus = { version = "0.7.3" }
 dioxus-time = { version = "0.1.0-alpha.1" }
 hmziq-dioxus-free-icons = { version = "0.10.1", features = ["simple-icons", "lucide"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -16,7 +16,7 @@ oxform = { path = "../oxform" }
 oxstore = { path = "../oxstore" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-dioxus = { version = "0.7.2", features = ["web"] }
+dioxus = { version = "0.7.3", features = ["web"] }
 uuid = { version = "1.16.0", features = ["v4", "js"] }
 js-sys = "0.3"
 web-sys = { version = "0.3.69", features = [
