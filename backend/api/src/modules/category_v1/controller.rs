@@ -28,7 +28,13 @@ pub async fn create(
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let new_category = payload.0.into_new_category();
 
-    match Category::create(&state.sea_db, new_category).await {
+    match Category::create(
+        &state.sea_db,
+        &state.object_storage.public_url,
+        new_category,
+    )
+    .await
+    {
         Ok(result) => {
             tracing::Span::current().record("category_id", result.id);
             info!(category_id = result.id, "Category created");
@@ -52,7 +58,14 @@ pub async fn update(
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let update_category = payload.0.into_update_category();
 
-    match Category::update(&state.sea_db, category_id, update_category).await {
+    match Category::update(
+        &state.sea_db,
+        &state.object_storage.public_url,
+        category_id,
+        update_category,
+    )
+    .await
+    {
         Ok(Some(category)) => {
             info!(category_id, "Category updated");
             Ok((StatusCode::OK, Json(json!(category))))
@@ -123,7 +136,9 @@ pub async fn find_by_id_or_slug(
         }
     }
 
-    match Category::find_by_id_or_slug(&state.sea_db, id, slug).await {
+    match Category::find_by_id_or_slug(&state.sea_db, &state.object_storage.public_url, id, slug)
+        .await
+    {
         Ok(Some(category)) => {
             tracing::Span::current().record("category_id", category.id);
             info!(
@@ -169,7 +184,13 @@ pub async fn find_with_query(
     let category_query = payload.0.into_category_query();
     let page = category_query.page.unwrap_or(1);
 
-    match Category::find_with_query(&state.sea_db, category_query).await {
+    match Category::find_with_query(
+        &state.sea_db,
+        &state.object_storage.public_url,
+        category_query,
+    )
+    .await
+    {
         Ok((categories, total)) => {
             info!(total, page, "Categories retrieved with query");
             Ok((

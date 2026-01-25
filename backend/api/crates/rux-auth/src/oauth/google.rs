@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use oauth2::{
     basic::{BasicClient, BasicTokenType},
-    AuthorizationCode, AuthUrl, ClientId, ClientSecret, EmptyExtraTokenFields, RedirectUrl,
+    AuthUrl, AuthorizationCode, ClientId, ClientSecret, EmptyExtraTokenFields, RedirectUrl,
     StandardTokenResponse, TokenUrl,
 };
 use serde::{Deserialize, Serialize};
@@ -132,8 +132,7 @@ impl GoogleProvider {
     /// - `GOOGLE_REDIRECT_URI`
     pub fn from_env() -> Result<Self, AuthError> {
         let client_id = std::env::var("GOOGLE_CLIENT_ID").map_err(|_| {
-            AuthError::new(AuthErrorCode::InternalError)
-                .with_message("GOOGLE_CLIENT_ID not set")
+            AuthError::new(AuthErrorCode::InternalError).with_message("GOOGLE_CLIENT_ID not set")
         })?;
 
         let client_secret = std::env::var("GOOGLE_CLIENT_SECRET").map_err(|_| {
@@ -142,8 +141,7 @@ impl GoogleProvider {
         })?;
 
         let redirect_uri = std::env::var("GOOGLE_REDIRECT_URI").map_err(|_| {
-            AuthError::new(AuthErrorCode::InternalError)
-                .with_message("GOOGLE_REDIRECT_URI not set")
+            AuthError::new(AuthErrorCode::InternalError).with_message("GOOGLE_REDIRECT_URI not set")
         })?;
 
         Self::new(client_id, client_secret, redirect_uri)

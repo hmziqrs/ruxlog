@@ -31,8 +31,7 @@ impl Validate for LikeStatusBatchRequest {
         if self.post_ids.is_empty() {
             errors.add(
                 "post_ids",
-                ValidationError::new("length")
-                    .with_message("post_ids must not be empty".into()),
+                ValidationError::new("length").with_message("post_ids must not be empty".into()),
             );
         }
 

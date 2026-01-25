@@ -14,8 +14,11 @@ impl Entity {
     #[allow(dead_code)]
     async fn load_media_for_categories(
         conn: &DbConn,
+        public_url: &str,
         categories: Vec<Model>,
     ) -> DbResult<Vec<CategoryWithRelations>> {
+        use super::super::media::url::build_public_file_url;
+
         let mut media_ids = std::collections::HashSet::new();
         for cat in &categories {
             if let Some(id) = cat.cover_id {
@@ -36,12 +39,14 @@ impl Entity {
                 .await?
                 .into_iter()
                 .map(|m| {
+                    let file_url =
+                        build_public_file_url(public_url, m.bucket.as_deref(), &m.object_key);
                     (
                         m.id,
                         CategoryMedia {
                             id: m.id,
                             object_key: m.object_key,
-                            file_url: m.file_url,
+                            file_url,
                             mime_type: m.mime_type,
                             width: m.width,
                             height: m.height,
@@ -77,6 +82,7 @@ impl Entity {
 
     pub async fn create(
         conn: &DbConn,
+        public_url: &str,
         new_category: NewCategory,
     ) -> DbResult<CategoryWithRelations> {
         let txn = conn.begin().await?;
@@ -132,7 +138,7 @@ impl Entity {
 
         txn.commit().await?;
 
-        let row = Self::find_by_id_or_slug(conn, Some(model.id), None).await?;
+        let row = Self::find_by_id_or_slug(conn, public_url, Some(model.id), None).await?;
         match row {
             Some(rel) => Ok(rel),
             None => Err(ErrorResponse::new(ErrorCode::RecordNotFound)),
@@ -141,6 +147,7 @@ impl Entity {
 
     pub async fn update(
         conn: &DbConn,
+        public_url: &str,
         category_id: i32,
         update_category: UpdateCategory,
     ) -> DbResult<Option<CategoryWithRelations>> {
@@ -231,7 +238,7 @@ impl Entity {
 
             txn.commit().await?;
 
-            let row = Self::find_by_id_or_slug(conn, Some(category_id), None).await?;
+            let row = Self::find_by_id_or_slug(conn, public_url, Some(category_id), None).await?;
             Ok(row)
         } else {
             Ok(None)
@@ -257,9 +264,12 @@ impl Entity {
 
     pub async fn find_by_id_or_slug(
         conn: &DbConn,
+        public_url: &str,
         category_id: Option<i32>,
         category_slug: Option<String>,
     ) -> DbResult<Option<CategoryWithRelations>> {
+        use super::super::media::url::public_file_url_expr;
+
         if category_id.is_none() && category_slug.is_none() {
             return Err(ErrorResponse::new(ErrorCode::InvalidInput)
                 .with_message("Either category_id or category_slug must be provided"));
@@ -299,10 +309,7 @@ impl Entity {
                 "cover_object_key",
             )
             .expr_as(
-                Expr::col((
-                    Alias::new("cover_media"),
-                    super::super::media::Column::FileUrl,
-                )),
+                public_file_url_expr(public_url, "cover_media"),
                 "cover_file_url",
             )
             .expr_as(
@@ -338,10 +345,7 @@ impl Entity {
                 "logo_object_key",
             )
             .expr_as(
-                Expr::col((
-                    Alias::new("logo_media"),
-                    super::super::media::Column::FileUrl,
-                )),
+                public_file_url_expr(public_url, "logo_media"),
                 "logo_file_url",
             )
             .expr_as(
@@ -393,8 +397,11 @@ impl Entity {
 
     pub async fn find_with_query(
         conn: &DbConn,
+        public_url: &str,
         query: CategoryQuery,
     ) -> DbResult<(Vec<CategoryWithRelations>, u64)> {
+        use super::super::media::url::public_file_url_expr;
+
         let mut category_query = Self::find()
             .select_only()
             .columns(vec![
@@ -429,10 +436,7 @@ impl Entity {
                 "cover_object_key",
             )
             .expr_as(
-                Expr::col((
-                    Alias::new("cover_media"),
-                    super::super::media::Column::FileUrl,
-                )),
+                public_file_url_expr(public_url, "cover_media"),
                 "cover_file_url",
             )
             .expr_as(
@@ -468,10 +472,7 @@ impl Entity {
                 "logo_object_key",
             )
             .expr_as(
-                Expr::col((
-                    Alias::new("logo_media"),
-                    super::super::media::Column::FileUrl,
-                )),
+                public_file_url_expr(public_url, "logo_media"),
                 "logo_file_url",
             )
             .expr_as(

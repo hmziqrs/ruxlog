@@ -30,11 +30,7 @@ impl MigrationTrait for Migration {
                             .string_len(50)
                             .null(),
                     )
-                    .col(
-                        ColumnDef::new(AppConstants::Description)
-                            .string()
-                            .null(),
-                    )
+                    .col(ColumnDef::new(AppConstants::Description).string().null())
                     .col(
                         ColumnDef::new(AppConstants::IsSensitive)
                             .boolean()
@@ -47,11 +43,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default("env"),
                     )
-                    .col(
-                        ColumnDef::new(AppConstants::UpdatedBy)
-                            .integer()
-                            .null(),
-                    )
+                    .col(ColumnDef::new(AppConstants::UpdatedBy).integer().null())
                     .col(
                         ColumnDef::new(AppConstants::CreatedAt)
                             .timestamp_with_time_zone()

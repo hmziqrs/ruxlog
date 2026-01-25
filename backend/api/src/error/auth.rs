@@ -18,8 +18,9 @@ impl IntoErrorResponse for AuthError {
             AuthErrorCode::VerificationRequired => {
                 ErrorResponse::new(ErrorCode::EmailVerificationRequired)
             }
-            AuthErrorCode::AlreadyVerified => ErrorResponse::new(ErrorCode::OperationNotAllowed)
-                .with_message("Already verified"),
+            AuthErrorCode::AlreadyVerified => {
+                ErrorResponse::new(ErrorCode::OperationNotAllowed).with_message("Already verified")
+            }
             AuthErrorCode::TotpRequired => ErrorResponse::new(ErrorCode::Unauthorized)
                 .with_message("Two-factor authentication required"),
             AuthErrorCode::TotpInvalid => {

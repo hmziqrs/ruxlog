@@ -33,7 +33,9 @@ pub fn routes() -> Router<AppState> {
             "/sync_interval/restart",
             post(controller::restart_sync_interval),
         )
-        .route_layer(middleware::from_fn(auth_guard::verified_with_role::<{ auth_guard::ROLE_ADMIN }>));
+        .route_layer(middleware::from_fn(
+            auth_guard::verified_with_role::<{ auth_guard::ROLE_ADMIN }>,
+        ));
 
     admin
 }

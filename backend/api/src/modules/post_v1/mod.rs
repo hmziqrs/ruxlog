@@ -43,7 +43,9 @@ pub fn routes() -> Router<AppState> {
             post(controller::series_remove),
         )
         .merge(post_limited)
-        .route_layer(middleware::from_fn(auth_guard::verified_with_role::<{ auth_guard::ROLE_AUTHOR }>));
+        .route_layer(middleware::from_fn(
+            auth_guard::verified_with_role::<{ auth_guard::ROLE_AUTHOR }>,
+        ));
 
     // Routes requiring authentication (any logged-in user)
     let authenticated = Router::<AppState>::new()

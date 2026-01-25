@@ -92,7 +92,7 @@ restore zip_file:
 
 # Database migrations
 migrate:
-    cargo run --bin migration
+    cargo run -p migration --bin migrate -- up
 
 # Utility commands
 lsof:

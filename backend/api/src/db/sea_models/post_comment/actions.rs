@@ -105,7 +105,12 @@ impl Entity {
 
     /// Find all comments by post ID (public use)
     #[instrument(skip(conn), fields(post_id))]
-    pub async fn find_all_by_post(conn: &DbConn, post_id: i32) -> DbResult<Vec<CommentWithUser>> {
+    pub async fn find_all_by_post(
+        conn: &DbConn,
+        public_url: &str,
+        post_id: i32,
+    ) -> DbResult<Vec<CommentWithUser>> {
+        use super::super::media::url::public_file_url_expr;
         use super::super::user::Column as UserColumn;
         use sea_orm::prelude::Expr;
         use sea_orm::sea_query::Alias;
@@ -138,10 +143,7 @@ impl Entity {
                 "user_avatar_object_key",
             )
             .expr_as(
-                Expr::col((
-                    Alias::new("user_avatar_media"),
-                    super::super::media::Column::FileUrl,
-                )),
+                public_file_url_expr(public_url, "user_avatar_media"),
                 "user_avatar_file_url",
             )
             .expr_as(
@@ -190,8 +192,10 @@ impl Entity {
     /// Find comments with query (dashboard use)
     pub async fn find_with_query(
         conn: &DbConn,
+        public_url: &str,
         query: CommentQuery,
     ) -> DbResult<(Vec<CommentWithUser>, u64)> {
+        use super::super::media::url::public_file_url_expr;
         use super::super::user::Column as UserColumn;
         use sea_orm::prelude::Expr;
         use sea_orm::sea_query::Alias;
@@ -224,10 +228,7 @@ impl Entity {
                 "user_avatar_object_key",
             )
             .expr_as(
-                Expr::col((
-                    Alias::new("user_avatar_media"),
-                    super::super::media::Column::FileUrl,
-                )),
+                public_file_url_expr(public_url, "user_avatar_media"),
                 "user_avatar_file_url",
             )
             .expr_as(

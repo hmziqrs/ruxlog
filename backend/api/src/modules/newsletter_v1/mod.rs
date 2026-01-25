@@ -14,7 +14,9 @@ pub fn routes() -> Router<AppState> {
     let admin = Router::<AppState>::new()
         .route("/send", post(controller::send))
         .route("/subscribers/list", post(controller::list_subscribers))
-        .route_layer(middleware::from_fn(auth_guard::verified_with_role::<{ auth_guard::ROLE_ADMIN }>));
+        .route_layer(middleware::from_fn(
+            auth_guard::verified_with_role::<{ auth_guard::ROLE_ADMIN }>,
+        ));
 
     public.merge(admin)
 }

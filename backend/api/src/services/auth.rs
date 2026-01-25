@@ -79,19 +79,18 @@ impl AuthBackend {
 
         // Verify password in blocking task
         let verify_start = Instant::now();
-        let password_valid = match task::spawn_blocking(move || Self::check_password(password, &pwd_hash))
-            .await
-        {
-            Ok(result) => result?,
-            Err(join_err) => {
-                error!(error = %join_err, "Password verification task failed");
-                metrics
-                    .login_failure
-                    .add(1, &[opentelemetry::KeyValue::new("reason", "task_error")]);
-                return Err(AuthError::new(AuthErrorCode::InternalError)
-                    .with_message("Password verification failed"));
-            }
-        };
+        let password_valid =
+            match task::spawn_blocking(move || Self::check_password(password, &pwd_hash)).await {
+                Ok(result) => result?,
+                Err(join_err) => {
+                    error!(error = %join_err, "Password verification task failed");
+                    metrics
+                        .login_failure
+                        .add(1, &[opentelemetry::KeyValue::new("reason", "task_error")]);
+                    return Err(AuthError::new(AuthErrorCode::InternalError)
+                        .with_message("Password verification failed"));
+                }
+            };
 
         let verify_duration = verify_start.elapsed().as_millis() as f64;
         metrics
@@ -117,7 +116,10 @@ impl AuthBackend {
 
     /// Authenticate with OAuth (Google ID)
     #[instrument(skip(self), fields(result))]
-    pub async fn authenticate_oauth(&self, google_id: String) -> Result<Option<user::Model>, AuthError> {
+    pub async fn authenticate_oauth(
+        &self,
+        google_id: String,
+    ) -> Result<Option<user::Model>, AuthError> {
         let metrics = telemetry::auth_metrics();
         info!("OAuth authentication attempt");
 
@@ -140,7 +142,10 @@ impl AuthBackend {
                 warn!("OAuth user not found");
                 metrics.login_failure.add(
                     1,
-                    &[opentelemetry::KeyValue::new("reason", "oauth_user_not_found")],
+                    &[opentelemetry::KeyValue::new(
+                        "reason",
+                        "oauth_user_not_found",
+                    )],
                 );
                 Ok(None)
             }
@@ -196,8 +201,7 @@ impl RuxAuthBackend for AuthBackend {
             .await
             .map_err(|err| {
                 error!(error = ?err, "Error retrieving user");
-                AuthError::new(AuthErrorCode::BackendError)
-                    .with_message("Failed to retrieve user")
+                AuthError::new(AuthErrorCode::BackendError).with_message("Failed to retrieve user")
             })
     }
 
@@ -237,9 +241,7 @@ impl RuxAuthBackend for AuthBackend {
 
         let password = password.to_string();
         match task::spawn_blocking(move || Self::check_password(password, &pwd_hash)).await {
-            Ok(result) => result.map_err(|_| {
-                AuthError::new(AuthErrorCode::InvalidCredentials)
-            }),
+            Ok(result) => result.map_err(|_| AuthError::new(AuthErrorCode::InvalidCredentials)),
             Err(_) => Err(AuthError::new(AuthErrorCode::InternalError)
                 .with_message("Password verification task failed")),
         }

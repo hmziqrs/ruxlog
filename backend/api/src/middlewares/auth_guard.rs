@@ -58,11 +58,7 @@ pub async fn unverified(
     next: Next,
 ) -> Result<Response, AuthError> {
     let mut auth = make_auth_session(&db, session).await;
-    check_requirements(
-        &mut auth,
-        &auth_requirements().authenticated().unverified(),
-    )
-    .await?;
+    check_requirements(&mut auth, &auth_requirements().authenticated().unverified()).await?;
     Ok(next.run(request).await)
 }
 
@@ -78,11 +74,7 @@ pub async fn verified(
     next: Next,
 ) -> Result<Response, AuthError> {
     let mut auth = make_auth_session(&db, session).await;
-    check_requirements(
-        &mut auth,
-        &auth_requirements().authenticated().verified(),
-    )
-    .await?;
+    check_requirements(&mut auth, &auth_requirements().authenticated().verified()).await?;
     Ok(next.run(request).await)
 }
 

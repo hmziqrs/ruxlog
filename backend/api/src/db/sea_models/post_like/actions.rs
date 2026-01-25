@@ -80,7 +80,12 @@ impl Entity {
         };
 
         transaction.commit().await?;
-        info!(post_id, user_id, likes_count = new_likes_count, "Post liked");
+        info!(
+            post_id,
+            user_id,
+            likes_count = new_likes_count,
+            "Post liked"
+        );
         Ok((true, new_likes_count))
     }
 

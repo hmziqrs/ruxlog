@@ -18,8 +18,11 @@ impl Entity {
     #[allow(dead_code)]
     async fn load_media_for_users(
         conn: &DbConn,
+        public_url: &str,
         users: Vec<Model>,
     ) -> DbResult<Vec<(Model, Option<UserMedia>)>> {
+        use super::super::media::url::build_public_file_url;
+
         let mut media_ids = std::collections::HashSet::new();
         for user in &users {
             if let Some(id) = user.avatar_id {
@@ -37,12 +40,14 @@ impl Entity {
                 .await?
                 .into_iter()
                 .map(|m| {
+                    let file_url =
+                        build_public_file_url(public_url, m.bucket.as_deref(), &m.object_key);
                     (
                         m.id,
                         UserMedia {
                             id: m.id,
                             object_key: m.object_key,
-                            file_url: m.file_url,
+                            file_url,
                             mime_type: m.mime_type,
                             width: m.width,
                             height: m.height,
@@ -319,6 +324,7 @@ impl Entity {
     #[instrument(skip(conn, new_user), fields(user_id, email = %new_user.email))]
     pub async fn admin_create(
         conn: &DbConn,
+        public_url: &str,
         new_user: AdminCreateUser,
     ) -> DbResult<UserWithRelations> {
         let txn = conn.begin().await?;
@@ -360,11 +366,12 @@ impl Entity {
 
         txn.commit().await?;
 
-        Self::find_by_id_with_relations(conn, model.id).await
+        Self::find_by_id_with_relations(conn, public_url, model.id).await
     }
 
     pub async fn admin_update(
         conn: &DbConn,
+        public_url: &str,
         user_id: i32,
         update_user: AdminUpdateUser,
     ) -> DbResult<Option<UserWithRelations>> {
@@ -425,7 +432,7 @@ impl Entity {
 
             txn.commit().await?;
 
-            Self::find_by_id_with_relations(conn, user_id)
+            Self::find_by_id_with_relations(conn, public_url, user_id)
                 .await
                 .map(Some)
         } else {
@@ -448,8 +455,11 @@ impl Entity {
 
     pub async fn find_by_id_with_relations(
         conn: &DbConn,
+        public_url: &str,
         user_id: i32,
     ) -> DbResult<UserWithRelations> {
+        use super::super::media::url::public_file_url_expr;
+
         let user_query = Self::find()
             .select_only()
             .columns(vec![
@@ -476,10 +486,7 @@ impl Entity {
                 "avatar_object_key",
             )
             .expr_as(
-                Expr::col((
-                    Alias::new("avatar_media"),
-                    super::super::media::Column::FileUrl,
-                )),
+                public_file_url_expr(public_url, "avatar_media"),
                 "avatar_file_url",
             )
             .expr_as(
@@ -526,8 +533,11 @@ impl Entity {
 
     pub async fn admin_list(
         conn: &DbConn,
+        public_url: &str,
         query: AdminUserQuery,
     ) -> DbResult<(Vec<UserWithRelations>, u64)> {
+        use super::super::media::url::public_file_url_expr;
+
         let mut user_query = Self::find()
             .select_only()
             .columns(vec![
@@ -554,10 +564,7 @@ impl Entity {
                 "avatar_object_key",
             )
             .expr_as(
-                Expr::col((
-                    Alias::new("avatar_media"),
-                    super::super::media::Column::FileUrl,
-                )),
+                public_file_url_expr(public_url, "avatar_media"),
                 "avatar_file_url",
             )
             .expr_as(

@@ -16,5 +16,7 @@ pub fn routes() -> Router<AppState> {
         .route("/usage/details", post(controller::list_usage_details))
         .route("/delete/{media_id}", post(controller::delete))
         .merge(media_limited)
-        .route_layer(middleware::from_fn(auth_guard::verified_with_role::<{ auth_guard::ROLE_AUTHOR }>))
+        .route_layer(middleware::from_fn(
+            auth_guard::verified_with_role::<{ auth_guard::ROLE_AUTHOR }>,
+        ))
 }

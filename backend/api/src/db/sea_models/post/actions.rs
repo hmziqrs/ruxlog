@@ -12,8 +12,9 @@ use super::*;
 impl Entity {
     pub const PER_PAGE: u64 = 10;
 
-    fn build_post_query_with_relations() -> Select<Entity> {
+    fn build_post_query_with_relations(public_url: &str) -> Select<Entity> {
         use super::super::category::Column as CategoryColumn;
+        use super::super::media::url::public_file_url_expr;
         use super::super::user::Column as UserColumn;
 
         Self::find()
@@ -46,10 +47,7 @@ impl Entity {
                 "author_avatar_object_key",
             )
             .expr_as(
-                Expr::col((
-                    Alias::new("author_avatar_media"),
-                    super::super::media::Column::FileUrl,
-                )),
+                public_file_url_expr(public_url, "author_avatar_media"),
                 "author_avatar_file_url",
             )
             .expr_as(
@@ -94,10 +92,7 @@ impl Entity {
                 "category_cover_object_key",
             )
             .expr_as(
-                Expr::col((
-                    Alias::new("category_cover_media"),
-                    super::super::media::Column::FileUrl,
-                )),
+                public_file_url_expr(public_url, "category_cover_media"),
                 "category_cover_file_url",
             )
             .expr_as(
@@ -141,10 +136,7 @@ impl Entity {
                 "category_logo_object_key",
             )
             .expr_as(
-                Expr::col((
-                    Alias::new("category_logo_media"),
-                    super::super::media::Column::FileUrl,
-                )),
+                public_file_url_expr(public_url, "category_logo_media"),
                 "category_logo_file_url",
             )
             .expr_as(
@@ -188,10 +180,7 @@ impl Entity {
                 "featured_image_object_key",
             )
             .expr_as(
-                Expr::col((
-                    Alias::new("featured_image_media"),
-                    super::super::media::Column::FileUrl,
-                )),
+                public_file_url_expr(public_url, "featured_image_media"),
                 "featured_image_file_url",
             )
             .expr_as(
@@ -238,7 +227,11 @@ impl Entity {
     }
 
     #[instrument(skip(conn, new_post), fields(post_id, author_id = new_post.author_id, slug = %new_post.slug))]
-    pub async fn create(conn: &DbConn, new_post: NewPost) -> DbResult<PostWithRelations> {
+    pub async fn create(
+        conn: &DbConn,
+        public_url: &str,
+        new_post: NewPost,
+    ) -> DbResult<PostWithRelations> {
         let now = chrono::Utc::now().fixed_offset();
 
         let sanitized_tag_ids = Self::sanitized_tag_ids(conn, new_post.tag_ids).await?;
@@ -269,7 +262,7 @@ impl Entity {
                     author_id = model.author_id,
                     "Post created"
                 );
-                Self::find_by_id_or_slug(conn, Some(model.id), None)
+                Self::find_by_id_or_slug(conn, public_url, Some(model.id), None)
                     .await?
                     .ok_or_else(|| {
                         DbErr::RecordNotFound("Created post not found".to_string()).into()
@@ -288,6 +281,7 @@ impl Entity {
     #[instrument(skip(conn, update_post), fields(post_id))]
     pub async fn update(
         conn: &DbConn,
+        public_url: &str,
         post_id: i32,
         update_post: UpdatePost,
     ) -> DbResult<Option<PostWithRelations>> {
@@ -346,7 +340,7 @@ impl Entity {
             match post_active.update(conn).await {
                 Ok(updated_post) => {
                     info!(post_id, "Post updated");
-                    Self::find_by_id_or_slug(conn, Some(updated_post.id), None).await
+                    Self::find_by_id_or_slug(conn, public_url, Some(updated_post.id), None).await
                 }
                 Err(err) => {
                     error!(post_id, "Failed to update post: {}", err);
@@ -380,10 +374,11 @@ impl Entity {
     #[instrument(skip(conn), fields(post_id, slug = post_slug.as_deref()))]
     pub async fn find_by_id_or_slug(
         conn: &DbConn,
+        public_url: &str,
         post_id: Option<i32>,
         post_slug: Option<String>,
     ) -> DbResult<Option<PostWithRelations>> {
-        let mut query = Self::build_post_query_with_relations();
+        let mut query = Self::build_post_query_with_relations(public_url);
 
         query = match (post_id, post_slug.clone()) {
             (Some(id), _) => query.filter(Column::Id.eq(id)),
@@ -420,9 +415,10 @@ impl Entity {
     // Search posts with query parameters and optionally load relations
     pub async fn search(
         conn: &DbConn,
+        public_url: &str,
         query: PostQuery,
     ) -> DbResult<(Vec<PostWithRelations>, u64)> {
-        let mut post_query = Self::build_post_query_with_relations();
+        let mut post_query = Self::build_post_query_with_relations(public_url);
 
         if let Some(title_filter) = &query.title {
             let pattern = format!("%{}%", title_filter);
@@ -568,6 +564,7 @@ impl Entity {
 
     pub async fn find_published_paginated(
         conn: &DbConn,
+        public_url: &str,
         query: PostQuery,
     ) -> DbResult<(Vec<PostWithRelations>, u64)> {
         let query = PostQuery {
@@ -590,7 +587,7 @@ impl Entity {
             published_at_lt: None,
         };
 
-        Self::search(conn, query).await
+        Self::search(conn, public_url, query).await
     }
 
     // Sitemap data for published posts

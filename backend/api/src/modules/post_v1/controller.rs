@@ -41,7 +41,7 @@ pub async fn create(
 
     let new_post = payload.0.into_new_post(user.id);
 
-    match post::Entity::create(&state.sea_db, new_post).await {
+    match post::Entity::create(&state.sea_db, &state.object_storage.public_url, new_post).await {
         Ok(post) => {
             info!(post_id = post.id, slug = %post.slug, "Post created successfully");
             tracing::Span::current().record("post_id", post.id);
@@ -68,11 +68,23 @@ pub async fn find_by_id_or_slug(
     let query = match slug_or_id.parse::<i32>() {
         Ok(id) => {
             info!(post_id = id, "Searching by ID");
-            post::Entity::find_by_id_or_slug(&state.sea_db, Some(id), None).await
+            post::Entity::find_by_id_or_slug(
+                &state.sea_db,
+                &state.object_storage.public_url,
+                Some(id),
+                None,
+            )
+            .await
         }
         Err(_) => {
             info!(slug = %slug_or_id, "Searching by slug");
-            post::Entity::find_by_id_or_slug(&state.sea_db, None, Some(slug_or_id)).await
+            post::Entity::find_by_id_or_slug(
+                &state.sea_db,
+                &state.object_storage.public_url,
+                None,
+                Some(slug_or_id),
+            )
+            .await
         }
     };
 
@@ -107,7 +119,14 @@ pub async fn update(
 
     let update_post = payload.0.into_update_post();
 
-    match post::Entity::update(&state.sea_db, post_id, update_post).await {
+    match post::Entity::update(
+        &state.sea_db,
+        &state.object_storage.public_url,
+        post_id,
+        update_post,
+    )
+    .await
+    {
         Ok(Some(post)) => {
             info!(post_id, slug = %post.slug, "Post updated successfully");
             tracing::Span::current().record("result", "success");
@@ -151,7 +170,13 @@ pub async fn find_published_posts(
     payload: ValidatedJson<V1PostQueryParams>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let page = payload.page.clone().unwrap_or(1);
-    match post::Entity::find_published_paginated(&state.sea_db, payload.0.into_post_query()).await {
+    match post::Entity::find_published_paginated(
+        &state.sea_db,
+        &state.object_storage.public_url,
+        payload.0.into_post_query(),
+    )
+    .await
+    {
         Ok((posts, total)) => Ok((
             StatusCode::OK,
             Json(json!({
@@ -221,7 +246,13 @@ pub async fn query(
 
     let page = query_params.page.clone().unwrap_or(1);
 
-    match post::Entity::search(&state.sea_db, query_params.into_post_query()).await {
+    match post::Entity::search(
+        &state.sea_db,
+        &state.object_storage.public_url,
+        query_params.into_post_query(),
+    )
+    .await
+    {
         Ok((posts, total)) => Ok((
             StatusCode::OK,
             Json(json!({
@@ -268,7 +299,14 @@ pub async fn autosave(
                 tag_ids: None,
             };
 
-            match post::Entity::update(&state.sea_db, p.post_id, update).await {
+            match post::Entity::update(
+                &state.sea_db,
+                &state.object_storage.public_url,
+                p.post_id,
+                update,
+            )
+            .await
+            {
                 Ok(_) => Ok((StatusCode::OK, Json(json!(revision)))),
                 Err(err) => Err(err.into()),
             }
@@ -340,7 +378,14 @@ pub async fn revisions_restore(
         tag_ids: None,
     };
 
-    match post::Entity::update(&state.sea_db, post_id, update).await {
+    match post::Entity::update(
+        &state.sea_db,
+        &state.object_storage.public_url,
+        post_id,
+        update,
+    )
+    .await
+    {
         Ok(_) => {
             let meta = serde_json::json!({ "restored_from_revision_id": revision_id });
             match post_revision::Entity::create(

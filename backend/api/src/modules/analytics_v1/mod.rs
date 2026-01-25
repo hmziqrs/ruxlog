@@ -31,5 +31,7 @@ pub fn routes() -> Router<AppState> {
             post(controller::media_upload_trends),
         )
         .route("/dashboard/summary", post(controller::dashboard_summary))
-        .route_layer(middleware::from_fn(auth_guard::verified_with_role::<{ auth_guard::ROLE_ADMIN }>))
+        .route_layer(middleware::from_fn(
+            auth_guard::verified_with_role::<{ auth_guard::ROLE_ADMIN }>,
+        ))
 }

@@ -73,7 +73,10 @@ pub async fn log_in(
                 .and_then(|v| v.to_str().ok())
                 .map(|s| s.to_string());
 
-            match auth.login_with_metadata(&user, device.clone(), ip.clone()).await {
+            match auth
+                .login_with_metadata(&user, device.clone(), ip.clone())
+                .await
+            {
                 Ok(_) => {
                     info!(
                         user_id = user.id,

@@ -44,7 +44,6 @@ impl MigrationTrait for Migration {
                             .custom(UserRole::UserRole) // Use the Iden for the custom type
                             .not_null()
                             .default(Expr::val("user")),
-
                     )
                     .col(
                         ColumnDef::new(Users::CreatedAt)
