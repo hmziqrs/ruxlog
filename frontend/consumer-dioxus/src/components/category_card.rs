@@ -15,7 +15,7 @@ pub fn CategoryCard(props: CategoryCardProps) -> Element {
 
     rsx! {
         article {
-            class: "group h-full rounded-lg border border-border overflow-hidden transition-colors duration-200 hover:border-primary/50 cursor-pointer",
+            class: "category-card group h-full",
             onclick: move |_| {
                 if let Some(handler) = &props.on_click {
                     handler.call(category_slug.clone());
@@ -24,36 +24,41 @@ pub fn CategoryCard(props: CategoryCardProps) -> Element {
 
             // Media (only if cover exists)
             if let Some(cover) = &category.cover {
-                div { class: "relative aspect-[16/9] overflow-hidden bg-muted",
+                div { class: "category-card-image",
                     img {
                         src: "{cover.file_url}",
                         alt: "{category.name}",
-                        class: "w-full h-full object-cover transition-transform duration-500 group-hover:scale-105",
                     }
 
                     // Logo badge
                     if let Some(logo) = &category.logo {
-                        div { class: "absolute top-3 left-3",
-                            div { class: "w-8 h-8 border border-border rounded bg-background flex items-center justify-center p-1",
-                                img {
-                                    src: "{logo.file_url}",
-                                    alt: "{category.name}",
-                                    class: "w-full h-full object-contain",
-                                }
+                        div { class: "category-logo-badge",
+                            img {
+                                src: "{logo.file_url}",
+                                alt: "{category.name}",
+                                class: "w-full h-full object-contain",
                             }
                         }
                     }
                 }
+            } else {
+                // Fallback gradient if no cover
+                div { class: "aspect-[16/9] bg-gradient-to-br from-cyan-500/10 via-violet-500/10 to-purple-500/10" }
             }
 
             // Content
-            div { class: "p-4",
-                h3 { class: "text-lg font-semibold mb-2 leading-snug line-clamp-2",
+            div { class: "p-5",
+                // Category label
+                span { class: "section-label mb-3 inline-block",
+                    "Category"
+                }
+
+                h3 { class: "text-xl font-bold mb-2 line-clamp-2 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors",
                     "{category.name}"
                 }
 
                 if let Some(description) = &category.description {
-                    p { class: "text-sm leading-relaxed mb-3 line-clamp-2",
+                    p { class: "text-muted-foreground text-sm leading-relaxed line-clamp-2",
                         "{description}"
                     }
                 }

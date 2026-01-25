@@ -21,13 +21,17 @@ pub fn LikeButton(props: LikeButtonProps) -> Element {
     let is_liked = props.is_liked;
     let is_loading = props.is_loading;
     let disabled = props.disabled || is_loading;
-    
-    let button_class = "flex items-center gap-2";
+
+    let button_class = if is_liked {
+        "like-button-liked"
+    } else {
+        "like-button"
+    };
 
     let heart_class = if is_liked {
-        "w-5 h-5 fill-current"
+        "w-4 h-4 fill-current"
     } else {
-        "w-5 h-5"
+        "w-4 h-4"
     };
 
     rsx! {
@@ -40,11 +44,11 @@ pub fn LikeButton(props: LikeButtonProps) -> Element {
                 }
             },
             if is_loading {
-                Icon { icon: LdLoader, class: "w-5 h-5 animate-spin" }
+                Icon { icon: LdLoader, class: "w-4 h-4 animate-spin" }
             } else {
                 Icon { icon: LdHeart, class: "{heart_class}" }
             }
-            span { class: "font-medium", "{props.likes_count}" }
+            span { class: "engagement-count", "{props.likes_count}" }
         }
     }
 }
@@ -73,11 +77,11 @@ pub fn EngagementBar(props: EngagementBarProps) -> Element {
 
     rsx! {
         div { class: "flex items-center justify-between",
-            div { class: "flex items-center gap-6",
+            div { class: "flex items-center gap-3",
                 // Views (display only)
-                div { class: "flex items-center gap-2",
-                    Icon { icon: LdEye, class: "w-5 h-5" }
-                    span { class: "font-medium", "{props.view_count}" }
+                div { class: "engagement-button",
+                    Icon { icon: LdEye, class: "w-4 h-4" }
+                    span { class: "engagement-count", "{props.view_count}" }
                 }
 
                 // Likes button
@@ -94,27 +98,27 @@ pub fn EngagementBar(props: EngagementBarProps) -> Element {
 
                 // Comments (clickable to scroll)
                 button {
-                    class: "flex items-center gap-2",
+                    class: "comment-button",
                     onclick: move |_| {
                         if let Some(handler) = &props.on_scroll_to_comments {
                             handler.call(());
                         }
                     },
-                    Icon { icon: LdMessageCircle, class: "w-5 h-5" }
-                    span { class: "font-medium", "{props.comment_count}" }
+                    Icon { icon: LdMessageCircle, class: "w-4 h-4" }
+                    span { class: "engagement-count", "{props.comment_count}" }
                 }
         }
 
         // Share button
         button {
-            class: "flex items-center gap-2",
+            class: "share-button",
             onclick: move |_| {
                 if let Some(handler) = &props.on_share {
                     handler.call(());
                     }
                 },
-                Icon { icon: LdShare2, class: "w-5 h-5" }
-                span { class: "font-medium", "Share" }
+                Icon { icon: LdShare2, class: "w-4 h-4" }
+                span { class: "font-semibold text-sm", "Share" }
             }
         }
     }
