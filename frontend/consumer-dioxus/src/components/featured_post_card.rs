@@ -26,20 +26,17 @@ pub fn FeaturedPostCard(props: FeaturedPostCardProps) -> Element {
                 }
             },
             // Media section
-            div { class: "relative aspect-[21/9] overflow-hidden",
+            div { class: "relative aspect-[21/9] overflow-hidden bg-muted",
                 if let Some(img) = &post.featured_image {
                     img {
                         src: "{img.file_url}",
                         alt: "{post.title}",
-                        class: "w-full h-full object-cover transition-transform duration-700 group-hover:scale-105",
+                        class: "w-full h-full object-cover transition-transform duration-500 group-hover:scale-105",
                     }
                 } else {
-                    // Fallback - vibrant gradient
-                    div { class: "w-full h-full bg-gradient-to-br from-violet-500/20 via-purple-500/10 to-cyan-500/20" }
+                    // Fallback
+                    div { class: "w-full h-full bg-muted" }
                 }
-
-                // Gradient overlay for better text contrast
-                div { class: "absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" }
 
                 // Category badge - top left
                 div { class: "absolute top-4 left-4",
@@ -47,18 +44,11 @@ pub fn FeaturedPostCard(props: FeaturedPostCardProps) -> Element {
                         "{post.category.name}"
                     }
                 }
-
-                // Featured badge - top right
-                div { class: "absolute top-4 right-4",
-                    span { class: "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg",
-                        "Featured"
-                    }
-                }
             }
 
             // Content
             div { class: "p-6 md:p-8",
-                // Tags - colorful chips
+                // Tags
                 if !post.tags.is_empty() {
                     div { class: "flex flex-wrap gap-2 mb-4",
                         for tag in post.tags.iter().take(3) {
@@ -69,12 +59,12 @@ pub fn FeaturedPostCard(props: FeaturedPostCardProps) -> Element {
                     }
                 }
 
-                h2 { class: "text-2xl md:text-3xl font-extrabold leading-tight tracking-tight mb-4 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors",
+                h2 { class: "title-featured mb-4",
                     "{post.title}"
                 }
 
                 if let Some(excerpt) = &post.excerpt {
-                    p { class: "text-base md:text-lg text-muted-foreground leading-relaxed mb-6 line-clamp-2",
+                    p { class: "text-base md:text-lg excerpt leading-relaxed mb-6 line-clamp-2",
                         "{excerpt}"
                     }
                 }

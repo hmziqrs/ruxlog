@@ -42,8 +42,8 @@ pub fn CategoryCard(props: CategoryCardProps) -> Element {
                     }
                 }
             } else {
-                // Fallback gradient if no cover
-                div { class: "aspect-[16/9] bg-gradient-to-br from-cyan-500/10 via-violet-500/10 to-purple-500/10" }
+                // Fallback if no cover
+                div { class: "aspect-[16/9] bg-muted" }
             }
 
             // Content
@@ -53,12 +53,12 @@ pub fn CategoryCard(props: CategoryCardProps) -> Element {
                     "Category"
                 }
 
-                h3 { class: "text-xl font-bold mb-2 line-clamp-2 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors",
+                h3 { class: "text-xl font-bold mb-2 line-clamp-2",
                     "{category.name}"
                 }
 
                 if let Some(description) = &category.description {
-                    p { class: "text-muted-foreground text-sm leading-relaxed line-clamp-2",
+                    p { class: "excerpt-card line-clamp-2",
                         "{description}"
                     }
                 }

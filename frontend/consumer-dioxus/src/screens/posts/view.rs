@@ -119,7 +119,7 @@ pub fn PostViewScreen(id: i32) -> Element {
                     div { class: "flex flex-wrap items-center gap-3 mb-6",
                         // Category (with border)
                         button {
-                            class: "px-2.5 py-1 text-xs font-medium border border-border rounded-md hover:bg-accent transition-colors",
+                            class: "category-pill",
                             onclick: move |_| {
                                 nav.push(crate::router::Route::CategoryDetailScreen {
                                     slug: post.category.slug.clone(),
@@ -136,7 +136,7 @@ pub fn PostViewScreen(id: i32) -> Element {
                                     let tag_name = tag.name.clone();
                                     rsx! {
                                         button {
-                                            class: "text-sm hover:underline",
+                                            class: "tag-badge",
                                             onclick: move |_| {
                                                 nav.push(crate::router::Route::TagDetailScreen {
                                                     slug: tag_slug.clone(),
@@ -177,7 +177,7 @@ pub fn PostViewScreen(id: i32) -> Element {
                         // Date
                         div { class: "flex items-center gap-1",
                             Icon { icon: LdCalendar, class: "w-4 h-4" }
-                            span { "{published_date}" }
+                            span { class: "meta-mono", "{published_date}" }
                         }
 
                         span { "·" }
@@ -185,7 +185,7 @@ pub fn PostViewScreen(id: i32) -> Element {
                         // Reading time
                         div { class: "flex items-center gap-1",
                             Icon { icon: LdClock, class: "w-4 h-4" }
-                            span { "{reading_time} min read" }
+                            span { class: "meta-mono", "{reading_time} min read" }
                         }
                     }
                 }
