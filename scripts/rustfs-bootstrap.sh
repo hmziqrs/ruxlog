@@ -72,6 +72,42 @@ docker run --rm --network "${network_name}" \
     echo "[rustfs-bootstrap] Bucket '${bucket_name}' ready (created or already exists)" >&2
   }
 
+# Set bucket policy to allow public read access
+echo "[rustfs-bootstrap] Setting bucket policy to public" >&2
+
+# Create a temporary policy file
+policy_file=$(mktemp)
+cat > "${policy_file}" << EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PublicReadGetObject",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::${bucket_name}/*"
+    }
+  ]
+}
+EOF
+
+# Apply the bucket policy
+docker run --rm --network "${network_name}" \
+  -e AWS_ACCESS_KEY_ID="${access_key}" \
+  -e AWS_SECRET_ACCESS_KEY="${secret_key}" \
+  -v "${policy_file}:/policy.json:ro" \
+  amazon/aws-cli \
+  --endpoint-url http://rustfs:9000 \
+  s3api put-bucket-policy \
+  --bucket "${bucket_name}" \
+  --policy file:///policy.json 2>&1 | grep -v "Duplicate" || true
+
+# Clean up
+rm -f "${policy_file}"
+
+echo "[rustfs-bootstrap] Bucket '${bucket_name}' is now publicly readable" >&2
+
 echo "[rustfs-bootstrap] RustFS ready!" >&2
 echo "[rustfs-bootstrap] Console: http://localhost:${RUSTFS_CONSOLE_PORT:-1106}" >&2
 echo "[rustfs-bootstrap] Credentials: ${access_key}" >&2
