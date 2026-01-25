@@ -67,11 +67,7 @@ impl Entity {
         let ban = Self::find()
             .filter(Column::UserId.eq(user_id))
             .filter(Column::RevokedAt.is_null())
-            .filter(
-                Column::ExpiresAt
-                    .is_null()
-                    .or(Column::ExpiresAt.gt(now)),
-            )
+            .filter(Column::ExpiresAt.is_null().or(Column::ExpiresAt.gt(now)))
             .order_by(Column::CreatedAt, Order::Desc)
             .one(conn)
             .await;
@@ -124,11 +120,9 @@ impl Entity {
         if let Some(active_only) = query.active_only {
             if active_only {
                 let now = chrono::Utc::now().fixed_offset();
-                q = q.filter(Column::RevokedAt.is_null()).filter(
-                    Column::ExpiresAt
-                        .is_null()
-                        .or(Column::ExpiresAt.gt(now)),
-                );
+                q = q
+                    .filter(Column::RevokedAt.is_null())
+                    .filter(Column::ExpiresAt.is_null().or(Column::ExpiresAt.gt(now)));
             }
         }
 

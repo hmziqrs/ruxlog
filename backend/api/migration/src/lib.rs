@@ -31,13 +31,14 @@ mod m20251116_000022_alter_media_add_hash;
 mod m20251117_000023_create_media_usages_table;
 mod m20251118_000024_alter_user_add_avatar_id;
 mod m20251119_000028_alter_posts_featured_image;
+mod m20251125_000034_create_post_likes_table;
 mod m20251201_000029_alter_user_add_oauth_fields;
 mod m20251202_000030_create_seed_runs_table;
 mod m20251203_000031_alter_email_and_forgot_password_add_updated_at;
 mod m20251204_000032_rename_media_variant_table;
 mod m20251205_000033_create_app_constants_table;
-mod m20251125_000034_create_post_likes_table;
 mod m20251220_000035_create_user_bans_table;
+mod m20260125_000036_alter_media_add_bucket_drop_file_url;
 
 pub struct Migrator;
 
@@ -78,13 +79,12 @@ impl MigratorTrait for Migrator {
             Box::new(m20251119_000028_alter_posts_featured_image::Migration),
             Box::new(m20251201_000029_alter_user_add_oauth_fields::Migration),
             Box::new(m20251202_000030_create_seed_runs_table::Migration),
-            Box::new(
-                m20251203_000031_alter_email_and_forgot_password_add_updated_at::Migration,
-            ),
+            Box::new(m20251203_000031_alter_email_and_forgot_password_add_updated_at::Migration),
             Box::new(m20251204_000032_rename_media_variant_table::Migration),
             Box::new(m20251205_000033_create_app_constants_table::Migration),
             Box::new(m20251125_000034_create_post_likes_table::Migration),
             Box::new(m20251220_000035_create_user_bans_table::Migration),
+            Box::new(m20260125_000036_alter_media_add_bucket_drop_file_url::Migration),
         ]
     }
 }

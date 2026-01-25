@@ -18,5 +18,7 @@ pub fn routes() -> Router<AppState> {
         .route("/delete/{key}", delete(controller::delete_constant))
         .route("/sync", post(controller::sync_constants))
         .route("/import_env", post(controller::import_env_constants))
-        .route_layer(middleware::from_fn(auth_guard::verified_with_role::<{ auth_guard::ROLE_SUPER_ADMIN }>))
+        .route_layer(middleware::from_fn(
+            auth_guard::verified_with_role::<{ auth_guard::ROLE_SUPER_ADMIN }>,
+        ))
 }

@@ -18,7 +18,11 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(EmailVerifications::UserId).integer().not_null())
+                    .col(
+                        ColumnDef::new(EmailVerifications::UserId)
+                            .integer()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(EmailVerifications::Code).string().not_null())
                     .col(
                         ColumnDef::new(EmailVerifications::CreatedAt)

@@ -6,8 +6,8 @@ use super::MediaReference;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct NewMedia {
+    pub bucket: String,
     pub object_key: String,
-    pub file_url: String,
     pub mime_type: String,
     pub width: Option<i32>,
     pub height: Option<i32>,
@@ -45,4 +45,19 @@ pub struct MediaWithUsage {
     #[serde(flatten)]
     pub media: super::model::Model,
     pub usage_count: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MediaPublic {
+    #[serde(flatten)]
+    pub media: super::model::Model,
+    pub file_url: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MediaWithUsagePublic {
+    #[serde(flatten)]
+    pub media: super::model::Model,
+    pub usage_count: i64,
+    pub file_url: String,
 }

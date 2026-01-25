@@ -132,7 +132,13 @@ pub async fn find_all_by_post(
     State(state): State<AppState>,
     Path(post_id): Path<i32>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    match post_comment::Entity::find_all_by_post(&state.sea_db, post_id).await {
+    match post_comment::Entity::find_all_by_post(
+        &state.sea_db,
+        &state.object_storage.public_url,
+        post_id,
+    )
+    .await
+    {
         Ok(comments) => {
             info!(
                 post_id,
@@ -158,7 +164,13 @@ pub async fn find_with_query(
     let comment_query = payload.0.into_post_comment_query();
     let page = comment_query.page_no.unwrap_or(1);
 
-    match post_comment::Entity::find_with_query(&state.sea_db, comment_query).await {
+    match post_comment::Entity::find_with_query(
+        &state.sea_db,
+        &state.object_storage.public_url,
+        comment_query,
+    )
+    .await
+    {
         Ok((comments, total)) => {
             info!(total, page, "Admin listed comments");
             Ok((
@@ -344,7 +356,7 @@ pub async fn admin_flags_list(
         sort_order: payload.sort_order.clone(),
     };
 
-    match comment_flag::Entity::list(&state.sea_db, q).await {
+    match comment_flag::Entity::list(&state.sea_db, &state.object_storage.public_url, q).await {
         Ok((items, total)) => {
             info!(
                 total,
@@ -395,7 +407,7 @@ pub async fn admin_flags_details(
         ..Default::default()
     };
 
-    match comment_flag::Entity::list(&state.sea_db, q).await {
+    match comment_flag::Entity::list(&state.sea_db, &state.object_storage.public_url, q).await {
         Ok((items, _total)) => {
             info!(
                 comment_id,

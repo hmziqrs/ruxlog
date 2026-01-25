@@ -16,8 +16,8 @@ impl Entity {
     pub async fn create(conn: &DbConn, payload: NewMedia) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
         let media = ActiveModel {
+            bucket: Set(Some(payload.bucket)),
             object_key: Set(payload.object_key),
-            file_url: Set(payload.file_url),
             mime_type: Set(payload.mime_type),
             width: Set(payload.width),
             height: Set(payload.height),
@@ -147,7 +147,6 @@ impl Entity {
             media_query = media_query.filter(
                 Condition::any()
                     .add(Column::ObjectKey.contains(&search_pattern))
-                    .add(Column::FileUrl.contains(&search_pattern))
                     .add(Column::MimeType.contains(&search_pattern))
                     .add(Column::Extension.contains(&search_pattern)),
             );
@@ -190,8 +189,8 @@ impl Entity {
                 for s in sorts {
                     let column = match s.field.as_str() {
                         "id" => Some(Column::Id),
+                        "bucket" => Some(Column::Bucket),
                         "object_key" => Some(Column::ObjectKey),
-                        "file_url" => Some(Column::FileUrl),
                         "mime_type" => Some(Column::MimeType),
                         "width" => Some(Column::Width),
                         "height" => Some(Column::Height),

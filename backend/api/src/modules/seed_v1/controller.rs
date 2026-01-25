@@ -88,7 +88,9 @@ pub async fn seed_categories(
             is_active: Some(true),
         };
 
-        match category::Entity::create(&state.sea_db, new_cat).await {
+        match category::Entity::create(&state.sea_db, &state.object_storage.public_url, new_cat)
+            .await
+        {
             Ok(tag) => fakes.push(tag),
             Err(err) => {
                 println!("Error creating tag: {:?}", err);
@@ -152,7 +154,13 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
                 updated_at_gt: None,
                 updated_at_lt: None,
             };
-            match user::Entity::admin_list(&state.sea_db, author_query).await {
+            match user::Entity::admin_list(
+                &state.sea_db,
+                &state.object_storage.public_url,
+                author_query,
+            )
+            .await
+            {
                 Ok((res, _)) => {
                     let len = res.len() as u64;
                     if len == user::Entity::PER_PAGE {
@@ -234,7 +242,10 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
                 tag_ids,
             };
 
-            if let Err(err) = post::Entity::create(&state.sea_db, new_post).await {
+            if let Err(err) =
+                post::Entity::create(&state.sea_db, &state.object_storage.public_url, new_post)
+                    .await
+            {
                 println!("Error creating post: {:?}", err);
             }
         }
@@ -275,7 +286,13 @@ pub async fn seed_post_comments(
                 updated_at_gt: None,
                 updated_at_lt: None,
             };
-            match user::Entity::admin_list(&state.sea_db, user_query).await {
+            match user::Entity::admin_list(
+                &state.sea_db,
+                &state.object_storage.public_url,
+                user_query,
+            )
+            .await
+            {
                 Ok((res, _)) => {
                     let len = res.len() as u64;
                     if len == user::Entity::PER_PAGE {
@@ -827,8 +844,8 @@ pub async fn seed_media(State(state): State<AppState>, _auth: AuthSession) -> im
     for (i, (filename, mime_type, width, height, size)) in fake_files.iter().enumerate() {
         let new_media = media::Model {
             id: 0, // Auto-increment
-            object_key: format!("uploads/{}", filename),
-            file_url: format!("https://cdn.example.com/{}", filename),
+            bucket: Some(state.object_storage.bucket.clone()),
+            object_key: format!("seed/{}", filename),
             mime_type: mime_type.to_string(),
             width: *width,
             height: *height,
@@ -858,8 +875,8 @@ pub async fn seed_media(State(state): State<AppState>, _auth: AuthSession) -> im
 
         let active_model = media::ActiveModel {
             id: Set(new_media.id),
+            bucket: Set(new_media.bucket),
             object_key: Set(new_media.object_key),
-            file_url: Set(new_media.file_url),
             mime_type: Set(new_media.mime_type),
             width: Set(new_media.width),
             height: Set(new_media.height),

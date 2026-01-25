@@ -122,10 +122,8 @@ pub async fn check_requirements<B: AuthBackend>(
     }
 
     // Check authenticated requirement
-    if requirements.authenticated == Some(true) {
-        if auth.user.is_none() {
-            return Err(AuthError::new(AuthErrorCode::Unauthenticated));
-        }
+    if requirements.authenticated == Some(true) && auth.user.is_none() {
+        return Err(AuthError::new(AuthErrorCode::Unauthenticated));
     }
 
     // Get user and state for remaining checks
@@ -141,18 +139,14 @@ pub async fn check_requirements<B: AuthBackend>(
     };
 
     // Check unverified requirement (inverse)
-    if requirements.unverified {
-        if user.email_verified() {
-            return Err(AuthError::new(AuthErrorCode::AlreadyVerified)
-                .with_message("This resource is for unverified users only"));
-        }
+    if requirements.unverified && user.email_verified() {
+        return Err(AuthError::new(AuthErrorCode::AlreadyVerified)
+            .with_message("This resource is for unverified users only"));
     }
 
     // Check verified requirement
-    if requirements.verified {
-        if !user.email_verified() {
-            return Err(AuthError::new(AuthErrorCode::VerificationRequired));
-        }
+    if requirements.verified && !user.email_verified() {
+        return Err(AuthError::new(AuthErrorCode::VerificationRequired));
     }
 
     // Check TOTP requirement

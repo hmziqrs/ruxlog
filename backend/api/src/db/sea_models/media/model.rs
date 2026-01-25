@@ -49,8 +49,8 @@ impl std::str::FromStr for MediaReference {
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
+    pub bucket: Option<String>,
     pub object_key: String,
-    pub file_url: String,
     pub mime_type: String,
     pub width: Option<i32>,
     pub height: Option<i32>,

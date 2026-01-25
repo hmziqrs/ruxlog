@@ -21,10 +21,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserBans::UserId).integer().not_null())
                     .col(ColumnDef::new(UserBans::Reason).text())
                     .col(ColumnDef::new(UserBans::BannedBy).integer())
-                    .col(
-                        ColumnDef::new(UserBans::ExpiresAt)
-                            .timestamp_with_time_zone(),
-                    )
+                    .col(ColumnDef::new(UserBans::ExpiresAt).timestamp_with_time_zone())
                     .col(
                         ColumnDef::new(UserBans::CreatedAt)
                             .timestamp_with_time_zone()

@@ -133,6 +133,8 @@ struct UsageAccumulator {
 struct MediaUsageGroup {
     media_id: i32,
     media: Option<media::Model>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    file_url: Option<String>,
     posts: Vec<PostUsage>,
     categories: Vec<CategoryUsage>,
     users: Vec<UserUsage>,
@@ -402,15 +404,9 @@ pub async fn create(
         }
     }
 
-    let public_url = format!(
-        "{}/{}",
-        state.object_storage.public_url.trim_end_matches('/'),
-        &object_key
-    );
-
     let new_media = NewMedia {
+        bucket: state.object_storage.bucket.clone(),
         object_key,
-        file_url: public_url,
         mime_type: content_type,
         width: metadata.width,
         height: metadata.height,
@@ -424,6 +420,11 @@ pub async fn create(
     };
 
     let stored = Media::create(&state.sea_db, new_media).await?;
+    let file_url = crate::db::sea_models::media::url::build_public_file_url(
+        &state.object_storage.public_url,
+        stored.bucket.as_deref(),
+        &stored.object_key,
+    );
 
     if !prepared_variants.is_empty() {
         let records = prepared_variants
@@ -444,7 +445,13 @@ pub async fn create(
         MediaVariant::create_many(&state.sea_db, records).await?;
     }
 
-    Ok((StatusCode::CREATED, Json(json!(stored))))
+    Ok((
+        StatusCode::CREATED,
+        Json(json!(crate::db::sea_models::media::slice::MediaPublic {
+            media: stored,
+            file_url,
+        })),
+    ))
 }
 
 #[debug_handler]
@@ -453,7 +460,24 @@ pub async fn view(
     Path(media_id): Path<i32>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     match Media::find_by_id_with_usage(&state.sea_db, media_id).await? {
-        Some(media) => Ok((StatusCode::OK, Json(json!(media)))),
+        Some(media) => {
+            let file_url = crate::db::sea_models::media::url::build_public_file_url(
+                &state.object_storage.public_url,
+                media.media.bucket.as_deref(),
+                &media.media.object_key,
+            );
+
+            Ok((
+                StatusCode::OK,
+                Json(json!(
+                    crate::db::sea_models::media::slice::MediaWithUsagePublic {
+                        media: media.media,
+                        usage_count: media.usage_count,
+                        file_url,
+                    }
+                )),
+            ))
+        }
         None => Err(ErrorResponse::new(ErrorCode::FileNotFound).with_message("Media not found")),
     }
 }
@@ -467,16 +491,34 @@ pub async fn find_with_query(
     let page = query.page.unwrap_or(1);
 
     match Media::find_with_query(&state.sea_db, query).await {
-        Ok((items, total)) => (
-            StatusCode::OK,
-            Json(json!({
-                "data": items,
-                "total": total,
-                "per_page": Media::PER_PAGE,
-                "page": page,
-            })),
-        )
-            .into_response(),
+        Ok((items, total)) => {
+            let data = items
+                .into_iter()
+                .map(|item| {
+                    let file_url = crate::db::sea_models::media::url::build_public_file_url(
+                        &state.object_storage.public_url,
+                        item.media.bucket.as_deref(),
+                        &item.media.object_key,
+                    );
+                    crate::db::sea_models::media::slice::MediaWithUsagePublic {
+                        media: item.media,
+                        usage_count: item.usage_count,
+                        file_url,
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "data": data,
+                    "total": total,
+                    "per_page": Media::PER_PAGE,
+                    "page": page,
+                })),
+            )
+                .into_response()
+        }
         Err(err) => err.into_response(),
     }
 }
@@ -615,9 +657,19 @@ pub async fn list_usage_details(
         accumulator.categories.sort_by_key(|item| item.usage_id);
         accumulator.users.sort_by_key(|item| item.usage_id);
 
+        let media = media_records.get(&media_id).cloned();
+        let file_url = media.as_ref().map(|media| {
+            crate::db::sea_models::media::url::build_public_file_url(
+                &state.object_storage.public_url,
+                media.bucket.as_deref(),
+                &media.object_key,
+            )
+        });
+
         response.push(MediaUsageGroup {
             media_id,
-            media: media_records.get(&media_id).cloned(),
+            media,
+            file_url,
             posts: accumulator.posts,
             categories: accumulator.categories,
             users: accumulator.users,
@@ -654,7 +706,12 @@ pub async fn delete(
     state
         .s3_client
         .delete_object()
-        .bucket(&state.object_storage.bucket)
+        .bucket(
+            media
+                .bucket
+                .as_deref()
+                .unwrap_or(state.object_storage.bucket.as_str()),
+        )
         .key(&media.object_key)
         .send()
         .await

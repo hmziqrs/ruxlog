@@ -65,9 +65,8 @@ where
                 .map(|matched| matched.as_str().to_string());
             let pattern = matched_pattern.clone().unwrap_or_else(|| path.clone());
 
-            let is_development = env::var("APP_ENV")
-                .unwrap_or_else(|_| "development".to_string())
-                == "development";
+            let is_development =
+                env::var("APP_ENV").unwrap_or_else(|_| "development".to_string()) == "development";
 
             if is_development {
                 debug!(path, "Route blocker disabled in development mode");
@@ -90,7 +89,8 @@ where
             match RouteBlockerService::is_route_blocked(State(state.clone()), &pattern).await {
                 Ok(true) => {
                     warn!(path = %path, pattern = %pattern, "Route blocked by dynamic route_blocker middleware");
-                    let error_response: Response = RouteBlockerError::Blocked { path }.into_response();
+                    let error_response: Response =
+                        RouteBlockerError::Blocked { path }.into_response();
                     return Ok(error_response);
                 }
                 Ok(false) => {
@@ -98,7 +98,8 @@ where
                 }
                 Err(e) => {
                     error!(error = %e, path = %path, pattern = %pattern, "Failed to check route status");
-                    let error_response: Response = RouteBlockerError::CheckFailed(e.to_string()).into_response();
+                    let error_response: Response =
+                        RouteBlockerError::CheckFailed(e.to_string()).into_response();
                     return Ok(error_response);
                 }
             }

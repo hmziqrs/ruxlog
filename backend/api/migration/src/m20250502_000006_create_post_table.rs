@@ -6,7 +6,6 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-
         manager
             .get_connection()
             .execute_unprepared(
@@ -36,7 +35,6 @@ impl MigrationTrait for Migration {
                             .custom(PostStatus::PostStatus) // Use the Iden for the custom type
                             .not_null()
                             .default(Expr::val("draft")),
-
                     )
                     .col(ColumnDef::new(Posts::PublishedAt).timestamp_with_time_zone())
                     .col(ColumnDef::new(Posts::AuthorId).integer().not_null())
@@ -103,7 +101,6 @@ impl MigrationTrait for Migration {
             .await?;
 
         Ok(())
-
     }
 }
 

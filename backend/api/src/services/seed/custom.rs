@@ -124,6 +124,7 @@ where
     F: Fn(String),
 {
     let mut rng = seeded_rng(seed_mode);
+    let public_url = "https://example.com";
     let before_users = user::Entity::find()
         .order_by_desc(user::Column::Id)
         .one(db)
@@ -153,7 +154,7 @@ where
             is_verified: Some(true),
         };
 
-        if let Err(err) = user::Entity::admin_create(db, new_user).await {
+        if let Err(err) = user::Entity::admin_create(db, public_url, new_user).await {
             log(format!("Failed to create user {}: {}", email, err));
         } else if (i + 1) % 10 == 0 || i + 1 == count {
             log(format!("Created {} / {} users", i + 1, count));
@@ -180,6 +181,7 @@ where
     F: Fn(String),
 {
     let mut rng = seeded_rng(seed_mode);
+    let public_url = "https://example.com";
     let before_categories = category::Entity::find()
         .order_by_desc(category::Column::Id)
         .one(db)
@@ -206,7 +208,7 @@ where
             is_active: Some(true),
         };
 
-        if let Err(err) = category::Entity::create(db, new_category).await {
+        if let Err(err) = category::Entity::create(db, public_url, new_category).await {
             log(format!("Failed to create category {}: {}", name, err));
         } else if (i + 1) % 10 == 0 || i + 1 == count {
             log(format!("Created {} / {} categories", i + 1, count));
@@ -283,6 +285,7 @@ where
     F: Fn(String),
 {
     let mut rng = seeded_rng(seed_mode);
+    let public_url = "https://example.com";
     let before_posts = post::Entity::find()
         .order_by_desc(post::Column::Id)
         .one(db)
@@ -359,7 +362,7 @@ where
             tag_ids,
         };
 
-        let _ = post::Entity::create(db, new_post).await;
+        let _ = post::Entity::create(db, public_url, new_post).await;
         if (i + 1) % 10 == 0 || i + 1 == count {
             log(format!("Created {} / {} posts", i + 1, count));
         }
@@ -1006,8 +1009,8 @@ where
 
         let media_record = media::Model {
             id: 0,
+            bucket: None,
             object_key: format!("uploads/fake_image_{}.png", i),
-            file_url: format!("https://example.com/uploads/fake_image_{}.png", i),
             mime_type: mime,
             width,
             height,
@@ -1024,8 +1027,8 @@ where
 
         let active_model = media::ActiveModel {
             id: ActiveValue::NotSet,
+            bucket: Set(media_record.bucket),
             object_key: Set(media_record.object_key),
-            file_url: Set(media_record.file_url),
             mime_type: Set(media_record.mime_type),
             width: Set(media_record.width),
             height: Set(media_record.height),

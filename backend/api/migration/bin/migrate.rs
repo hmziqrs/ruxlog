@@ -1,7 +1,7 @@
 use clap::{CommandFactory, Parser, Subcommand};
 use migration::{Migrator, MigratorTrait};
-use sea_orm_migration::prelude::*;
 use sea_orm::Database;
+use sea_orm_migration::prelude::*;
 use std::env;
 
 #[derive(Parser)]
@@ -78,17 +78,17 @@ async fn main() {
             let applied_migrations = Migrator::get_applied_migrations(&connection)
                 .await
                 .expect("Failed to get applied migrations");
-            
+
             println!("Applied migrations:");
             for migration in applied_migrations {
                 println!("  Migration applied"); // Just print a simple message
             }
-            
+
             println!("Pending migrations:");
             let pending_migrations = Migrator::get_pending_migrations(&connection)
                 .await
                 .expect("Failed to get pending migrations");
-            
+
             for migration in pending_migrations {
                 println!("  Migration pending"); // Just print a simple message
             }

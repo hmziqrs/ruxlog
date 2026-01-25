@@ -100,8 +100,8 @@ impl<B: AuthBackend> AuthSession<B> {
         device: Option<String>,
         ip_address: Option<String>,
     ) -> Result<(), AuthError> {
-        let state =
-            AuthSessionState::new(user.id(), user.email_verified()).with_metadata(device, ip_address);
+        let state = AuthSessionState::new(user.id(), user.email_verified())
+            .with_metadata(device, ip_address);
 
         self.session.insert(SESSION_KEY, &state).await?;
         self.user = Some(user.clone());

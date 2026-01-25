@@ -27,7 +27,9 @@ pub fn routes() -> Router<AppState> {
         .route("/create", post(controller::admin_create))
         .route("/update/{user_id}", post(controller::admin_update))
         .route("/delete/{user_id}", post(controller::admin_delete))
-        .route_layer(middleware::from_fn(auth_guard::verified_with_role::<{ auth_guard::ROLE_ADMIN }>));
+        .route_layer(middleware::from_fn(
+            auth_guard::verified_with_role::<{ auth_guard::ROLE_ADMIN }>,
+        ));
 
     base.nest("/admin", admin)
 }

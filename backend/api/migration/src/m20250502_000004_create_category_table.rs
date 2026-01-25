@@ -19,7 +19,12 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Categories::Name).string().not_null())
-                    .col(ColumnDef::new(Categories::Slug).string().not_null().unique_key())
+                    .col(
+                        ColumnDef::new(Categories::Slug)
+                            .string()
+                            .not_null()
+                            .unique_key(),
+                    )
                     .col(ColumnDef::new(Categories::ParentId).integer().null())
                     .col(ColumnDef::new(Categories::Description).string())
                     .col(ColumnDef::new(Categories::CoverImage).string())

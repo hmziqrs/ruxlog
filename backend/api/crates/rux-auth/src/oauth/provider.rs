@@ -129,7 +129,10 @@ pub trait OAuthUserHandler<U: Send>: Clone + Send + Sync + 'static {
         user_info: &I,
     ) -> Result<U, AuthError> {
         // 1. Try to find by OAuth ID
-        if let Some(user) = self.find_by_oauth_id(provider, user_info.provider_user_id()).await? {
+        if let Some(user) = self
+            .find_by_oauth_id(provider, user_info.provider_user_id())
+            .await?
+        {
             return Ok(user);
         }
 

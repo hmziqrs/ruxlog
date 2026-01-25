@@ -16,7 +16,9 @@ pub fn routes() -> Router<AppState> {
         .route("/delete/{tag_id}", post(controller::delete))
         .route("/view/{tag_id}", post(controller::find_by_id))
         .route("/list/query", post(controller::find_with_query))
-        .route_layer(middleware::from_fn(auth_guard::verified_with_role::<{ auth_guard::ROLE_ADMIN }>));
+        .route_layer(middleware::from_fn(
+            auth_guard::verified_with_role::<{ auth_guard::ROLE_ADMIN }>,
+        ));
 
     let public = Router::<AppState>::new().route("/list", get(controller::find_all));
 

@@ -165,6 +165,7 @@ pub async fn seed_all_with_progress(
     let seed_mode = seed_mode.unwrap_or_default();
     let seed_value = seed_mode.to_seed();
     log(format!("Using seed: {}", seed_value));
+    let public_url = "https://example.com";
     let mut rng = seeded_rng(Some(seed_mode));
     let mut fake_users: Vec<user::UserWithRelations> = vec![];
     let mut fake_posts: Vec<post::PostWithRelations> = vec![];
@@ -189,7 +190,7 @@ pub async fn seed_all_with_progress(
             is_verified: Some(true),
         };
 
-        match user::Entity::admin_create(db, new_user).await {
+        match user::Entity::admin_create(db, public_url, new_user).await {
             Ok(user) => {
                 fake_users.push(user);
                 if (i + 1) % 10 == 0 || i + 1 == 50 {
@@ -222,7 +223,7 @@ pub async fn seed_all_with_progress(
             is_active: Some(true),
         };
 
-        match category::Entity::create(db, new_category).await {
+        match category::Entity::create(db, public_url, new_category).await {
             Ok(category) => {
                 categories.push(category);
                 if (i + 1) % 5 == 0 || i + 1 == 10 {
@@ -315,7 +316,7 @@ pub async fn seed_all_with_progress(
                     tag_ids,
                 };
 
-                match post::Entity::create(db, new_post).await {
+                match post::Entity::create(db, public_url, new_post).await {
                     Ok(post) => {
                         fake_posts.push(post);
                         post_count += 1;
@@ -905,8 +906,8 @@ async fn seed_media(db: &DatabaseConnection) -> SeedResult<()> {
 
         let media_record = media::Model {
             id: 0,
+            bucket: None,
             object_key: format!("uploads/fake_image_{}.png", i),
-            file_url: format!("https://example.com/uploads/fake_image_{}.png", i),
             mime_type: mime,
             width,
             height,
@@ -923,8 +924,8 @@ async fn seed_media(db: &DatabaseConnection) -> SeedResult<()> {
 
         let active_model = media::ActiveModel {
             id: ActiveValue::NotSet,
+            bucket: Set(media_record.bucket),
             object_key: Set(media_record.object_key),
-            file_url: Set(media_record.file_url),
             mime_type: Set(media_record.mime_type),
             width: Set(media_record.width),
             height: Set(media_record.height),

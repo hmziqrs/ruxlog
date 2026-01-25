@@ -46,8 +46,10 @@ impl Entity {
     /// List flags with pagination and optional filters, joined with user info.
     pub async fn list(
         conn: &DbConn,
+        public_url: &str,
         query: CommentFlagQuery,
     ) -> DbResult<(Vec<FlagWithUser>, u64)> {
+        use super::super::media::url::public_file_url_expr;
         use super::super::user::Column as UserColumn;
         use sea_orm::prelude::Expr;
         use sea_orm::sea_query::Alias;
@@ -75,10 +77,7 @@ impl Entity {
                 "user_avatar_object_key",
             )
             .expr_as(
-                Expr::col((
-                    Alias::new("user_avatar_media"),
-                    super::super::media::Column::FileUrl,
-                )),
+                public_file_url_expr(public_url, "user_avatar_media"),
                 "user_avatar_file_url",
             )
             .expr_as(

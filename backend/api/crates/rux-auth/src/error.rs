@@ -157,9 +157,7 @@ impl AuthError {
 
     /// Add context data
     pub fn with_context<V: Serialize>(mut self, key: &str, value: V) -> Self {
-        let ctx = self
-            .context
-            .get_or_insert_with(|| serde_json::json!({}));
+        let ctx = self.context.get_or_insert_with(|| serde_json::json!({}));
         if let Some(obj) = ctx.as_object_mut() {
             if let Ok(v) = serde_json::to_value(value) {
                 obj.insert(key.to_string(), v);
