@@ -15,28 +15,31 @@ pub fn TagCard(props: TagCardProps) -> Element {
 
     rsx! {
         article {
-            class: "group h-full rounded-lg border border-border overflow-hidden transition-colors duration-200 hover:border-primary/50 cursor-pointer",
+            class: "tag-card group h-full",
             onclick: move |_| {
                 if let Some(handler) = &props.on_click {
                     handler.call(tag_slug.clone());
                 }
             },
 
-            div { class: "p-4",
-                // Color indicator
-                div { class: "mb-3",
+            div { class: "p-5",
+                // Color indicator with ring
+                div { class: "flex items-center gap-3 mb-4",
                     div {
-                        class: "inline-block w-3 h-3 rounded-full",
-                        style: "background-color: {tag.color};",
+                        class: "tag-color-dot",
+                        style: "background-color: {tag.color}; --tw-ring-color: {tag.color}40;",
+                    }
+                    span { class: "section-label",
+                        "Tag"
                     }
                 }
 
-                h3 { class: "text-lg font-semibold mb-2 leading-snug",
+                h3 { class: "text-xl font-bold mb-2 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors",
                     "{tag.name}"
                 }
 
                 if let Some(description) = &tag.description {
-                    p { class: "text-sm leading-relaxed line-clamp-2",
+                    p { class: "text-muted-foreground text-sm leading-relaxed line-clamp-2",
                         "{description}"
                     }
                 }

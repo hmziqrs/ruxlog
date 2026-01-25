@@ -1,10 +1,12 @@
-use dioxus::prelude::*;
-use crate::router::Route;
-use ruxlog_shared::use_auth;
 use crate::config::DarkMode;
+use crate::router::Route;
 use crate::utils::persist;
-use hmziq_dioxus_free_icons::icons::ld_icons::{LdMoon, LdSun, LdLogIn, LdGithub, LdTwitter, LdLinkedin};
+use dioxus::prelude::*;
+use hmziq_dioxus_free_icons::icons::ld_icons::{
+    LdGithub, LdLinkedin, LdLogIn, LdMoon, LdSun, LdTwitter,
+};
 use hmziq_dioxus_free_icons::Icon;
+use ruxlog_shared::use_auth;
 
 pub mod auth_guard_wrapper;
 pub use auth_guard_wrapper::*;
@@ -39,7 +41,7 @@ pub fn NavBarContainer() -> Element {
     rsx! {
         div { class: "min-h-screen bg-background",
             // Navbar
-            nav { class: "sticky top-0 z-50 border-b border-border/60 backdrop-blur-xl bg-background/80",
+            nav { class: "navbar-container",
                 div { class: "container mx-auto px-4",
                     div { class: "flex h-16 items-center justify-between",
                         // Logo - use Dioxus Link for client-side navigation
@@ -52,14 +54,14 @@ pub fn NavBarContainer() -> Element {
                             a {
                                 href: "https://github.com/hmziqrs/ruxlog",
                                 target: "_blank",
-                                class: "p-2 rounded-lg hover:bg-muted/50 transition-colors",
+                                class: "icon-button",
                                 div { class: "w-4 h-4",
                                     Icon { icon: LdGithub }
                                 }
                             }
                             button {
                                 onclick: toggle_dark_mode,
-                                class: "p-2 rounded-lg hover:bg-muted/50 transition-colors",
+                                class: "icon-button",
                                 aria_label: "Toggle theme",
                                 if (*dark_theme.read()).0 {
                                     Icon { icon: LdSun, class: "w-5 h-5" }
@@ -72,7 +74,7 @@ pub fn NavBarContainer() -> Element {
                             if let Some(user) = &*user {
                                 Link {
                                     to: Route::ProfileScreen {},
-                                    class: "flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors",
+                                    class: "flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/80 transition-all duration-200 active:scale-95",
                                     div { class: "w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center font-semibold text-sm",
                                         "{user.name.chars().next().unwrap_or('U').to_uppercase()}"
                                     }
@@ -81,7 +83,7 @@ pub fn NavBarContainer() -> Element {
                             } else {
                                 Link {
                                     to: Route::LoginScreen {},
-                                    class: "p-2 rounded-lg hover:bg-muted/50 transition-colors",
+                                    class: "icon-button",
                                     aria_label: "Sign In",
                                     Icon { icon: LdLogIn, class: "w-5 h-5" }
                                 }
@@ -95,7 +97,7 @@ pub fn NavBarContainer() -> Element {
             Outlet::<Route> {}
 
             // Footer
-            footer { class: "border-t border-border/60 mt-auto",
+            footer { class: "footer-container",
                 div { class: "container mx-auto px-4 py-8 md:py-12",
                     div { class: "flex flex-col gap-8 md:flex-row md:items-start md:justify-between",
                         div { class: "flex flex-col items-center gap-6 md:items-end md:order-2",
@@ -150,12 +152,12 @@ pub fn NavBarContainer() -> Element {
                             }
 
                             // Social icons (external links - keep as <a> tags)
-                            div { class: "flex items-center gap-3 pt-2",
+                            div { class: "flex items-center gap-2 pt-2",
                                 a {
                                     href: "https://twitter.com",
                                     target: "_blank",
                                     rel: "noopener noreferrer",
-                                    class: "p-2 rounded-lg hover:bg-muted/50 transition-all opacity-70 hover:opacity-100",
+                                    class: "icon-button opacity-70 hover:opacity-100",
                                     aria_label: "Twitter",
                                     Icon { icon: LdTwitter, class: "w-5 h-5" }
                                 }
@@ -163,7 +165,7 @@ pub fn NavBarContainer() -> Element {
                                     href: "https://github.com",
                                     target: "_blank",
                                     rel: "noopener noreferrer",
-                                    class: "p-2 rounded-lg hover:bg-muted/50 transition-all opacity-70 hover:opacity-100",
+                                    class: "icon-button opacity-70 hover:opacity-100",
                                     aria_label: "GitHub",
                                     Icon { icon: LdGithub, class: "w-5 h-5" }
                                 }
@@ -171,7 +173,7 @@ pub fn NavBarContainer() -> Element {
                                     href: "https://linkedin.com",
                                     target: "_blank",
                                     rel: "noopener noreferrer",
-                                    class: "p-2 rounded-lg hover:bg-muted/50 transition-all opacity-70 hover:opacity-100",
+                                    class: "icon-button opacity-70 hover:opacity-100",
                                     aria_label: "LinkedIn",
                                     Icon { icon: LdLinkedin, class: "w-5 h-5" }
                                 }
@@ -179,11 +181,6 @@ pub fn NavBarContainer() -> Element {
                         }
 
                         div { class: "flex flex-col items-center gap-3 text-center md:items-start md:text-left md:order-1",
-                            // Powered by slot for ad messaging
-                            div { class: "text-sm text-muted-foreground",
-                                "Powered by \"Your brand\""
-                            }
-
                             // Built with message (external links - keep as <a> tags)
                             div { class: "text-sm text-muted-foreground",
                                 "Built from scratch with "

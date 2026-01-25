@@ -321,3 +321,360 @@ textarea:focus,
         font-weight: 400;
     }
 }
+
+/* ==========================================================================
+   Consumer Frontend Design System - Colorful Edition
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Card Components
+   -------------------------------------------------------------------------- */
+.card-base {
+    @apply rounded-xl border border-border/50 overflow-hidden bg-card;
+    @apply shadow-sm;
+}
+
+.card-interactive {
+    @apply rounded-xl border border-border/50 overflow-hidden bg-card shadow-sm cursor-pointer;
+    @apply transition-all duration-300 ease-out;
+}
+
+.card-interactive:hover {
+    @apply shadow-lg border-transparent;
+    transform: translateY(-4px);
+}
+
+.card-featured {
+    @apply rounded-2xl overflow-hidden bg-gradient-to-br from-violet-500/5 via-background to-cyan-500/5;
+    @apply border border-violet-500/20;
+    @apply shadow-md;
+    @apply transition-all duration-300 ease-out;
+}
+
+.card-featured:hover {
+    @apply shadow-xl border-violet-500/40;
+    transform: translateY(-6px);
+}
+
+.card-flat {
+    @apply rounded-xl border-2 border-dashed border-border/60 overflow-hidden;
+    @apply bg-gradient-to-br from-muted/30 to-muted/10;
+    @apply transition-all duration-300;
+}
+
+.card-flat:hover {
+    @apply border-solid border-primary/40 bg-gradient-to-br from-primary/5 to-primary/10;
+}
+
+/* --------------------------------------------------------------------------
+   Colorful Tag Badges - Rotating Colors
+   -------------------------------------------------------------------------- */
+.tag-badge {
+    @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold;
+    @apply transition-all duration-200;
+}
+
+.tag-badge:nth-child(6n + 1) {
+    @apply bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300;
+}
+.tag-badge:nth-child(6n + 1):hover {
+    @apply bg-violet-200 dark:bg-violet-500/30;
+}
+
+.tag-badge:nth-child(6n + 2) {
+    @apply bg-cyan-100 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300;
+}
+.tag-badge:nth-child(6n + 2):hover {
+    @apply bg-cyan-200 dark:bg-cyan-500/30;
+}
+
+.tag-badge:nth-child(6n + 3) {
+    @apply bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300;
+}
+.tag-badge:nth-child(6n + 3):hover {
+    @apply bg-amber-200 dark:bg-amber-500/30;
+}
+
+.tag-badge:nth-child(6n + 4) {
+    @apply bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300;
+}
+.tag-badge:nth-child(6n + 4):hover {
+    @apply bg-rose-200 dark:bg-rose-500/30;
+}
+
+.tag-badge:nth-child(6n + 5) {
+    @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300;
+}
+.tag-badge:nth-child(6n + 5):hover {
+    @apply bg-emerald-200 dark:bg-emerald-500/30;
+}
+
+.tag-badge:nth-child(6n) {
+    @apply bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300;
+}
+.tag-badge:nth-child(6n):hover {
+    @apply bg-blue-200 dark:bg-blue-500/30;
+}
+
+/* Larger tag chips for featured cards */
+.tag-chip {
+    @apply inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold;
+    @apply transition-all duration-200;
+}
+
+.tag-chip:nth-child(3n + 1) {
+    @apply bg-gradient-to-r from-violet-500/20 to-purple-500/20 text-violet-700 dark:text-violet-300;
+    @apply border border-violet-500/30;
+}
+
+.tag-chip:nth-child(3n + 2) {
+    @apply bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-700 dark:text-cyan-300;
+    @apply border border-cyan-500/30;
+}
+
+.tag-chip:nth-child(3n) {
+    @apply bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-700 dark:text-amber-300;
+    @apply border border-amber-500/30;
+}
+
+/* --------------------------------------------------------------------------
+   Category Pill - Gradient Style
+   -------------------------------------------------------------------------- */
+.category-pill {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider;
+    @apply bg-gradient-to-r from-foreground to-foreground/90 text-background;
+    @apply shadow-md;
+    @apply transition-all duration-200;
+}
+
+.category-pill:hover {
+    @apply shadow-lg;
+    transform: scale(1.05);
+}
+
+/* --------------------------------------------------------------------------
+   Typography Components
+   -------------------------------------------------------------------------- */
+.title-card {
+    @apply text-lg font-bold leading-snug tracking-tight;
+    @apply text-foreground;
+}
+
+.title-card-hover:hover {
+    @apply text-violet-600 dark:text-violet-400;
+}
+
+.title-featured {
+    @apply text-2xl md:text-3xl font-extrabold leading-tight tracking-tight;
+    @apply bg-gradient-to-r from-foreground via-foreground to-violet-600 dark:to-violet-400 bg-clip-text;
+}
+
+.excerpt {
+    @apply text-muted-foreground leading-relaxed;
+}
+
+.excerpt-card {
+    @apply text-sm text-muted-foreground/80 leading-relaxed;
+}
+
+/* --------------------------------------------------------------------------
+   Meta Info - Clean & Colored
+   -------------------------------------------------------------------------- */
+.meta-row {
+    @apply flex items-center gap-3 text-sm;
+}
+
+.meta-author {
+    @apply font-semibold text-foreground;
+}
+
+.meta-dot {
+    @apply w-1 h-1 rounded-full bg-violet-500;
+}
+
+.meta-date {
+    @apply text-muted-foreground;
+}
+
+.meta-reading-time {
+    @apply text-violet-600 dark:text-violet-400 font-medium;
+}
+
+/* --------------------------------------------------------------------------
+   Engagement Components - Colorful
+   -------------------------------------------------------------------------- */
+.engagement-button {
+    @apply flex items-center gap-2 px-3 py-1.5 rounded-full;
+    @apply text-muted-foreground bg-muted/50;
+    @apply transition-all duration-200;
+}
+
+.engagement-button:hover {
+    @apply text-foreground bg-muted;
+}
+
+.like-button {
+    @apply flex items-center gap-2 px-3 py-1.5 rounded-full;
+    @apply text-muted-foreground bg-muted/50;
+    @apply transition-all duration-200;
+}
+
+.like-button:hover {
+    @apply text-rose-500 bg-rose-500/10;
+}
+
+.like-button-liked {
+    @apply flex items-center gap-2 px-3 py-1.5 rounded-full;
+    @apply text-rose-500 bg-rose-500/15;
+    @apply font-semibold;
+}
+
+.comment-button {
+    @apply flex items-center gap-2 px-3 py-1.5 rounded-full;
+    @apply text-muted-foreground bg-muted/50;
+    @apply transition-all duration-200;
+}
+
+.comment-button:hover {
+    @apply text-cyan-500 bg-cyan-500/10;
+}
+
+.share-button {
+    @apply flex items-center gap-2 px-3 py-1.5 rounded-full;
+    @apply text-muted-foreground bg-muted/50;
+    @apply transition-all duration-200;
+}
+
+.share-button:hover {
+    @apply text-violet-500 bg-violet-500/10;
+}
+
+.engagement-count {
+    @apply font-semibold tabular-nums;
+}
+
+/* --------------------------------------------------------------------------
+   CTA Button - Gradient
+   -------------------------------------------------------------------------- */
+.cta-button {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold;
+    @apply bg-gradient-to-r from-violet-600 to-purple-600 text-white;
+    @apply shadow-md shadow-violet-500/25;
+    @apply transition-all duration-200;
+}
+
+.cta-button:hover {
+    @apply shadow-lg shadow-violet-500/40;
+    transform: translateX(2px);
+}
+
+.cta-button svg {
+    @apply transition-transform duration-200;
+}
+
+.cta-button:hover svg {
+    transform: translateX(4px);
+}
+
+.cta-link {
+    @apply inline-flex items-center gap-2 text-sm font-semibold;
+    @apply text-violet-600 dark:text-violet-400;
+    @apply transition-all duration-200;
+}
+
+.cta-link:hover {
+    @apply gap-3 text-violet-700 dark:text-violet-300;
+}
+
+/* --------------------------------------------------------------------------
+   Icon Button
+   -------------------------------------------------------------------------- */
+.icon-button {
+    @apply p-2.5 rounded-full;
+    @apply transition-all duration-200;
+    @apply hover:bg-muted active:scale-95;
+}
+
+/* --------------------------------------------------------------------------
+   Navbar & Footer
+   -------------------------------------------------------------------------- */
+.navbar-container {
+    @apply sticky top-0 z-50;
+    @apply backdrop-blur-xl bg-background/80;
+    @apply border-b border-border/50;
+}
+
+.footer-container {
+    @apply mt-auto;
+    @apply bg-gradient-to-t from-muted/50 to-transparent;
+    @apply border-t border-border/50;
+}
+
+/* --------------------------------------------------------------------------
+   Tag Card Specific
+   -------------------------------------------------------------------------- */
+.tag-card {
+    @apply rounded-xl overflow-hidden;
+    @apply border-2 border-transparent;
+    @apply bg-gradient-to-br from-violet-500/5 via-background to-cyan-500/5;
+    @apply transition-all duration-300;
+    @apply cursor-pointer;
+}
+
+.tag-card:hover {
+    @apply border-violet-500/30;
+    @apply shadow-lg shadow-violet-500/10;
+    transform: translateY(-2px);
+}
+
+.tag-color-dot {
+    @apply w-4 h-4 rounded-full;
+    @apply ring-4 ring-offset-2 ring-offset-background;
+}
+
+/* --------------------------------------------------------------------------
+   Category Card Specific
+   -------------------------------------------------------------------------- */
+.category-card {
+    @apply rounded-xl overflow-hidden;
+    @apply border border-border/50;
+    @apply bg-card;
+    @apply shadow-sm;
+    @apply transition-all duration-300;
+    @apply cursor-pointer;
+}
+
+.category-card:hover {
+    @apply shadow-xl border-transparent;
+    transform: translateY(-4px);
+}
+
+.category-card-image {
+    @apply relative aspect-[16/9] overflow-hidden;
+}
+
+.category-card-image img {
+    @apply w-full h-full object-cover;
+    @apply transition-transform duration-500;
+}
+
+.category-card:hover .category-card-image img {
+    transform: scale(1.08);
+}
+
+.category-logo-badge {
+    @apply absolute top-3 left-3;
+    @apply w-10 h-10 rounded-xl;
+    @apply bg-background/95 backdrop-blur-sm;
+    @apply border border-border/50;
+    @apply shadow-lg;
+    @apply flex items-center justify-center p-1.5;
+}
+
+/* --------------------------------------------------------------------------
+   Section Label
+   -------------------------------------------------------------------------- */
+.section-label {
+    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full;
+    @apply bg-muted/80 text-muted-foreground text-xs font-semibold uppercase tracking-wider;
+}

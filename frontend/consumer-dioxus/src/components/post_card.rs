@@ -55,65 +55,65 @@ pub fn PostCard(props: PostCardProps) -> Element {
     
     rsx! {
         article {
-            class: "group h-full rounded-lg border border-border overflow-hidden transition-colors duration-200 hover:border-primary/50 cursor-pointer",
+            class: "card-interactive group h-full",
             onclick: move |_| {
                 if let Some(handler) = &props.on_click {
                     handler.call(post_id);
                 }
             },
             // Media
-            div { class: "relative aspect-[16/9] overflow-hidden bg-muted",
+            div { class: "relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-muted to-muted/50",
                 if let Some(img) = &post.featured_image {
                     img {
                         src: "{img.file_url}",
                         alt: "{post.title}",
-                        class: "w-full h-full object-cover transition-transform duration-500 group-hover:scale-105",
+                        class: "w-full h-full object-cover transition-transform duration-500 group-hover:scale-108",
                     }
                 } else {
-                    // Fallback - simple muted background
-                    div { class: "w-full h-full bg-muted" }
+                    // Fallback - gradient background
+                    div { class: "w-full h-full bg-gradient-to-br from-violet-500/10 via-muted to-cyan-500/10" }
                 }
 
                 // Category badge
                 div { class: "absolute top-3 left-3",
-                    span { class: "px-2 py-1 text-xs font-medium border border-border rounded bg-background",
+                    span { class: "category-pill",
                         "{post.category.name}"
                     }
                 }
             }
 
             // Content
-            div { class: "p-4",
-                // Tags
+            div { class: "p-5",
+                // Tags - colorful badges
                 if !post.tags.is_empty() {
-                    div { class: "flex flex-wrap gap-2 mb-2",
+                    div { class: "flex flex-wrap gap-2 mb-3",
                         for tag in post.tags.iter().take(2) {
-                            span { class: "text-xs",
+                            span { class: "tag-badge",
                                 "{tag.name}"
                             }
                         }
                     }
                 }
 
-                h3 { class: "text-lg font-semibold mb-2 leading-snug line-clamp-2",
+                h3 { class: "title-card mb-2 line-clamp-2 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors",
                     "{post.title}"
                 }
 
                 if let Some(excerpt) = &post.excerpt {
-                    p { class: "text-sm leading-relaxed mb-3 line-clamp-2",
+                    p { class: "excerpt-card mb-4 line-clamp-2",
                         "{excerpt}"
                     }
                 }
 
-                // Meta
-                div { class: "flex items-center gap-2 text-xs",
-                    span { "{post.author.name}" }
-                    span { "·" }
+                // Meta - colorful dots
+                div { class: "meta-row text-xs",
+                    span { class: "meta-author", "{post.author.name}" }
+                    span { class: "meta-dot" }
                     if let Some(published) = &post.published_at {
-                        span { "{format_date(published)}" }
+                        span { class: "meta-date", "{format_date(published)}" }
                     }
-                    span { "·" }
-                    span { "{estimate_reading_time(&post.content)} min" }
+                    span { class: "meta-dot" }
+                    span { class: "meta-reading-time", "{estimate_reading_time(&post.content)} min read" }
                 }
             }
         }
