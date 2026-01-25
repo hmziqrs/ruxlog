@@ -345,14 +345,13 @@ textarea:focus,
 }
 
 .card-featured {
-    @apply rounded-2xl overflow-hidden bg-gradient-to-br from-violet-500/5 via-background to-cyan-500/5;
-    @apply border border-violet-500/20;
-    @apply shadow-md;
+    @apply rounded-2xl border border-border/50 overflow-hidden;
+    @apply bg-card shadow-md;
     @apply transition-all duration-300 ease-out;
 }
 
 .card-featured:hover {
-    @apply shadow-xl border-violet-500/40;
+    @apply shadow-xl border-border/80;
     transform: translateY(-6px);
 }
 
@@ -363,93 +362,59 @@ textarea:focus,
 }
 
 .card-flat:hover {
-    @apply border-solid border-primary/40 bg-gradient-to-br from-primary/5 to-primary/10;
+    @apply border-solid border-border bg-muted/50;
 }
 
 /* --------------------------------------------------------------------------
-   Colorful Tag Badges - Rotating Colors
+   Tag Badges - Clean & Minimal
    -------------------------------------------------------------------------- */
 .tag-badge {
-    @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold;
+    @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium;
+    @apply bg-foreground/5 text-foreground/70;
+    @apply border border-foreground/10;
+    @apply font-mono uppercase tracking-wider;
     @apply transition-all duration-200;
 }
 
-.tag-badge:nth-child(6n + 1) {
-    @apply bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300;
-}
-.tag-badge:nth-child(6n + 1):hover {
-    @apply bg-violet-200 dark:bg-violet-500/30;
+.tag-badge:hover {
+    @apply bg-foreground/10 text-foreground border-foreground/20;
 }
 
-.tag-badge:nth-child(6n + 2) {
-    @apply bg-cyan-100 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300;
-}
-.tag-badge:nth-child(6n + 2):hover {
-    @apply bg-cyan-200 dark:bg-cyan-500/30;
-}
-
-.tag-badge:nth-child(6n + 3) {
-    @apply bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300;
-}
-.tag-badge:nth-child(6n + 3):hover {
-    @apply bg-amber-200 dark:bg-amber-500/30;
-}
-
-.tag-badge:nth-child(6n + 4) {
-    @apply bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300;
-}
-.tag-badge:nth-child(6n + 4):hover {
-    @apply bg-rose-200 dark:bg-rose-500/30;
-}
-
-.tag-badge:nth-child(6n + 5) {
-    @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300;
-}
-.tag-badge:nth-child(6n + 5):hover {
-    @apply bg-emerald-200 dark:bg-emerald-500/30;
-}
-
-.tag-badge:nth-child(6n) {
-    @apply bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300;
-}
-.tag-badge:nth-child(6n):hover {
-    @apply bg-blue-200 dark:bg-blue-500/30;
-}
-
-/* Larger tag chips for featured cards */
+/* Slightly larger for featured cards */
 .tag-chip {
-    @apply inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold;
+    @apply inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium;
+    @apply bg-foreground/8 text-foreground/80;
+    @apply border border-foreground/15;
+    @apply font-mono uppercase tracking-wider;
     @apply transition-all duration-200;
 }
 
-.tag-chip:nth-child(3n + 1) {
-    @apply bg-gradient-to-r from-violet-500/20 to-purple-500/20 text-violet-700 dark:text-violet-300;
-    @apply border border-violet-500/30;
-}
-
-.tag-chip:nth-child(3n + 2) {
-    @apply bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-700 dark:text-cyan-300;
-    @apply border border-cyan-500/30;
-}
-
-.tag-chip:nth-child(3n) {
-    @apply bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-700 dark:text-amber-300;
-    @apply border border-amber-500/30;
+.tag-chip:hover {
+    @apply bg-foreground/12 text-foreground border-foreground/25;
 }
 
 /* --------------------------------------------------------------------------
-   Category Pill - Gradient Style
+   Category Pill - Minimal Style
    -------------------------------------------------------------------------- */
 .category-pill {
-    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider;
-    @apply bg-gradient-to-r from-foreground to-foreground/90 text-background;
-    @apply shadow-md;
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider;
+    @apply bg-foreground text-background;
+    @apply shadow-sm;
+    @apply font-mono;
     @apply transition-all duration-200;
 }
 
 .category-pill:hover {
-    @apply shadow-lg;
-    transform: scale(1.05);
+    @apply shadow-md;
+    transform: scale(1.03);
+}
+
+/* --------------------------------------------------------------------------
+   Meta Components
+   -------------------------------------------------------------------------- */
+.meta-mono {
+    font-family: var(--font-mono);
+    @apply tabular-nums;
 }
 
 /* --------------------------------------------------------------------------
@@ -458,15 +423,13 @@ textarea:focus,
 .title-card {
     @apply text-lg font-bold leading-snug tracking-tight;
     @apply text-foreground;
-}
-
-.title-card-hover:hover {
-    @apply text-violet-600 dark:text-violet-400;
+    @apply transition-colors duration-200;
 }
 
 .title-featured {
     @apply text-2xl md:text-3xl font-extrabold leading-tight tracking-tight;
-    @apply bg-gradient-to-r from-foreground via-foreground to-violet-600 dark:to-violet-400 bg-clip-text;
+    @apply text-foreground;
+    @apply transition-colors duration-200;
 }
 
 .excerpt {
@@ -478,18 +441,18 @@ textarea:focus,
 }
 
 /* --------------------------------------------------------------------------
-   Meta Info - Clean & Colored
+   Meta Info - Clean & Simple
    -------------------------------------------------------------------------- */
 .meta-row {
     @apply flex items-center gap-3 text-sm;
 }
 
 .meta-author {
-    @apply font-semibold text-foreground;
+    @apply font-semibold text-foreground/90;
 }
 
 .meta-dot {
-    @apply w-1 h-1 rounded-full bg-violet-500;
+    @apply w-1 h-1 rounded-full bg-foreground/30;
 }
 
 .meta-date {
@@ -497,11 +460,11 @@ textarea:focus,
 }
 
 .meta-reading-time {
-    @apply text-violet-600 dark:text-violet-400 font-medium;
+    @apply text-muted-foreground font-medium;
 }
 
 /* --------------------------------------------------------------------------
-   Engagement Components - Colorful
+   Engagement Components - Minimal
    -------------------------------------------------------------------------- */
 .engagement-button {
     @apply flex items-center gap-2 px-3 py-1.5 rounded-full;
@@ -520,12 +483,12 @@ textarea:focus,
 }
 
 .like-button:hover {
-    @apply text-rose-500 bg-rose-500/10;
+    @apply text-red-500 bg-red-500/10;
 }
 
 .like-button-liked {
     @apply flex items-center gap-2 px-3 py-1.5 rounded-full;
-    @apply text-rose-500 bg-rose-500/15;
+    @apply text-red-500 bg-red-500/10;
     @apply font-semibold;
 }
 
@@ -536,7 +499,7 @@ textarea:focus,
 }
 
 .comment-button:hover {
-    @apply text-cyan-500 bg-cyan-500/10;
+    @apply text-foreground bg-muted;
 }
 
 .share-button {
@@ -546,25 +509,26 @@ textarea:focus,
 }
 
 .share-button:hover {
-    @apply text-violet-500 bg-violet-500/10;
+    @apply text-foreground bg-muted;
 }
 
 .engagement-count {
     @apply font-semibold tabular-nums;
+    font-family: var(--font-mono);
 }
 
 /* --------------------------------------------------------------------------
-   CTA Button - Gradient
+   CTA Button - Clean
    -------------------------------------------------------------------------- */
 .cta-button {
     @apply inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold;
-    @apply bg-gradient-to-r from-violet-600 to-purple-600 text-white;
-    @apply shadow-md shadow-violet-500/25;
+    @apply bg-foreground text-background;
+    @apply shadow-sm;
     @apply transition-all duration-200;
 }
 
 .cta-button:hover {
-    @apply shadow-lg shadow-violet-500/40;
+    @apply shadow-md;
     transform: translateX(2px);
 }
 
@@ -578,12 +542,12 @@ textarea:focus,
 
 .cta-link {
     @apply inline-flex items-center gap-2 text-sm font-semibold;
-    @apply text-violet-600 dark:text-violet-400;
+    @apply text-foreground/80;
     @apply transition-all duration-200;
 }
 
 .cta-link:hover {
-    @apply gap-3 text-violet-700 dark:text-violet-300;
+    @apply gap-3 text-foreground;
 }
 
 /* --------------------------------------------------------------------------
@@ -615,15 +579,15 @@ textarea:focus,
    -------------------------------------------------------------------------- */
 .tag-card {
     @apply rounded-xl overflow-hidden;
-    @apply border-2 border-transparent;
-    @apply bg-gradient-to-br from-violet-500/5 via-background to-cyan-500/5;
+    @apply border-2 border-dashed border-border/60;
+    @apply bg-muted/30;
     @apply transition-all duration-300;
     @apply cursor-pointer;
 }
 
 .tag-card:hover {
-    @apply border-violet-500/30;
-    @apply shadow-lg shadow-violet-500/10;
+    @apply border-solid border-border;
+    @apply bg-muted/50 shadow-md;
     transform: translateY(-2px);
 }
 

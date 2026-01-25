@@ -62,16 +62,16 @@ pub fn PostCard(props: PostCardProps) -> Element {
                 }
             },
             // Media
-            div { class: "relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-muted to-muted/50",
+            div { class: "relative aspect-[16/9] overflow-hidden bg-muted",
                 if let Some(img) = &post.featured_image {
                     img {
                         src: "{img.file_url}",
                         alt: "{post.title}",
-                        class: "w-full h-full object-cover transition-transform duration-500 group-hover:scale-108",
+                        class: "w-full h-full object-cover transition-transform duration-500 group-hover:scale-105",
                     }
                 } else {
-                    // Fallback - gradient background
-                    div { class: "w-full h-full bg-gradient-to-br from-violet-500/10 via-muted to-cyan-500/10" }
+                    // Fallback
+                    div { class: "w-full h-full bg-muted" }
                 }
 
                 // Category badge
@@ -84,7 +84,7 @@ pub fn PostCard(props: PostCardProps) -> Element {
 
             // Content
             div { class: "p-5",
-                // Tags - colorful badges
+                // Tags
                 if !post.tags.is_empty() {
                     div { class: "flex flex-wrap gap-2 mb-3",
                         for tag in post.tags.iter().take(2) {
@@ -95,7 +95,7 @@ pub fn PostCard(props: PostCardProps) -> Element {
                     }
                 }
 
-                h3 { class: "title-card mb-2 line-clamp-2 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors",
+                h3 { class: "title-card mb-2 line-clamp-2",
                     "{post.title}"
                 }
 
@@ -105,7 +105,7 @@ pub fn PostCard(props: PostCardProps) -> Element {
                     }
                 }
 
-                // Meta - colorful dots
+                // Meta
                 div { class: "meta-row text-xs",
                     span { class: "meta-author", "{post.author.name}" }
                     span { class: "meta-dot" }
