@@ -1,24 +1,146 @@
 use dioxus::prelude::*;
 
+use crate::containers::page_header::PageHeader;
+
+#[cfg(feature = "analytics")]
 use crate::containers::analytics::{
     dashboard_summary_cards::DashboardSummaryCards, filter_toolbar::AnalyticsFilterToolbar,
     page_views_chart::PageViewsChart, publishing_trends_chart::PublishingTrendsChart,
-    // NOTE: Commented out overkill analytics for personal blog - backend still works if needed
-    // registration_trend_chart::RegistrationTrendChart,
-    // verification_rates_chart::VerificationRatesChart,
 };
-use crate::containers::page_header::PageHeader;
+
+#[cfg(feature = "analytics")]
 use ruxlog_shared::store::analytics::{
     use_analytics, use_analytics_filters, AnalyticsInterval, DashboardSummaryFilters,
     DashboardSummaryRequest, PageViewsFilters, PageViewsRequest, PublishingTrendsFilters,
     PublishingTrendsRequest,
-    // NOTE: Commented out overkill analytics for personal blog
-    // RegistrationTrendsFilters, RegistrationTrendsRequest,
-    // VerificationRatesFilters, VerificationRatesRequest,
 };
 
 #[component]
 pub fn HomeScreen() -> Element {
+    #[cfg(feature = "analytics")]
+    {
+        analytics_dashboard()
+    }
+
+    #[cfg(not(feature = "analytics"))]
+    {
+        basic_dashboard()
+    }
+}
+
+// Basic dashboard for minimal blog mode
+#[cfg(not(feature = "analytics"))]
+fn basic_dashboard() -> Element {
+    use crate::router::Route;
+    use hmziq_dioxus_free_icons::{icons::ld_icons::*, Icon};
+
+    let nav = use_navigator();
+
+    rsx! {
+        div { class: "min-h-screen bg-transparent text-foreground",
+            PageHeader {
+                title: "Dashboard".to_string(),
+                description: "Welcome to Ruxlog admin panel".to_string(),
+            }
+
+            div { class: "container mx-auto px-4 my-8",
+                // Quick action cards
+                div { class: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8",
+                    // Posts card
+                    div {
+                        class: "p-6 rounded-lg border border-border/70 bg-card hover:bg-accent/50 cursor-pointer transition-colors",
+                        onclick: move |_| { nav.push(Route::PostsListScreen {}); },
+                        div { class: "flex items-center gap-3 mb-2",
+                            div { class: "w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center",
+                                Icon { icon: LdFileText, width: 20, height: 20, fill: "currentColor" }
+                            }
+                            h3 { class: "text-lg font-semibold", "Posts" }
+                        }
+                        p { class: "text-sm text-muted-foreground", "Create and manage blog posts" }
+                    }
+
+                    // Categories card
+                    div {
+                        class: "p-6 rounded-lg border border-border/70 bg-card hover:bg-accent/50 cursor-pointer transition-colors",
+                        onclick: move |_| { nav.push(Route::CategoriesListScreen {}); },
+                        div { class: "flex items-center gap-3 mb-2",
+                            div { class: "w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center",
+                                Icon { icon: LdFolder, width: 20, height: 20, fill: "currentColor" }
+                            }
+                            h3 { class: "text-lg font-semibold", "Categories" }
+                        }
+                        p { class: "text-sm text-muted-foreground", "Organize posts by category" }
+                    }
+
+                    // Tags card
+                    div {
+                        class: "p-6 rounded-lg border border-border/70 bg-card hover:bg-accent/50 cursor-pointer transition-colors",
+                        onclick: move |_| { nav.push(Route::TagsListScreen {}); },
+                        div { class: "flex items-center gap-3 mb-2",
+                            div { class: "w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center",
+                                Icon { icon: LdTag, width: 20, height: 20, fill: "currentColor" }
+                            }
+                            h3 { class: "text-lg font-semibold", "Tags" }
+                        }
+                        p { class: "text-sm text-muted-foreground", "Tag posts for easy discovery" }
+                    }
+
+                    // Media card
+                    div {
+                        class: "p-6 rounded-lg border border-border/70 bg-card hover:bg-accent/50 cursor-pointer transition-colors",
+                        onclick: move |_| { nav.push(Route::MediaListScreen {}); },
+                        div { class: "flex items-center gap-3 mb-2",
+                            div { class: "w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center",
+                                Icon { icon: LdImage, width: 20, height: 20, fill: "currentColor" }
+                            }
+                            h3 { class: "text-lg font-semibold", "Media" }
+                        }
+                        p { class: "text-sm text-muted-foreground", "Upload and manage images" }
+                    }
+                }
+
+                // Getting started section
+                div { class: "rounded-lg border border-border/70 bg-card p-6",
+                    h2 { class: "text-xl font-semibold mb-4", "Getting Started" }
+                    div { class: "space-y-3",
+                        div { class: "flex items-start gap-3",
+                            div { class: "w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium shrink-0", "1" }
+                            div {
+                                h3 { class: "font-medium mb-1", "Create your first post" }
+                                p { class: "text-sm text-muted-foreground", "Start writing content for your blog" }
+                            }
+                        }
+                        div { class: "flex items-start gap-3",
+                            div { class: "w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium shrink-0", "2" }
+                            div {
+                                h3 { class: "font-medium mb-1", "Organize with categories" }
+                                p { class: "text-sm text-muted-foreground", "Create categories to organize your content" }
+                            }
+                        }
+                        div { class: "flex items-start gap-3",
+                            div { class: "w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium shrink-0", "3" }
+                            div {
+                                h3 { class: "font-medium mb-1", "Add tags for discoverability" }
+                                p { class: "text-sm text-muted-foreground", "Help readers find related content" }
+                            }
+                        }
+                        div { class: "flex items-start gap-3",
+                            div { class: "w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium shrink-0", "4" }
+                            div {
+                                h3 { class: "font-medium mb-1", "Upload media" }
+                                p { class: "text-sm text-muted-foreground", "Add images to make your posts more engaging" }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Full analytics dashboard
+#[cfg(feature = "analytics")]
+fn analytics_dashboard() -> Element {
     let analytics = use_analytics();
     let filters = use_analytics_filters();
 
