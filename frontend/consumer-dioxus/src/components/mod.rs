@@ -10,7 +10,7 @@ pub mod tag_card;
 pub mod comments_section;
 
 pub use category_card::CategoryCard;
-pub use engagement::{EngagementBar, LikeButton, ShareButton};
+pub use engagement::{ActionBar, EngagementBar, LikeButton, ShareButton};
 pub use featured_post_card::FeaturedPostCard;
 pub use mouse_tracking_card::MouseTrackingCard;
 pub use post_card::{PostCard, estimate_reading_time, format_date, get_gradient_for_tag};

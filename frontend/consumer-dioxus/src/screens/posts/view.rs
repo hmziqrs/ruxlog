@@ -1,10 +1,12 @@
 use dioxus::prelude::*;
-use ruxlog_shared::store::{use_auth, use_likes, use_post};
+use ruxlog_shared::store::use_post;
 use crate::utils::editorjs::render_editorjs_content;
-use crate::components::{ShareButton, estimate_reading_time, format_date};
+use crate::components::{ActionBar, estimate_reading_time, format_date};
 use hmziq_dioxus_free_icons::icons::ld_icons::{LdCalendar, LdClock, LdArrowLeft};
 use hmziq_dioxus_free_icons::Icon;
 
+#[cfg(feature = "engagement")]
+use ruxlog_shared::store::{use_auth, use_likes};
 #[cfg(feature = "engagement")]
 use crate::components::EngagementBar;
 
@@ -14,9 +16,13 @@ use crate::components::CommentsSection;
 #[component]
 pub fn PostViewScreen(id: i32) -> Element {
     let posts = use_post();
-    let likes = use_likes();
-    let auth = use_auth();
     let nav = use_navigator();
+
+    // Only use likes and auth when engagement feature is enabled
+    #[cfg(feature = "engagement")]
+    let likes = use_likes();
+    #[cfg(feature = "engagement")]
+    let auth = use_auth();
 
     // Get post by id
     let post = use_memo(move || {
@@ -54,7 +60,8 @@ pub fn PostViewScreen(id: i32) -> Element {
         }
     });
 
-    // Fetch like status when post is loaded and user is logged in
+    // Fetch like status when post is loaded and user is logged in (only when engagement feature is enabled)
+    #[cfg(feature = "engagement")]
     use_effect(move || {
         let is_logged_in = auth.user.read().is_some();
         if is_logged_in && post().is_some() {
@@ -65,13 +72,15 @@ pub fn PostViewScreen(id: i32) -> Element {
         }
     });
 
-    // Get like status from store
+    // Get like status from store (only when engagement feature is enabled)
+    #[cfg(feature = "engagement")]
     let like_status = use_memo(move || {
         let status_map = likes.status.read();
         status_map.get(&id).and_then(|frame| frame.data.clone())
     });
 
-    // Check if like action is loading
+    // Check if like action is loading (only when engagement feature is enabled)
+    #[cfg(feature = "engagement")]
     let is_like_loading = use_memo(move || {
         let action_map = likes.action.read();
         action_map
@@ -93,17 +102,6 @@ pub fn PostViewScreen(id: i32) -> Element {
         spawn(async move {
             likes_state.toggle(id).await;
         });
-    };
-
-    // Handle share
-    let handle_share = move |_| {
-        #[cfg(target_arch = "wasm32")]
-        {
-            if let Some(window) = web_sys::window() {
-                let url = window.location().href().unwrap_or_default();
-                let _ = window.navigator().clipboard().write_text(&url);
-            }
-        }
     };
 
     // Handle scroll to comments (only when engagement feature is enabled)
@@ -128,7 +126,8 @@ pub fn PostViewScreen(id: i32) -> Element {
 
         let reading_time = estimate_reading_time(&post.content);
 
-        // Get likes data - prefer from store if available, fallback to post data
+        // Get likes data - prefer from store if available, fallback to post data (only when engagement feature is enabled)
+        #[cfg(feature = "engagement")]
         let (is_liked, likes_count) = match like_status() {
             Some(status) => (status.is_liked, status.likes_count),
             None => (false, post.likes_count),
@@ -268,11 +267,21 @@ pub fn PostViewScreen(id: i32) -> Element {
                     // Engagement bar (conditionally compiled)
                     { engagement_element }
 
-                    // Share button
-                    div { class: "mb-12 flex justify-center",
-                        ShareButton {
-                            on_click: handle_share,
-                        }
+                    // Action bar with utilities
+                    ActionBar {
+                        title: post.title.clone(),
+                        url: {
+                            #[cfg(target_arch = "wasm32")]
+                            {
+                                web_sys::window()
+                                    .and_then(|w| w.location().href().ok())
+                                    .unwrap_or_default()
+                            }
+                            #[cfg(not(target_arch = "wasm32"))]
+                            {
+                                String::new()
+                            }
+                        },
                     }
 
                     // Comments section
