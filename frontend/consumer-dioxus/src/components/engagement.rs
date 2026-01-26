@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use hmziq_dioxus_free_icons::icons::ld_icons::{LdHeart, LdLoader, LdShare2};
+use hmziq_dioxus_free_icons::icons::ld_icons::{LdHeart, LdLoader, LdShare2, LdLink2, LdPrinter, LdBookmarkPlus};
 use hmziq_dioxus_free_icons::Icon;
 
 #[derive(Props, Clone, PartialEq)]
@@ -126,6 +126,214 @@ pub fn EngagementBar(props: EngagementBarProps) -> Element {
                 },
                 Icon { icon: LdMessageCircle, class: "w-4 h-4" }
                 span { class: "engagement-count", "{props.comment_count}" }
+            }
+        }
+    }
+}
+
+#[derive(Props, Clone, PartialEq)]
+pub struct ActionBarProps {
+    #[props(into)]
+    pub title: String,
+    #[props(into)]
+    pub url: String,
+}
+
+/// Action bar with utility buttons: Share, Copy Link, Print, Bookmark
+#[component]
+pub fn ActionBar(props: ActionBarProps) -> Element {
+    let mut show_bookmark_hint = use_signal(|| false);
+    let mut feedback_message = use_signal(|| String::new());
+
+    // Store props in signals for use in closures
+    let title = use_signal(|| props.title.clone());
+    let url = use_signal(|| props.url.clone());
+
+    // Handle share with Web Share API fallback
+    #[allow(unused_variables)]
+    let handle_share = move |_| {
+        let title = title();
+        let url = url();
+
+        spawn(async move {
+            #[cfg(target_arch = "wasm32")]
+            {
+                use wasm_bindgen::prelude::*;
+                use wasm_bindgen::JsValue;
+                use web_sys::window;
+
+                if let Some(window) = window() {
+                    if let Ok(navigator) = js_sys::Reflect::get(&window, &JsValue::from_str("navigator")) {
+                        // Try Web Share API first
+                        if let Ok(has_share) = js_sys::Reflect::has(&navigator, &JsValue::from_str("share")) {
+                            if has_share {
+                                let share_data = js_sys::Object::new();
+                                let _ = js_sys::Reflect::set(&share_data, &JsValue::from_str("title"), &JsValue::from_str(&title));
+                                let _ = js_sys::Reflect::set(&share_data, &JsValue::from_str("url"), &JsValue::from_str(&url));
+
+                                if let Ok(share_fn) = js_sys::Reflect::get(&navigator, &JsValue::from_str("share")) {
+                                    if let Ok(share_fn) = share_fn.dyn_into::<js_sys::Function>() {
+                                        let _ = share_fn.call1(&navigator, &share_data);
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Fallback to copying link
+                    let clipboard = window.navigator().clipboard();
+                    let _ = clipboard.write_text(&url);
+                    feedback_message.set("Link copied to clipboard!".to_string());
+                    gloo_timers::future::TimeoutFuture::new(2000).await;
+                    feedback_message.set(String::new());
+                }
+            }
+        });
+    };
+
+    // Handle copy link
+    #[allow(unused_variables)]
+    let handle_copy_link = move |_| {
+        let url = url();
+        spawn(async move {
+            #[cfg(target_arch = "wasm32")]
+            {
+                if let Some(window) = web_sys::window() {
+                    let clipboard = window.navigator().clipboard();
+                    let _ = clipboard.write_text(&url);
+                    feedback_message.set("Link copied!".to_string());
+                    gloo_timers::future::TimeoutFuture::new(2000).await;
+                    feedback_message.set(String::new());
+                }
+            }
+        });
+    };
+
+    // Handle print
+    let handle_print = move |_| {
+        #[cfg(target_arch = "wasm32")]
+        {
+            if let Some(window) = web_sys::window() {
+                let _ = window.print();
+            }
+        }
+    };
+
+    // Handle bookmark hint
+    let handle_bookmark = move |_| {
+        show_bookmark_hint.set(true);
+        spawn(async move {
+            gloo_timers::future::TimeoutFuture::new(3000).await;
+            show_bookmark_hint.set(false);
+        });
+    };
+
+    // Detect if user is on Mac
+    let is_mac = {
+        #[cfg(target_arch = "wasm32")]
+        {
+            web_sys::window()
+                .and_then(|w| w.navigator().user_agent().ok())
+                .map(|ua| ua.contains("Mac"))
+                .unwrap_or(false)
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            false
+        }
+    };
+
+    let shortcut_key = if is_mac { "⌘D" } else { "Ctrl+D" };
+
+    rsx! {
+        div { class: "flex flex-col items-center gap-6 py-10 border-t border-border",
+            // Intro text
+            div { class: "text-center space-y-1",
+                p { class: "text-sm font-medium text-foreground/90",
+                    "Found this helpful?"
+                }
+                p { class: "text-xs text-muted-foreground",
+                    "Share it with others or save it for later"
+                }
+            }
+
+            // Action buttons
+            div { class: "flex flex-wrap items-center justify-center gap-3",
+                // Share button - Primary action
+                button {
+                    class: "group flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium text-sm transition-all hover:bg-primary/90 hover:shadow-md hover:scale-105 active:scale-95",
+                    onclick: handle_share,
+                    Icon { icon: LdShare2, class: "w-4 h-4 transition-transform group-hover:rotate-12" }
+                    span { "Share" }
+                }
+
+                // Secondary actions
+                div { class: "flex items-center gap-2",
+                    // Copy Link button
+                    button {
+                        class: "group flex items-center gap-2 px-4 py-2.5 bg-muted hover:bg-muted/80 rounded-lg text-sm font-medium transition-all hover:shadow-sm hover:scale-105 active:scale-95",
+                        onclick: handle_copy_link,
+                        Icon { icon: LdLink2, class: "w-4 h-4 transition-transform group-hover:-rotate-12" }
+                        span { "Copy Link" }
+                    }
+
+                    // Print button
+                    button {
+                        class: "group flex items-center gap-2 px-4 py-2.5 bg-muted hover:bg-muted/80 rounded-lg text-sm font-medium transition-all hover:shadow-sm hover:scale-105 active:scale-95",
+                        onclick: handle_print,
+                        Icon { icon: LdPrinter, class: "w-4 h-4" }
+                        span { "Print" }
+                    }
+
+                    // Bookmark button
+                    div { class: "relative",
+                        button {
+                            class: "group flex items-center gap-2 px-4 py-2.5 bg-muted hover:bg-muted/80 rounded-lg text-sm font-medium transition-all hover:shadow-sm hover:scale-105 active:scale-95",
+                            onclick: handle_bookmark,
+                            Icon { icon: LdBookmarkPlus, class: "w-4 h-4 transition-transform group-hover:scale-110" }
+                            span { "Bookmark" }
+                        }
+
+                        // Bookmark hint tooltip - Modern design
+                        if show_bookmark_hint() {
+                            div {
+                                class: "absolute bottom-full left-1/2 -translate-x-1/2 mb-3 animate-fade-in",
+                                div {
+                                    class: "px-3 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs font-medium rounded-md shadow-lg whitespace-nowrap",
+                                    "Press "
+                                    kbd { class: "px-1.5 py-0.5 bg-white/20 dark:bg-gray-900/20 rounded text-xs font-mono", "{shortcut_key}" }
+                                    " to bookmark"
+                                }
+                                // Arrow
+                                div {
+                                    class: "absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-100"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Feedback message - Improved design
+            if !feedback_message().is_empty() {
+                div {
+                    class: "flex items-center gap-2 px-4 py-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-md text-sm font-medium animate-fade-in",
+                    svg {
+                        class: "w-4 h-4",
+                        "xmlns": "http://www.w3.org/2000/svg",
+                        "fill": "none",
+                        "viewBox": "0 0 24 24",
+                        "stroke": "currentColor",
+                        path {
+                            "stroke-linecap": "round",
+                            "stroke-linejoin": "round",
+                            "stroke-width": "2",
+                            "d": "M5 13l4 4L19 7"
+                        }
+                    }
+                    "{feedback_message()}"
+                }
             }
         }
     }
