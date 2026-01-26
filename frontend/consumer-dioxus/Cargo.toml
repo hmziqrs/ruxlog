@@ -94,12 +94,13 @@ mobile = ["dioxus/mobile"]
 
 # Blog feature flags
 basic = []
-full = ["consumer-auth", "profile-management", "comments"]
+full = ["consumer-auth", "profile-management", "comments", "engagement"]
 
 # Authentication features
 consumer-auth = []           # Enables login/register/auth functionality
 profile-management = ["consumer-auth"]  # Requires consumer-auth
 comments = []
+engagement = []              # Enables views, likes, and social engagement metrics
 
 [profile]
 

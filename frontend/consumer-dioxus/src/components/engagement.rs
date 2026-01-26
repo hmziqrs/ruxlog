@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use hmziq_dioxus_free_icons::icons::ld_icons::{LdHeart, LdLoader};
+use hmziq_dioxus_free_icons::icons::ld_icons::{LdHeart, LdLoader, LdShare2};
 use hmziq_dioxus_free_icons::Icon;
 
 #[derive(Props, Clone, PartialEq)]
@@ -54,6 +54,29 @@ pub fn LikeButton(props: LikeButtonProps) -> Element {
 }
 
 #[derive(Props, Clone, PartialEq)]
+pub struct ShareButtonProps {
+    #[props(into)]
+    pub on_click: Option<EventHandler<()>>,
+}
+
+/// Share button for posts
+#[component]
+pub fn ShareButton(props: ShareButtonProps) -> Element {
+    rsx! {
+        button {
+            class: "share-button",
+            onclick: move |_| {
+                if let Some(handler) = &props.on_click {
+                    handler.call(());
+                }
+            },
+            Icon { icon: LdShare2, class: "w-4 h-4" }
+            span { class: "font-semibold text-sm", "Share" }
+        }
+    }
+}
+
+#[derive(Props, Clone, PartialEq)]
 pub struct EngagementBarProps {
     pub view_count: i32,
     pub likes_count: i32,
@@ -65,60 +88,44 @@ pub struct EngagementBarProps {
     #[props(into)]
     pub on_like: Option<EventHandler<()>>,
     #[props(into)]
-    pub on_share: Option<EventHandler<()>>,
-    #[props(into)]
     pub on_scroll_to_comments: Option<EventHandler<()>>,
 }
 
-/// Engagement bar with views, likes, comments, and share
+/// Engagement bar with views, likes, and comments
 #[component]
 pub fn EngagementBar(props: EngagementBarProps) -> Element {
-    use hmziq_dioxus_free_icons::icons::ld_icons::{LdEye, LdMessageCircle, LdShare2};
+    use hmziq_dioxus_free_icons::icons::ld_icons::{LdEye, LdMessageCircle};
 
     rsx! {
-        div { class: "flex items-center justify-between",
-            div { class: "flex items-center gap-3",
-                // Views (display only)
-                div { class: "engagement-button",
-                    Icon { icon: LdEye, class: "w-4 h-4" }
-                    span { class: "engagement-count", "{props.view_count}" }
-                }
+        div { class: "flex items-center gap-3",
+            // Views (display only)
+            div { class: "engagement-button",
+                Icon { icon: LdEye, class: "w-4 h-4" }
+                span { class: "engagement-count", "{props.view_count}" }
+            }
 
-                // Likes button
-                LikeButton {
-                    likes_count: props.likes_count,
-                    is_liked: props.is_liked,
-                    is_loading: props.is_like_loading,
-                    on_click: move |_| {
-                        if let Some(handler) = &props.on_like {
-                            handler.call(());
-                        }
-                    },
-                }
-
-                // Comments (clickable to scroll)
-                button {
-                    class: "comment-button",
-                    onclick: move |_| {
-                        if let Some(handler) = &props.on_scroll_to_comments {
-                            handler.call(());
-                        }
-                    },
-                    Icon { icon: LdMessageCircle, class: "w-4 h-4" }
-                    span { class: "engagement-count", "{props.comment_count}" }
-                }
-        }
-
-        // Share button
-        button {
-            class: "share-button",
-            onclick: move |_| {
-                if let Some(handler) = &props.on_share {
-                    handler.call(());
+            // Likes button
+            LikeButton {
+                likes_count: props.likes_count,
+                is_liked: props.is_liked,
+                is_loading: props.is_like_loading,
+                on_click: move |_| {
+                    if let Some(handler) = &props.on_like {
+                        handler.call(());
                     }
                 },
-                Icon { icon: LdShare2, class: "w-4 h-4" }
-                span { class: "font-semibold text-sm", "Share" }
+            }
+
+            // Comments (clickable to scroll)
+            button {
+                class: "comment-button",
+                onclick: move |_| {
+                    if let Some(handler) = &props.on_scroll_to_comments {
+                        handler.call(());
+                    }
+                },
+                Icon { icon: LdMessageCircle, class: "w-4 h-4" }
+                span { class: "engagement-count", "{props.comment_count}" }
             }
         }
     }

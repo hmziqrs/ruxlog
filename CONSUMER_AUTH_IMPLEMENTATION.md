@@ -50,6 +50,16 @@ comments = []                          # Independent (for now)
 - Register functionality is now part of base `consumer-auth`
 - Login screen always shows signup link (when auth is enabled)
 
+### 7. Comments Component (`src/components/`)
+- Gated `comments_section` module with `comments` feature
+- Comments don't compile in basic mode
+- Post view screen conditionally renders comments section
+
+### 8. Post View Screen (`src/screens/posts/view.rs`)
+- Conditionally imports `CommentsSection` component
+- Created optional `comments_section` element (None in basic mode)
+- No comments UI appears when feature is disabled
+
 ## Build Tests
 
 All compilation tests pass:
@@ -69,22 +79,26 @@ cargo check --features consumer-auth  # ✅ SUCCESS
 
 ## Expected Behavior
 
-### Basic Mode (No Auth)
+### Basic Mode (No Auth, No Comments)
 ✅ Compiles successfully
 ✅ No auth code included in binary
+✅ No comments code included in binary
 ✅ No auth initialization on mount
 ✅ No login/register links in navbar
 ✅ No user menu in navbar
 ✅ No `/login` or `/register` routes (404)
+✅ No comments section on post pages
 ✅ All public routes work (home, posts, categories, tags, about, contact)
 
-### Full Mode (With Auth)
+### Full Mode (With Auth & Comments)
 ✅ Compiles successfully
 ✅ Auth initialization on mount
 ✅ Login/register links appear for anonymous users
 ✅ User menu appears when logged in
 ✅ All auth screens accessible
 ✅ Profile management works
+✅ Comments section appears on post pages
+✅ Users can post comments when logged in
 
 ### Consumer-Auth Only
 ✅ Compiles successfully
@@ -189,10 +203,12 @@ full
 1. `/frontend/consumer-dioxus/Cargo.toml` - Feature definitions
 2. `/frontend/consumer-dioxus/src/router.rs` - Route gating
 3. `/frontend/consumer-dioxus/src/containers/auth_guard_wrapper.rs` - Conditional implementation
-4. `/frontend/consumer-dioxus/src/containers/mod.rs` - Navbar auth UI gating
+4. `/frontend/consumer-dioxus/src/containers/mod.rs` - Navbar auth UI gating, comments module gating
 5. `/frontend/consumer-dioxus/src/screens/mod.rs` - Auth module gating
 6. `/frontend/consumer-dioxus/src/screens/auth/mod.rs` - Removed internal gates
 7. `/frontend/consumer-dioxus/src/screens/auth/login.rs` - Removed internal gates
+8. `/frontend/consumer-dioxus/src/components/mod.rs` - Comments module gating
+9. `/frontend/consumer-dioxus/src/screens/posts/view.rs` - Conditional comments section
 
 ## Success Criteria
 
@@ -205,6 +221,7 @@ full
 - No auth UI in navbar
 - No auth routes accessible (404)
 - No auth initialization
+- No comments section on posts
 - Public blog works perfectly
 
 ✅ **Full Mode:**
@@ -212,9 +229,11 @@ full
 - Auth routes accessible
 - Auth initialization works
 - Login/register/profile work
+- Comments section appears on posts
 
 ✅ **Code Removal:**
 - Auth code not compiled in basic mode
+- Comments code not compiled in basic mode
 - Binary size reduced in basic mode
 - Feature flags work independently
 
