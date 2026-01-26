@@ -87,10 +87,19 @@ ruxlog-shared = { path = "../ruxlog-shared" }
 dioxus-time = { path = "../dioxus_pkgs/sdk/packages/time", version = "0.7.3" }
 
 [features]
-default = ["web"]
+default = ["web", "basic"]
 web = ["dioxus/web"]
 desktop = ["dioxus/desktop"]
 mobile = ["dioxus/mobile"]
+
+# Blog feature flags
+basic = []
+full = ["auth-oauth", "auth-register", "profile-management", "comments"]
+
+auth-oauth = []
+auth-register = []
+profile-management = []
+comments = []
 
 [profile]
 

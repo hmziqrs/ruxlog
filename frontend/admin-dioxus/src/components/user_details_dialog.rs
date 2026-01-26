@@ -34,9 +34,27 @@ pub fn UserDetailsDialog(mut props: UserDetailsDialogProps) -> Element {
         props.is_open.set(false);
     };
 
+    #[cfg(feature = "user-management")]
     let handle_edit = move |_| {
         props.is_open.set(false);
         nav.push(Route::UsersEditScreen { id: user_id });
+    };
+
+    let edit_button: Option<Element> = {
+        #[cfg(feature = "user-management")]
+        {
+            Some(rsx! {
+                Button {
+                    onclick: handle_edit,
+                    "Edit User"
+                }
+            })
+        }
+
+        #[cfg(not(feature = "user-management"))]
+        {
+            None
+        }
     };
 
     rsx! {
@@ -161,10 +179,7 @@ pub fn UserDetailsDialog(mut props: UserDetailsDialogProps) -> Element {
                         onclick: handle_close,
                         "Close"
                     }
-                    Button {
-                        onclick: handle_edit,
-                        "Edit User"
-                    }
+                    {edit_button}
                 }
             }
         }

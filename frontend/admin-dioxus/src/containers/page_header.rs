@@ -25,6 +25,7 @@ pub fn PageHeader(props: PageHeaderProps) -> Element {
 
     // Derive breadcrumb segments: (text, optional link route)
     let segments: Vec<(String, Option<Route>)> = match current_route {
+        // Core routes (always present)
         Route::PostsAddScreen {} => vec![
             ("posts".to_string(), Some(Route::PostsListScreen {})),
             ("add".to_string(), None),
@@ -70,42 +71,60 @@ pub fn PageHeader(props: PageHeaderProps) -> Element {
             ("upload".to_string(), None),
         ],
         Route::MediaListScreen {} => vec![("media".to_string(), None)],
-        Route::UsersAddScreen {} => vec![
-            ("users".to_string(), Some(Route::UsersListScreen {})),
-            ("add".to_string(), None),
-        ],
-        Route::UsersEditScreen { id } => vec![
-            ("users".to_string(), Some(Route::UsersListScreen {})),
-            (id.to_string(), None),
-            ("edit".to_string(), None),
-        ],
-        Route::UsersListScreen {} => vec![("users".to_string(), None)],
         Route::SonnerDemoScreen {} => {
             vec![("demo".to_string(), None), ("sonner".to_string(), None)]
-        }
-        Route::AnalyticsScreen {} => vec![("analytics".to_string(), None)],
-        Route::CommentsListScreen {} => vec![("comments".to_string(), None)],
-        Route::FlaggedCommentsScreen {} => vec![
-            ("comments".to_string(), Some(Route::CommentsListScreen {})),
-            ("flagged".to_string(), None),
-        ],
-        Route::NewsletterSubscribersScreen {} => vec![
-            ("newsletter".to_string(), None),
-            ("subscribers".to_string(), None),
-        ],
-        Route::NewsletterSendScreen {} => {
-            vec![("newsletter".to_string(), None), ("send".to_string(), None)]
-        }
-        Route::RoutesSettingsScreen {} => {
-            vec![("settings".to_string(), None), ("routes".to_string(), None)]
-        }
-        Route::AclSettingsScreen {} => {
-            vec![("settings".to_string(), None), ("acl".to_string(), None)]
         }
         Route::ProfileSecurityScreen {} => vec![
             ("profile".to_string(), None),
             ("security".to_string(), None),
         ],
+
+        // Gated routes
+        #[cfg(feature = "user-management")]
+        Route::UsersAddScreen {} => vec![
+            ("users".to_string(), Some(Route::UsersListScreen {})),
+            ("add".to_string(), None),
+        ],
+        #[cfg(feature = "user-management")]
+        Route::UsersEditScreen { id } => vec![
+            ("users".to_string(), Some(Route::UsersListScreen {})),
+            (id.to_string(), None),
+            ("edit".to_string(), None),
+        ],
+        #[cfg(feature = "user-management")]
+        Route::UsersListScreen {} => vec![("users".to_string(), None)],
+
+        #[cfg(feature = "analytics")]
+        Route::AnalyticsScreen {} => vec![("analytics".to_string(), None)],
+
+        #[cfg(feature = "comments")]
+        Route::CommentsListScreen {} => vec![("comments".to_string(), None)],
+        #[cfg(feature = "comments")]
+        Route::FlaggedCommentsScreen {} => vec![
+            ("comments".to_string(), Some(Route::CommentsListScreen {})),
+            ("flagged".to_string(), None),
+        ],
+
+        #[cfg(feature = "newsletter")]
+        Route::NewsletterSubscribersScreen {} => vec![
+            ("newsletter".to_string(), None),
+            ("subscribers".to_string(), None),
+        ],
+        #[cfg(feature = "newsletter")]
+        Route::NewsletterSendScreen {} => {
+            vec![("newsletter".to_string(), None), ("send".to_string(), None)]
+        }
+
+        #[cfg(feature = "admin-routes")]
+        Route::RoutesSettingsScreen {} => {
+            vec![("settings".to_string(), None), ("routes".to_string(), None)]
+        }
+
+        #[cfg(feature = "admin-acl")]
+        Route::AclSettingsScreen {} => {
+            vec![("settings".to_string(), None), ("acl".to_string(), None)]
+        }
+
         Route::HomeScreen {} | Route::LoginScreen {} => vec![],
     };
 

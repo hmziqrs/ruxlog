@@ -8,6 +8,38 @@ default-run = "ruxlog"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["basic"]
+
+# Basic blog (minimal) - DEFAULT for open source release
+basic = []
+
+# Full feature set (opt-in for development/private use)
+full = [
+    "auth-oauth",
+    "auth-2fa",
+    "comments",
+    "newsletter",
+    "analytics",
+    "user-management",
+    "image-optimization",
+    "admin-acl",
+    "admin-routes",
+    "seed-system"
+]
+
+# Individual features
+auth-oauth = ["oauth2"]
+auth-2fa = []
+comments = []
+newsletter = []
+analytics = []
+user-management = []
+image-optimization = ["image"]
+admin-acl = []
+admin-routes = []
+seed-system = []
+
 [dependencies]
 rux-auth = { path = "./crates/rux-auth" }
 migration = { path = "./migration" }
@@ -91,10 +123,10 @@ getrandom = "0.2"
 urlencoding = "2.1.3"
 imagesize = "0.12.0"
 bytes = "1.7.2"
-image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "tiff"] }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "tiff"], optional = true }
 reqwest = { version = "0.12", features = ["json"] }
 tower = { version = "0.5", features = ["util"] }
-oauth2 = "4.4"
+oauth2 = { version = "4.4", optional = true }
 jsonwebtoken = { version = "10.2.0", features = ["aws_lc_rs"] }
 ratatui = "0.29"
 crossterm = "0.29"
@@ -123,3 +155,4 @@ path = "scripts/restore_changes.rs"
 [[bin]]
 name = "ruxlog_tui"
 path = "scripts/ruxlog_tui.rs"
+required-features = ["seed-system"]

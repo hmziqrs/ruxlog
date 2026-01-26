@@ -117,6 +117,7 @@ pub async fn log_in(
     }
 }
 
+#[cfg(feature = "user-management")]
 #[debug_handler]
 #[instrument(skip(state, payload), fields(user_id, result))]
 pub async fn register(
@@ -183,6 +184,7 @@ pub async fn register(
     }
 }
 
+#[cfg(feature = "auth-2fa")]
 #[debug_handler]
 #[instrument(skip(state, auth), fields(user_id))]
 pub async fn twofa_setup(
@@ -227,6 +229,7 @@ pub async fn twofa_setup(
     ))
 }
 
+#[cfg(feature = "auth-2fa")]
 #[debug_handler]
 pub async fn twofa_verify(
     State(state): State<AppState>,
@@ -275,6 +278,7 @@ pub async fn twofa_verify(
     Err(ErrorResponse::new(ErrorCode::InvalidToken).with_message("Invalid 2FA code"))
 }
 
+#[cfg(feature = "auth-2fa")]
 #[debug_handler]
 pub async fn twofa_disable(
     State(state): State<AppState>,
