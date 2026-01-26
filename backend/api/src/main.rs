@@ -13,13 +13,19 @@ use modules::csrf_v1;
 use ruxlog::utils::cors::get_allowed_origins;
 use ruxlog::{
     db, middlewares, modules, router,
-    services::{
-        self, acl_service::AclService, redis::init_redis_store, route_blocker_config,
-        route_blocker_service::RouteBlockerService,
-    },
-    state::{AppState, ObjectStorageConfig, OptimizerConfig},
+    services::{self, redis::init_redis_store},
+    state::{AppState, ObjectStorageConfig},
     utils::telemetry,
 };
+
+#[cfg(feature = "admin-acl")]
+use ruxlog::services::acl_service::AclService;
+
+#[cfg(feature = "admin-routes")]
+use ruxlog::services::{route_blocker_config, route_blocker_service::RouteBlockerService};
+
+#[cfg(feature = "image-optimization")]
+use ruxlog::state::OptimizerConfig;
 
 fn hex_to_512bit_key(hex: &str) -> [u8; 64] {
     use sha2::{Digest, Sha512};
@@ -156,6 +162,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
+    #[cfg(feature = "image-optimization")]
     let optimizer = OptimizerConfig {
         enabled: env_bool("OPTIMIZE_ON_UPLOAD", true),
         max_pixels: env_u64("OPTIMIZER_MAX_PIXELS", 40_000_000),
@@ -169,31 +176,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         mailer,
         object_storage,
         s3_client,
+        #[cfg(feature = "image-optimization")]
         optimizer,
         meter: telemetry::global_meter(),
     };
 
     // Bootstrap application constants from environment (only fills missing keys) and warm Redis.
-    if let Err(err) = AclService::bootstrap_from_env(State(state.clone())).await {
-        tracing::error!(error = %err, "Failed to bootstrap ACL constants from env");
-    } else {
-        tracing::info!("ACL constants bootstrapped from env");
+    #[cfg(feature = "admin-acl")]
+    {
+        if let Err(err) = AclService::bootstrap_from_env(State(state.clone())).await {
+            tracing::error!(error = %err, "Failed to bootstrap ACL constants from env");
+        } else {
+            tracing::info!("ACL constants bootstrapped from env");
+        }
     }
 
-    let sync_interval_secs = env_u64("ROUTE_BLOCKER_SYNC_INTERVAL_SECS", 60 * 30);
-    route_blocker_config::set_sync_interval_secs(sync_interval_secs);
+    #[cfg(feature = "admin-routes")]
+    {
+        let sync_interval_secs = env_u64("ROUTE_BLOCKER_SYNC_INTERVAL_SECS", 60 * 30);
+        route_blocker_config::set_sync_interval_secs(sync_interval_secs);
 
-    if let Err(err) = RouteBlockerService::initialize_redis_sync(&state).await {
-        tracing::error!(
-            error = %err,
-            "Initial route blocker Redis sync failed; continuing without warm cache"
-        );
-    } else {
-        tracing::info!("Initial route blocker Redis sync completed successfully");
-    }
+        if let Err(err) = RouteBlockerService::initialize_redis_sync(&state).await {
+            tracing::error!(
+                error = %err,
+                "Initial route blocker Redis sync failed; continuing without warm cache"
+            );
+        } else {
+            tracing::info!("Initial route blocker Redis sync completed successfully");
+        }
 
-    let state_for_blocker = state.clone();
-    tokio::spawn(async move {
+        let state_for_blocker = state.clone();
+        tokio::spawn(async move {
         let notify = route_blocker_config::notifier();
 
         // Set initial next sync time
@@ -247,7 +260,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             route_blocker_config::set_sync_running(false);
             route_blocker_config::set_next_sync_at(route_blocker_config::calculate_next_sync());
         }
-    });
+        });
+    }
 
     tracing::info!("Redis successfully established.");
     let session_store = RedisStore::new(redis_pool);
@@ -294,7 +308,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Clone the database connection for the Extension layer (used by auth middleware)
     let db_extension = Extension(state.sea_db.clone());
 
-    let app = router::router()
+    let mut app = router::router()
         .layer(ip_source.into_extension())
         .layer(db_extension)
         .layer(session_layer)
@@ -313,11 +327,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "/csrf/v1/generate",
             routing::post(csrf_v1::controller::generate),
         )
-        .layer(cors)
-        .layer(middlewares::route_blocker::RouteBlockerLayer::new(
+        .layer(cors);
+
+    #[cfg(feature = "admin-routes")]
+    {
+        app = app.layer(middlewares::route_blocker::RouteBlockerLayer::new(
             state.clone(),
-        ))
-        .with_state(state);
+        ));
+    }
+
+    let app = app.with_state(state);
 
     let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port = env::var("PORT").unwrap_or_else(|_| "8888".to_string());

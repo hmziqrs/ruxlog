@@ -11,7 +11,11 @@ use dioxus::prelude::*;
 use ruxlog_shared::{use_auth, AuthGuardError, AuthGuardLoader};
 
 /// Auth routes - routes only for unauthenticated users (login, register)
+#[cfg(feature = "auth-register")]
 const AUTH_ROUTES: &[Route] = &[Route::LoginScreen {}, Route::RegisterScreen {}];
+
+#[cfg(not(feature = "auth-register"))]
+const AUTH_ROUTES: &[Route] = &[Route::LoginScreen {}];
 
 #[component]
 pub fn AuthGuardContainer() -> Element {

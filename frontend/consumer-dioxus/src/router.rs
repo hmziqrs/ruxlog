@@ -2,9 +2,14 @@ use dioxus::prelude::*;
 use crate::containers::{AuthGuardContainer, NavBarContainer};
 use crate::screens::{
     AboutScreen, AdvertiseScreen, CategoriesScreen, CategoryDetailScreen, ContactScreen, HomeScreen,
-    LoginScreen, PostViewScreen, PrivacyPolicyScreen, ProfileEditScreen, ProfileScreen,
-    RegisterScreen, TagDetailScreen, TagsScreen, TermsScreen,
+    LoginScreen, PostViewScreen, PrivacyPolicyScreen, TagDetailScreen, TagsScreen, TermsScreen,
 };
+
+#[cfg(feature = "auth-register")]
+use crate::screens::RegisterScreen;
+
+#[cfg(feature = "profile-management")]
+use crate::screens::{ProfileEditScreen, ProfileScreen};
 
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
@@ -32,12 +37,15 @@ pub enum Route {
     #[route("/login")]
     LoginScreen {},
 
+    #[cfg(feature = "auth-register")]
     #[route("/register")]
     RegisterScreen {},
 
+    #[cfg(feature = "profile-management")]
     #[route("/profile")]
     ProfileScreen {},
 
+    #[cfg(feature = "profile-management")]
     #[route("/profile/edit")]
     ProfileEditScreen {},
 

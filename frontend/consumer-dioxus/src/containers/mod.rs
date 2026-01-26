@@ -72,13 +72,32 @@ pub fn NavBarContainer() -> Element {
 
                             // User menu - use Dioxus Link for client-side navigation
                             if let Some(user) = &*user {
-                                Link {
-                                    to: Route::ProfileScreen {},
-                                    class: "flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/80 transition-all duration-200 active:scale-95",
-                                    div { class: "w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center font-semibold text-sm",
-                                        "{user.name.chars().next().unwrap_or('U').to_uppercase()}"
+                                {
+                                    #[cfg(feature = "profile-management")]
+                                    {
+                                        rsx! {
+                                            Link {
+                                                to: Route::ProfileScreen {},
+                                                class: "flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/80 transition-all duration-200 active:scale-95",
+                                                div { class: "w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center font-semibold text-sm",
+                                                    "{user.name.chars().next().unwrap_or('U').to_uppercase()}"
+                                                }
+                                                span { class: "hidden md:block text-sm font-medium", "{user.name}" }
+                                            }
+                                        }
                                     }
-                                    span { class: "hidden md:block text-sm font-medium", "{user.name}" }
+                                    #[cfg(not(feature = "profile-management"))]
+                                    {
+                                        rsx! {
+                                            div {
+                                                class: "flex items-center gap-2 px-3 py-2",
+                                                div { class: "w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center font-semibold text-sm",
+                                                    "{user.name.chars().next().unwrap_or('U').to_uppercase()}"
+                                                }
+                                                span { class: "hidden md:block text-sm font-medium", "{user.name}" }
+                                            }
+                                        }
+                                    }
                                 }
                             } else {
                                 Link {

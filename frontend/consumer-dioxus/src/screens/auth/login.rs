@@ -20,6 +20,18 @@ pub fn LoginScreen() -> Element {
 
     use_context_provider(|| GridContext::new());
 
+    #[cfg(feature = "auth-register")]
+    let signup_link = rsx! {
+        p { class: "text-sm text-center mt-4",
+            "Don't have an account? "
+            Link {
+                to: Route::RegisterScreen {},
+                class: "font-semibold hover:underline",
+                "Sign up"
+            }
+        }
+    };
+
     rsx! {
         div { class: "relative flex items-center justify-center min-h-screen overflow-hidden transition-colors duration-300",
             AnimatedGridBackground {}
@@ -92,13 +104,11 @@ pub fn LoginScreen() -> Element {
                             span { "Login" }
                         }
                     }
-                    p { class: "text-sm text-center mt-4",
-                        "Don't have an account? "
-                        Link {
-                            to: Route::RegisterScreen {},
-                            class: "font-semibold hover:underline",
-                            "Sign up"
-                        }
+                    {
+                        #[cfg(feature = "auth-register")]
+                        { signup_link }
+                        #[cfg(not(feature = "auth-register"))]
+                        { rsx! {} }
                     }
                 }
             }

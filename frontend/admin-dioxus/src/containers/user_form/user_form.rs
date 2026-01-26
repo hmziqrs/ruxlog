@@ -398,7 +398,16 @@ pub fn UserFormContainer(props: UserFormContainerProps) -> Element {
                                 if form.peek().is_dirty() {
                                     reset_dialog_open.set(true);
                                 } else {
-                                    nav.push(Route::UsersListScreen {});
+                                    // Navigate back to users list if feature enabled, otherwise go home
+                                    #[cfg(feature = "user-management")]
+                                    {
+                                        nav.push(Route::UsersListScreen {});
+                                    }
+
+                                    #[cfg(not(feature = "user-management"))]
+                                    {
+                                        nav.push(Route::HomeScreen {});
+                                    }
                                 }
                             },
                             {if is_form_dirty { "Reset" } else { "Cancel" }}

@@ -80,6 +80,128 @@ pub fn Sidebar(expanded: Signal<bool>, toggle: EventHandler<()>) -> Element {
         toggle.call(());
     };
 
+    // Conditionally compile navigation elements
+    let analytics_nav: Option<Element> = {
+        #[cfg(feature = "analytics")]
+        {
+            Some(rsx! {
+                SidebarModuleLink {
+                    main_route: Route::AnalyticsScreen {},
+                    icon: rsx! { Icon { icon: LdAreaChart } },
+                    label: "Analytics",
+                    is_active: is_active(Route::AnalyticsScreen {}),
+                    on_close: move |_| toggle.call(()),
+                }
+            })
+        }
+
+        #[cfg(not(feature = "analytics"))]
+        {
+            None
+        }
+    };
+
+    let users_nav: Option<Element> = {
+        #[cfg(feature = "user-management")]
+        {
+            Some(rsx! {
+                SidebarModuleLink {
+                    main_route: Route::UsersListScreen {},
+                    add_route: Some(Route::UsersAddScreen {}),
+                    icon: rsx! { Icon { icon: LdUser } },
+                    label: "Users",
+                    is_active: is_active(Route::UsersListScreen {}),
+                    on_close: move |_| toggle.call(()),
+                }
+            })
+        }
+
+        #[cfg(not(feature = "user-management"))]
+        {
+            None
+        }
+    };
+
+    let comments_nav: Option<Element> = {
+        #[cfg(feature = "comments")]
+        {
+            Some(rsx! {
+                SidebarModuleLink {
+                    main_route: Route::CommentsListScreen {},
+                    icon: rsx! { Icon { icon: LdFileText } },
+                    label: "Comments",
+                    is_active: is_active(Route::CommentsListScreen {}),
+                    on_close: move |_| toggle.call(()),
+                }
+            })
+        }
+
+        #[cfg(not(feature = "comments"))]
+        {
+            None
+        }
+    };
+
+    let newsletter_nav: Option<Element> = {
+        #[cfg(feature = "newsletter")]
+        {
+            Some(rsx! {
+                SidebarModuleLink {
+                    main_route: Route::NewsletterSubscribersScreen {},
+                    icon: rsx! { Icon { icon: LdAreaChart } },
+                    label: "Newsletter",
+                    is_active: is_active(Route::NewsletterSubscribersScreen {}),
+                    on_close: move |_| toggle.call(()),
+                }
+            })
+        }
+
+        #[cfg(not(feature = "newsletter"))]
+        {
+            None
+        }
+    };
+
+    let routes_nav: Option<Element> = {
+        #[cfg(feature = "admin-routes")]
+        {
+            Some(rsx! {
+                SidebarModuleLink {
+                    main_route: Route::RoutesSettingsScreen {},
+                    icon: rsx! { Icon { icon: LdFolder } },
+                    label: "Routes",
+                    is_active: is_active(Route::RoutesSettingsScreen {}),
+                    on_close: move |_| toggle.call(()),
+                }
+            })
+        }
+
+        #[cfg(not(feature = "admin-routes"))]
+        {
+            None
+        }
+    };
+
+    let acl_nav: Option<Element> = {
+        #[cfg(feature = "admin-acl")]
+        {
+            Some(rsx! {
+                SidebarModuleLink {
+                    main_route: Route::AclSettingsScreen {},
+                    icon: rsx! { Icon { icon: LdFolder } },
+                    label: "ACL",
+                    is_active: is_active(Route::AclSettingsScreen {}),
+                    on_close: move |_| toggle.call(()),
+                }
+            })
+        }
+
+        #[cfg(not(feature = "admin-acl"))]
+        {
+            None
+        }
+    };
+
     rsx! {
         div {
             class: format!(
@@ -116,107 +238,63 @@ pub fn Sidebar(expanded: Signal<bool>, toggle: EventHandler<()>) -> Element {
                 div { class: "flex-1 overflow-y-auto",
                     SidebarModuleLink {
                         main_route: Route::HomeScreen {},
-                        icon: rsx! {
-                            Icon { icon: LdHome }
-                        },
+                        icon: rsx! { Icon { icon: LdHome } },
                         label: "Dashboard",
                         is_active: is_active(Route::HomeScreen {}),
                         on_close: move |_| toggle.call(()),
                     }
+
+                    {analytics_nav}
+
                     SidebarModuleLink {
-                        main_route: Route::AnalyticsScreen {},
-                        icon: rsx! {
-                            Icon { icon: LdAreaChart }
-                        },
-                        label: "Analytics",
-                        is_active: is_active(Route::AnalyticsScreen {}),
+                        main_route: Route::PostsListScreen {},
+                        add_route: Some(Route::PostsAddScreen {}),
+                        icon: rsx! { Icon { icon: LdFileText } },
+                        label: "Posts",
+                        is_active: is_active(Route::PostsListScreen {}),
                         on_close: move |_| toggle.call(()),
                     }
-                SidebarModuleLink {
-                    main_route: Route::PostsListScreen {},
-                    add_route: Some(Route::PostsAddScreen {}),
-                    icon: rsx! {
-                        Icon { icon: LdFileText }
-                    },
-                    label: "Posts",
-                    is_active: is_active(Route::PostsListScreen {}),
-                    on_close: move |_| toggle.call(()),
-                }
-                SidebarModuleLink {
-                    main_route: Route::CategoriesListScreen {},
-                    add_route: Some(Route::CategoriesAddScreen {}),
-                    icon: rsx! {
-                        Icon { icon: LdFolder }
-                    },
-                    label: "Categories",
-                    is_active: is_active(Route::CategoriesListScreen {}),
-                    on_close: move |_| toggle.call(()),
-                }
-                SidebarModuleLink {
-                    main_route: Route::TagsListScreen {},
-                    add_route: Some(Route::TagsAddScreen {}),
-                    icon: rsx! {
-                        Icon { icon: LdTag }
-                    },
-                    label: "Tags",
-                    is_active: is_active(Route::TagsListScreen {}),
-                    on_close: move |_| toggle.call(()),
-                }
+
                     SidebarModuleLink {
-                    main_route: Route::MediaListScreen {},
-                    add_route: Some(Route::MediaUploadScreen {}),
-                    icon: rsx! {
-                        Icon { icon: LdImage }
-                    },
-                    label: "Media",
-                    is_active: is_active(Route::MediaListScreen {}),
-                    on_close: move |_| toggle.call(()),
-                }
-                SidebarModuleLink {
-                    main_route: Route::UsersListScreen {},
-                    add_route: Some(Route::UsersAddScreen {}),
-                    icon: rsx! {
-                        Icon { icon: LdUser }
-                    },
-                    label: "Users",
-                    is_active: is_active(Route::UsersListScreen {}),
-                    on_close: move |_| toggle.call(()),
-                }
-                SidebarModuleLink {
-                    main_route: Route::CommentsListScreen {},
-                    icon: rsx! { Icon { icon: LdFileText } },
-                    label: "Comments",
-                    is_active: is_active(Route::CommentsListScreen {}),
-                    on_close: move |_| toggle.call(()),
-                }
-                SidebarModuleLink {
-                    main_route: Route::NewsletterSubscribersScreen {},
-                    icon: rsx! { Icon { icon: LdAreaChart } },
-                    label: "Newsletter",
-                    is_active: is_active(Route::NewsletterSubscribersScreen {}),
-                    on_close: move |_| toggle.call(()),
-                }
-                SidebarModuleLink {
-                    main_route: Route::RoutesSettingsScreen {},
-                    icon: rsx! { Icon { icon: LdFolder } },
-                    label: "Routes",
-                    is_active: is_active(Route::RoutesSettingsScreen {}),
-                    on_close: move |_| toggle.call(()),
-                }
-                SidebarModuleLink {
-                    main_route: Route::AclSettingsScreen {},
-                    icon: rsx! { Icon { icon: LdFolder } },
-                    label: "ACL",
-                    is_active: is_active(Route::AclSettingsScreen {}),
-                    on_close: move |_| toggle.call(()),
-                }
-                SidebarModuleLink {
-                    main_route: Route::ProfileSecurityScreen {},
-                    icon: rsx! { Icon { icon: LdUser } },
-                    label: "Security",
-                    is_active: is_active(Route::ProfileSecurityScreen {}),
-                    on_close: move |_| toggle.call(()),
-                }
+                        main_route: Route::CategoriesListScreen {},
+                        add_route: Some(Route::CategoriesAddScreen {}),
+                        icon: rsx! { Icon { icon: LdFolder } },
+                        label: "Categories",
+                        is_active: is_active(Route::CategoriesListScreen {}),
+                        on_close: move |_| toggle.call(()),
+                    }
+
+                    SidebarModuleLink {
+                        main_route: Route::TagsListScreen {},
+                        add_route: Some(Route::TagsAddScreen {}),
+                        icon: rsx! { Icon { icon: LdTag } },
+                        label: "Tags",
+                        is_active: is_active(Route::TagsListScreen {}),
+                        on_close: move |_| toggle.call(()),
+                    }
+
+                    SidebarModuleLink {
+                        main_route: Route::MediaListScreen {},
+                        add_route: Some(Route::MediaUploadScreen {}),
+                        icon: rsx! { Icon { icon: LdImage } },
+                        label: "Media",
+                        is_active: is_active(Route::MediaListScreen {}),
+                        on_close: move |_| toggle.call(()),
+                    }
+
+                    {users_nav}
+                    {comments_nav}
+                    {newsletter_nav}
+                    {routes_nav}
+                    {acl_nav}
+
+                    SidebarModuleLink {
+                        main_route: Route::ProfileSecurityScreen {},
+                        icon: rsx! { Icon { icon: LdUser } },
+                        label: "Security",
+                        is_active: is_active(Route::ProfileSecurityScreen {}),
+                        on_close: move |_| toggle.call(()),
+                    }
 
             }
 

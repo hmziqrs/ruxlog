@@ -28,9 +28,12 @@ use crate::{
     },
     error::{ErrorCode, ErrorResponse},
     extractors::{ValidatedJson, ValidatedMultipart},
-    services::{auth::AuthSession, image_optimizer},
+    services::auth::AuthSession,
     AppState,
 };
+
+#[cfg(feature = "image-optimization")]
+use crate::services::image_optimizer;
 use tracing::{debug, error, info, instrument, warn};
 
 use super::validator::{MediaUploadMetadata, V1MediaListQuery, V1MediaUsageQuery};
@@ -268,9 +271,10 @@ pub async fn create(
         .clone()
         .unwrap_or_else(|| "application/octet-stream".to_string());
     let mut final_bytes = file_bytes.clone();
-    let mut variants_to_upload = Vec::new();
     let mut is_optimized = false;
     let mut optimized_at = None;
+
+    #[cfg(feature = "image-optimization")]
     struct PreparedVariant {
         object_key: String,
         mime_type: String,
@@ -281,8 +285,14 @@ pub async fn create(
         quality: Option<i32>,
         variant_type: String,
     }
+
+    #[cfg(feature = "image-optimization")]
     let mut prepared_variants: Vec<PreparedVariant> = Vec::new();
 
+    #[cfg(feature = "image-optimization")]
+    let mut variants_to_upload: Vec<image_optimizer::OptimizedImage> = Vec::new();
+
+    #[cfg(feature = "image-optimization")]
     if content_type.starts_with("image/") {
         let optimization_request = image_optimizer::OptimizationRequest {
             bytes: &file_bytes,
@@ -349,6 +359,7 @@ pub async fn create(
                 .with_details(err.to_string())
         })?;
 
+    #[cfg(feature = "image-optimization")]
     for variant in variants_to_upload {
         let suffix = match variant.label {
             image_optimizer::VariantLabel::Width(width) => format!("@{}w", width),
@@ -426,6 +437,7 @@ pub async fn create(
         &stored.object_key,
     );
 
+    #[cfg(feature = "image-optimization")]
     if !prepared_variants.is_empty() {
         let records = prepared_variants
             .into_iter()
@@ -759,6 +771,7 @@ fn build_object_key(extension: Option<&str>) -> String {
     }
 }
 
+#[cfg(feature = "image-optimization")]
 fn label_to_variant_type(label: &image_optimizer::VariantLabel) -> String {
     match label {
         image_optimizer::VariantLabel::Width(width) => format!("{}w", width),

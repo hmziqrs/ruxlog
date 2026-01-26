@@ -18,6 +18,7 @@ pub struct ObjectStorageConfig {
     pub endpoint: String,
 }
 
+#[cfg(feature = "image-optimization")]
 #[derive(Clone, Debug)]
 pub struct OptimizerConfig {
     pub enabled: bool,
@@ -33,6 +34,7 @@ pub struct AppState {
     pub mailer: lettre::AsyncSmtpTransport<lettre::Tokio1Executor>,
     pub object_storage: ObjectStorageConfig,
     pub s3_client: aws_sdk_s3::Client,
+    #[cfg(feature = "image-optimization")]
     pub optimizer: OptimizerConfig,
     pub meter: Meter,
 }
