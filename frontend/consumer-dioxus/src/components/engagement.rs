@@ -247,7 +247,7 @@ pub fn ActionBar(props: ActionBarProps) -> Element {
     let shortcut_key = if is_mac { "⌘D" } else { "Ctrl+D" };
 
     rsx! {
-        div { class: "flex flex-col items-center gap-6 py-10 border-t border-border",
+        div { class: "flex flex-col items-center gap-6 py-6 mb-12 border-y border-border",
             // Intro text
             div { class: "text-center space-y-1",
                 p { class: "text-sm font-medium text-foreground/90",

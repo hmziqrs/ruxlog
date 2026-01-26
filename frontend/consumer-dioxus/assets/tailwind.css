@@ -342,6 +342,9 @@
   .left-0 {
     left: calc(0.25rem * 0);
   }
+  .left-1 {
+    left: calc(0.25rem * 1);
+  }
   .left-1\/2 {
     left: calc(1/2 * 100%);
   }
@@ -413,6 +416,9 @@
   }
   .my-8 {
     margin-block: calc(0.25rem * 8);
+  }
+  .my-12 {
+    margin-block: calc(0.25rem * 12);
   }
   .prose {
     color: var(--tw-prose-body);
@@ -1409,6 +1415,10 @@
   .origin-\[var\(--radix-popover-content-transform-origin\)\] {
     transform-origin: var(--radix-popover-content-transform-origin);
   }
+  .-translate-x-1 {
+    --tw-translate-x: calc(0.25rem * -1);
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+  }
   .-translate-x-1\/2 {
     --tw-translate-x: calc(calc(1/2 * 100%) * -1);
     translate: var(--tw-translate-x) var(--tw-translate-y);
@@ -2319,6 +2329,9 @@
   }
   .px-0 {
     padding-inline: calc(0.25rem * 0);
+  }
+  .px-1 {
+    padding-inline: calc(0.25rem * 1);
   }
   .px-1\.5 {
     padding-inline: calc(0.25rem * 1.5);
