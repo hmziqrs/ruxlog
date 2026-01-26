@@ -94,11 +94,11 @@ mobile = ["dioxus/mobile"]
 
 # Blog feature flags
 basic = []
-full = ["auth-oauth", "auth-register", "profile-management", "comments"]
+full = ["consumer-auth", "profile-management", "comments"]
 
-auth-oauth = []
-auth-register = []
-profile-management = []
+# Authentication features
+consumer-auth = []           # Enables login/register/auth functionality
+profile-management = ["consumer-auth"]  # Requires consumer-auth
 comments = []
 
 [profile]

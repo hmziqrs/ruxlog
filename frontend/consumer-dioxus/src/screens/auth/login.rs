@@ -20,7 +20,6 @@ pub fn LoginScreen() -> Element {
 
     use_context_provider(|| GridContext::new());
 
-    #[cfg(feature = "auth-register")]
     let signup_link = rsx! {
         p { class: "text-sm text-center mt-4",
             "Don't have an account? "
@@ -104,12 +103,7 @@ pub fn LoginScreen() -> Element {
                             span { "Login" }
                         }
                     }
-                    {
-                        #[cfg(feature = "auth-register")]
-                        { signup_link }
-                        #[cfg(not(feature = "auth-register"))]
-                        { rsx! {} }
-                    }
+                    { signup_link }
                 }
             }
         }

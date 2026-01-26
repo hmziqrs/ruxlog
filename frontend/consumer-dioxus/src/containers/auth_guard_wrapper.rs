@@ -1,22 +1,29 @@
 //! Consumer Auth Guard
 //!
 //! Consumer-specific authentication guard for a public site that:
+//! - With `consumer-auth` feature: Initializes auth and manages auth state
+//! - Without `consumer-auth` feature: Pass-through (no-op) wrapper
 //! - Allows access to ALL routes (public site)
 //! - Only redirects logged-in users away from auth pages (login/register)
 //! - Does NOT block rendering during route changes
 //! - Shows loading only during auth initialization
 
-use crate::router::Route;
 use dioxus::prelude::*;
+
+#[cfg(feature = "consumer-auth")]
+use crate::router::Route;
+#[cfg(feature = "consumer-auth")]
 use ruxlog_shared::{use_auth, AuthGuardError, AuthGuardLoader};
 
+// ============================================================================
+// WITH consumer-auth feature: Full auth implementation
+// ============================================================================
+
+#[cfg(feature = "consumer-auth")]
 /// Auth routes - routes only for unauthenticated users (login, register)
-#[cfg(feature = "auth-register")]
 const AUTH_ROUTES: &[Route] = &[Route::LoginScreen {}, Route::RegisterScreen {}];
 
-#[cfg(not(feature = "auth-register"))]
-const AUTH_ROUTES: &[Route] = &[Route::LoginScreen {}];
-
+#[cfg(feature = "consumer-auth")]
 #[component]
 pub fn AuthGuardContainer() -> Element {
     let render_blocked = use_signal(|| true);
@@ -136,5 +143,19 @@ pub fn AuthGuardContainer() -> Element {
                 show: show_overlay,
             }
         }
+    }
+}
+
+// ============================================================================
+// WITHOUT consumer-auth feature: No-op pass-through wrapper
+// ============================================================================
+
+#[cfg(not(feature = "consumer-auth"))]
+#[component]
+pub fn AuthGuardContainer() -> Element {
+    // No authentication logic - just render children
+    // This makes the component a no-op when auth is disabled
+    rsx! {
+        Outlet::<crate::router::Route> {}
     }
 }

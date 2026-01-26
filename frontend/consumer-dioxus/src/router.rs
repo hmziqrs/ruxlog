@@ -1,12 +1,12 @@
 use dioxus::prelude::*;
-use crate::containers::{AuthGuardContainer, NavBarContainer};
+use crate::containers::NavBarContainer;
 use crate::screens::{
     AboutScreen, AdvertiseScreen, CategoriesScreen, CategoryDetailScreen, ContactScreen, HomeScreen,
-    LoginScreen, PostViewScreen, PrivacyPolicyScreen, TagDetailScreen, TagsScreen, TermsScreen,
+    PostViewScreen, PrivacyPolicyScreen, TagDetailScreen, TagsScreen, TermsScreen,
 };
 
-#[cfg(feature = "auth-register")]
-use crate::screens::RegisterScreen;
+#[cfg(feature = "consumer-auth")]
+use crate::screens::{LoginScreen, RegisterScreen};
 
 #[cfg(feature = "profile-management")]
 use crate::screens::{ProfileEditScreen, ProfileScreen};
@@ -14,7 +14,6 @@ use crate::screens::{ProfileEditScreen, ProfileScreen};
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
 pub enum Route {
-    #[layout(AuthGuardContainer)]
     #[layout(NavBarContainer)]
     #[route("/")]
     HomeScreen {},
@@ -34,10 +33,11 @@ pub enum Route {
     #[route("/categories/:slug")]
     CategoryDetailScreen { slug: String },
 
+    #[cfg(feature = "consumer-auth")]
     #[route("/login")]
     LoginScreen {},
 
-    #[cfg(feature = "auth-register")]
+    #[cfg(feature = "consumer-auth")]
     #[route("/register")]
     RegisterScreen {},
 
