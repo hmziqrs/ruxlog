@@ -1,5 +1,4 @@
 mod about;
-mod auth;
 mod categories;
 mod contact;
 mod home;
@@ -9,11 +8,13 @@ mod posts;
 mod tags;
 mod terms;
 
+#[cfg(feature = "consumer-auth")]
+mod auth;
+
 #[cfg(feature = "profile-management")]
 mod profile;
 
 pub use about::*;
-pub use auth::*;
 pub use categories::*;
 pub use contact::*;
 pub use home::*;
@@ -22,6 +23,9 @@ pub use privacy_policy::*;
 pub use posts::*;
 pub use tags::*;
 pub use terms::*;
+
+#[cfg(feature = "consumer-auth")]
+pub use auth::*;
 
 #[cfg(feature = "profile-management")]
 pub use profile::*;

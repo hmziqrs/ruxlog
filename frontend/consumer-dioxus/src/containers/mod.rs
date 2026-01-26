@@ -3,9 +3,13 @@ use crate::router::Route;
 use crate::utils::persist;
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::icons::ld_icons::{
-    LdGithub, LdLinkedin, LdLogIn, LdMoon, LdSun, LdTwitter,
+    LdGithub, LdLinkedin, LdMoon, LdSun, LdTwitter,
 };
 use hmziq_dioxus_free_icons::Icon;
+
+#[cfg(feature = "consumer-auth")]
+use hmziq_dioxus_free_icons::icons::ld_icons::LdLogIn;
+#[cfg(feature = "consumer-auth")]
 use ruxlog_shared::use_auth;
 
 pub mod auth_guard_wrapper;
@@ -13,8 +17,11 @@ pub use auth_guard_wrapper::*;
 
 #[component]
 pub fn NavBarContainer() -> Element {
+    #[cfg(feature = "consumer-auth")]
     let auth_store = use_auth();
+    #[cfg(feature = "consumer-auth")]
     let user = auth_store.user.read();
+
     let mut dark_theme = use_context_provider(|| Signal::new(DarkMode(true)));
 
     // Initialize theme from DOM
@@ -36,6 +43,53 @@ pub fn NavBarContainer() -> Element {
             _ = document::eval("document.documentElement.classList.toggle('dark');").await;
         });
         persist::set_theme(if is_dark { "dark" } else { "light" });
+    };
+
+    // Prepare auth UI element (conditionally compiled)
+    let auth_ui: Option<Element> = {
+        #[cfg(feature = "consumer-auth")]
+        {
+            if let Some(user) = &*user {
+                #[cfg(feature = "profile-management")]
+                {
+                    Some(rsx! {
+                        Link {
+                            to: Route::ProfileScreen {},
+                            class: "flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/80 transition-all duration-200 active:scale-95",
+                            div { class: "w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center font-semibold text-sm",
+                                "{user.name.chars().next().unwrap_or('U').to_uppercase()}"
+                            }
+                            span { class: "hidden md:block text-sm font-medium", "{user.name}" }
+                        }
+                    })
+                }
+                #[cfg(not(feature = "profile-management"))]
+                {
+                    Some(rsx! {
+                        div {
+                            class: "flex items-center gap-2 px-3 py-2",
+                            div { class: "w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center font-semibold text-sm",
+                                "{user.name.chars().next().unwrap_or('U').to_uppercase()}"
+                            }
+                            span { class: "hidden md:block text-sm font-medium", "{user.name}" }
+                        }
+                    })
+                }
+            } else {
+                Some(rsx! {
+                    Link {
+                        to: Route::LoginScreen {},
+                        class: "icon-button",
+                        aria_label: "Sign In",
+                        Icon { icon: LdLogIn, class: "w-5 h-5" }
+                    }
+                })
+            }
+        }
+        #[cfg(not(feature = "consumer-auth"))]
+        {
+            None
+        }
     };
 
     rsx! {
@@ -70,43 +124,8 @@ pub fn NavBarContainer() -> Element {
                                 }
                             }
 
-                            // User menu - use Dioxus Link for client-side navigation
-                            if let Some(user) = &*user {
-                                {
-                                    #[cfg(feature = "profile-management")]
-                                    {
-                                        rsx! {
-                                            Link {
-                                                to: Route::ProfileScreen {},
-                                                class: "flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/80 transition-all duration-200 active:scale-95",
-                                                div { class: "w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center font-semibold text-sm",
-                                                    "{user.name.chars().next().unwrap_or('U').to_uppercase()}"
-                                                }
-                                                span { class: "hidden md:block text-sm font-medium", "{user.name}" }
-                                            }
-                                        }
-                                    }
-                                    #[cfg(not(feature = "profile-management"))]
-                                    {
-                                        rsx! {
-                                            div {
-                                                class: "flex items-center gap-2 px-3 py-2",
-                                                div { class: "w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center font-semibold text-sm",
-                                                    "{user.name.chars().next().unwrap_or('U').to_uppercase()}"
-                                                }
-                                                span { class: "hidden md:block text-sm font-medium", "{user.name}" }
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                Link {
-                                    to: Route::LoginScreen {},
-                                    class: "icon-button",
-                                    aria_label: "Sign In",
-                                    Icon { icon: LdLogIn, class: "w-5 h-5" }
-                                }
-                            }
+                            // User menu - use Dioxus Link for client-side navigation (only with consumer-auth feature)
+                            { auth_ui }
                         }
                     }
                 }
