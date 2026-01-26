@@ -1,9 +1,15 @@
 use dioxus::prelude::*;
 use ruxlog_shared::store::{use_auth, use_likes, use_post};
 use crate::utils::editorjs::render_editorjs_content;
-use crate::components::{CommentsSection, EngagementBar, estimate_reading_time, format_date};
+use crate::components::{ShareButton, estimate_reading_time, format_date};
 use hmziq_dioxus_free_icons::icons::ld_icons::{LdCalendar, LdClock, LdArrowLeft};
 use hmziq_dioxus_free_icons::Icon;
+
+#[cfg(feature = "engagement")]
+use crate::components::EngagementBar;
+
+#[cfg(feature = "comments")]
+use crate::components::CommentsSection;
 
 #[component]
 pub fn PostViewScreen(id: i32) -> Element {
@@ -21,6 +27,22 @@ pub fn PostViewScreen(id: i32) -> Element {
             None
         }
     });
+
+    // Conditionally compile comments section
+    let comments_section: Option<Element> = {
+        #[cfg(feature = "comments")]
+        {
+            Some(rsx! {
+                div { id: "comments-section", class: "mb-12",
+                    CommentsSection { post_id: id }
+                }
+            })
+        }
+        #[cfg(not(feature = "comments"))]
+        {
+            None
+        }
+    };
 
     // Fetch posts if not loaded
     use_effect(move || {
@@ -58,7 +80,8 @@ pub fn PostViewScreen(id: i32) -> Element {
             .unwrap_or(false)
     });
 
-    // Handle like toggle
+    // Handle like toggle (only when engagement feature is enabled)
+    #[cfg(feature = "engagement")]
     let handle_like = move |_| {
         let is_logged_in = auth.user.read().is_some();
         if !is_logged_in {
@@ -83,7 +106,8 @@ pub fn PostViewScreen(id: i32) -> Element {
         }
     };
 
-    // Handle scroll to comments
+    // Handle scroll to comments (only when engagement feature is enabled)
+    #[cfg(feature = "engagement")]
     let handle_scroll_to_comments = move |_| {
         #[cfg(target_arch = "wasm32")]
         {
@@ -103,12 +127,35 @@ pub fn PostViewScreen(id: i32) -> Element {
             .unwrap_or_else(|| format_date(&post.created_at));
 
         let reading_time = estimate_reading_time(&post.content);
-        let post_id = post.id;
 
         // Get likes data - prefer from store if available, fallback to post data
         let (is_liked, likes_count) = match like_status() {
             Some(status) => (status.is_liked, status.likes_count),
             None => (false, post.likes_count),
+        };
+
+        // Conditionally compile engagement bar
+        let engagement_element: Option<Element> = {
+            #[cfg(feature = "engagement")]
+            {
+                Some(rsx! {
+                    div { class: "py-6 border-y border-border mb-12",
+                        EngagementBar {
+                            view_count: post.view_count,
+                            likes_count,
+                            comment_count: post.comment_count,
+                            is_liked,
+                            is_like_loading: is_like_loading(),
+                            on_like: handle_like,
+                            on_scroll_to_comments: handle_scroll_to_comments,
+                        }
+                    }
+                })
+            }
+            #[cfg(not(feature = "engagement"))]
+            {
+                None
+            }
         };
 
         rsx! {
@@ -218,44 +265,18 @@ pub fn PostViewScreen(id: i32) -> Element {
                         {render_editorjs_content(&post.content)}
                     }
 
-                    // Engagement bar
-                    div { class: "py-6 border-y border-border mb-12",
-                        EngagementBar {
-                            view_count: post.view_count,
-                            likes_count,
-                            comment_count: post.comment_count,
-                            is_liked,
-                            is_like_loading: is_like_loading(),
-                            on_like: handle_like,
-                            on_share: handle_share,
-                            on_scroll_to_comments: handle_scroll_to_comments,
-                        }
-                    }
+                    // Engagement bar (conditionally compiled)
+                    { engagement_element }
 
-                    // Author section
-                    div { class: "mb-12",
-                        div { class: "flex items-start gap-4",
-                            div { class: "w-14 h-14 rounded-full bg-muted flex items-center justify-center text-xl font-semibold flex-shrink-0",
-                                "{post.author.name.chars().next().unwrap_or('U').to_uppercase()}"
-                            }
-                            div {
-                                div { class: "text-xs font-medium uppercase tracking-wider mb-1",
-                                    "Written by"
-                                }
-                                div { class: "text-lg font-semibold mb-2",
-                                    "{post.author.name}"
-                                }
-                                p { class: "text-sm leading-relaxed",
-                                    "Thanks for reading! If you found this article helpful, consider sharing it with others."
-                                }
-                            }
+                    // Share button
+                    div { class: "mb-12 flex justify-center",
+                        ShareButton {
+                            on_click: handle_share,
                         }
                     }
 
                     // Comments section
-                    div { id: "comments-section", class: "mb-12",
-                        CommentsSection { post_id }
-                    }
+                    { comments_section }
                 }
 
                 // Back button
