@@ -266,8 +266,10 @@ pub fn PostViewScreen(id: i32) -> Element {
 
                     // Engagement bar (conditionally compiled)
                     { engagement_element }
+                }
 
-                    // Action bar with utilities
+                // Action bar with utilities - consistent container
+                div { class: "container mx-auto px-4 max-w-4xl",
                     ActionBar {
                         title: post.title.clone(),
                         url: {
@@ -283,8 +285,10 @@ pub fn PostViewScreen(id: i32) -> Element {
                             }
                         },
                     }
+                }
 
-                    // Comments section
+                // Comments section - consistent container
+                div { class: "container mx-auto px-4 max-w-4xl",
                     { comments_section }
                 }
 
