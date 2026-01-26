@@ -6,13 +6,13 @@ use tower_http::{
 use tracing::Level;
 
 use crate::middlewares::{http_metrics, request_id_middleware};
-use crate::modules::{auth_v1, category_v1, feed_v1, media_v1, post_v1, tag_v1};
+use crate::modules::{auth_v1, category_v1, feed_v1, media_v1, post_v1, tag_v1, user_v1};
 
 #[cfg(feature = "auth-oauth")]
 use crate::modules::google_auth_v1;
 
 #[cfg(feature = "user-management")]
-use crate::modules::{email_verification_v1, forgot_password_v1, user_v1};
+use crate::modules::{email_verification_v1, forgot_password_v1};
 
 #[cfg(feature = "comments")]
 use crate::modules::post_comment_v1;
@@ -44,10 +44,13 @@ pub fn router() -> Router<AppState> {
         router = router.nest("/auth/google/v1", google_auth_v1::routes());
     }
 
+    // User profile routes - always available for authenticated users
+    router = router.nest("/user/v1", user_v1::routes());
+
+    // Email verification and password reset - only with user-management feature
     #[cfg(feature = "user-management")]
     {
         router = router
-            .nest("/user/v1", user_v1::routes())
             .nest("/email_verification/v1", email_verification_v1::routes())
             .nest("/forgot_password/v1", forgot_password_v1::routes());
     }

@@ -7,6 +7,7 @@ pub mod media_v1;
 pub mod post_v1;
 pub mod super_admin_v1;
 pub mod tag_v1;
+pub mod user_v1; // Base profile routes always available; admin routes gated internally
 
 // Feature-gated
 #[cfg(feature = "analytics")]
@@ -20,9 +21,6 @@ pub mod email_verification_v1;
 
 #[cfg(feature = "user-management")]
 pub mod forgot_password_v1;
-
-#[cfg(feature = "user-management")]
-pub mod user_v1;
 
 #[cfg(feature = "comments")]
 pub mod post_comment_v1;
