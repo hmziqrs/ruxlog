@@ -2,9 +2,7 @@ use crate::config::DarkMode;
 use crate::router::Route;
 use crate::utils::persist;
 use dioxus::prelude::*;
-use hmziq_dioxus_free_icons::icons::ld_icons::{
-    LdGithub, LdLinkedin, LdMoon, LdSun, LdTwitter,
-};
+use hmziq_dioxus_free_icons::icons::ld_icons::{LdGithub, LdLinkedin, LdMoon, LdSun, LdTwitter};
 use hmziq_dioxus_free_icons::Icon;
 
 #[cfg(feature = "consumer-auth")]

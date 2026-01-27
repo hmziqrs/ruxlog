@@ -47,7 +47,10 @@ impl OxFormModel for RegisterForm {
         map.insert("name".to_string(), self.name.clone());
         map.insert("email".to_string(), self.email.clone());
         map.insert("password".to_string(), self.password.clone());
-        map.insert("confirm_password".to_string(), self.confirm_password.clone());
+        map.insert(
+            "confirm_password".to_string(),
+            self.confirm_password.clone(),
+        );
         map
     }
 

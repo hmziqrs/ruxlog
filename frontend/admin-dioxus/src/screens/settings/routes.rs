@@ -2,8 +2,8 @@ use dioxus::prelude::*;
 use dioxus_time::use_interval;
 use hmziq_dioxus_free_icons::{
     icons::ld_icons::{
-        LdShieldCheck, LdShieldOff, LdTrash2, LdPlus, LdRefreshCw, LdPlay, LdPause, LdRotateCcw,
-        LdSave,
+        LdPause, LdPlay, LdPlus, LdRefreshCw, LdRotateCcw, LdSave, LdShieldCheck, LdShieldOff,
+        LdTrash2,
     },
     Icon,
 };
@@ -310,37 +310,41 @@ pub fn RoutesSettingsScreen() -> Element {
         .map(|d| format!("{} seconds", d.interval_secs))
         .unwrap_or_else(|| "Loading...".to_string());
 
-    let status_info = interval_frame.data.as_ref().map(|d| {
-        let mut parts = Vec::new();
+    let status_info = interval_frame
+        .data
+        .as_ref()
+        .map(|d| {
+            let mut parts = Vec::new();
 
-        if d.is_running {
-            parts.push("Syncing now...".to_string());
-        } else if d.paused {
-            parts.push("Paused".to_string());
-        } else {
-            // Use client-side countdown
-            let remaining = countdown_secs();
-            if remaining > 0 {
-                let mins = remaining / 60;
-                let secs = remaining % 60;
-                if mins > 0 {
-                    parts.push(format!("Next sync in {}m {}s", mins, secs));
-                } else {
-                    parts.push(format!("Next sync in {}s", secs));
+            if d.is_running {
+                parts.push("Syncing now...".to_string());
+            } else if d.paused {
+                parts.push("Paused".to_string());
+            } else {
+                // Use client-side countdown
+                let remaining = countdown_secs();
+                if remaining > 0 {
+                    let mins = remaining / 60;
+                    let secs = remaining % 60;
+                    if mins > 0 {
+                        parts.push(format!("Next sync in {}m {}s", mins, secs));
+                    } else {
+                        parts.push(format!("Next sync in {}s", secs));
+                    }
                 }
             }
-        }
 
-        if let Some(last_sync) = d.last_sync_at {
-            parts.push(format!("Last: {}", format_short_date_dt(&last_sync)));
-        }
+            if let Some(last_sync) = d.last_sync_at {
+                parts.push(format!("Last: {}", format_short_date_dt(&last_sync)));
+            }
 
-        if parts.is_empty() {
-            "Active".to_string()
-        } else {
-            parts.join(" • ")
-        }
-    }).unwrap_or_else(|| "Loading...".to_string());
+            if parts.is_empty() {
+                "Active".to_string()
+            } else {
+                parts.join(" • ")
+            }
+        })
+        .unwrap_or_else(|| "Loading...".to_string());
 
     let below_toolbar = rsx! {
         div { class: "grid gap-4 md:grid-cols-2",

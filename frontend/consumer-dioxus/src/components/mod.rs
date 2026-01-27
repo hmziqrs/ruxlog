@@ -14,8 +14,8 @@ pub use category_card::CategoryCard;
 pub use engagement::{ActionBar, EngagementBar, LikeButton, ShareButton};
 pub use featured_post_card::FeaturedPostCard;
 pub use mouse_tracking_card::MouseTrackingCard;
-pub use post_card::{PostCard, estimate_reading_time, format_date, get_gradient_for_tag};
-pub use posts_skeleton::{PostsEmptyState, PostsLoadingSkeleton, PostCardSkeleton};
+pub use post_card::{estimate_reading_time, format_date, get_gradient_for_tag, PostCard};
+pub use posts_skeleton::{PostCardSkeleton, PostsEmptyState, PostsLoadingSkeleton};
 pub use share_box::ShareBox;
 pub use tag_card::TagCard;
 

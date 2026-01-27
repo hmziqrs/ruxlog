@@ -1,2 +1,2 @@
-pub mod persist;
 pub mod editorjs;
+pub mod persist;

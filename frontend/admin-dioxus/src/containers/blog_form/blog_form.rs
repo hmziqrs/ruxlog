@@ -151,32 +151,45 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
     let editor_change_handler = {
         let form_signal = form;
 
-        use_coroutine(move |mut rx: UnboundedReceiver<(String, Option<i32>)>| async move {
-            let mut form_signal = form_signal;
+        use_coroutine(
+            move |mut rx: UnboundedReceiver<(String, Option<i32>)>| async move {
+                let mut form_signal = form_signal;
 
-            while let Some((detail, current_post_id)) = rx.next().await {
-                form_signal.write().update_field("content", detail.clone());
+                while let Some((detail, current_post_id)) = rx.next().await {
+                    form_signal.write().update_field("content", detail.clone());
 
-                if let Some(window) = web_sys::window() {
-                    if let Ok(Some(storage)) = window.local_storage() {
-                        let cache_key = get_draft_cache_key(current_post_id);
-                        tracing::debug!("[BlogForm] Saving draft to key: {}, content length: {}", cache_key, detail.len());
-                        let _ = storage.set_item(&cache_key, &detail);
+                    if let Some(window) = web_sys::window() {
+                        if let Ok(Some(storage)) = window.local_storage() {
+                            let cache_key = get_draft_cache_key(current_post_id);
+                            tracing::debug!(
+                                "[BlogForm] Saving draft to key: {}, content length: {}",
+                                cache_key,
+                                detail.len()
+                            );
+                            let _ = storage.set_item(&cache_key, &detail);
+                        }
                     }
                 }
-            }
-        })
+            },
+        )
     };
 
     // Set up editor change handler - must re-run when post_id changes
     // to capture the correct post_id for localStorage caching
     use_effect(use_reactive!(|post_id| {
         if let Some(window) = web_sys::window() {
-            tracing::debug!("[BlogForm] Setting up __on_editor_change handler for post_id: {:?}", post_id);
+            tracing::debug!(
+                "[BlogForm] Setting up __on_editor_change handler for post_id: {:?}",
+                post_id
+            );
             let handler = editor_change_handler.clone();
             let current_post_id = post_id;
             let on_change = Closure::wrap(Box::new(move |detail: String| {
-                tracing::debug!("[BlogForm] __on_editor_change called with {} chars for post_id: {:?}", detail.len(), current_post_id);
+                tracing::debug!(
+                    "[BlogForm] __on_editor_change called with {} chars for post_id: {:?}",
+                    detail.len(),
+                    current_post_id
+                );
                 handler.send((detail, current_post_id));
             }) as Box<dyn Fn(String)>);
 

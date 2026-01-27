@@ -1,8 +1,13 @@
 use crate::containers::page_header::PageHeader;
+#[cfg(debug_assertions)]
+use crate::hooks::use_unique_id;
 use crate::router::Route;
 use dioxus::prelude::*;
 use oxui::shadcn::button::{Button, ButtonVariant};
 use ruxlog_shared::store::{use_post, EditorJsBlock, PostContent};
+
+#[cfg(debug_assertions)]
+use std::{cell::Cell, rc::Rc};
 
 // ============================================================================
 // EditorJS Block Renderers
@@ -415,6 +420,15 @@ pub fn PostsViewScreen(id: i32) -> Element {
     let posts = use_post();
     let nav = use_navigator();
 
+    #[cfg(debug_assertions)]
+    let instance_id = use_unique_id();
+    #[cfg(debug_assertions)]
+    let instance_id_s = instance_id.read().clone();
+    #[cfg(debug_assertions)]
+    let render_counter = use_hook(|| Rc::new(Cell::new(0u32)));
+    #[cfg(debug_assertions)]
+    let effect_counter = use_hook(|| Rc::new(Cell::new(0u32)));
+
     // Get post by id
     let post = use_memo(move || {
         let posts_read = posts.list.read();
@@ -425,8 +439,60 @@ pub fn PostsViewScreen(id: i32) -> Element {
         }
     });
 
+    let post_data = post();
+
+    #[cfg(debug_assertions)]
+    {
+        let n = render_counter.get().wrapping_add(1);
+        render_counter.set(n);
+
+        if n <= 20 || n % 50 == 0 {
+            let list_frame = posts.list.read();
+            dioxus::logger::tracing::info!(
+                target: "ruxlog::ui",
+                screen = "PostsViewScreen",
+                instance_id = %instance_id_s,
+                post_id = id,
+                render_count = n,
+                post_in_list = post_data.is_some(),
+                list_status = ?list_frame.status,
+                list_is_loading = list_frame.is_loading(),
+                list_is_failed = list_frame.is_failed(),
+                list_error = ?list_frame.error_message(),
+                list_has_data = list_frame.data.is_some(),
+            );
+        }
+    }
+
     use_effect(move || {
-        if post().is_none() {
+        let list_frame = posts.list.read();
+        let post_is_some = post().is_some();
+
+        #[cfg(debug_assertions)]
+        {
+            let n = effect_counter.get().wrapping_add(1);
+            effect_counter.set(n);
+
+            if n <= 20 || n % 50 == 0 {
+                dioxus::logger::tracing::info!(
+                    target: "ruxlog::ui",
+                    screen = "PostsViewScreen",
+                    instance_id = %instance_id_s,
+                    post_id = id,
+                    effect = "maybe_fetch_posts_list",
+                    effect_run = n,
+                    post_in_list = post_is_some,
+                    list_status = ?list_frame.status,
+                    list_is_loading = list_frame.is_loading(),
+                    list_is_failed = list_frame.is_failed(),
+                    list_error = ?list_frame.error_message(),
+                );
+            }
+        }
+
+        // Only kick off the list request once (Init -> Loading). This prevents
+        // rapid re-renders from spawning multiple concurrent fetches.
+        if !post_is_some && list_frame.is_init() {
             let posts_state = posts;
             spawn(async move {
                 posts_state.list().await;
@@ -434,7 +500,7 @@ pub fn PostsViewScreen(id: i32) -> Element {
         }
     });
 
-    if let Some(post) = post() {
+    if let Some(post) = post_data {
         let published_date = post
             .published_at
             .map(|dt| dt.format("%B %d, %Y").to_string())

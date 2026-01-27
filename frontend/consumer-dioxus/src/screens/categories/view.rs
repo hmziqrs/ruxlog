@@ -1,8 +1,8 @@
+use crate::components::{PostCard, PostsLoadingSkeleton};
+use crate::router::Route;
 use dioxus::prelude::*;
 use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use ruxlog_shared::store::{use_categories, use_post, PostListQuery};
-use crate::router::Route;
-use crate::components::{PostCard, PostsLoadingSkeleton};
 
 #[component]
 pub fn CategoryDetailScreen(slug: String) -> Element {

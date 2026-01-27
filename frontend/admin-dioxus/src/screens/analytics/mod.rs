@@ -14,14 +14,19 @@ use crate::containers::analytics::{
 };
 use crate::containers::page_header::PageHeader;
 use ruxlog_shared::store::analytics::{
-    use_analytics, use_analytics_filters, AnalyticsInterval,
+    use_analytics,
+    use_analytics_filters,
+    AnalyticsInterval,
     // NOTE: Commented out overkill analytics for personal blog
     // CommentRateFilters, CommentRateRequest,
-    DashboardSummaryFilters, DashboardSummaryRequest,
+    DashboardSummaryFilters,
+    DashboardSummaryRequest,
     // MediaUploadFilters, MediaUploadRequest,
     // NewsletterGrowthFilters, NewsletterGrowthRequest,
-    PageViewsFilters, PageViewsRequest,
-    PublishingTrendsFilters, PublishingTrendsRequest,
+    PageViewsFilters,
+    PageViewsRequest,
+    PublishingTrendsFilters,
+    PublishingTrendsRequest,
     // RegistrationTrendsFilters, RegistrationTrendsRequest,
     // VerificationRatesFilters, VerificationRatesRequest,
 };

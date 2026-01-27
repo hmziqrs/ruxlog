@@ -1,15 +1,13 @@
 use dioxus::prelude::*;
 
+use crate::components::MouseTrackingCard;
 use crate::router::Route;
 use crate::screens::auth::{use_login_form, LoginForm};
-use crate::components::MouseTrackingCard;
-use ruxlog_shared::store::use_auth;
-use oxui::components::animated_grid::{
-    AnimatedGridBackground, AnimatedGridCircles, GridContext,
-};
+use oxui::components::animated_grid::{AnimatedGridBackground, AnimatedGridCircles, GridContext};
 use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use oxui::components::form::input::AppInput;
 use oxui::shadcn::button::Button;
+use ruxlog_shared::store::use_auth;
 
 #[component]
 pub fn LoginScreen() -> Element {

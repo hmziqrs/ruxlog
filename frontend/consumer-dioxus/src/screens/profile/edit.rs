@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
-use ruxlog_shared::use_auth;
 use oxui::components::form::input::SimpleInput;
 use oxui::shadcn::button::{Button, ButtonVariant};
+use ruxlog_shared::use_auth;
 
 #[component]
 pub fn ProfileEditScreen() -> Element {
@@ -47,7 +47,7 @@ pub fn ProfileEditScreen() -> Element {
 
         validation_error.set(None);
         success_message.set(Some("Profile updated successfully!".to_string()));
-        
+
         // TODO: Implement actual profile update API call
         // spawn(async move {
         //     auth_store.update_profile(name_val, email_val).await;
@@ -66,7 +66,9 @@ pub fn ProfileEditScreen() -> Element {
         }
 
         if new_pwd.len() < 8 {
-            validation_error.set(Some("New password must be at least 8 characters".to_string()));
+            validation_error.set(Some(
+                "New password must be at least 8 characters".to_string(),
+            ));
             return;
         }
 
@@ -77,12 +79,12 @@ pub fn ProfileEditScreen() -> Element {
 
         validation_error.set(None);
         success_message.set(Some("Password changed successfully!".to_string()));
-        
+
         // Clear password fields
         current_password.set(String::new());
         new_password.set(String::new());
         confirm_password.set(String::new());
-        
+
         // TODO: Implement actual password change API call
         // spawn(async move {
         //     auth_store.change_password(current_pwd, new_pwd).await;
@@ -121,10 +123,10 @@ pub fn ProfileEditScreen() -> Element {
                     // Profile Information
                     div { class: "bg-card border border-border rounded-lg p-6 shadow",
                         h2 { class: "text-xl font-semibold mb-6", "Profile Information" }
-                        
+
                         form {
                             onsubmit: handle_profile_update,
-                            
+
                             div { class: "space-y-4",
                                 div { class: "space-y-2",
                                     label { class: "text-sm font-medium", r#for: "name", "Full Name" }
@@ -156,10 +158,10 @@ pub fn ProfileEditScreen() -> Element {
                     // Change Password
                     div { class: "bg-card border border-border rounded-lg p-6 shadow",
                         h2 { class: "text-xl font-semibold mb-6", "Change Password" }
-                        
+
                         form {
                             onsubmit: handle_password_change,
-                            
+
                             div { class: "space-y-4",
                                 div { class: "space-y-2",
                                     label { class: "text-sm font-medium", r#for: "current_password", "Current Password" }

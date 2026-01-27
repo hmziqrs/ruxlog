@@ -1,14 +1,19 @@
-use dioxus::prelude::*;
-use ruxlog_shared::store::use_post;
+use crate::components::{estimate_reading_time, format_date, ActionBar};
 use crate::utils::editorjs::render_editorjs_content;
-use crate::components::{ActionBar, estimate_reading_time, format_date};
-use hmziq_dioxus_free_icons::icons::ld_icons::{LdCalendar, LdClock, LdArrowLeft};
+use dioxus::prelude::*;
+use hmziq_dioxus_free_icons::icons::ld_icons::{LdArrowLeft, LdCalendar, LdClock};
 use hmziq_dioxus_free_icons::Icon;
+use ruxlog_shared::store::use_post;
+
+#[cfg(debug_assertions)]
+use crate::hooks::use_unique_id;
+#[cfg(debug_assertions)]
+use std::{cell::Cell, rc::Rc};
 
 #[cfg(feature = "engagement")]
-use ruxlog_shared::store::{use_auth, use_likes};
-#[cfg(feature = "engagement")]
 use crate::components::EngagementBar;
+#[cfg(feature = "engagement")]
+use ruxlog_shared::store::{use_auth, use_likes};
 
 #[cfg(feature = "comments")]
 use crate::components::CommentsSection;
@@ -21,11 +26,22 @@ pub fn PostViewScreen(id: i32) -> Element {
     let posts = use_post();
     let nav = use_navigator();
 
+    #[cfg(debug_assertions)]
+    let instance_id = use_unique_id();
+    #[cfg(debug_assertions)]
+    let instance_id_s = instance_id.read().clone();
+    #[cfg(debug_assertions)]
+    let render_counter = use_hook(|| Rc::new(Cell::new(0u32)));
+    #[cfg(debug_assertions)]
+    let effect_counter = use_hook(|| Rc::new(Cell::new(0u32)));
+
     // Only use likes and auth when engagement feature is enabled
     #[cfg(feature = "engagement")]
     let likes = use_likes();
     #[cfg(feature = "engagement")]
     let auth = use_auth();
+    #[cfg(all(feature = "engagement", debug_assertions))]
+    let likes_effect_counter = use_hook(|| Rc::new(Cell::new(0u32)));
 
     // Get post by id
     let post = use_memo(move || {
@@ -36,6 +52,31 @@ pub fn PostViewScreen(id: i32) -> Element {
             None
         }
     });
+
+    let post_data = post();
+
+    #[cfg(debug_assertions)]
+    {
+        let n = render_counter.get().wrapping_add(1);
+        render_counter.set(n);
+
+        if n <= 20 || n % 50 == 0 {
+            let list_frame = posts.list.read();
+            dioxus::logger::tracing::info!(
+                target: "ruxlog::ui",
+                screen = "PostViewScreen",
+                instance_id = %instance_id_s,
+                post_id = id,
+                render_count = n,
+                post_in_list = post_data.is_some(),
+                list_status = ?list_frame.status,
+                list_is_loading = list_frame.is_loading(),
+                list_is_failed = list_frame.is_failed(),
+                list_error = ?list_frame.error_message(),
+                list_has_data = list_frame.data.is_some(),
+            );
+        }
+    }
 
     // Conditionally compile comments section
     let comments_section: Option<Element> = {
@@ -55,7 +96,34 @@ pub fn PostViewScreen(id: i32) -> Element {
 
     // Fetch posts if not loaded
     use_effect(move || {
-        if post().is_none() {
+        let list_frame = posts.list.read();
+        let post_is_some = post().is_some();
+
+        #[cfg(debug_assertions)]
+        {
+            let n = effect_counter.get().wrapping_add(1);
+            effect_counter.set(n);
+
+            if n <= 20 || n % 50 == 0 {
+                dioxus::logger::tracing::info!(
+                    target: "ruxlog::ui",
+                    screen = "PostViewScreen",
+                    instance_id = %instance_id_s,
+                    post_id = id,
+                    effect = "maybe_fetch_posts_list",
+                    effect_run = n,
+                    post_in_list = post_is_some,
+                    list_status = ?list_frame.status,
+                    list_is_loading = list_frame.is_loading(),
+                    list_is_failed = list_frame.is_failed(),
+                    list_error = ?list_frame.error_message(),
+                );
+            }
+        }
+
+        // Only kick off the list request once (Init -> Loading). This prevents
+        // rapid re-renders from spawning multiple concurrent fetches.
+        if !post_is_some && list_frame.is_init() {
             let posts_state = posts;
             spawn(async move {
                 posts_state.list().await;
@@ -67,7 +135,37 @@ pub fn PostViewScreen(id: i32) -> Element {
     #[cfg(feature = "engagement")]
     use_effect(move || {
         let is_logged_in = auth.user.read().is_some();
-        if is_logged_in && post().is_some() {
+        let post_is_some = post().is_some();
+        let status_is_init = likes
+            .status
+            .read()
+            .get(&id)
+            .map(|frame| frame.is_init())
+            .unwrap_or(true);
+
+        #[cfg(debug_assertions)]
+        {
+            let n = likes_effect_counter.get().wrapping_add(1);
+            likes_effect_counter.set(n);
+
+            if n <= 20 || n % 50 == 0 {
+                dioxus::logger::tracing::info!(
+                    target: "ruxlog::ui",
+                    screen = "PostViewScreen",
+                    instance_id = %instance_id_s,
+                    post_id = id,
+                    effect = "maybe_fetch_like_status",
+                    effect_run = n,
+                    is_logged_in,
+                    post_in_list = post_is_some,
+                    status_is_init,
+                );
+            }
+        }
+
+        // Avoid spawning a status fetch on every render (a status fetch writes to the likes store,
+        // which triggers a rerender, which would otherwise spawn again).
+        if is_logged_in && post_is_some && status_is_init {
             let likes_state = likes;
             spawn(async move {
                 likes_state.fetch_status(id).await;
@@ -139,7 +237,7 @@ pub fn PostViewScreen(id: i32) -> Element {
         });
     }
 
-    if let Some(post) = post() {
+    if let Some(post) = post_data {
         let published_date = post
             .published_at
             .as_ref()

@@ -1,9 +1,9 @@
-use dioxus::prelude::*;
 use crate::containers::NavBarContainer;
 use crate::screens::{
-    AboutScreen, AdvertiseScreen, CategoriesScreen, CategoryDetailScreen, ContactScreen, HomeScreen,
-    PostViewScreen, PrivacyPolicyScreen, TagDetailScreen, TagsScreen, TermsScreen,
+    AboutScreen, AdvertiseScreen, CategoriesScreen, CategoryDetailScreen, ContactScreen,
+    HomeScreen, PostViewScreen, PrivacyPolicyScreen, TagDetailScreen, TagsScreen, TermsScreen,
 };
+use dioxus::prelude::*;
 
 #[cfg(feature = "consumer-auth")]
 use crate::screens::{LoginScreen, RegisterScreen};

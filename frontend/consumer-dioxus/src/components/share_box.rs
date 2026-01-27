@@ -133,7 +133,6 @@ pub fn ShareBox(show: Signal<bool>, post_id: String, title: String, url: String)
     // Check if we have results
     let has_results = use_memo(move || !visible_platforms().is_empty());
 
-
     // Handle copy link
     let url_clone = url.clone();
     let post_id_clone2 = post_id.clone();

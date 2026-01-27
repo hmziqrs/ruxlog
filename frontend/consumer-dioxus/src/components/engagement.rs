@@ -1,5 +1,7 @@
 use dioxus::prelude::*;
-use hmziq_dioxus_free_icons::icons::ld_icons::{LdHeart, LdLoader, LdShare2, LdLink2, LdPrinter, LdBookmarkPlus};
+use hmziq_dioxus_free_icons::icons::ld_icons::{
+    LdBookmarkPlus, LdHeart, LdLink2, LdLoader, LdPrinter, LdShare2,
+};
 use hmziq_dioxus_free_icons::Icon;
 
 use super::ShareBox;
