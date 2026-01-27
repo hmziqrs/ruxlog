@@ -12,7 +12,7 @@ title = "consumer-dioxus"
 style = []
 
 # Additional JavaScript files
-script = []
+script = ["assets/firebase-init.js"]
 
 [web.resource.dev]
 

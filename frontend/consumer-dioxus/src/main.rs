@@ -12,6 +12,9 @@ pub mod router;
 pub mod screens;
 pub mod utils;
 
+#[cfg(feature = "analytics")]
+pub mod analytics;
+
 #[allow(unused_imports)]
 // use utils::js_bridge;
 
@@ -41,6 +44,17 @@ const TAILWIND_CSS: Asset = asset!("/assets/tailwind.css");
 fn App() -> Element {
     tracing::info!("APP_API_URL: {}", env::APP_API_URL);
     tracing::info!("APP_CSRF_TOKEN: {}", env::APP_CSRF_TOKEN);
+
+    // Initialize Firebase Analytics
+    #[cfg(all(target_arch = "wasm32", feature = "analytics"))]
+    use_effect(|| {
+        if analytics::initialize() {
+            tracing::info!("Firebase Analytics enabled");
+        } else {
+            tracing::warn!("Firebase Analytics initialization failed - check configuration");
+        }
+    });
+
     // Initialize document theme from persistent storage on app mount.
     use_effect(|| {
         let stored = persist::get_theme();
