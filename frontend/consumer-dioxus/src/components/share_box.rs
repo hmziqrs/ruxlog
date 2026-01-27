@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::icons::ld_icons::{
-    LdX, LdFacebook, LdLinkedin, LdMessageCircle, LdMail, LdSearch, LdChevronDown, LdChevronUp,
-    LdCopy, LdCheck,
+    LdCheck, LdChevronDown, LdChevronUp, LdCopy, LdFacebook, LdLinkedin, LdMail, LdMessageCircle,
+    LdSearch, LdX,
 };
 use hmziq_dioxus_free_icons::Icon;
 
@@ -9,12 +9,7 @@ use hmziq_dioxus_free_icons::Icon;
 use crate::analytics::tracker;
 
 #[component]
-pub fn ShareBox(
-    show: Signal<bool>,
-    post_id: String,
-    title: String,
-    url: String,
-) -> Element {
+pub fn ShareBox(show: Signal<bool>, post_id: String, title: String, url: String) -> Element {
     let mut search_query = use_signal(|| String::new());
     let mut show_more = use_signal(|| false);
     let mut copy_success = use_signal(|| false);
@@ -74,7 +69,8 @@ pub fn ShareBox(
         Platform {
             name: "Tumblr",
             icon_name: "tumblr",
-            url_template: "https://www.tumblr.com/widgets/share/tool?canonicalUrl={url}&title={title}",
+            url_template:
+                "https://www.tumblr.com/widgets/share/tool?canonicalUrl={url}&title={title}",
             is_primary: false,
         },
         Platform {
@@ -137,48 +133,35 @@ pub fn ShareBox(
     // Check if we have results
     let has_results = use_memo(move || !visible_platforms().is_empty());
 
-    // Handle share click
-    let handle_share = move |platform_name: &str, share_url: &str| {
-        let platform_name = platform_name.to_string();
-        let share_url = share_url.to_string();
-
-        // Track share event
-        #[cfg(feature = "analytics")]
-        {
-            tracker::track_share(&post_id, &title, &platform_name);
-        }
-
-        // Open share URL
-        #[cfg(target_arch = "wasm32")]
-        {
-            if let Some(window) = web_sys::window() {
-                let _ = window.open_with_url_and_target(&share_url, "_blank");
-            }
-        }
-    };
 
     // Handle copy link
+    let url_clone = url.clone();
+    let post_id_clone2 = post_id.clone();
+    let title_clone2 = title.clone();
     let handle_copy_link = move |_| {
         #[cfg(target_arch = "wasm32")]
         {
             if let Some(window) = web_sys::window() {
-                if let Some(navigator) = window.navigator().clipboard() {
-                    let promise = navigator.write_text(&url);
-                    wasm_bindgen_futures::spawn_local(async move {
-                        let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
-                        copy_success.set(true);
+                let navigator = window.navigator();
+                let clipboard = navigator.clipboard();
+                let url_for_clipboard = url_clone.clone();
+                let post_id_for_async = post_id_clone2.clone();
+                let title_for_async = title_clone2.clone();
+                let promise = clipboard.write_text(&url_for_clipboard);
+                wasm_bindgen_futures::spawn_local(async move {
+                    let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
+                    copy_success.set(true);
 
-                        // Track copy link
-                        #[cfg(feature = "analytics")]
-                        {
-                            tracker::track_share(&post_id, &title, "copy_link");
-                        }
+                    // Track copy link
+                    #[cfg(feature = "analytics")]
+                    {
+                        tracker::track_share(&post_id_for_async, &title_for_async, "copy_link");
+                    }
 
-                        // Reset success message after 2 seconds
-                        gloo_timers::future::TimeoutFuture::new(2000).await;
-                        copy_success.set(false);
-                    });
-                }
+                    // Reset success message after 2 seconds
+                    gloo_timers::future::TimeoutFuture::new(2000).await;
+                    copy_success.set(false);
+                });
             }
         }
     };
@@ -238,12 +221,28 @@ pub fn ShareBox(
                             for platform in visible_platforms() {
                                 {
                                     let share_url = build_share_url(&platform.url_template, &title, &url);
-                                    let platform_name = platform.name.clone();
+                                    let platform_name = platform.name.to_string();
+                                    let post_id_clone = post_id.clone();
+                                    let title_clone = title.clone();
                                     rsx! {
                                         button {
                                             key: "{platform.name}",
                                             class: "flex flex-col items-center gap-2 p-3 hover:bg-muted rounded-lg transition-colors group",
-                                            onclick: move |_| handle_share(&platform_name, &share_url),
+                                            onclick: move |_| {
+                                                // Track share event
+                                                #[cfg(feature = "analytics")]
+                                                {
+                                                    tracker::track_share(&post_id_clone, &title_clone, &platform_name);
+                                                }
+
+                                                // Open share URL
+                                                #[cfg(target_arch = "wasm32")]
+                                                {
+                                                    if let Some(window) = web_sys::window() {
+                                                        let _ = window.open_with_url_and_target(&share_url, "_blank");
+                                                    }
+                                                }
+                                            },
                                             div { class: "w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors",
                                                 { get_platform_icon(&platform.icon_name) }
                                             }
@@ -302,7 +301,7 @@ pub fn ShareBox(
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 struct Platform {
     name: &'static str,
     icon_name: &'static str,
@@ -330,7 +329,8 @@ fn get_platform_icon(icon_name: &str) -> Element {
         "email" => rsx! {
             Icon { icon: LdMail, class: "w-6 h-6" }
         },
-        "reddit" | "telegram" | "whatsapp" | "discord" | "pinterest" | "tumblr" | "mastodon" | "bluesky" | "threads" => rsx! {
+        "reddit" | "telegram" | "whatsapp" | "discord" | "pinterest" | "tumblr" | "mastodon"
+        | "bluesky" | "threads" => rsx! {
             Icon { icon: LdMessageCircle, class: "w-6 h-6" }
         },
         _ => rsx! {

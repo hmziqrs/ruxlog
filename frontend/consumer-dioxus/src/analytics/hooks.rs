@@ -9,6 +9,9 @@ use std::time::Duration;
 #[cfg(target_arch = "wasm32")]
 use web_sys::{window, Document, Element};
 
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::JsCast;
+
 use super::tracker;
 
 /// Hook to track time spent on a page
@@ -23,28 +26,20 @@ use super::tracker;
 /// ```rust
 /// use_page_timer("/blog/my-post");
 /// ```
+#[cfg(target_arch = "wasm32")]
 pub fn use_page_timer(route: &str) {
     let route = route.to_string();
+    let start_time = use_signal(|| js_sys::Date::now());
 
-    use_effect(move || {
-        #[cfg(target_arch = "wasm32")]
-        {
-            let start_time = js_sys::Date::now();
-            let route_clone = route.clone();
-
-            // Return cleanup function
-            move || {
-                let duration = (js_sys::Date::now() - start_time) / 1000.0;
-                tracker::track_time_on_page(&route_clone, duration);
-            }
-        }
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            let _ = route;
-            move || {}
-        }
+    use_drop(move || {
+        let duration = (js_sys::Date::now() - start_time()) / 1000.0;
+        tracker::track_time_on_page(&route, duration);
     });
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn use_page_timer(_route: &str) {
+    // No-op on non-wasm targets
 }
 
 /// Hook to track scroll depth milestones
@@ -61,24 +56,19 @@ pub fn use_page_timer(route: &str) {
 /// ```
 #[cfg(target_arch = "wasm32")]
 pub fn use_scroll_depth(route: &str) {
+    use std::rc::Rc;
+    use std::cell::Cell;
+
     let route = route.to_string();
     let mut milestones = use_signal(|| vec![false; 4]); // [25%, 50%, 75%, 100%]
 
     use_effect(move || {
-        let window = match window() {
-            Some(w) => w,
-            None => return move || {},
-        };
-
-        let document = match window.document() {
-            Some(d) => d,
-            None => return move || {},
-        };
+        if let Some(window) = window() {
 
         let route_clone = route.clone();
-        let milestones_clone = milestones.clone();
+        let mut milestones_clone = milestones.clone();
 
-        let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move || {
+        let closure = Rc::new(wasm_bindgen::closure::Closure::wrap(Box::new(move || {
             let window = match web_sys::window() {
                 Some(w) => w,
                 None => return,
@@ -129,35 +119,47 @@ pub fn use_scroll_depth(route: &str) {
             }
 
             milestones_clone.set(milestones_state);
-        }) as Box<dyn FnMut()>);
+        }) as Box<dyn FnMut()>));
 
         // Use throttling to prevent excessive event firing
-        let mut last_call = 0.0;
+        let last_call = Rc::new(Cell::new(0.0));
         let throttle_ms = 500.0;
 
-        let throttled_closure = wasm_bindgen::closure::Closure::wrap(Box::new(move || {
+        let throttled_closure_inner = closure.clone();
+        let last_call_clone = last_call.clone();
+
+        let throttled_closure = Rc::new(wasm_bindgen::closure::Closure::wrap(Box::new(move || {
             let now = js_sys::Date::now();
-            if now - last_call >= throttle_ms {
-                last_call = now;
-                closure.as_ref().unchecked_ref::<js_sys::Function>().call0(&wasm_bindgen::JsValue::NULL).ok();
+            if now - last_call_clone.get() >= throttle_ms {
+                last_call_clone.set(now);
+                let _ = throttled_closure_inner
+                    .as_ref()
+                    .as_ref()
+                    .unchecked_ref::<js_sys::Function>()
+                    .call0(&wasm_bindgen::JsValue::NULL);
             }
-        }) as Box<dyn FnMut()>);
+        }) as Box<dyn FnMut()>));
 
         // Add scroll event listener
-        window
-            .add_event_listener_with_callback("scroll", throttled_closure.as_ref().unchecked_ref())
-            .ok();
+        let _ = window.add_event_listener_with_callback(
+            "scroll",
+            throttled_closure.as_ref().as_ref().unchecked_ref()
+        );
 
         // Initial check
-        closure.as_ref().unchecked_ref::<js_sys::Function>().call0(&wasm_bindgen::JsValue::NULL).ok();
+        let _ = closure
+            .as_ref()
+            .as_ref()
+            .unchecked_ref::<js_sys::Function>()
+            .call0(&wasm_bindgen::JsValue::NULL);
 
         // Cleanup function
-        let cleanup_window = window.clone();
-        let cleanup_closure = throttled_closure.clone();
-        move || {
-            cleanup_window
-                .remove_event_listener_with_callback("scroll", cleanup_closure.as_ref().unchecked_ref())
-                .ok();
+        use_drop(move || {
+            let _ = window.remove_event_listener_with_callback(
+                "scroll",
+                throttled_closure.as_ref().as_ref().unchecked_ref(),
+            );
+        });
         }
     });
 }
@@ -182,28 +184,19 @@ pub fn use_scroll_depth(_route: &str) {
 /// ```
 #[cfg(target_arch = "wasm32")]
 pub fn use_outbound_link_tracker(container_id: &str, post_id: Option<String>) {
+    use std::rc::Rc;
+
     let container_id = container_id.to_string();
 
     use_effect(move || {
-        let window = match window() {
-            Some(w) => w,
-            None => return move || {},
-        };
-
-        let document = match window.document() {
-            Some(d) => d,
-            None => return move || {},
-        };
-
-        let container = match document.get_element_by_id(&container_id) {
-            Some(c) => c,
-            None => return move || {},
-        };
+        if let Some(window) = window() {
+            if let Some(document) = window.document() {
+                if let Some(container) = document.get_element_by_id(&container_id) {
 
         let current_origin = window.location().origin().unwrap_or_default();
         let post_id_clone = post_id.clone();
 
-        let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |event: web_sys::Event| {
+        let closure = Rc::new(wasm_bindgen::closure::Closure::wrap(Box::new(move |event: web_sys::Event| {
             if let Some(target) = event.target() {
                 if let Ok(element) = target.dyn_into::<Element>() {
                     if element.tag_name() == "A" {
@@ -216,19 +209,22 @@ pub fn use_outbound_link_tracker(container_id: &str, post_id: Option<String>) {
                     }
                 }
             }
-        }) as Box<dyn FnMut(_)>);
+        }) as Box<dyn FnMut(_)>));
 
-        container
-            .add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())
-            .ok();
+        let _ = container.add_event_listener_with_callback(
+            "click",
+            closure.as_ref().as_ref().unchecked_ref()
+        );
 
         // Cleanup
-        let cleanup_container = container.clone();
-        let cleanup_closure = closure.clone();
-        move || {
-            cleanup_container
-                .remove_event_listener_with_callback("click", cleanup_closure.as_ref().unchecked_ref())
-                .ok();
+        use_drop(move || {
+            let _ = container.remove_event_listener_with_callback(
+                "click",
+                closure.as_ref().as_ref().unchecked_ref(),
+            );
+        });
+                }
+            }
         }
     });
 }
