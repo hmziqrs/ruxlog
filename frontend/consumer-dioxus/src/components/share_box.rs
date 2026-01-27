@@ -1,7 +1,11 @@
 use dioxus::prelude::*;
+use hmziq_dioxus_free_icons::icons::si_icons::{
+    SiBluesky, SiDiscord, SiFacebook, SiMastodon, SiPinterest,
+    SiReddit, SiTelegram, SiThreads, SiTumblr, SiWhatsapp,
+};
 use hmziq_dioxus_free_icons::icons::ld_icons::{
-    LdCheck, LdChevronDown, LdChevronUp, LdCopy, LdFacebook, LdLinkedin, LdMail, LdMessageCircle,
-    LdSearch, LdX,
+    LdCheck, LdChevronDown, LdChevronUp, LdCopy, LdLinkedin, LdMail,
+    LdMessageCircle, LdSearch, LdX,
 };
 use hmziq_dioxus_free_icons::Icon;
 
@@ -320,17 +324,40 @@ fn get_platform_icon(icon_name: &str) -> Element {
             Icon { icon: LdX, class: "w-6 h-6" }
         },
         "facebook" => rsx! {
-            Icon { icon: LdFacebook, class: "w-6 h-6" }
+            Icon { icon: SiFacebook, class: "w-6 h-6" }
         },
         "linkedin" => rsx! {
             Icon { icon: LdLinkedin, class: "w-6 h-6" }
         },
+        "reddit" => rsx! {
+            Icon { icon: SiReddit, class: "w-6 h-6" }
+        },
+        "telegram" => rsx! {
+            Icon { icon: SiTelegram, class: "w-6 h-6" }
+        },
+        "whatsapp" => rsx! {
+            Icon { icon: SiWhatsapp, class: "w-6 h-6" }
+        },
+        "discord" => rsx! {
+            Icon { icon: SiDiscord, class: "w-6 h-6" }
+        },
+        "pinterest" => rsx! {
+            Icon { icon: SiPinterest, class: "w-6 h-6" }
+        },
+        "tumblr" => rsx! {
+            Icon { icon: SiTumblr, class: "w-6 h-6" }
+        },
+        "mastodon" => rsx! {
+            Icon { icon: SiMastodon, class: "w-6 h-6" }
+        },
+        "bluesky" => rsx! {
+            Icon { icon: SiBluesky, class: "w-6 h-6" }
+        },
+        "threads" => rsx! {
+            Icon { icon: SiThreads, class: "w-6 h-6" }
+        },
         "email" => rsx! {
             Icon { icon: LdMail, class: "w-6 h-6" }
-        },
-        "reddit" | "telegram" | "whatsapp" | "discord" | "pinterest" | "tumblr" | "mastodon"
-        | "bluesky" | "threads" => rsx! {
-            Icon { icon: LdMessageCircle, class: "w-6 h-6" }
         },
         _ => rsx! {
             Icon { icon: LdMessageCircle, class: "w-6 h-6" }
