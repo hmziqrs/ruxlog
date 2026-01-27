@@ -289,11 +289,21 @@ fn format_bucket_label(bucket: &str) -> String {
     if bucket.len() == 7 && bucket.chars().nth(4) == Some('-') {
         let month = bucket.split('-').last().unwrap_or("01");
         return match month {
-            "01" => "Jan", "02" => "Feb", "03" => "Mar", "04" => "Apr",
-            "05" => "May", "06" => "Jun", "07" => "Jul", "08" => "Aug",
-            "09" => "Sep", "10" => "Oct", "11" => "Nov", "12" => "Dec",
+            "01" => "Jan",
+            "02" => "Feb",
+            "03" => "Mar",
+            "04" => "Apr",
+            "05" => "May",
+            "06" => "Jun",
+            "07" => "Jul",
+            "08" => "Aug",
+            "09" => "Sep",
+            "10" => "Oct",
+            "11" => "Nov",
+            "12" => "Dec",
             _ => bucket,
-        }.to_string();
+        }
+        .to_string();
     }
     // Handle day format "2024-01-15" -> "15"
     if bucket.len() == 10 {

@@ -1,6 +1,6 @@
+use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use ruxlog_shared::store::posts::{Post, PostContent};
-use chrono::{DateTime, Utc};
 
 /// Estimate reading time based on content blocks (avg 200 words per minute)
 pub fn estimate_reading_time(content: &PostContent) -> u32 {
@@ -10,7 +10,11 @@ pub fn estimate_reading_time(content: &PostContent) -> u32 {
             ruxlog_shared::store::posts::EditorJsBlock::Header { data, .. } => &data.text,
             ruxlog_shared::store::posts::EditorJsBlock::Paragraph { data, .. } => &data.text,
             ruxlog_shared::store::posts::EditorJsBlock::List { data, .. } => {
-                word_count += data.items.iter().map(|s| s.split_whitespace().count()).sum::<usize>();
+                word_count += data
+                    .items
+                    .iter()
+                    .map(|s| s.split_whitespace().count())
+                    .sum::<usize>();
                 continue;
             }
             _ => continue,
@@ -30,12 +34,22 @@ pub fn format_date(date: &DateTime<Utc>) -> String {
 pub fn get_gradient_for_tag(tag: Option<&str>) -> &'static str {
     match tag.unwrap_or("").to_lowercase().as_str() {
         s if s.contains("rust") => "from-orange-500/20 via-red-500/10 to-transparent",
-        s if s.contains("react") || s.contains("frontend") => "from-cyan-500/20 via-blue-500/10 to-transparent",
-        s if s.contains("backend") || s.contains("api") => "from-green-500/20 via-emerald-500/10 to-transparent",
-        s if s.contains("devops") || s.contains("infra") => "from-purple-500/20 via-violet-500/10 to-transparent",
-        s if s.contains("database") || s.contains("sql") => "from-yellow-500/20 via-amber-500/10 to-transparent",
+        s if s.contains("react") || s.contains("frontend") => {
+            "from-cyan-500/20 via-blue-500/10 to-transparent"
+        }
+        s if s.contains("backend") || s.contains("api") => {
+            "from-green-500/20 via-emerald-500/10 to-transparent"
+        }
+        s if s.contains("devops") || s.contains("infra") => {
+            "from-purple-500/20 via-violet-500/10 to-transparent"
+        }
+        s if s.contains("database") || s.contains("sql") => {
+            "from-yellow-500/20 via-amber-500/10 to-transparent"
+        }
         s if s.contains("security") => "from-red-500/20 via-rose-500/10 to-transparent",
-        s if s.contains("ai") || s.contains("ml") => "from-pink-500/20 via-fuchsia-500/10 to-transparent",
+        s if s.contains("ai") || s.contains("ml") => {
+            "from-pink-500/20 via-fuchsia-500/10 to-transparent"
+        }
         _ => "from-primary/20 via-primary/5 to-transparent",
     }
 }
@@ -52,7 +66,7 @@ pub struct PostCardProps {
 pub fn PostCard(props: PostCardProps) -> Element {
     let post = props.post.clone();
     let post_id = post.id;
-    
+
     rsx! {
         article {
             class: "card-interactive group h-full",

@@ -1,8 +1,8 @@
+use crate::components::{FeaturedPostCard, PostCard, PostsEmptyState, PostsLoadingSkeleton};
+use crate::router::Route;
 use dioxus::prelude::*;
 use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use ruxlog_shared::store::use_post;
-use crate::router::Route;
-use crate::components::{FeaturedPostCard, PostCard, PostsEmptyState, PostsLoadingSkeleton};
 
 #[component]
 pub fn HomeScreen() -> Element {

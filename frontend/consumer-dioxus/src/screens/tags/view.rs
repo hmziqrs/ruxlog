@@ -1,8 +1,8 @@
+use crate::components::{PostCard, PostsLoadingSkeleton};
+use crate::router::Route;
 use dioxus::prelude::*;
 use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use ruxlog_shared::store::{use_post, use_tag, PostListQuery};
-use crate::router::Route;
-use crate::components::{PostCard, PostsLoadingSkeleton};
 
 #[component]
 pub fn TagDetailScreen(slug: String) -> Element {

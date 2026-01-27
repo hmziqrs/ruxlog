@@ -2,11 +2,11 @@ mod view;
 
 pub use view::*;
 
+use crate::components::TagCard;
+use crate::router::Route;
 use dioxus::prelude::*;
 use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use ruxlog_shared::store::use_tag;
-use crate::router::Route;
-use crate::components::TagCard;
 
 #[component]
 pub fn TagsScreen() -> Element {

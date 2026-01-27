@@ -34,10 +34,11 @@ pub const FIREBASE_STORAGE_BUCKET: &str = match std::option_env!("FIREBASE_STORA
 };
 
 #[cfg(feature = "analytics")]
-pub const FIREBASE_MESSAGING_SENDER_ID: &str = match std::option_env!("FIREBASE_MESSAGING_SENDER_ID") {
-    Some(id) => id,
-    None => "",
-};
+pub const FIREBASE_MESSAGING_SENDER_ID: &str =
+    match std::option_env!("FIREBASE_MESSAGING_SENDER_ID") {
+        Some(id) => id,
+        None => "",
+    };
 
 #[cfg(feature = "analytics")]
 pub const FIREBASE_APP_ID: &str = match std::option_env!("FIREBASE_APP_ID") {

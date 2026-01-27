@@ -1,10 +1,12 @@
 use dioxus::prelude::*;
-use ruxlog_shared::store::comments::{Comment, CommentCreatePayload};
-use ruxlog_shared::store::use_comments;
-use ruxlog_shared::store::use_auth;
-use hmziq_dioxus_free_icons::icons::ld_icons::{LdMessageCircle, LdSend, LdFlag, LdCornerDownRight, LdLoader};
+use hmziq_dioxus_free_icons::icons::ld_icons::{
+    LdCornerDownRight, LdFlag, LdLoader, LdMessageCircle, LdSend,
+};
 use hmziq_dioxus_free_icons::Icon;
 use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
+use ruxlog_shared::store::comments::{Comment, CommentCreatePayload};
+use ruxlog_shared::store::use_auth;
+use ruxlog_shared::store::use_comments;
 
 #[derive(Props, Clone, PartialEq)]
 pub struct CommentsSectionProps {
@@ -17,7 +19,7 @@ pub fn CommentsSection(props: CommentsSectionProps) -> Element {
     let comments_store = use_comments();
     let auth_store = use_auth();
     let post_id = props.post_id;
-    
+
     let mut new_comment = use_signal(String::new);
     let mut reply_to = use_signal(|| None::<i32>);
 

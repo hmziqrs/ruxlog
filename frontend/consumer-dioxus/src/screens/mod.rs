@@ -1,10 +1,10 @@
 mod about;
+mod advertise;
 mod categories;
 mod contact;
 mod home;
-mod advertise;
-mod privacy_policy;
 mod posts;
+mod privacy_policy;
 mod tags;
 mod terms;
 
@@ -15,12 +15,12 @@ mod auth;
 mod profile;
 
 pub use about::*;
+pub use advertise::*;
 pub use categories::*;
 pub use contact::*;
 pub use home::*;
-pub use advertise::*;
-pub use privacy_policy::*;
 pub use posts::*;
+pub use privacy_policy::*;
 pub use tags::*;
 pub use terms::*;
 

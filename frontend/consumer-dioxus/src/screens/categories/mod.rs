@@ -2,11 +2,11 @@ mod view;
 
 pub use view::*;
 
+use crate::components::CategoryCard;
+use crate::router::Route;
 use dioxus::prelude::*;
 use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use ruxlog_shared::store::use_categories;
-use crate::router::Route;
-use crate::components::CategoryCard;
 
 #[component]
 pub fn CategoriesScreen() -> Element {

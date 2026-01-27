@@ -1,8 +1,8 @@
+use super::post_card::{estimate_reading_time, format_date};
 use dioxus::prelude::*;
-use ruxlog_shared::store::posts::Post;
 use hmziq_dioxus_free_icons::icons::ld_icons::LdArrowRight;
 use hmziq_dioxus_free_icons::Icon;
-use super::post_card::{estimate_reading_time, format_date};
+use ruxlog_shared::store::posts::Post;
 
 #[derive(Props, Clone, PartialEq)]
 pub struct FeaturedPostCardProps {

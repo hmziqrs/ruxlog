@@ -467,7 +467,11 @@ fn ChartBody(points: Vec<PageViewPoint>, height: String, compact: bool) -> Eleme
 }
 
 #[component]
-fn LegendPill(color: &'static str, label: &'static str, #[props(default = false)] dashed: bool) -> Element {
+fn LegendPill(
+    color: &'static str,
+    label: &'static str,
+    #[props(default = false)] dashed: bool,
+) -> Element {
     rsx! {
         div { class: "inline-flex items-center gap-1.5 text-xs text-muted-foreground",
             if dashed {

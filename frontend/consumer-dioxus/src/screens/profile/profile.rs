@@ -11,7 +11,6 @@ pub fn ProfileScreen() -> Element {
     let user = auth_store.user.read();
 
     if let Some(user) = &*user {
-
         rsx! {
             div { class: "min-h-screen bg-background",
                 div { class: "container mx-auto px-4 py-12 max-w-4xl",

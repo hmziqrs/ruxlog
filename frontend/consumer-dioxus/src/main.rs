@@ -1,7 +1,7 @@
 use dioxus::{logger::tracing, prelude::*};
 
-use oxui::components::SonnerToaster;
 use crate::utils::persist;
+use oxui::components::SonnerToaster;
 
 pub mod components;
 mod config;
