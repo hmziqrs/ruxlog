@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::icons::si_icons::{
     SiBluesky, SiDiscord, SiFacebook, SiMastodon, SiMessenger, SiPinterest,
-    SiReddit, SiTelegram, SiThreads, SiTumblr, SiWhatsapp,
+    SiPocket, SiReddit, SiTelegram, SiThreads, SiTumblr, SiWhatsapp,
 };
 use hmziq_dioxus_free_icons::icons::ld_icons::{
     LdCheck, LdChevronDown, LdChevronUp, LdCopy, LdLinkedin, LdMail,
@@ -99,6 +99,12 @@ pub fn ShareBox(show: Signal<bool>, post_id: String, title: String, url: String)
             name: "Threads",
             icon_name: "threads",
             url_template: "https://www.threads.net/intent/post?text={title}%20{url}",
+            is_primary: false,
+        },
+        Platform {
+            name: "Pocket",
+            icon_name: "pocket",
+            url_template: "https://getpocket.com/save?url={url}&title={title}",
             is_primary: false,
         },
         Platform {
@@ -364,6 +370,9 @@ fn get_platform_icon(icon_name: &str) -> Element {
         },
         "threads" => rsx! {
             Icon { icon: SiThreads, class: "w-6 h-6" }
+        },
+        "pocket" => rsx! {
+            Icon { icon: SiPocket, class: "w-6 h-6" }
         },
         "email" => rsx! {
             Icon { icon: LdMail, class: "w-6 h-6" }
