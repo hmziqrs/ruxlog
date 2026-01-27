@@ -282,7 +282,7 @@ pub fn PostViewScreen(id: i32) -> Element {
         rsx! {
             div { class: "min-h-screen bg-background",
                 // Article header
-                header { class: "container mx-auto px-4 max-w-4xl pt-12 pb-8",
+                header { class: "container mx-auto px-4 max-w-6xl pt-12 pb-8",
                     // Category & Tags
                     div { class: "flex flex-wrap items-center gap-3 mb-6",
                         // Category (with border)
@@ -366,7 +366,7 @@ pub fn PostViewScreen(id: i32) -> Element {
 
                 // Featured image
                 if let Some(image) = &post.featured_image {
-                    div { class: "container mx-auto px-4 max-w-4xl mb-10",
+                    div { class: "container mx-auto px-4 max-w-6xl mb-10",
                         img {
                             src: "{image.file_url}",
                             alt: "{post.title}",
@@ -376,7 +376,7 @@ pub fn PostViewScreen(id: i32) -> Element {
                 }
 
                 // Main content
-                article { class: "container mx-auto px-4 max-w-4xl",
+                article { class: "container mx-auto px-4 max-w-6xl",
                     // Prose content
                     div { class: "prose prose-lg max-w-none
                         prose-headings:font-bold prose-headings:tracking-tight
@@ -394,12 +394,12 @@ pub fn PostViewScreen(id: i32) -> Element {
                 }
 
                 // Engagement bar (conditionally compiled) - consistent container
-                div { class: "container mx-auto px-4 max-w-4xl mb-12",
+                div { class: "container mx-auto px-4 max-w-6xl mb-12",
                     { engagement_element }
                 }
 
                 // Action bar with utilities - consistent container
-                div { class: "container mx-auto px-4 max-w-4xl mb-12",
+                div { class: "container mx-auto px-4 max-w-6xl mb-12",
                     ActionBar {
                         post_id: post.id.to_string(),
                         title: post.title.clone(),
@@ -419,12 +419,12 @@ pub fn PostViewScreen(id: i32) -> Element {
                 }
 
                 // Comments section - consistent container
-                div { class: "container mx-auto px-4 max-w-4xl mb-12",
+                div { class: "container mx-auto px-4 max-w-6xl mb-12",
                     { comments_section }
                 }
 
                 // Back button
-                div { class: "container mx-auto px-4 max-w-4xl pb-16 pt-4",
+                div { class: "container mx-auto px-4 max-w-6xl pb-16 pt-4",
                     button {
                         class: "flex items-center gap-2 mx-auto group",
                         onclick: move |_| {
@@ -444,7 +444,7 @@ pub fn PostViewScreen(id: i32) -> Element {
         // Loading state
         rsx! {
             div { class: "min-h-screen bg-background",
-                div { class: "container mx-auto px-4 max-w-4xl pt-12 pb-12",
+                div { class: "container mx-auto px-4 max-w-6xl pt-12 pb-12",
                     // Skeleton tags
                     div { class: "flex gap-2 mb-6",
                         div { class: "h-5 w-16 bg-muted rounded animate-pulse" }
