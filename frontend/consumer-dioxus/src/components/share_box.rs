@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::icons::si_icons::{
-    SiBluesky, SiDiscord, SiFacebook, SiMastodon, SiPinterest,
+    SiBluesky, SiDiscord, SiFacebook, SiMastodon, SiMessenger, SiPinterest,
     SiReddit, SiTelegram, SiThreads, SiTumblr, SiWhatsapp,
 };
 use hmziq_dioxus_free_icons::icons::ld_icons::{
@@ -37,6 +37,12 @@ pub fn ShareBox(show: Signal<bool>, post_id: String, title: String, url: String)
             name: "Facebook",
             icon_name: "facebook",
             url_template: "https://www.facebook.com/sharer/sharer.php?u={url}",
+            is_primary: true,
+        },
+        Platform {
+            name: "Messenger",
+            icon_name: "messenger",
+            url_template: "https://www.facebook.com/dialog/send?link={url}&app_id=FacebookAppId",
             is_primary: true,
         },
         Platform {
@@ -325,6 +331,9 @@ fn get_platform_icon(icon_name: &str) -> Element {
         },
         "facebook" => rsx! {
             Icon { icon: SiFacebook, class: "w-6 h-6" }
+        },
+        "messenger" => rsx! {
+            Icon { icon: SiMessenger, class: "w-6 h-6" }
         },
         "linkedin" => rsx! {
             Icon { icon: LdLinkedin, class: "w-6 h-6" }
