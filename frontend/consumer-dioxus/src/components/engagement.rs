@@ -2,6 +2,11 @@ use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::icons::ld_icons::{LdHeart, LdLoader, LdShare2, LdLink2, LdPrinter, LdBookmarkPlus};
 use hmziq_dioxus_free_icons::Icon;
 
+use super::ShareBox;
+
+#[cfg(feature = "analytics")]
+use crate::analytics::tracker;
+
 #[derive(Props, Clone, PartialEq)]
 pub struct LikeButtonProps {
     pub likes_count: i32,
@@ -89,12 +94,20 @@ pub struct EngagementBarProps {
     pub on_like: Option<EventHandler<()>>,
     #[props(into)]
     pub on_scroll_to_comments: Option<EventHandler<()>>,
+    #[props(into, default)]
+    pub post_id: Option<String>,
+    #[props(into, default)]
+    pub post_title: Option<String>,
 }
 
 /// Engagement bar with views, likes, and comments
 #[component]
 pub fn EngagementBar(props: EngagementBarProps) -> Element {
     use hmziq_dioxus_free_icons::icons::ld_icons::{LdEye, LdMessageCircle};
+
+    let is_liked = props.is_liked;
+    let post_id = props.post_id.clone();
+    let post_title = props.post_title.clone();
 
     rsx! {
         div { class: "flex items-center gap-3",
@@ -110,6 +123,12 @@ pub fn EngagementBar(props: EngagementBarProps) -> Element {
                 is_liked: props.is_liked,
                 is_loading: props.is_like_loading,
                 on_click: move |_| {
+                    // Track like event
+                    #[cfg(feature = "analytics")]
+                    if let (Some(pid), Some(title)) = (&post_id, &post_title) {
+                        tracker::track_like(pid, title, !is_liked);
+                    }
+
                     if let Some(handler) = &props.on_like {
                         handler.call(());
                     }
@@ -134,6 +153,8 @@ pub fn EngagementBar(props: EngagementBarProps) -> Element {
 #[derive(Props, Clone, PartialEq)]
 pub struct ActionBarProps {
     #[props(into)]
+    pub post_id: String,
+    #[props(into)]
     pub title: String,
     #[props(into)]
     pub url: String,
@@ -144,52 +165,16 @@ pub struct ActionBarProps {
 pub fn ActionBar(props: ActionBarProps) -> Element {
     let mut show_bookmark_hint = use_signal(|| false);
     let mut feedback_message = use_signal(|| String::new());
+    let mut show_share_modal = use_signal(|| false);
 
     // Store props in signals for use in closures
+    let post_id = use_signal(|| props.post_id.clone());
     let title = use_signal(|| props.title.clone());
     let url = use_signal(|| props.url.clone());
 
-    // Handle share with Web Share API fallback
-    #[allow(unused_variables)]
+    // Handle share - opens ShareBox modal
     let handle_share = move |_| {
-        let title = title();
-        let url = url();
-
-        spawn(async move {
-            #[cfg(target_arch = "wasm32")]
-            {
-                use wasm_bindgen::prelude::*;
-                use wasm_bindgen::JsValue;
-                use web_sys::window;
-
-                if let Some(window) = window() {
-                    if let Ok(navigator) = js_sys::Reflect::get(&window, &JsValue::from_str("navigator")) {
-                        // Try Web Share API first
-                        if let Ok(has_share) = js_sys::Reflect::has(&navigator, &JsValue::from_str("share")) {
-                            if has_share {
-                                let share_data = js_sys::Object::new();
-                                let _ = js_sys::Reflect::set(&share_data, &JsValue::from_str("title"), &JsValue::from_str(&title));
-                                let _ = js_sys::Reflect::set(&share_data, &JsValue::from_str("url"), &JsValue::from_str(&url));
-
-                                if let Ok(share_fn) = js_sys::Reflect::get(&navigator, &JsValue::from_str("share")) {
-                                    if let Ok(share_fn) = share_fn.dyn_into::<js_sys::Function>() {
-                                        let _ = share_fn.call1(&navigator, &share_data);
-                                        return;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Fallback to copying link
-                    let clipboard = window.navigator().clipboard();
-                    let _ = clipboard.write_text(&url);
-                    feedback_message.set("Link copied to clipboard!".to_string());
-                    gloo_timers::future::TimeoutFuture::new(2000).await;
-                    feedback_message.set(String::new());
-                }
-            }
-        });
+        show_share_modal.set(true);
     };
 
     // Handle copy link
@@ -247,7 +232,7 @@ pub fn ActionBar(props: ActionBarProps) -> Element {
     let shortcut_key = if is_mac { "⌘D" } else { "Ctrl+D" };
 
     rsx! {
-        div { class: "flex flex-col items-center gap-6 py-6 mb-12 border-y border-border",
+        div { class: "flex flex-col items-center gap-6 py-6 border-y border-border",
             // Intro text
             div { class: "text-center space-y-1",
                 p { class: "text-sm font-medium text-foreground/90",
@@ -335,6 +320,14 @@ pub fn ActionBar(props: ActionBarProps) -> Element {
                     "{feedback_message()}"
                 }
             }
+        }
+
+        // ShareBox modal
+        ShareBox {
+            show: show_share_modal,
+            post_id: post_id(),
+            title: title(),
+            url: url(),
         }
     }
 }

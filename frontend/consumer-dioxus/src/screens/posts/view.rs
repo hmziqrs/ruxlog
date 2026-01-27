@@ -13,6 +13,9 @@ use crate::components::EngagementBar;
 #[cfg(feature = "comments")]
 use crate::components::CommentsSection;
 
+#[cfg(feature = "analytics")]
+use crate::analytics::{tracker, use_page_timer, use_scroll_depth};
+
 #[component]
 pub fn PostViewScreen(id: i32) -> Element {
     let posts = use_post();
@@ -117,6 +120,25 @@ pub fn PostViewScreen(id: i32) -> Element {
         }
     };
 
+    // Analytics: Track page view and time spent
+    #[cfg(feature = "analytics")]
+    {
+        let route = format!("/post/{}", id);
+        use_page_timer(&route);
+        use_scroll_depth(&route);
+
+        // Track post view when post is loaded
+        use_effect(move || {
+            if let Some(post_data) = post() {
+                tracker::track_post_view(
+                    &post_data.id.to_string(),
+                    &post_data.title,
+                    Some(&post_data.category.name),
+                );
+            }
+        });
+    }
+
     if let Some(post) = post() {
         let published_date = post
             .published_at
@@ -138,7 +160,7 @@ pub fn PostViewScreen(id: i32) -> Element {
             #[cfg(feature = "engagement")]
             {
                 Some(rsx! {
-                    div { class: "py-6 border-y border-border mb-12",
+                    div { class: "py-6 border-y border-border",
                         EngagementBar {
                             view_count: post.view_count,
                             likes_count,
@@ -147,6 +169,8 @@ pub fn PostViewScreen(id: i32) -> Element {
                             is_like_loading: is_like_loading(),
                             on_like: handle_like,
                             on_scroll_to_comments: handle_scroll_to_comments,
+                            post_id: post.id.to_string(),
+                            post_title: post.title.clone(),
                         }
                     }
                 })
@@ -167,6 +191,9 @@ pub fn PostViewScreen(id: i32) -> Element {
                         button {
                             class: "category-pill",
                             onclick: move |_| {
+                                #[cfg(feature = "analytics")]
+                                tracker::track_category_click(&post.category.name, "post_view");
+
                                 nav.push(crate::router::Route::CategoryDetailScreen {
                                     slug: post.category.slug.clone(),
                                 });
@@ -184,6 +211,9 @@ pub fn PostViewScreen(id: i32) -> Element {
                                         button {
                                             class: "tag-badge",
                                             onclick: move |_| {
+                                                #[cfg(feature = "analytics")]
+                                                tracker::track_tag_click(&tag_name, "post_view");
+
                                                 nav.push(crate::router::Route::TagDetailScreen {
                                                     slug: tag_slug.clone(),
                                                 });
@@ -263,14 +293,17 @@ pub fn PostViewScreen(id: i32) -> Element {
                         mb-12",
                         {render_editorjs_content(&post.content)}
                     }
+                }
 
-                    // Engagement bar (conditionally compiled)
+                // Engagement bar (conditionally compiled) - consistent container
+                div { class: "container mx-auto px-4 max-w-4xl mb-12",
                     { engagement_element }
                 }
 
                 // Action bar with utilities - consistent container
-                div { class: "container mx-auto px-4 max-w-4xl",
+                div { class: "container mx-auto px-4 max-w-4xl mb-12",
                     ActionBar {
+                        post_id: post.id.to_string(),
                         title: post.title.clone(),
                         url: {
                             #[cfg(target_arch = "wasm32")]
@@ -288,7 +321,7 @@ pub fn PostViewScreen(id: i32) -> Element {
                 }
 
                 // Comments section - consistent container
-                div { class: "container mx-auto px-4 max-w-4xl",
+                div { class: "container mx-auto px-4 max-w-4xl mb-12",
                     { comments_section }
                 }
 
