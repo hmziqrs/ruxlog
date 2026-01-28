@@ -1,3 +1,4 @@
+pub mod banner;
 pub mod category_card;
 pub mod engagement;
 pub mod featured_post_card;
@@ -10,6 +11,7 @@ pub mod tag_card;
 #[cfg(feature = "comments")]
 pub mod comments_section;
 
+pub use banner::BannerPlaceholder;
 pub use category_card::CategoryCard;
 pub use engagement::{ActionBar, EngagementBar, LikeButton, ShareButton};
 pub use featured_post_card::FeaturedPostCard;

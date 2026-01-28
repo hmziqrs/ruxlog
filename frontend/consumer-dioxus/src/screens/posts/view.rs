@@ -1,4 +1,4 @@
-use crate::components::{estimate_reading_time, format_date, ActionBar};
+use crate::components::{estimate_reading_time, format_date, ActionBar, BannerPlaceholder};
 use crate::utils::editorjs::render_editorjs_content;
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::icons::ld_icons::{LdArrowLeft, LdCalendar, LdClock};
@@ -374,6 +374,9 @@ pub fn PostViewScreen(id: i32) -> Element {
                         }
                     }
                 }
+
+                // Banner placeholder
+                BannerPlaceholder {}
 
                 // Main content
                 article { class: "container mx-auto px-4 max-w-6xl",
