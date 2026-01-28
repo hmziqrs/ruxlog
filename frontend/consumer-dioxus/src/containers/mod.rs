@@ -2,7 +2,7 @@ use crate::config::DarkMode;
 use crate::router::Route;
 use crate::utils::persist;
 use dioxus::prelude::*;
-use hmziq_dioxus_free_icons::icons::ld_icons::{LdGithub, LdLinkedin, LdMoon, LdSun, LdTwitter};
+use hmziq_dioxus_free_icons::icons::ld_icons::{LdGithub, LdMoon, LdSun, LdTwitter};
 use hmziq_dioxus_free_icons::Icon;
 
 #[cfg(feature = "consumer-auth")]
@@ -134,100 +134,64 @@ pub fn NavBarContainer() -> Element {
 
             // Footer
             footer { class: "footer-container",
-                div { class: "container mx-auto px-4 py-8 md:py-12",
-                    div { class: "flex flex-col gap-8 md:flex-row md:items-start md:justify-between",
-                        div { class: "flex flex-col items-center gap-6 md:items-end md:order-2",
-                            // Navigation link groups
-                            div { class: "flex flex-col gap-4 md:flex-row md:gap-8",
-                                // Discover group
-                                div { class: "flex flex-col items-center gap-2 md:items-start invisible",
-                                    Link {
-                                        to: Route::TagsScreen {},
-                                        class: "text-sm text-foreground/80 hover:text-foreground hover:underline transition-colors",
-                                        "Tags"
-                                    }
-                                    Link {
-                                        to: Route::CategoriesScreen {},
-                                        class: "text-sm text-foreground/80 hover:text-foreground hover:underline transition-colors",
-                                        "Categories"
-                                    }
-                                }
-
-                                // Company group
-                                div { class: "flex flex-col items-center gap-2 md:items-start",
-                                    Link {
-                                        to: Route::AboutScreen {},
-                                        class: "text-sm text-foreground/80 hover:text-foreground hover:underline transition-colors",
-                                        "About"
-                                    }
-                                    Link {
-                                        to: Route::ContactScreen {},
-                                        class: "text-sm text-foreground/80 hover:text-foreground hover:underline transition-colors",
-                                        "Contact"
-                                    }
-                                    Link {
-                                        to: Route::PrivacyPolicyScreen {},
-                                        class: "text-sm text-foreground/80 hover:text-foreground hover:underline transition-colors",
-                                        "Privacy Policy"
-                                    }
-                                    Link {
-                                        to: Route::TermsScreen {},
-                                        class: "text-sm text-foreground/80 hover:text-foreground hover:underline transition-colors",
-                                        "Terms"
-                                    }
-                                    Link {
-                                        to: Route::AdvertiseScreen {},
-                                        class: "text-sm text-foreground/80 hover:text-foreground hover:underline transition-colors invisible",
-                                        "Advertise"
-                                    }
-                                }
+                div { class: "container mx-auto px-4 py-6",
+                    div { class: "flex flex-col items-center gap-4 text-center",
+                        // Navigation links
+                        div { class: "flex flex-wrap items-center justify-center gap-4 text-sm",
+                            Link {
+                                to: Route::AboutScreen {},
+                                class: "text-foreground/70 hover:text-foreground transition-colors",
+                                "About"
                             }
-
-                            // Social icons (external links - keep as <a> tags)
-                            div { class: "flex items-center gap-2 pt-2",
-                                a {
-                                    href: "https://x.com/hmziqrs",
-                                    target: "_blank",
-                                    rel: "noopener noreferrer",
-                                    class: "icon-button opacity-70 hover:opacity-100",
-                                    aria_label: "X",
-                                    Icon { icon: LdTwitter, class: "w-5 h-5" }
-                                }
-                                a {
-                                    href: "https://github.com/hmziqrs",
-                                    target: "_blank",
-                                    rel: "noopener noreferrer",
-                                    class: "icon-button opacity-70 hover:opacity-100",
-                                    aria_label: "GitHub",
-                                    Icon { icon: LdGithub, class: "w-5 h-5" }
-                                }
+                            span { class: "text-foreground/30", "·" }
+                            Link {
+                                to: Route::ContactScreen {},
+                                class: "text-foreground/70 hover:text-foreground transition-colors",
+                                "Contact"
+                            }
+                            span { class: "text-foreground/30", "·" }
+                            Link {
+                                to: Route::PrivacyPolicyScreen {},
+                                class: "text-foreground/70 hover:text-foreground transition-colors",
+                                "Privacy"
+                            }
+                            span { class: "text-foreground/30", "·" }
+                            Link {
+                                to: Route::TermsScreen {},
+                                class: "text-foreground/70 hover:text-foreground transition-colors",
+                                "Terms"
                             }
                         }
 
-                        div { class: "flex flex-col items-center gap-3 text-center md:items-start md:text-left md:order-1",
-                            // Built with message (external links - keep as <a> tags)
-                            div { class: "text-sm text-muted-foreground",
-                                "Built from scratch with "
-                                a {
-                                    href: "https://dioxuslabs.com",
-                                    target: "_blank",
-                                    rel: "noopener noreferrer",
-                                    class: "hover:underline",
-                                    "Dioxus"
-                                }
-                                " by "
-                                a {
-                                    href: "https://hmziq.rs",
-                                    target: "_blank",
-                                    rel: "noopener noreferrer",
-                                    class: "hover:underline",
-                                    "hmziqrs"
-                                }
+                        // Social icons
+                        div { class: "flex items-center gap-3",
+                            a {
+                                href: "https://x.com/hmziqrs",
+                                target: "_blank",
+                                rel: "noopener noreferrer",
+                                class: "text-foreground/50 hover:text-foreground transition-colors",
+                                aria_label: "X",
+                                Icon { icon: LdTwitter, class: "w-4 h-4" }
                             }
+                            a {
+                                href: "https://github.com/hmziqrs",
+                                target: "_blank",
+                                rel: "noopener noreferrer",
+                                class: "text-foreground/50 hover:text-foreground transition-colors",
+                                aria_label: "GitHub",
+                                Icon { icon: LdGithub, class: "w-4 h-4" }
+                            }
+                        }
 
-                            // Copyright
-                            div { class: "text-sm text-muted-foreground",
-                                "© 2024 Ruxlog. All rights reserved."
+                        // Copyright
+                        div { class: "text-xs text-muted-foreground",
+                            "© 2024 Ruxlog. Built with "
+                            a {
+                                href: "https://dioxuslabs.com",
+                                target: "_blank",
+                                rel: "noopener noreferrer",
+                                class: "hover:underline",
+                                "Dioxus"
                             }
                         }
                     }
