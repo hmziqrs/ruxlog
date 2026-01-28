@@ -134,8 +134,8 @@ pub fn NavBarContainer() -> Element {
 
             // Footer
             footer { class: "footer-container",
-                div { class: "container mx-auto px-4 py-6",
-                    div { class: "flex flex-col items-center gap-4 text-center",
+                div { class: "container mx-auto px-4 py-10",
+                    div { class: "flex flex-col items-center gap-6 text-center",
                         // Navigation links
                         div { class: "flex flex-wrap items-center justify-center gap-4 text-sm",
                             Link {
