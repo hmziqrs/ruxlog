@@ -2255,6 +2255,9 @@
   .py-8 {
     padding-block: calc(0.25rem * 8);
   }
+  .py-10 {
+    padding-block: calc(0.25rem * 10);
+  }
   .py-12 {
     padding-block: calc(0.25rem * 12);
   }
