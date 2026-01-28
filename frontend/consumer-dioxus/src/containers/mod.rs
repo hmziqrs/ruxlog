@@ -2,7 +2,11 @@ use crate::config::DarkMode;
 use crate::router::Route;
 use crate::utils::persist;
 use dioxus::prelude::*;
-use hmziq_dioxus_free_icons::icons::ld_icons::{LdGithub, LdMoon, LdSun, LdTwitter};
+use hmziq_dioxus_free_icons::icons::{
+    ld_icons::{LdGithub, LdMoon, LdSun},
+    si_icons::SiX,
+};
+
 use hmziq_dioxus_free_icons::Icon;
 
 #[cfg(feature = "consumer-auth")]
@@ -137,7 +141,7 @@ pub fn NavBarContainer() -> Element {
                 div { class: "container mx-auto px-4 py-10",
                     div { class: "flex flex-col items-center gap-6 text-center",
                         // Navigation links
-                        div { class: "flex flex-wrap items-center justify-center gap-4 text-sm",
+                        div { class: "flex flex-wrap items-center justify-center gap-4 text-sm font-mono",
                             Link {
                                 to: Route::AboutScreen {},
                                 class: "text-foreground/70 hover:text-foreground transition-colors",
@@ -169,29 +173,45 @@ pub fn NavBarContainer() -> Element {
                                 href: "https://x.com/hmziqrs",
                                 target: "_blank",
                                 rel: "noopener noreferrer",
-                                class: "text-foreground/50 hover:text-foreground transition-colors",
+                                class: "text-foreground/90 hover:text-foreground transition-colors",
                                 aria_label: "X",
-                                Icon { icon: LdTwitter, class: "w-4 h-4" }
+                                Icon { icon: SiX, class: "size-6" }
                             }
                             a {
                                 href: "https://github.com/hmziqrs",
                                 target: "_blank",
                                 rel: "noopener noreferrer",
-                                class: "text-foreground/50 hover:text-foreground transition-colors",
+                                class: "text-foreground/90 hover:text-foreground transition-colors",
                                 aria_label: "GitHub",
-                                Icon { icon: LdGithub, class: "w-4 h-4" }
+                                Icon { icon: LdGithub, class: "size-6" }
                             }
                         }
 
                         // Copyright
-                        div { class: "text-xs text-muted-foreground",
-                            "© 2024 Ruxlog. Built with "
+                        div { class: "text-sm font-mono",
+                            "Copyright 2026 "
+                            a {
+                                href: "https://hmziq.rs",
+                                target: "_blank",
+                                rel: "noopener noreferrer",
+                                class: "hover:underline",
+                                "hmziqrs"
+                            }
+                            ". Built with "
                             a {
                                 href: "https://dioxuslabs.com",
                                 target: "_blank",
                                 rel: "noopener noreferrer",
                                 class: "hover:underline",
                                 "Dioxus"
+                            }
+                            " and "
+                            a {
+                                href: "https://rust-lang.org",
+                                target: "_blank",
+                                rel: "noopener noreferrer",
+                                class: "hover:underline",
+                                "Rust"
                             }
                         }
                     }
