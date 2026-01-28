@@ -1,4 +1,4 @@
-use crate::config::DarkMode;
+use crate::config::{DarkMode, BRAND};
 use crate::router::Route;
 use crate::utils::persist;
 use dioxus::prelude::*;
@@ -104,11 +104,11 @@ pub fn NavBarContainer() -> Element {
                         Link {
                             to: Route::HomeScreen {},
                             class: "flex items-center gap-2 font-bold text-xl",
-                            span { "Ruxlog" }
+                            span { "{BRAND.app_name}" }
                         }
                         div { class: "flex items-center gap-3 ml-auto",
                             a {
-                                href: "https://github.com/hmziqrs/ruxlog",
+                                href: "{BRAND.repo_url}",
                                 target: "_blank",
                                 class: "icon-button",
                                 div { class: "w-4 h-4",
@@ -170,7 +170,7 @@ pub fn NavBarContainer() -> Element {
                         // Social icons
                         div { class: "flex items-center gap-3",
                             a {
-                                href: "https://x.com/hmziqrs",
+                                href: "{BRAND.x_url}",
                                 target: "_blank",
                                 rel: "noopener noreferrer",
                                 class: "text-foreground/90 hover:text-foreground transition-colors",
@@ -178,7 +178,7 @@ pub fn NavBarContainer() -> Element {
                                 Icon { icon: SiX, class: "size-6" }
                             }
                             a {
-                                href: "https://github.com/hmziqrs",
+                                href: "{BRAND.repo_url}",
                                 target: "_blank",
                                 rel: "noopener noreferrer",
                                 class: "text-foreground/90 hover:text-foreground transition-colors",
@@ -189,17 +189,17 @@ pub fn NavBarContainer() -> Element {
 
                         // Copyright
                         div { class: "text-sm font-mono",
-                            "Copyright 2026 "
+                            "Copyright {BRAND.copyright_year} "
                             a {
-                                href: "https://hmziq.rs",
+                                href: "{BRAND.author_url}",
                                 target: "_blank",
                                 rel: "noopener noreferrer",
                                 class: "hover:underline",
-                                "hmziqrs"
+                                "{BRAND.author}"
                             }
                             ". Built with "
                             a {
-                                href: "https://dioxuslabs.com",
+                                href: "{BRAND.dioxus_url}",
                                 target: "_blank",
                                 rel: "noopener noreferrer",
                                 class: "hover:underline",
@@ -207,7 +207,7 @@ pub fn NavBarContainer() -> Element {
                             }
                             " and "
                             a {
-                                href: "https://rust-lang.org",
+                                href: "{BRAND.rust_url}",
                                 target: "_blank",
                                 rel: "noopener noreferrer",
                                 class: "hover:underline",
