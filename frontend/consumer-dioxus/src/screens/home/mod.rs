@@ -1,4 +1,6 @@
-use crate::components::{FeaturedPostCard, PostCard, PostsEmptyState, PostsLoadingSkeleton};
+use crate::components::{
+    BannerPlaceholder, FeaturedPostCard, PostCard, PostsEmptyState, PostsLoadingSkeleton,
+};
 use crate::router::Route;
 use dioxus::prelude::*;
 use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
@@ -24,7 +26,10 @@ pub fn HomeScreen() -> Element {
 
     rsx! {
         div { class: "min-h-screen bg-background",
-            div { class: "container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-6xl",
+            div { class: "h-4" }
+            BannerPlaceholder {}
+
+            div { class: "container mx-auto px-4 py-4 max-w-6xl",
                 if (*posts_frame).is_loading() {
                     PostsLoadingSkeleton {}
                 } else if (*posts_frame).is_failed() {
@@ -69,6 +74,8 @@ pub fn HomeScreen() -> Element {
                     }
                 }
             }
+            div { class: "h-8" }
+
         }
     }
 }
