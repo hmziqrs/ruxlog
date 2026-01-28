@@ -140,7 +140,7 @@ pub fn NavBarContainer() -> Element {
                             // Navigation link groups
                             div { class: "flex flex-col gap-4 md:flex-row md:gap-8",
                                 // Discover group
-                                div { class: "flex flex-col items-center gap-2 md:items-start",
+                                div { class: "flex flex-col items-center gap-2 md:items-start invisible",
                                     Link {
                                         to: Route::TagsScreen {},
                                         class: "text-sm text-foreground/80 hover:text-foreground hover:underline transition-colors",
