@@ -166,15 +166,6 @@ pub fn NavBarContainer() -> Element {
                                         "Contact"
                                     }
                                     Link {
-                                        to: Route::AdvertiseScreen {},
-                                        class: "text-sm text-foreground/80 hover:text-foreground hover:underline transition-colors",
-                                        "Advertise"
-                                    }
-                                }
-
-                                // Legal group
-                                div { class: "flex flex-col items-center gap-2 md:items-start",
-                                    Link {
                                         to: Route::PrivacyPolicyScreen {},
                                         class: "text-sm text-foreground/80 hover:text-foreground hover:underline transition-colors",
                                         "Privacy Policy"
@@ -184,34 +175,31 @@ pub fn NavBarContainer() -> Element {
                                         class: "text-sm text-foreground/80 hover:text-foreground hover:underline transition-colors",
                                         "Terms"
                                     }
+                                    Link {
+                                        to: Route::AdvertiseScreen {},
+                                        class: "text-sm text-foreground/80 hover:text-foreground hover:underline transition-colors invisible",
+                                        "Advertise"
+                                    }
                                 }
                             }
 
                             // Social icons (external links - keep as <a> tags)
                             div { class: "flex items-center gap-2 pt-2",
                                 a {
-                                    href: "https://twitter.com",
+                                    href: "https://x.com/hmziqrs",
                                     target: "_blank",
                                     rel: "noopener noreferrer",
                                     class: "icon-button opacity-70 hover:opacity-100",
-                                    aria_label: "Twitter",
+                                    aria_label: "X",
                                     Icon { icon: LdTwitter, class: "w-5 h-5" }
                                 }
                                 a {
-                                    href: "https://github.com",
+                                    href: "https://github.com/hmziqrs",
                                     target: "_blank",
                                     rel: "noopener noreferrer",
                                     class: "icon-button opacity-70 hover:opacity-100",
                                     aria_label: "GitHub",
                                     Icon { icon: LdGithub, class: "w-5 h-5" }
-                                }
-                                a {
-                                    href: "https://linkedin.com",
-                                    target: "_blank",
-                                    rel: "noopener noreferrer",
-                                    class: "icon-button opacity-70 hover:opacity-100",
-                                    aria_label: "LinkedIn",
-                                    Icon { icon: LdLinkedin, class: "w-5 h-5" }
                                 }
                             }
                         }
