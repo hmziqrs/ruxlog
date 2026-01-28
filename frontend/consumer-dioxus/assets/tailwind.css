@@ -1028,6 +1028,9 @@
   .mt-6 {
     margin-top: calc(0.25rem * 6);
   }
+  .mt-8 {
+    margin-top: calc(0.25rem * 8);
+  }
   .mt-\[1px\] {
     margin-top: 1px;
   }
