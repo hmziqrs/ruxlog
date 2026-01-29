@@ -1,0 +1,12 @@
+# robots.txt for Hmziq.rs Blog
+
+User-agent: *
+Allow: /
+
+# Sitemap location (update with actual production URL)
+Sitemap: https://blog.hmziq.rs/sitemap.xml
+
+# Disallow authentication and profile pages
+Disallow: /login
+Disallow: /register
+Disallow: /profile

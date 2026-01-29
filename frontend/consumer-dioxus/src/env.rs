@@ -8,6 +8,12 @@ pub const APP_CSRF_TOKEN: &str = match std::option_env!("CSRF_KEY") {
     None => "dev-csrf-key",
 };
 
+// Frontend consumer URL for SEO canonical URLs
+pub const CONSUMER_SITE_URL: &str = match std::option_env!("CONSUMER_SITE_URL") {
+    Some(url) => url,
+    None => "http://localhost:1108", // Matches CONSUMER_PORT
+};
+
 // Firebase Analytics Configuration
 #[cfg(feature = "analytics")]
 pub const FIREBASE_API_KEY: &str = match std::option_env!("FIREBASE_API_KEY") {

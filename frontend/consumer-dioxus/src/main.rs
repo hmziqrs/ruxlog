@@ -10,6 +10,7 @@ pub mod env;
 pub mod hooks;
 pub mod router;
 pub mod screens;
+pub mod seo;
 pub mod utils;
 
 #[cfg(feature = "analytics")]
