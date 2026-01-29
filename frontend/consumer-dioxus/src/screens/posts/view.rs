@@ -1,4 +1,5 @@
 use crate::components::{estimate_reading_time, format_date, ActionBar, BannerPlaceholder};
+use crate::seo::{article_schema, breadcrumb_schema, use_post_seo, SeoHead, StructuredData};
 use crate::utils::editorjs::render_editorjs_content;
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::icons::ld_icons::{LdArrowLeft, LdCalendar, LdClock};
@@ -25,6 +26,9 @@ use crate::analytics::{tracker, use_page_timer, use_scroll_depth};
 pub fn PostViewScreen(id: i32) -> Element {
     let posts = use_post();
     let nav = use_navigator();
+
+    // Generate SEO metadata
+    let seo_metadata = use_post_seo(id);
 
     #[cfg(debug_assertions)]
     let instance_id = use_unique_id();
@@ -280,6 +284,21 @@ pub fn PostViewScreen(id: i32) -> Element {
         };
 
         rsx! {
+            // Inject SEO tags if metadata is available
+            if let Some(metadata) = seo_metadata() {
+                SeoHead { metadata }
+            }
+
+            // Inject structured data
+            StructuredData { json_ld: article_schema(&post) }
+            StructuredData {
+                json_ld: breadcrumb_schema(vec![
+                    ("Home", "/"),
+                    (&post.category.name, &format!("/categories/{}", post.category.slug)),
+                    (&post.title, &format!("/posts/{}", post.id))
+                ])
+            }
+
             div { class: "min-h-screen bg-background",
                 // Article header
                 header { class: "container mx-auto px-4 max-w-6xl pt-12 pb-8",

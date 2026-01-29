@@ -2,6 +2,7 @@ use crate::components::{
     BannerPlaceholder, FeaturedPostCard, PostCard, PostsEmptyState, PostsLoadingSkeleton,
 };
 use crate::router::Route;
+use crate::seo::{use_static_seo, website_schema, SeoHead, StructuredData};
 use dioxus::prelude::*;
 use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use ruxlog_shared::store::use_post;
@@ -10,6 +11,9 @@ use ruxlog_shared::store::use_post;
 pub fn HomeScreen() -> Element {
     let posts_store = use_post();
     let nav = use_navigator();
+
+    // Generate SEO metadata for homepage
+    let seo_metadata = use_static_seo("home");
 
     use_effect(move || {
         let posts = posts_store;
@@ -25,6 +29,12 @@ pub fn HomeScreen() -> Element {
     };
 
     rsx! {
+        // Inject SEO tags
+        SeoHead { metadata: seo_metadata }
+
+        // Inject structured data
+        StructuredData { json_ld: website_schema() }
+
         div { class: "min-h-screen bg-background",
             div { class: "h-4" }
             BannerPlaceholder {}

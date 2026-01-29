@@ -1,5 +1,6 @@
 use crate::components::{PostCard, PostsLoadingSkeleton};
 use crate::router::Route;
+use crate::seo::{breadcrumb_schema, use_tag_seo, SeoHead, StructuredData};
 use dioxus::prelude::*;
 use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use ruxlog_shared::store::{use_post, use_tag, PostListQuery};
@@ -9,6 +10,9 @@ pub fn TagDetailScreen(slug: String) -> Element {
     let tags_store = use_tag();
     let posts_store = use_post();
     let nav = use_navigator();
+
+    // Generate SEO metadata
+    let seo_metadata = use_tag_seo(slug.clone());
 
     // Fetch tags if not loaded
     use_effect(move || {
@@ -51,6 +55,22 @@ pub fn TagDetailScreen(slug: String) -> Element {
     };
 
     rsx! {
+        // Inject SEO tags if metadata is available
+        if let Some(metadata) = seo_metadata() {
+            SeoHead { metadata }
+        }
+
+        // Inject breadcrumb structured data if tag is loaded
+        if let Some(t) = tag() {
+            StructuredData {
+                json_ld: breadcrumb_schema(vec![
+                    ("Home", "/"),
+                    ("Tags", "/tags"),
+                    (&t.name, &format!("/tags/{}", t.slug))
+                ])
+            }
+        }
+
         div { class: "min-h-screen bg-background",
             div { class: "container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-6xl",
                 if (*posts_frame).is_loading() {

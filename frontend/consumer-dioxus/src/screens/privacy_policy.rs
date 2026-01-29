@@ -1,9 +1,14 @@
 use crate::config::BRAND;
+use crate::seo::{use_static_seo, SeoHead};
 use dioxus::prelude::*;
 
 #[component]
 pub fn PrivacyPolicyScreen() -> Element {
+    let seo_metadata = use_static_seo("privacy");
+
     rsx! {
+        SeoHead { metadata: seo_metadata }
+
         div { class: "min-h-screen bg-background",
             div { class: "container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-6xl",
                 h1 { class: "text-4xl font-bold mb-6", "Privacy Policy" }

@@ -1,5 +1,6 @@
 use crate::components::{PostCard, PostsLoadingSkeleton};
 use crate::router::Route;
+use crate::seo::{breadcrumb_schema, use_category_seo, SeoHead, StructuredData};
 use dioxus::prelude::*;
 use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use ruxlog_shared::store::{use_categories, use_post, PostListQuery};
@@ -9,6 +10,9 @@ pub fn CategoryDetailScreen(slug: String) -> Element {
     let categories_store = use_categories();
     let posts_store = use_post();
     let nav = use_navigator();
+
+    // Generate SEO metadata
+    let seo_metadata = use_category_seo(slug.clone());
 
     // Fetch categories if not loaded
     use_effect(move || {
@@ -51,6 +55,22 @@ pub fn CategoryDetailScreen(slug: String) -> Element {
     };
 
     rsx! {
+        // Inject SEO tags if metadata is available
+        if let Some(metadata) = seo_metadata() {
+            SeoHead { metadata }
+        }
+
+        // Inject breadcrumb structured data if category is loaded
+        if let Some(cat) = category() {
+            StructuredData {
+                json_ld: breadcrumb_schema(vec![
+                    ("Home", "/"),
+                    ("Categories", "/categories"),
+                    (&cat.name, &format!("/categories/{}", cat.slug))
+                ])
+            }
+        }
+
         div { class: "min-h-screen bg-background",
             div { class: "container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-6xl",
                 if (*posts_frame).is_loading() {
