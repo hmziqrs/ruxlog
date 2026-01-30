@@ -22,7 +22,7 @@ pub mod analytics;
 fn main() {
     use base64::prelude::*;
 
-    // Configure HTTP client
+    // Configure HTTP client - oxcore handles platform differences (gloo-net for WASM, reqwest for native)
     println!("APP_API_URL: {}", env::APP_API_URL);
     println!("APP_CSRF_TOKEN: {}", env::APP_CSRF_TOKEN);
 
