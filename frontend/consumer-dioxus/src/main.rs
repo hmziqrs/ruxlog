@@ -11,6 +11,8 @@ pub mod hooks;
 pub mod router;
 pub mod screens;
 pub mod seo;
+#[cfg(feature = "server")]
+pub mod server;
 pub mod server_fns;
 pub mod utils;
 

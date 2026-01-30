@@ -50,7 +50,6 @@ fn generate_post_seo(post: &Post) -> crate::seo::SeoMetadata {
         .article(article)
         .build()
 }
-
 #[component]
 pub fn PostViewScreen(slug: String) -> Element {
     let nav = use_navigator();
@@ -197,217 +196,122 @@ pub fn PostViewScreen(slug: String) -> Element {
                 }
             };
 
-            // Conditionally compile engagement bar
-            let engagement_element: Option<Element> = {
-                #[cfg(feature = "engagement")]
-                {
-                    Some(rsx! {
-                        div { class: "py-6 border-y border-border",
-                            EngagementBar {
-                                view_count: post.view_count,
-                                likes_count,
-                                comment_count: post.comment_count,
-                                is_liked,
-                                is_like_loading,
-                                on_like: handle_like,
-                                on_scroll_to_comments: handle_scroll_to_comments,
-                                post_id: post.id.to_string(),
-                                post_title: post.title.clone(),
-                            }
-                        }
-                    })
+            #[cfg(feature = "engagement")]
+            let engagement_bar: Option<Element> = Some(rsx! {
+                EngagementBar {
+                    view_count: post.view_count,
+                    likes_count,
+                    comment_count: post.comment_count,
+                    is_liked,
+                    is_like_loading,
+                    on_like: handle_like,
+                    on_scroll_to_comments: handle_scroll_to_comments,
+                    post_id: post.id.to_string(),
+                    post_title: post.title.clone(),
                 }
-                #[cfg(not(feature = "engagement"))]
-                {
-                    None
-                }
-            };
+            });
 
-            // Clone values needed in closures
-            let post_category_name = post.category.name.clone();
-            let post_category_slug = post.category.slug.clone();
-            let post_tags = post.tags.clone();
-            let post_title = post.title.clone();
-            let post_slug = post.slug.clone();
-            let post_excerpt = post.excerpt.clone();
-            let post_author = post.author.clone();
-            let post_featured_image = post.featured_image.clone();
-            let post_content = post.content.clone();
-            let post_id = post.id;
+            #[cfg(not(feature = "engagement"))]
+            let engagement_bar: Option<Element> = None;
+
+            let post_url = crate::seo::canonical_url(&format!("/posts/{}", post.slug));
 
             rsx! {
                 // Inject SEO tags
                 SeoHead { metadata: seo_metadata }
 
-                // Inject structured data
-                StructuredData { json_ld: article_schema(&post) }
+                // Inject breadcrumb structured data
                 StructuredData {
                     json_ld: breadcrumb_schema(vec![
                         ("Home", "/"),
-                        (&post_category_name, &format!("/categories/{}", post_category_slug)),
-                        (&post_title, &format!("/posts/{}", post_slug))
+                        (&post.title, &format!("/posts/{}", post.slug))
                     ])
                 }
 
-                div { class: "min-h-screen",
-                    // Article header
-                    header { class: "container mx-auto px-4 max-w-6xl pt-12 pb-8",
-                        // Category & Tags
-                        div { class: "flex flex-wrap items-center gap-3 mb-6",
-                            // Category (with border)
-                            button {
-                                class: "category-pill",
-                                onclick: move |_| {
-                                    #[cfg(feature = "analytics")]
-                                    tracker::track_category_click(&post_category_name, "post_view");
+                // Inject article structured data
+                StructuredData { json_ld: article_schema(&post) }
 
-                                    nav.push(crate::router::Route::CategoryDetailScreen {
-                                        slug: post_category_slug.clone(),
-                                    });
-                                },
-                                "{post.category.name}"
-                            }
+                div { class: "min-h-screen bg-background",
+                    BannerPlaceholder {}
 
-                            // Tags (clickable)
-                            if !post_tags.is_empty() {
-                                for tag in post_tags.iter().take(2) {
-                                    {
-                                        let tag_slug = tag.slug.clone();
-                                        let tag_name = tag.name.clone();
-                                        rsx! {
-                                            button {
-                                                class: "tag-badge",
-                                                onclick: move |_| {
-                                                    #[cfg(feature = "analytics")]
-                                                    tracker::track_tag_click(&tag_name, "post_view");
+                    div { class: "container mx-auto px-4 py-6 max-w-3xl",
+                        // Back button
+                        button {
+                            class: "inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6",
+                            onclick: move |_| { nav.push(crate::router::Route::HomeScreen {}); },
+                            Icon { icon: LdArrowLeft, class: "w-4 h-4" }
+                            "Back"
+                        }
 
-                                                    nav.push(crate::router::Route::TagDetailScreen {
-                                                        slug: tag_slug.clone(),
-                                                    });
-                                                },
-                                                "{tag_name}"
+                        // Post header
+                        header { class: "mb-8",
+                            // Category and tags
+                            div { class: "flex flex-wrap gap-2 mb-4",
+                                span { class: "category-pill",
+                                    "{post.category.name}"
+                                }
+                                for tag in post.tags.clone() {
+                                    button {
+                                        class: "tag-chip cursor-pointer",
+                                        onclick: {
+                                            let nav = nav.clone();
+                                            let tag_slug = tag.slug.clone();
+                                            move |_| {
+                                                nav.push(crate::router::Route::TagDetailScreen { slug: tag_slug.clone() });
                                             }
-                                        }
+                                        },
+                                        "{tag.name}"
                                     }
                                 }
                             }
-                        }
 
-                        // Title
-                        h1 { class: "text-3xl sm:text-4xl md:text-5xl font-bold leading-tight tracking-tight mb-6",
-                            "{post_title}"
-                        }
-
-                        // Excerpt
-                        if let Some(excerpt) = &post_excerpt {
-                            p { class: "text-lg leading-relaxed mb-8",
-                                "{excerpt}"
+                            // Title
+                            h1 { class: "text-3xl md:text-4xl font-bold leading-tight mb-4",
+                                "{post.title}"
                             }
-                        }
 
-                        // Author & Meta
-                        div { class: "flex flex-wrap items-center gap-4 text-sm",
-                            // Author
-                            div { class: "flex items-center gap-2",
-                                div { class: "w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium",
-                                    "{post_author.name.chars().next().unwrap_or('U').to_uppercase()}"
+                            // Meta info
+                            div { class: "flex flex-wrap items-center gap-4 text-sm text-muted-foreground",
+                                div { class: "flex items-center gap-2",
+                                    Icon { icon: LdCalendar, class: "w-4 h-4" }
+                                    span { "{published_date}" }
                                 }
-                                span { class: "font-medium", "{post_author.name}" }
-                            }
-
-                            span { "·" }
-
-                            // Date
-                            div { class: "flex items-center gap-1",
-                                Icon { icon: LdCalendar, class: "w-4 h-4" }
-                                span { class: "meta-mono", "{published_date}" }
-                            }
-
-                            span { "·" }
-
-                            // Reading time
-                            div { class: "flex items-center gap-1",
-                                Icon { icon: LdClock, class: "w-4 h-4" }
-                                span { class: "meta-mono", "{reading_time} min read" }
+                                div { class: "flex items-center gap-2",
+                                    Icon { icon: LdClock, class: "w-4 h-4" }
+                                    span { "{reading_time} min read" }
+                                }
+                                div { class: "flex items-center gap-2",
+                                    span { "By {post.author.name}" }
+                                }
                             }
                         }
-                    }
 
-                    // Featured image
-                    if let Some(image) = &post_featured_image {
-                        div { class: "container mx-auto px-4 max-w-6xl mb-10",
-                            img {
-                                src: "{image.file_url}",
-                                alt: "{post_title}",
-                                class: "w-full rounded-lg",
+                        // Featured image
+                        if let Some(img) = &post.featured_image {
+                            div { class: "mb-8",
+                                img {
+                                    src: "{img.file_url}",
+                                    alt: "{post.title}",
+                                    class: "w-full rounded-2xl border border-border/40 shadow-sm",
+                                }
                             }
                         }
-                    }
 
-                    // Banner placeholder
-                    BannerPlaceholder {}
-
-                    // Main content
-                    article { class: "container mx-auto px-4 max-w-6xl",
-                        // Prose content
-                        div { class: "prose prose-lg max-w-none
-                            prose-headings:font-bold prose-headings:tracking-tight
-                            prose-h2:text-2xl prose-h2:mt-10 prose-h2:mb-4
-                            prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-3
-                            prose-p:leading-relaxed
-                            prose-a:no-underline hover:prose-a:underline
-                            prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
-                            prose-pre:bg-muted prose-pre:border prose-pre:border-border
-                            prose-img:rounded-lg
-                            prose-blockquote:border-l-primary prose-blockquote:pl-4 prose-blockquote:italic
-                            mb-12",
-                            {render_editorjs_content(&post_content)}
+                        // Content
+                        article { class: "prose prose-neutral dark:prose-invert max-w-none",
+                            {render_editorjs_content(&post.content)}
                         }
-                    }
 
-                    // Engagement bar (conditionally compiled) - consistent container
-                    div { class: "container mx-auto px-4 max-w-6xl mb-12",
-                        { engagement_element }
-                    }
+                        {engagement_bar}
 
-                    // Action bar with utilities - consistent container
-                    div { class: "container mx-auto px-4 max-w-6xl mb-12",
+                        // Comments section
+                        {comments_section}
+
+                        // Action bar
                         ActionBar {
-                            post_id: post_id.to_string(),
-                            title: post_title.clone(),
-                            url: {
-                                #[cfg(target_arch = "wasm32")]
-                                {
-                                    web_sys::window()
-                                        .and_then(|w| w.location().href().ok())
-                                        .unwrap_or_default()
-                                }
-                                #[cfg(not(target_arch = "wasm32"))]
-                                {
-                                    String::new()
-                                }
-                            },
-                        }
-                    }
-
-                    // Comments section - consistent container
-                    div { class: "container mx-auto px-4 max-w-6xl mb-12",
-                        { comments_section }
-                    }
-
-                    // Back button
-                    div { class: "container mx-auto px-4 max-w-6xl pb-16 pt-4",
-                        button {
-                            class: "flex items-center gap-2 mx-auto group",
-                            onclick: move |_| {
-                                nav.push(crate::router::Route::HomeScreen {
-                                });
-                            },
-                            Icon {
-                                icon: LdArrowLeft,
-                                class: "w-4 h-4 transition-transform group-hover:-translate-x-1",
-                            }
-                            span { class: "text-sm", "Back to all posts" }
+                            post_id: post.id.to_string(),
+                            title: post.title.clone(),
+                            url: post_url,
                         }
                     }
                 }
@@ -417,8 +321,9 @@ pub fn PostViewScreen(slug: String) -> Element {
             // Post not found
             rsx! {
                 div { class: "min-h-screen flex items-center justify-center",
-                    div { class: "text-center",
-                        h1 { class: "text-2xl font-bold mb-4", "Post not found" }
+                    div { class: "text-center max-w-md",
+                        h1 { class: "text-2xl font-bold mb-2", "Post not found" }
+                        p { class: "text-muted-foreground mb-4", "The post you're looking for doesn't exist." }
                         button {
                             class: "text-primary hover:underline",
                             onclick: move |_| { nav.push(crate::router::Route::HomeScreen {}); },
@@ -432,8 +337,8 @@ pub fn PostViewScreen(slug: String) -> Element {
             // Error state
             rsx! {
                 div { class: "min-h-screen flex items-center justify-center",
-                    div { class: "text-center",
-                        h1 { class: "text-2xl font-bold mb-4", "Error loading post" }
+                    div { class: "text-center max-w-md",
+                        h1 { class: "text-2xl font-bold mb-2", "Error loading post" }
                         p { class: "text-muted-foreground mb-4", "{e}" }
                         button {
                             class: "text-primary hover:underline",
