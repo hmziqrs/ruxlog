@@ -249,12 +249,13 @@ pub fn track_navigation(destination: &str, source: &str) {
 }
 
 /// Track an outbound link click
-pub fn track_outbound_link(url: &str, post_id: Option<&str>) {
+pub fn track_outbound_link(url: &str, referer: &str, post_id: Option<&str>) {
     #[cfg(target_arch = "wasm32")]
     {
         if bindings::is_analytics_available() {
             let mut params = json!({
                 "url": url,
+                "referer": referer,
             });
 
             if let Some(pid) = post_id {
@@ -265,12 +266,12 @@ pub fn track_outbound_link(url: &str, post_id: Option<&str>) {
                 "outbound_link",
                 serde_wasm_bindgen::to_value(&params).unwrap(),
             );
-            log::debug!("Analytics: Outbound link - {}", url);
+            log::debug!("Analytics: Outbound link - {} from {}", url, referer);
         }
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
-        let _ = (url, post_id);
+        let _ = (url, referer, post_id);
     }
 }
 

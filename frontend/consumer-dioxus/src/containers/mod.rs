@@ -172,7 +172,7 @@ pub fn NavBarContainer() -> Element {
                             a {
                                 href: "{BRAND.x_url}",
                                 target: "_blank",
-                                rel: "noopener noreferrer",
+                                rel: "noopener",
                                 class: "text-foreground/90 hover:text-foreground transition-colors",
                                 aria_label: "X",
                                 Icon { icon: SiX, class: "size-6" }
@@ -180,7 +180,7 @@ pub fn NavBarContainer() -> Element {
                             a {
                                 href: "{BRAND.repo_url}",
                                 target: "_blank",
-                                rel: "noopener noreferrer",
+                                rel: "noopener",
                                 class: "text-foreground/90 hover:text-foreground transition-colors",
                                 aria_label: "GitHub",
                                 Icon { icon: LdGithub, class: "size-6" }
@@ -193,7 +193,7 @@ pub fn NavBarContainer() -> Element {
                             a {
                                 href: "{BRAND.author_url}",
                                 target: "_blank",
-                                rel: "noopener noreferrer",
+                                rel: "noopener",
                                 class: "hover:underline",
                                 "{BRAND.author}"
                             }
@@ -201,7 +201,7 @@ pub fn NavBarContainer() -> Element {
                             a {
                                 href: "{BRAND.dioxus_url}",
                                 target: "_blank",
-                                rel: "noopener noreferrer",
+                                rel: "noopener",
                                 class: "hover:underline",
                                 "Dioxus"
                             }
@@ -209,7 +209,7 @@ pub fn NavBarContainer() -> Element {
                             a {
                                 href: "{BRAND.rust_url}",
                                 target: "_blank",
-                                rel: "noopener noreferrer",
+                                rel: "noopener",
                                 class: "hover:underline",
                                 "Rust"
                             }

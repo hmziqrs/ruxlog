@@ -37,7 +37,7 @@ pub fn PrivacyPolicyScreen() -> Element {
                         a {
                             href: "https://policies.google.com/privacy",
                             target: "_blank",
-                            rel: "noopener noreferrer",
+                            rel: "noopener",
                             "Google's privacy policy"
                         }
                         "."
