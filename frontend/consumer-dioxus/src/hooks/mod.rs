@@ -1,5 +1,13 @@
 pub use oxform::{OxForm, OxFormModel};
 
+pub mod categories;
+pub mod posts;
+pub mod tags;
+
+pub use categories::*;
+pub use posts::*;
+pub use tags::*;
+
 use dioxus::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 

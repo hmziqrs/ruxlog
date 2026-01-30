@@ -1,4 +1,6 @@
-use crate::components::{BannerPlaceholder, FeaturedPostCard, PostCard, PostsEmptyState};
+use crate::components::{
+    BannerPlaceholder, FeaturedPostCard, PostCard, PostsEmptyState, PostsLoadingSkeleton,
+};
 use crate::router::Route;
 use crate::seo::{use_static_seo, website_schema, SeoHead, StructuredData};
 use crate::server_fns::fetch_posts;
@@ -22,10 +24,7 @@ pub fn HomeScreen() -> Element {
     };
 
     rsx! {
-        // Inject SEO tags
         SeoHead { metadata: seo_metadata }
-
-        // Inject structured data
         StructuredData { json_ld: website_schema() }
 
         div { class: "min-h-screen",
@@ -40,7 +39,6 @@ pub fn HomeScreen() -> Element {
                         } else {
                             rsx! {
                                 div { class: "space-y-10",
-                                    // Featured post (hero card)
                                     if let Some(featured) = data.data.first() {
                                         FeaturedPostCard {
                                             post: featured.clone(),
@@ -48,7 +46,6 @@ pub fn HomeScreen() -> Element {
                                         }
                                     }
 
-                                    // Posts grid
                                     if data.data.len() > 1 {
                                         div { class: "grid md:grid-cols-2 lg:grid-cols-3 gap-6",
                                             for post in data.data.iter().skip(1) {
@@ -74,11 +71,7 @@ pub fn HomeScreen() -> Element {
                             }
                         }
                     },
-                    None => rsx! {
-                        div { class: "flex items-center justify-center py-20",
-                            div { class: "animate-pulse text-muted-foreground", "Loading..." }
-                        }
-                    },
+                    None => rsx! { PostsLoadingSkeleton {} },
                 }
             }
             div { class: "h-8" }

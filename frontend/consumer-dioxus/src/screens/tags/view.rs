@@ -1,4 +1,4 @@
-use crate::components::PostCard;
+use crate::components::{PostCard, PostsLoadingSkeleton};
 use crate::router::Route;
 use crate::seo::{breadcrumb_schema, SeoHead, SeoMetadataBuilder, StructuredData};
 use crate::server_fns::{fetch_posts_by_tag, fetch_tag_by_slug};
@@ -61,7 +61,6 @@ pub fn TagDetailScreen(slug: String) -> Element {
     let tag_slug = tag.slug.clone();
 
     rsx! {
-        // Inject SEO tags
         SeoHead {
             metadata: SeoMetadataBuilder::new()
                 .title(&tag_name)
@@ -79,7 +78,6 @@ pub fn TagDetailScreen(slug: String) -> Element {
 
         div { class: "min-h-screen",
             div { class: "container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-6xl",
-                // Tag header
                 h1 { class: "text-3xl font-bold mb-8", "Posts tagged: {tag_name}" }
 
                 match posts_result() {
@@ -114,7 +112,7 @@ pub fn TagDetailScreen(slug: String) -> Element {
                             }
                         }
                     },
-                    None => rsx! { div { "Loading posts..." } },
+                    None => rsx! { PostsLoadingSkeleton {} },
                 }
             }
         }

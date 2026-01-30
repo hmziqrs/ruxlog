@@ -22,12 +22,8 @@ pub fn extract_first_paragraph(html_content: &str) -> Option<String> {
 
 /// Clean text by removing extra whitespace and HTML entities
 pub fn clean_text(text: &str) -> String {
-    // Remove extra whitespace
-    let re = Regex::new(r"\s+").unwrap();
-    let cleaned = re.replace_all(text, " ");
-
     // Decode common HTML entities
-    cleaned
+    let decoded = text
         .replace("&nbsp;", " ")
         .replace("&amp;", "&")
         .replace("&lt;", "<")
@@ -35,7 +31,11 @@ pub fn clean_text(text: &str) -> String {
         .replace("&quot;", "\"")
         .replace("&#39;", "'")
         .trim()
-        .to_string()
+        .to_string();
+
+    // Normalize whitespace after decoding entities (e.g. `&nbsp;`)
+    let re = Regex::new(r"\s+").unwrap();
+    re.replace_all(&decoded, " ").trim().to_string()
 }
 
 /// Generate excerpt from content with character limit

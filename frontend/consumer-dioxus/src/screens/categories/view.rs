@@ -1,4 +1,4 @@
-use crate::components::PostCard;
+use crate::components::{PostCard, PostsLoadingSkeleton};
 use crate::router::Route;
 use crate::seo::{breadcrumb_schema, SeoHead, SeoMetadataBuilder, StructuredData};
 use crate::server_fns::{fetch_category_by_slug, fetch_posts_by_category};
@@ -62,7 +62,6 @@ pub fn CategoryDetailScreen(slug: String) -> Element {
     let cat_slug = category.slug.clone();
 
     rsx! {
-        // Inject SEO tags
         SeoHead {
             metadata: SeoMetadataBuilder::new()
                 .title(&cat_name)
@@ -80,7 +79,6 @@ pub fn CategoryDetailScreen(slug: String) -> Element {
 
         div { class: "min-h-screen",
             div { class: "container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-6xl",
-                // Category header
                 h1 { class: "text-3xl font-bold mb-8", "{cat_name}" }
 
                 match posts_result() {
@@ -115,7 +113,7 @@ pub fn CategoryDetailScreen(slug: String) -> Element {
                             }
                         }
                     },
-                    None => rsx! { div { "Loading posts..." } },
+                    None => rsx! { PostsLoadingSkeleton {} },
                 }
             }
         }
