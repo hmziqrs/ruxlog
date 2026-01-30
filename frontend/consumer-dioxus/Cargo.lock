@@ -215,6 +215,7 @@ dependencies = [
  "tower",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -233,6 +234,30 @@ dependencies = [
  "sync_wrapper",
  "tower-layer",
  "tower-service",
+ "tracing",
+]
+
+[[package]]
+name = "axum-extra"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9963ff19f40c6102c76756ef0a46004c0d58957d87259fc9208ff8441c12ab96"
+dependencies = [
+ "axum",
+ "axum-core",
+ "bytes",
+ "futures-util",
+ "headers",
+ "http",
+ "http-body",
+ "http-body-util",
+ "mime",
+ "pin-project-lite",
+ "rustversion",
+ "serde_core",
+ "tower-layer",
+ "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -685,7 +710,6 @@ dependencies = [
  "oxui",
  "photon-rs",
  "regex",
- "reqwest",
  "ruxlog-shared",
  "scraper",
  "serde",
@@ -1134,13 +1158,16 @@ dependencies = [
  "dioxus-devtools 0.7.3",
  "dioxus-document 0.7.3",
  "dioxus-fullstack 0.7.3",
+ "dioxus-fullstack-macro",
  "dioxus-history 0.7.3",
  "dioxus-hooks 0.7.3",
  "dioxus-html 0.7.3",
+ "dioxus-liveview",
  "dioxus-logger 0.7.3",
  "dioxus-router",
  "dioxus-server",
  "dioxus-signals 0.7.3",
+ "dioxus-ssr",
  "dioxus-stores",
  "dioxus-web 0.7.3",
  "manganis 0.7.3",
@@ -1524,6 +1551,7 @@ dependencies = [
  "async-tungstenite",
  "axum",
  "axum-core",
+ "axum-extra",
  "base64 0.22.1",
  "bytes",
  "ciborium",
@@ -1548,6 +1576,7 @@ dependencies = [
  "http",
  "http-body",
  "http-body-util",
+ "inventory",
  "js-sys",
  "mime",
  "pin-project",
@@ -1559,7 +1588,13 @@ dependencies = [
  "serde_qs 0.15.0",
  "serde_urlencoded",
  "thiserror 2.0.17",
+ "tokio",
+ "tokio-stream",
+ "tokio-tungstenite 0.27.0",
  "tokio-util",
+ "tower",
+ "tower-http",
+ "tower-layer",
  "tracing",
  "tungstenite 0.27.0",
  "url",
@@ -1817,6 +1852,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a3f7a1cfe6f8e9f2e303607c8ae564d11932fd80714c8a8c97e3860d55538997"
 dependencies = [
+ "axum",
  "dioxus-cli-config 0.7.3",
  "dioxus-core 0.7.3",
  "dioxus-devtools 0.7.3",
@@ -6388,6 +6424,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -6526,6 +6563,7 @@ dependencies = [
  "tokio",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -6574,6 +6612,7 @@ version = "0.1.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "784e0ac535deb450455cbfa28a6f0df145ea1bb7ae51b821cf5e7927fdcfbdd0"
 dependencies = [
+ "log",
  "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
