@@ -43,15 +43,15 @@ pub fn CategoryDetailScreen(slug: String) -> Element {
                     category_id: Some(category_id),
                     ..Default::default()
                 };
-                posts.list_with_query(query).await;
+                posts.list_published_with_query(query).await;
             });
         }
     });
 
     let posts_frame = posts_store.list.read();
 
-    let on_post_click = move |post_id: i32| {
-        nav.push(Route::PostViewScreen { id: post_id });
+    let on_post_click = move |post_slug: String| {
+        nav.push(Route::PostViewScreen { slug: post_slug });
     };
 
     rsx! {

@@ -29,7 +29,7 @@ pub fn article_schema(post: &Post) -> String {
         },
         "mainEntityOfPage": {
             "@type": "WebPage",
-            "@id": format!("{}/posts/{}", SEO_CONFIG.consumer_url, post.id)
+            "@id": format!("{}/posts/{}", SEO_CONFIG.consumer_url, post.slug)
         },
         "articleSection": &post.category.name,
         "keywords": post.tags.iter().map(|t| &t.name).collect::<Vec<_>>()

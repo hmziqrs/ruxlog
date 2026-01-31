@@ -11,12 +11,43 @@ pub fn use_post_seo(post_id: i32) -> Memo<Option<SeoMetadata>> {
     let posts = use_post();
 
     use_memo(move || {
+        if let Some(frame) = posts.view.read().get(&post_id) {
+            if let Some(post) = frame.data.as_ref() {
+                return Some(build_post_seo(post));
+            }
+        }
+
         let posts_read = posts.list.read();
         if let Some(list) = &(*posts_read).data {
             if let Some(post) = list.data.iter().find(|p| p.id == post_id) {
                 return Some(build_post_seo(post));
             }
         }
+        None
+    })
+}
+
+/// Auto-generate SEO metadata from a post by slug
+/// Returns None if post is not found or not yet loaded
+pub fn use_post_seo_by_slug(slug: String) -> Memo<Option<SeoMetadata>> {
+    let posts = use_post();
+
+    use_memo(move || {
+        let view_map = posts.view.read();
+        if let Some(post) = view_map
+            .values()
+            .find_map(|frame| frame.data.as_ref().filter(|p| p.slug.as_str() == slug.as_str()))
+        {
+            return Some(build_post_seo(post));
+        }
+
+        let posts_read = posts.list.read();
+        if let Some(list) = &(*posts_read).data {
+            if let Some(post) = list.data.iter().find(|p| p.slug.as_str() == slug.as_str()) {
+                return Some(build_post_seo(post));
+            }
+        }
+
         None
     })
 }
@@ -65,7 +96,7 @@ fn build_post_seo(post: &ruxlog_shared::Post) -> SeoMetadata {
         .description(&description)
         .image_struct(image)
         .article(article)
-        .canonical(&format!("/posts/{}", post.id))
+        .canonical(&format!("/posts/{}", post.slug))
         .build()
 }
 

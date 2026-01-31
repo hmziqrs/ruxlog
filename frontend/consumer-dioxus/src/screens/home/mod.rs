@@ -18,14 +18,14 @@ pub fn HomeScreen() -> Element {
     use_effect(move || {
         let posts = posts_store;
         spawn(async move {
-            posts.list().await;
+            posts.list_published().await;
         });
     });
 
     let posts_frame = posts_store.list.read();
 
-    let on_post_click = move |post_id: i32| {
-        nav.push(Route::PostViewScreen { id: post_id });
+    let on_post_click = move |post_slug: String| {
+        nav.push(Route::PostViewScreen { slug: post_slug });
     };
 
     rsx! {
