@@ -1,5 +1,5 @@
 use crate::components::{estimate_reading_time, format_date, ActionBar, BannerPlaceholder};
-use crate::seo::{article_schema, breadcrumb_schema, use_post_seo, SeoHead, StructuredData};
+use crate::seo::{article_schema, breadcrumb_schema, use_post_seo_by_slug, SeoHead, StructuredData};
 use crate::utils::editorjs::render_editorjs_content;
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::icons::ld_icons::{LdArrowLeft, LdCalendar, LdClock};
@@ -23,12 +23,14 @@ use crate::components::CommentsSection;
 use crate::analytics::{tracker, use_page_timer, use_scroll_depth};
 
 #[component]
-pub fn PostViewScreen(id: i32) -> Element {
+pub fn PostViewScreen(slug: String) -> Element {
     let posts = use_post();
     let nav = use_navigator();
 
     // Generate SEO metadata
-    let seo_metadata = use_post_seo(id);
+    let seo_metadata = use_post_seo_by_slug(slug.clone());
+
+    let mut requested_post_slug = use_signal(|| None::<String>);
 
     #[cfg(debug_assertions)]
     let instance_id = use_unique_id();
@@ -47,14 +49,30 @@ pub fn PostViewScreen(id: i32) -> Element {
     #[cfg(all(feature = "engagement", debug_assertions))]
     let likes_effect_counter = use_hook(|| Rc::new(Cell::new(0u32)));
 
-    // Get post by id
+    // Get post by slug (from list or view cache)
+    let post_slug = slug.clone();
     let post = use_memo(move || {
-        let posts_read = posts.list.read();
-        if let Some(list) = &(*posts_read).data {
-            list.data.iter().find(|p| p.id == id).cloned()
-        } else {
-            None
+        let view_map = posts.view.read();
+        if let Some(post) = view_map.values().find_map(|frame| {
+            frame
+                .data
+                .as_ref()
+                .filter(|p| p.slug.as_str() == post_slug.as_str())
+                .cloned()
+        }) {
+            return Some(post);
         }
+
+        let posts_read = posts.list.read();
+        posts_read
+            .data
+            .as_ref()
+            .and_then(|list| {
+                list.data
+                    .iter()
+                    .find(|p| p.slug.as_str() == post_slug.as_str())
+                    .cloned()
+            })
     });
 
     let post_data = post();
@@ -70,9 +88,9 @@ pub fn PostViewScreen(id: i32) -> Element {
                 target: "ruxlog::ui",
                 screen = "PostViewScreen",
                 instance_id = %instance_id_s,
-                post_id = id,
+                post_slug = %slug,
                 render_count = n,
-                post_in_list = post_data.is_some(),
+                post_loaded = post_data.is_some(),
                 list_status = ?list_frame.status,
                 list_is_loading = list_frame.is_loading(),
                 list_is_failed = list_frame.is_failed(),
@@ -82,26 +100,11 @@ pub fn PostViewScreen(id: i32) -> Element {
         }
     }
 
-    // Conditionally compile comments section
-    let comments_section: Option<Element> = {
-        #[cfg(feature = "comments")]
-        {
-            Some(rsx! {
-                div { id: "comments-section", class: "mb-12",
-                    CommentsSection { post_id: id }
-                }
-            })
-        }
-        #[cfg(not(feature = "comments"))]
-        {
-            None
-        }
-    };
-
-    // Fetch posts if not loaded
+    // Fetch post if not loaded
+    let slug_for_fetch = slug.clone();
     use_effect(move || {
-        let list_frame = posts.list.read();
         let post_is_some = post().is_some();
+        let already_requested = requested_post_slug().as_deref() == Some(slug_for_fetch.as_str());
 
         #[cfg(debug_assertions)]
         {
@@ -113,83 +116,93 @@ pub fn PostViewScreen(id: i32) -> Element {
                     target: "ruxlog::ui",
                     screen = "PostViewScreen",
                     instance_id = %instance_id_s,
-                    post_id = id,
-                    effect = "maybe_fetch_posts_list",
+                    post_slug = %slug_for_fetch,
+                    effect = "maybe_fetch_post_view",
                     effect_run = n,
-                    post_in_list = post_is_some,
-                    list_status = ?list_frame.status,
-                    list_is_loading = list_frame.is_loading(),
-                    list_is_failed = list_frame.is_failed(),
-                    list_error = ?list_frame.error_message(),
+                    post_loaded = post_is_some,
+                    already_requested,
                 );
             }
         }
 
-        // Only kick off the list request once (Init -> Loading). This prevents
-        // rapid re-renders from spawning multiple concurrent fetches.
-        if !post_is_some && list_frame.is_init() {
+        // Only kick off the post view request once per slug. This prevents rapid
+        // re-renders from spawning multiple concurrent fetches.
+        if !already_requested {
+            requested_post_slug.set(Some(slug_for_fetch.clone()));
             let posts_state = posts;
+            let slug_to_fetch = slug_for_fetch.clone();
             spawn(async move {
-                posts_state.list().await;
+                posts_state.view(&slug_to_fetch).await;
             });
         }
     });
 
     // Fetch like status when post is loaded and user is logged in (only when engagement feature is enabled)
     #[cfg(feature = "engagement")]
-    use_effect(move || {
-        let is_logged_in = auth.user.read().is_some();
-        let post_is_some = post().is_some();
-        let status_is_init = likes
-            .status
-            .read()
-            .get(&id)
-            .map(|frame| frame.is_init())
-            .unwrap_or(true);
+    {
+        let slug_for_likes = slug.clone();
+        use_effect(move || {
+            let is_logged_in = auth.user.read().is_some();
+            let post_id = post().as_ref().map(|p| p.id);
+            let status_is_init = post_id
+                .and_then(|pid| likes.status.read().get(&pid).map(|frame| frame.is_init()))
+                .unwrap_or(true);
 
-        #[cfg(debug_assertions)]
-        {
-            let n = likes_effect_counter.get().wrapping_add(1);
-            likes_effect_counter.set(n);
+            #[cfg(debug_assertions)]
+            {
+                let n = likes_effect_counter.get().wrapping_add(1);
+                likes_effect_counter.set(n);
 
-            if n <= 20 || n % 50 == 0 {
-                dioxus::logger::tracing::info!(
-                    target: "ruxlog::ui",
-                    screen = "PostViewScreen",
-                    instance_id = %instance_id_s,
-                    post_id = id,
-                    effect = "maybe_fetch_like_status",
-                    effect_run = n,
-                    is_logged_in,
-                    post_in_list = post_is_some,
-                    status_is_init,
-                );
+                if n <= 20 || n % 50 == 0 {
+                    dioxus::logger::tracing::info!(
+                        target: "ruxlog::ui",
+                        screen = "PostViewScreen",
+                        instance_id = %instance_id_s,
+                        post_slug = %slug_for_likes,
+                        effect = "maybe_fetch_like_status",
+                        effect_run = n,
+                        is_logged_in,
+                        post_loaded = post_id.is_some(),
+                        status_is_init,
+                    );
+                }
             }
-        }
 
-        // Avoid spawning a status fetch on every render (a status fetch writes to the likes store,
-        // which triggers a rerender, which would otherwise spawn again).
-        if is_logged_in && post_is_some && status_is_init {
-            let likes_state = likes;
-            spawn(async move {
-                likes_state.fetch_status(id).await;
-            });
-        }
-    });
+            // Avoid spawning a status fetch on every render (a status fetch writes to the likes store,
+            // which triggers a rerender, which would otherwise spawn again).
+            if is_logged_in && status_is_init {
+                let Some(post_id) = post_id else {
+                    return;
+                };
+                let likes_state = likes;
+                spawn(async move {
+                    likes_state.fetch_status(post_id).await;
+                });
+            }
+        });
+    }
 
     // Get like status from store (only when engagement feature is enabled)
     #[cfg(feature = "engagement")]
     let like_status = use_memo(move || {
+        let Some(post_id) = post().as_ref().map(|p| p.id) else {
+            return None;
+        };
+
         let status_map = likes.status.read();
-        status_map.get(&id).and_then(|frame| frame.data.clone())
+        status_map.get(&post_id).and_then(|frame| frame.data.clone())
     });
 
     // Check if like action is loading (only when engagement feature is enabled)
     #[cfg(feature = "engagement")]
     let is_like_loading = use_memo(move || {
+        let Some(post_id) = post().as_ref().map(|p| p.id) else {
+            return false;
+        };
+
         let action_map = likes.action.read();
         action_map
-            .get(&id)
+            .get(&post_id)
             .map(|frame| frame.is_loading())
             .unwrap_or(false)
     });
@@ -203,9 +216,13 @@ pub fn PostViewScreen(id: i32) -> Element {
             return;
         }
 
+        let Some(post_id) = post().as_ref().map(|p| p.id) else {
+            return;
+        };
+
         let likes_state = likes;
         spawn(async move {
-            likes_state.toggle(id).await;
+            likes_state.toggle(post_id).await;
         });
     };
 
@@ -225,7 +242,7 @@ pub fn PostViewScreen(id: i32) -> Element {
     // Analytics: Track page view and time spent
     #[cfg(feature = "analytics")]
     {
-        let route = format!("/post/{}", id);
+        let route = format!("/posts/{}", slug);
         use_page_timer(&route);
         use_scroll_depth(&route);
 
@@ -242,6 +259,22 @@ pub fn PostViewScreen(id: i32) -> Element {
     }
 
     if let Some(post) = post_data {
+        // Conditionally compile comments section (requires numeric post id)
+        let comments_section: Option<Element> = {
+            #[cfg(feature = "comments")]
+            {
+                Some(rsx! {
+                    div { id: "comments-section", class: "mb-12",
+                        CommentsSection { post_id: post.id }
+                    }
+                })
+            }
+            #[cfg(not(feature = "comments"))]
+            {
+                None
+            }
+        };
+
         let published_date = post
             .published_at
             .as_ref()
@@ -295,7 +328,7 @@ pub fn PostViewScreen(id: i32) -> Element {
                 json_ld: breadcrumb_schema(vec![
                     ("Home", "/"),
                     (&post.category.name, &format!("/categories/{}", post.category.slug)),
-                    (&post.title, &format!("/posts/{}", post.id))
+                    (&post.title, &format!("/posts/{}", post.slug))
                 ])
             }
 

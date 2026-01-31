@@ -153,6 +153,21 @@ impl PostState {
         .await;
     }
 
+    /// List published posts with custom query parameters (public endpoint)
+    pub async fn list_published_with_query(&self, query: PostListQuery) {
+        let _ = list_state_abstraction(
+            &self.list,
+            http::post("/post/v1/list/published", &query).send(),
+            "published posts",
+        )
+        .await;
+    }
+
+    /// Alias for list_published_with_query to match API naming
+    pub async fn list_published_query(&self, query: PostListQuery) {
+        self.list_published_with_query(query).await;
+    }
+
     /// Autosave post content (creates revision + updates post)
     pub async fn autosave(&self, payload: PostAutosavePayload) {
         let key = payload.post_id;

@@ -1400,7 +1400,7 @@ dependencies = [
 
 [[package]]
 name = "dioxus-time"
-version = "0.7.2"
+version = "0.7.3"
 dependencies = [
  "dioxus 0.7.3",
  "futures",
@@ -3542,7 +3542,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "dioxus 0.7.3",
- "dioxus-time 0.7.2",
+ "dioxus-time 0.7.3",
  "futures-channel",
  "js-sys",
  "oxcore",
