@@ -192,7 +192,7 @@ fn ErrorDetailsCard(props: ErrorDetailsCardProps) -> Element {
 
     rsx! {
         div { class: container_classes.join(" "),
-            div { class: "space-y-4 p-5 sm:p-6",
+        div { class: "space-y-4 p-4 border border-border/60 rounded-md",
                 div { class: "flex items-center gap-2 text-base",
                     div { class: "text-destructive [&_svg]:size-5",
                         if icon_is_alert {

@@ -2,7 +2,7 @@
 
 use crate::hooks::use_unique_id;
 use dioxus::prelude::*;
-use dioxus_time::sleep;
+use crate::utils::sleep;
 use std::time::Duration;
 
 use super::icons::{icon_close, icon_error, icon_info, icon_success, icon_warning, loader_spinner};

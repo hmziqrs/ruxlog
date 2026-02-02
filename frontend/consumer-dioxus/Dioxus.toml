@@ -25,8 +25,8 @@ script = []
 reload_html = true
 
 [web.ssg]
-# Enable static site generation
-enabled = true
+# Disable static site generation (using dynamic SSR instead)
+enabled = false
 
 # Use incremental SSG (only rebuild changed routes)
-incremental = true
+incremental = false
