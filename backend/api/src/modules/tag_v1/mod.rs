@@ -20,7 +20,9 @@ pub fn routes() -> Router<AppState> {
             auth_guard::verified_with_role::<{ auth_guard::ROLE_ADMIN }>,
         ));
 
-    let public = Router::<AppState>::new().route("/list", get(controller::find_all));
+    let public = Router::<AppState>::new()
+        .route("/list", get(controller::find_all))
+        .route("/view/{tag_id}", get(controller::find_by_id_or_slug));
 
     admin.merge(public)
 }

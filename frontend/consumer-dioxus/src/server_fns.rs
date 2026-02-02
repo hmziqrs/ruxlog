@@ -53,15 +53,15 @@ pub async fn fetch_post_by_slug(slug: String) -> Result<Option<Post>, ServerFnEr
 }
 
 #[server]
-pub async fn fetch_tags() -> Result<PaginatedList<Tag>, ServerFnError> {
-    let response = oxcore::http::post("/tags/v1/query", &serde_json::json!({}))
+pub async fn fetch_tags() -> Result<Vec<Tag>, ServerFnError> {
+    let response = oxcore::http::get("/tag/v1/list")
         .send()
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?;
 
     if (200..300).contains(&response.status()) {
         response
-            .json::<PaginatedList<Tag>>()
+            .json::<Vec<Tag>>()
             .await
             .map_err(|e| ServerFnError::new(e.to_string()))
     } else {
@@ -73,15 +73,15 @@ pub async fn fetch_tags() -> Result<PaginatedList<Tag>, ServerFnError> {
 }
 
 #[server]
-pub async fn fetch_categories() -> Result<PaginatedList<Category>, ServerFnError> {
-    let response = oxcore::http::post("/categories/v1/query", &serde_json::json!({}))
+pub async fn fetch_categories() -> Result<Vec<Category>, ServerFnError> {
+    let response = oxcore::http::get("/category/v1/list")
         .send()
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?;
 
     if (200..300).contains(&response.status()) {
         response
-            .json::<PaginatedList<Category>>()
+            .json::<Vec<Category>>()
             .await
             .map_err(|e| ServerFnError::new(e.to_string()))
     } else {
@@ -148,19 +148,21 @@ pub async fn fetch_posts_by_category(
 
 #[server]
 pub async fn fetch_tag_by_slug(slug: String) -> Result<Option<Tag>, ServerFnError> {
-    // First fetch all tags, then find the one with matching slug
-    let response = oxcore::http::post("/tags/v1/query", &serde_json::json!({}))
+    let response = oxcore::http::get(&format!("/tag/v1/view/{}", slug))
         .send()
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?;
 
-    if (200..300).contains(&response.status()) {
-        let tags: PaginatedList<Tag> = response
-            .json()
-            .await
-            .map_err(|e| ServerFnError::new(e.to_string()))?;
+    if response.status() == 404 {
+        return Ok(None);
+    }
 
-        Ok(tags.data.into_iter().find(|t| t.slug == slug))
+    if (200..300).contains(&response.status()) {
+        response
+            .json::<Tag>()
+            .await
+            .map(Some)
+            .map_err(|e| ServerFnError::new(e.to_string()))
     } else {
         Err(ServerFnError::new(format!(
             "API error: {}",
@@ -171,19 +173,21 @@ pub async fn fetch_tag_by_slug(slug: String) -> Result<Option<Tag>, ServerFnErro
 
 #[server]
 pub async fn fetch_category_by_slug(slug: String) -> Result<Option<Category>, ServerFnError> {
-    // First fetch all categories, then find the one with matching slug
-    let response = oxcore::http::post("/categories/v1/query", &serde_json::json!({}))
+    let response = oxcore::http::get(&format!("/category/v1/view/{}", slug))
         .send()
         .await
         .map_err(|e| ServerFnError::new(e.to_string()))?;
 
-    if (200..300).contains(&response.status()) {
-        let categories: PaginatedList<Category> = response
-            .json()
-            .await
-            .map_err(|e| ServerFnError::new(e.to_string()))?;
+    if response.status() == 404 {
+        return Ok(None);
+    }
 
-        Ok(categories.data.into_iter().find(|c| c.slug == slug))
+    if (200..300).contains(&response.status()) {
+        response
+            .json::<Category>()
+            .await
+            .map(Some)
+            .map_err(|e| ServerFnError::new(e.to_string()))
     } else {
         Err(ServerFnError::new(format!(
             "API error: {}",
