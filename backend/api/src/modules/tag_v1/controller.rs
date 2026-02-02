@@ -121,6 +121,42 @@ pub async fn find_by_id(
     }
 }
 
+/// Find a tag by ID or slug using SeaORM
+#[debug_handler]
+#[instrument(skip(state), fields(slug_or_id = %slug_or_id, tag_id))]
+pub async fn find_by_id_or_slug(
+    State(state): State<AppState>,
+    Path(slug_or_id): Path<String>,
+) -> Result<impl IntoResponse, ErrorResponse> {
+    let mut id: Option<i32> = None;
+    let mut slug: Option<String> = None;
+
+    match slug_or_id.parse::<i32>() {
+        Ok(parsed_id) => {
+            id = Some(parsed_id);
+        }
+        Err(_) => {
+            slug = Some(slug_or_id);
+        }
+    }
+
+    match Tag::find_by_id_or_slug(&state.sea_db, id, slug).await {
+        Ok(Some(tag)) => {
+            tracing::Span::current().record("tag_id", tag.id);
+            info!(tag_id = tag.id, "Tag retrieved by id or slug");
+            Ok((StatusCode::OK, Json(json!(tag))))
+        }
+        Ok(None) => {
+            warn!("Tag not found");
+            Err(ErrorResponse::new(ErrorCode::TagNotFound).with_message("Tag not found"))
+        }
+        Err(err) => {
+            error!("Failed to find tag: {}", err);
+            Err(err.into())
+        }
+    }
+}
+
 /// Find all tags using SeaORM
 #[debug_handler]
 #[instrument(skip(state))]

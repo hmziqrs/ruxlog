@@ -107,6 +107,30 @@ impl Entity {
         }
     }
 
+    pub async fn find_by_id_or_slug(
+        conn: &DbConn,
+        tag_id: Option<i32>,
+        tag_slug: Option<String>,
+    ) -> DbResult<Option<Model>> {
+        if tag_id.is_none() && tag_slug.is_none() {
+            return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                .with_message("Either tag_id or tag_slug must be provided"));
+        }
+
+        let mut query = Self::find();
+
+        if let Some(id) = tag_id {
+            query = query.filter(Column::Id.eq(id));
+        } else if let Some(slug) = tag_slug {
+            query = query.filter(Column::Slug.eq(slug));
+        }
+
+        match query.one(conn).await {
+            Ok(model) => Ok(model),
+            Err(err) => Err(err.into()),
+        }
+    }
+
     pub async fn find_all(conn: &DbConn) -> DbResult<Vec<Model>> {
         match Self::find()
             .order_by(Column::Name, Order::Desc)
