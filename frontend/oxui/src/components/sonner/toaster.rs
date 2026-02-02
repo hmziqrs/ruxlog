@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_time::sleep;
+use crate::utils::sleep;
 use crate::components::{use_portal, PortalIn, PortalOut};
 use std::collections::VecDeque;
 use std::time::Duration;

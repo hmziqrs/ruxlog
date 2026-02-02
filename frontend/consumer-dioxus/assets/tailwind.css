@@ -78,7 +78,6 @@
     --animate-pulse: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     --blur-sm: 8px;
     --blur-xl: 24px;
-    --aspect-video: 16 / 9;
     --default-transition-duration: 150ms;
     --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     --default-font-family: var(--font-geist-sans);
@@ -1117,9 +1116,6 @@
   .aspect-square {
     aspect-ratio: 1 / 1;
   }
-  .aspect-video {
-    aspect-ratio: var(--aspect-video);
-  }
   .size-2 {
     width: calc(0.25rem * 2);
     height: calc(0.25rem * 2);
@@ -1269,9 +1265,6 @@
   }
   .w-5 {
     width: calc(0.25rem * 5);
-  }
-  .w-5\/6 {
-    width: calc(5/6 * 100%);
   }
   .w-6 {
     width: calc(0.25rem * 6);
@@ -2148,9 +2141,6 @@
   }
   .pb-8 {
     padding-bottom: calc(0.25rem * 8);
-  }
-  .pb-12 {
-    padding-bottom: calc(0.25rem * 12);
   }
   .pb-16 {
     padding-bottom: calc(0.25rem * 16);

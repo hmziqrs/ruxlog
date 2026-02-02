@@ -1533,6 +1533,7 @@ version = "0.1.0"
 dependencies = [
  "gloo-net",
  "js-sys",
+ "once_cell",
  "reqwest",
  "serde",
  "serde_json",
