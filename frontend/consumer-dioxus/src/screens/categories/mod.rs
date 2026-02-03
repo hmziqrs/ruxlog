@@ -16,7 +16,7 @@ pub fn CategoriesScreen() -> Element {
     use_effect(move || {
         let categories = categories_store;
         spawn(async move {
-            categories.list().await;
+            categories.list_all().await;
         });
     });
 

@@ -16,7 +16,7 @@ pub fn TagsScreen() -> Element {
     use_effect(move || {
         let tags = tags_store;
         spawn(async move {
-            tags.list().await;
+            tags.list_all().await;
         });
     });
 

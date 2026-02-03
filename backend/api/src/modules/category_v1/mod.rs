@@ -23,5 +23,5 @@ pub fn routes() -> Router<AppState> {
         .route("/list", get(controller::find_all))
         .route("/view/{category_id}", get(controller::find_by_id_or_slug));
 
-    admin.merge(public)
+    public.merge(admin)
 }
