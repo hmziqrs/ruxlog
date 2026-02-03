@@ -65,7 +65,12 @@ impl TagsState {
 
     /// Public list endpoint without filters
     pub async fn list_all(&self) {
-        let _ = list_state_abstraction(&self.list, http::get("/tag/v1/list").send(), "tags").await;
+        let _ = oxstore::simple_list_state_abstraction(
+            &self.list,
+            http::get("/tag/v1/list").send(),
+            "tags",
+        )
+        .await;
     }
 
     pub async fn list_with_query(&self, query: TagsListQuery) {
@@ -81,7 +86,7 @@ impl TagsState {
         let _ = view_state_abstraction(
             &self.view,
             id,
-            http::post(&format!("/tag/v1/view/{}", id), &()).send(),
+            http::get(&format!("/tag/v1/view/{}", id)).send(),
             "tag",
             |tag: &Tag| tag.clone(),
         )
