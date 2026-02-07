@@ -14,7 +14,8 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
   const ctx = canvas.getContext("2d", { alpha: true });
   if (!ctx) return false;
 
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const prefersReducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let reducedMotion = prefersReducedMotionQuery.matches;
   const devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
 
   const pointer = {
@@ -70,6 +71,9 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
     canvas.style.height = height + "px";
     ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
     syncParticlePool();
+    if (reducedMotion) {
+      drawStaticFrame();
+    }
   }
 
   function updateParticle(particle) {
@@ -96,18 +100,20 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
     particle.vy *= 0.998;
   }
 
-  function drawFrame() {
+  function drawFrame(animateParticles = true) {
     const dark = isDarkMode();
-    const nodeAlpha = dark ? 0.42 : 0.2;
-    const lineAlpha = dark ? 0.18 : 0.09;
-    const glowAlpha = dark ? 0.15 : 0.08;
-    const rgb = dark ? "235,239,255" : "54,72,99";
+    const nodeAlpha = dark ? 0.42 : 0.24;
+    const lineAlpha = dark ? 0.18 : 0.11;
+    const glowAlpha = dark ? 0.15 : 0.09;
+    const rgb = dark ? "235,239,255" : "36,72,122";
 
     ctx.clearRect(0, 0, width, height);
 
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
-      updateParticle(p);
+      if (animateParticles) {
+        updateParticle(p);
+      }
       ctx.beginPath();
       ctx.fillStyle = `rgba(${rgb},${nodeAlpha})`;
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
@@ -145,9 +151,13 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
     }
   }
 
+  function drawStaticFrame() {
+    drawFrame(false);
+  }
+
   function frame() {
     if (!running) return;
-    drawFrame();
+    drawFrame(true);
     frameId = window.requestAnimationFrame(frame);
   }
 
@@ -155,10 +165,16 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
     pointer.x = event.clientX;
     pointer.y = event.clientY;
     pointer.active = true;
+    if (reducedMotion) {
+      drawStaticFrame();
+    }
   }
 
   function onPointerLeave() {
     pointer.active = false;
+    if (reducedMotion) {
+      drawStaticFrame();
+    }
   }
 
   function onVisibilityChange() {
@@ -172,11 +188,39 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
 
     if (!reducedMotion && frameId === null && running) {
       frameId = window.requestAnimationFrame(frame);
+    } else if (reducedMotion) {
+      drawStaticFrame();
     }
   }
 
+  function onMotionPreferenceChange(event) {
+    reducedMotion = event.matches;
+    if (reducedMotion) {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+        frameId = null;
+      }
+      drawStaticFrame();
+      return;
+    }
+
+    if (!document.hidden && frameId === null && running) {
+      frameId = window.requestAnimationFrame(frame);
+    }
+  }
+
+  const themeObserver = new MutationObserver(() => {
+    if (reducedMotion) {
+      drawStaticFrame();
+    }
+  });
+
   resizeCanvas();
-  drawFrame();
+  if (reducedMotion) {
+    drawStaticFrame();
+  } else {
+    drawFrame(true);
+  }
 
   if (!reducedMotion) {
     frameId = window.requestAnimationFrame(frame);
@@ -187,6 +231,13 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
   window.addEventListener("pointerleave", onPointerLeave, { passive: true });
   window.addEventListener("blur", onPointerLeave, { passive: true });
   document.addEventListener("visibilitychange", onVisibilityChange, { passive: true });
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+
+  if (typeof prefersReducedMotionQuery.addEventListener === "function") {
+    prefersReducedMotionQuery.addEventListener("change", onMotionPreferenceChange);
+  } else if (typeof prefersReducedMotionQuery.addListener === "function") {
+    prefersReducedMotionQuery.addListener(onMotionPreferenceChange);
+  }
 
   window.__ruxlogAmbientBgCleanup = () => {
     running = false;
@@ -199,6 +250,13 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
     window.removeEventListener("pointerleave", onPointerLeave);
     window.removeEventListener("blur", onPointerLeave);
     document.removeEventListener("visibilitychange", onVisibilityChange);
+    themeObserver.disconnect();
+
+    if (typeof prefersReducedMotionQuery.removeEventListener === "function") {
+      prefersReducedMotionQuery.removeEventListener("change", onMotionPreferenceChange);
+    } else if (typeof prefersReducedMotionQuery.removeListener === "function") {
+      prefersReducedMotionQuery.removeListener(onMotionPreferenceChange);
+    }
     delete window.__ruxlogAmbientBgCleanup;
   };
 
