@@ -36,18 +36,18 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
 
   function particleCountForViewport() {
     const area = width * height;
-    return Math.max(110, Math.min(240, Math.round(area / 9000)));
+    return Math.max(42, Math.min(96, Math.round(area / 22000)));
   }
 
   function createParticle() {
-    const speed = 0.16 + Math.random() * 0.45;
+    const speed = 0.045 + Math.random() * 0.11;
     const angle = Math.random() * Math.PI * 2;
     return {
       x: Math.random() * width,
       y: Math.random() * height,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      size: 1.1 + Math.random() * 2.2,
+      size: 0.95 + Math.random() * 1.6,
     };
   }
 
@@ -89,15 +89,15 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
       const dx = particle.x - pointer.x;
       const dy = particle.y - pointer.y;
       const dist = Math.hypot(dx, dy);
-      if (dist > 0 && dist < 230) {
-        const influence = (1 - dist / 230) * 0.015;
+      if (dist > 0 && dist < 165) {
+        const influence = (1 - dist / 165) * 0.0042;
         particle.vx += (dx / dist) * influence;
         particle.vy += (dy / dist) * influence;
       }
     }
 
-    particle.vx *= 0.998;
-    particle.vy *= 0.998;
+    particle.vx *= 0.9992;
+    particle.vy *= 0.9992;
   }
 
   function drawFrame(animateParticles = true) {
@@ -122,7 +122,7 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
       ctx.fill();
     }
 
-    const maxDistance = 210;
+    const maxDistance = 132;
     for (let i = 0; i < particles.length; i++) {
       const a = particles[i];
       for (let j = i + 1; j < particles.length; j++) {
@@ -133,7 +133,7 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
         if (dist < maxDistance) {
           const alpha = (1 - dist / maxDistance) * lineAlpha;
           ctx.strokeStyle = `rgba(${rgb},${alpha})`;
-          ctx.lineWidth = 0.95;
+          ctx.lineWidth = 0.75;
           ctx.beginPath();
           ctx.moveTo(a.x, a.y);
           ctx.lineTo(b.x, b.y);
@@ -143,7 +143,7 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
     }
 
     if (pointer.active) {
-      const pointerLinkDistance = 245;
+      const pointerLinkDistance = 170;
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
         const dx = p.x - pointer.x;
@@ -152,7 +152,7 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
         if (dist < pointerLinkDistance) {
           const alpha = (1 - dist / pointerLinkDistance) * pointerLineAlpha;
           ctx.strokeStyle = `rgba(${rgb},${alpha})`;
-          ctx.lineWidth = 1.05;
+          ctx.lineWidth = 0.85;
           ctx.beginPath();
           ctx.moveTo(pointer.x, pointer.y);
           ctx.lineTo(p.x, p.y);
