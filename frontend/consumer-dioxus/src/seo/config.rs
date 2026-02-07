@@ -42,7 +42,11 @@ pub fn format_title(page_title: &str) -> String {
 
 /// Generate canonical URL for a route path
 pub fn canonical_url(path: &str) -> String {
-    let path = if path.starts_with('/') { path } else { &format!("/{}", path) };
+    let path = if path.starts_with('/') {
+        path
+    } else {
+        &format!("/{}", path)
+    };
     format!("{}{}", SEO_CONFIG.consumer_url, path)
 }
 

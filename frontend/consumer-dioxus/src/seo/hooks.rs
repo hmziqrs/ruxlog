@@ -34,10 +34,12 @@ pub fn use_post_seo_by_slug(slug: String) -> Memo<Option<SeoMetadata>> {
 
     use_memo(move || {
         let view_map = posts.view.read();
-        if let Some(post) = view_map
-            .values()
-            .find_map(|frame| frame.data.as_ref().filter(|p| p.slug.as_str() == slug.as_str()))
-        {
+        if let Some(post) = view_map.values().find_map(|frame| {
+            frame
+                .data
+                .as_ref()
+                .filter(|p| p.slug.as_str() == slug.as_str())
+        }) {
             return Some(build_post_seo(post));
         }
 
@@ -61,13 +63,7 @@ fn build_post_seo(post: &ruxlog_shared::Post) -> SeoMetadata {
         .or_else(|| {
             // Try to extract first paragraph from EditorJS content
             let content_text = extract_text_from_editorjs(&post.content);
-            content_text.and_then(|text| {
-                if text.len() > 20 {
-                    Some(text)
-                } else {
-                    None
-                }
-            })
+            content_text.and_then(|text| if text.len() > 20 { Some(text) } else { None })
         })
         .unwrap_or_else(|| format!("Read {} on {}", post.title, SEO_CONFIG.site_name));
 
@@ -147,15 +143,12 @@ pub fn use_category_seo(slug: String) -> Memo<Option<SeoMetadata>> {
 
 /// Build SEO metadata from a Category instance
 fn build_category_seo(category: &ruxlog_shared::Category) -> SeoMetadata {
-    let description = category
-        .description
-        .clone()
-        .unwrap_or_else(|| {
-            format!(
-                "Browse posts in the {} category on {}",
-                category.name, SEO_CONFIG.site_name
-            )
-        });
+    let description = category.description.clone().unwrap_or_else(|| {
+        format!(
+            "Browse posts in the {} category on {}",
+            category.name, SEO_CONFIG.site_name
+        )
+    });
 
     let description = truncate_description(&description, 160);
 
@@ -196,12 +189,10 @@ pub fn use_tag_seo(slug: String) -> Memo<Option<SeoMetadata>> {
 
 /// Build SEO metadata from a Tag instance
 fn build_tag_seo(tag: &ruxlog_shared::Tag) -> SeoMetadata {
-    let description = tag.description.clone().unwrap_or_else(|| {
-        format!(
-            "Posts tagged with {} on {}",
-            tag.name, SEO_CONFIG.site_name
-        )
-    });
+    let description = tag
+        .description
+        .clone()
+        .unwrap_or_else(|| format!("Posts tagged with {} on {}", tag.name, SEO_CONFIG.site_name));
 
     let description = truncate_description(&description, 160);
 

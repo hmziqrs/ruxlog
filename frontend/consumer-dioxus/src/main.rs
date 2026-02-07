@@ -1,5 +1,6 @@
 use dioxus::{logger::tracing, prelude::*};
 
+use crate::components::AmbientCanvasBackground;
 use oxui::components::SonnerToaster;
 
 pub mod components;
@@ -107,6 +108,7 @@ fn App() -> Element {
             rel: "stylesheet",
             href: "https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400..600&family=Geist:wght@400..600&display=swap",
         }
+        AmbientCanvasBackground {}
         SuspenseBoundary {
             fallback: |_| rsx! {
                 div { class: "min-h-screen flex items-center justify-center bg-background",
