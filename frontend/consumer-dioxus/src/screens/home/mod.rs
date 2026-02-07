@@ -28,7 +28,7 @@ pub fn HomeScreen() -> Element {
         // Inject structured data
         StructuredData { json_ld: website_schema() }
 
-        div { class: "min-h-screen bg-background",
+        div { class: "min-h-screen",
             div { class: "h-4" }
             BannerPlaceholder {}
 

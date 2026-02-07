@@ -24,7 +24,7 @@ pub fn ProfileEditScreen() -> Element {
         });
 
         return rsx! {
-            div { class: "min-h-screen bg-background flex items-center justify-center",
+            div { class: "min-h-screen flex items-center justify-center",
                 div { "Redirecting to login..." }
             }
         };
@@ -92,7 +92,7 @@ pub fn ProfileEditScreen() -> Element {
     };
 
     rsx! {
-        div { class: "min-h-screen bg-background",
+        div { class: "min-h-screen",
             div { class: "container mx-auto px-4 py-12 max-w-2xl",
                 // Header
                 div { class: "mb-8",

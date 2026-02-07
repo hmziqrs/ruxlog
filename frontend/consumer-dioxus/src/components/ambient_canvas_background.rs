@@ -36,7 +36,7 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
 
   function particleCountForViewport() {
     const area = width * height;
-    return Math.max(22, Math.min(66, Math.round(area / 26000)));
+    return Math.max(110, Math.min(240, Math.round(area / 9000)));
   }
 
   function createParticle() {
@@ -47,7 +47,7 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
       y: Math.random() * height,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      size: 0.9 + Math.random() * 1.8,
+      size: 1.1 + Math.random() * 2.2,
     };
   }
 
@@ -89,8 +89,8 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
       const dx = particle.x - pointer.x;
       const dy = particle.y - pointer.y;
       const dist = Math.hypot(dx, dy);
-      if (dist > 0 && dist < 170) {
-        const influence = (1 - dist / 170) * 0.011;
+      if (dist > 0 && dist < 230) {
+        const influence = (1 - dist / 230) * 0.015;
         particle.vx += (dx / dist) * influence;
         particle.vy += (dy / dist) * influence;
       }
@@ -102,10 +102,12 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
 
   function drawFrame(animateParticles = true) {
     const dark = isDarkMode();
-    const nodeAlpha = dark ? 0.42 : 0.24;
-    const lineAlpha = dark ? 0.18 : 0.11;
-    const glowAlpha = dark ? 0.15 : 0.09;
-    const rgb = dark ? "235,239,255" : "36,72,122";
+    const nodeAlpha = dark ? 0.34 : 0.38;
+    const lineAlpha = dark ? 0.1 : 0.18;
+    const glowAlpha = dark ? 0.12 : 0.18;
+    const pointerLineAlpha = dark ? 0.22 : 0.26;
+    const rgb = dark ? "235,239,255" : "15,23,42";
+    canvas.style.opacity = dark ? "0.22" : "0.16";
 
     ctx.clearRect(0, 0, width, height);
 
@@ -120,7 +122,7 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
       ctx.fill();
     }
 
-    const maxDistance = 132;
+    const maxDistance = 210;
     for (let i = 0; i < particles.length; i++) {
       const a = particles[i];
       for (let j = i + 1; j < particles.length; j++) {
@@ -131,7 +133,7 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
         if (dist < maxDistance) {
           const alpha = (1 - dist / maxDistance) * lineAlpha;
           ctx.strokeStyle = `rgba(${rgb},${alpha})`;
-          ctx.lineWidth = 0.8;
+          ctx.lineWidth = 0.95;
           ctx.beginPath();
           ctx.moveTo(a.x, a.y);
           ctx.lineTo(b.x, b.y);
@@ -141,6 +143,23 @@ const AMBIENT_BACKGROUND_SETUP_JS: &str = r#"
     }
 
     if (pointer.active) {
+      const pointerLinkDistance = 245;
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        const dx = p.x - pointer.x;
+        const dy = p.y - pointer.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < pointerLinkDistance) {
+          const alpha = (1 - dist / pointerLinkDistance) * pointerLineAlpha;
+          ctx.strokeStyle = `rgba(${rgb},${alpha})`;
+          ctx.lineWidth = 1.05;
+          ctx.beginPath();
+          ctx.moveTo(pointer.x, pointer.y);
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+        }
+      }
+
       const gradient = ctx.createRadialGradient(pointer.x, pointer.y, 0, pointer.x, pointer.y, 210);
       gradient.addColorStop(0, `rgba(${rgb},${glowAlpha})`);
       gradient.addColorStop(1, "rgba(0,0,0,0)");
@@ -287,8 +306,7 @@ pub fn AmbientCanvasBackground() -> Element {
         canvas {
             id: "ambient-bg-canvas",
             aria_hidden: "true",
-            class: "fixed inset-0 z-40 pointer-events-none opacity-30",
-            style: "mask-image: radial-gradient(ellipse 78% 64% at 50% 44%, black 45%, transparent 100%); -webkit-mask-image: radial-gradient(ellipse 78% 64% at 50% 44%, black 45%, transparent 100%);",
+            style: "position: fixed; inset: 0; z-index: 1; pointer-events: none;",
         }
     }
 }

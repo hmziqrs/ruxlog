@@ -109,13 +109,15 @@ fn App() -> Element {
             href: "https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400..600&family=Geist:wght@400..600&display=swap",
         }
         AmbientCanvasBackground {}
-        SuspenseBoundary {
-            fallback: |_| rsx! {
-                div { class: "min-h-screen flex items-center justify-center bg-background",
-                    div { class: "animate-pulse text-muted-foreground", "Loading..." }
-                }
-            },
-            SonnerToaster { Router::<crate::router::Route> {} }
+        div { style: "position: relative; z-index: 10;",
+            SuspenseBoundary {
+                fallback: |_| rsx! {
+                    div { class: "min-h-screen flex items-center justify-center",
+                        div { class: "animate-pulse text-muted-foreground", "Loading..." }
+                    }
+                },
+                SonnerToaster { Router::<crate::router::Route> {} }
+            }
         }
     }
 }

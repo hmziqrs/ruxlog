@@ -21,7 +21,7 @@ pub fn TagDetailScreen(slug: String) -> Element {
         Some(Ok(t)) => t,
         Some(Err(e)) => {
             return rsx! {
-                div { class: "min-h-screen bg-background flex items-center justify-center",
+                div { class: "min-h-screen flex items-center justify-center",
                     div { class: "max-w-md w-full",
                         ErrorDetails {
                             error: Some(AppError::Other { message: e.to_string() }),
@@ -36,7 +36,7 @@ pub fn TagDetailScreen(slug: String) -> Element {
 
     let Some(tag) = tag else {
         return rsx! {
-            div { class: "min-h-screen bg-background flex items-center justify-center",
+            div { class: "min-h-screen flex items-center justify-center",
                 div { class: "text-center",
                     h1 { class: "text-2xl font-bold mb-4", "Tag not found" }
                     button {
@@ -77,7 +77,7 @@ pub fn TagDetailScreen(slug: String) -> Element {
             ])
         }
 
-        div { class: "min-h-screen bg-background",
+        div { class: "min-h-screen",
             div { class: "container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-6xl",
                 // Tag header
                 h1 { class: "text-3xl font-bold mb-8", "Posts tagged: {tag_name}" }
