@@ -28,3 +28,5 @@ I've been inconsistently doing development on this project had to pause bunch of
 After completing majority of admin frontend in dioxus I had second thoughts about using dioxus for consumer frontend. Just because of how time consuming it is do things here because of non existence eco-system. But initially I wanted to build everything in rust including frontend. So I stuck with dioxus for consumer as well no matter how much time consuming it is. and also I though this would hurt my pride.
 
 
+Also one of my main blocker was AI! Thing is AI let's plan and implement new features so easily instead of improving it slowed me down by having to test and manage it. In my code base one can find so stuff like OTEL authentication, comments, user profile pages, reports, banning and whole let's of full flegded stuff. but implementing all of them via vibe coding slowed me down instead of providing value.
+
