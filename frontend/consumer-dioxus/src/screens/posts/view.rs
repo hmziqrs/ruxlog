@@ -249,7 +249,7 @@ pub fn PostViewScreen(slug: String) -> Element {
                     ])
                 }
 
-                div { class: "min-h-screen bg-background",
+                div { class: "min-h-screen",
                     // Article header
                     header { class: "container mx-auto px-4 max-w-6xl pt-12 pb-8",
                         // Category & Tags
@@ -416,7 +416,7 @@ pub fn PostViewScreen(slug: String) -> Element {
         Some(Ok(None)) => {
             // Post not found
             rsx! {
-                div { class: "min-h-screen bg-background flex items-center justify-center",
+                div { class: "min-h-screen flex items-center justify-center",
                     div { class: "text-center",
                         h1 { class: "text-2xl font-bold mb-4", "Post not found" }
                         button {
@@ -431,7 +431,7 @@ pub fn PostViewScreen(slug: String) -> Element {
         Some(Err(e)) => {
             // Error state
             rsx! {
-                div { class: "min-h-screen bg-background flex items-center justify-center",
+                div { class: "min-h-screen flex items-center justify-center",
                     div { class: "text-center",
                         h1 { class: "text-2xl font-bold mb-4", "Error loading post" }
                         p { class: "text-muted-foreground mb-4", "{e}" }
@@ -447,7 +447,7 @@ pub fn PostViewScreen(slug: String) -> Element {
         None => {
             // Loading state
             rsx! {
-                div { class: "min-h-screen bg-background flex items-center justify-center",
+                div { class: "min-h-screen flex items-center justify-center",
                     div { class: "animate-pulse text-muted-foreground", "Loading..." }
                 }
             }

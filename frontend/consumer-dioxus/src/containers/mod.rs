@@ -95,7 +95,7 @@ pub fn NavBarContainer() -> Element {
     };
 
     rsx! {
-        div { class: "min-h-screen bg-background flex flex-col",
+        div { class: "min-h-screen flex flex-col",
             // Navbar
             nav { class: "navbar-container",
                 div { class: "container mx-auto px-4 max-w-6xl",

@@ -27,7 +27,7 @@ pub fn CategoriesScreen() -> Element {
     };
 
     rsx! {
-        div { class: "min-h-screen bg-background",
+        div { class: "min-h-screen",
             div { class: "container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-6xl",
                 if (*categories_frame).is_loading() {
                     div { class: "grid md:grid-cols-2 lg:grid-cols-3 gap-6",

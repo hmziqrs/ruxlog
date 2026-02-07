@@ -21,7 +21,7 @@ pub fn CategoryDetailScreen(slug: String) -> Element {
         Some(Ok(c)) => c,
         Some(Err(e)) => {
             return rsx! {
-                div { class: "min-h-screen bg-background flex items-center justify-center",
+                div { class: "min-h-screen flex items-center justify-center",
                     div { class: "max-w-md w-full",
                         ErrorDetails {
                             error: Some(AppError::Other { message: e.to_string() }),
@@ -36,7 +36,7 @@ pub fn CategoryDetailScreen(slug: String) -> Element {
 
     let Some(category) = category else {
         return rsx! {
-            div { class: "min-h-screen bg-background flex items-center justify-center",
+            div { class: "min-h-screen flex items-center justify-center",
                 div { class: "text-center",
                     h1 { class: "text-2xl font-bold mb-4", "Category not found" }
                     button {
@@ -78,7 +78,7 @@ pub fn CategoryDetailScreen(slug: String) -> Element {
             ])
         }
 
-        div { class: "min-h-screen bg-background",
+        div { class: "min-h-screen",
             div { class: "container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-6xl",
                 // Category header
                 h1 { class: "text-3xl font-bold mb-8", "{cat_name}" }
