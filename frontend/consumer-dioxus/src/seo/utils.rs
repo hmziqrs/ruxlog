@@ -62,7 +62,11 @@ pub fn ensure_absolute_url(url: &str, base_url: &str) -> String {
     if url.starts_with("http://") || url.starts_with("https://") {
         url.to_string()
     } else {
-        let path = if url.starts_with('/') { url } else { &format!("/{}", url) };
+        let path = if url.starts_with('/') {
+            url
+        } else {
+            &format!("/{}", url)
+        };
         format!("{}{}", base_url.trim_end_matches('/'), path)
     }
 }

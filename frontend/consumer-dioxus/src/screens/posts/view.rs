@@ -1,9 +1,9 @@
 use crate::components::{estimate_reading_time, format_date, ActionBar, BannerPlaceholder};
-use crate::server_fns::fetch_post_by_slug;
 use crate::seo::{
     article_schema, breadcrumb_schema, ArticleMetadata, SeoHead, SeoImage, SeoMetadataBuilder,
     StructuredData,
 };
+use crate::server_fns::fetch_post_by_slug;
 use crate::utils::editorjs::render_editorjs_content;
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::icons::ld_icons::{LdArrowLeft, LdCalendar, LdClock};
@@ -120,7 +120,9 @@ pub fn PostViewScreen(slug: String) -> Element {
             #[cfg(feature = "engagement")]
             let like_status = {
                 let status_map = likes.status.read();
-                status_map.get(&post.id).and_then(|frame| frame.data.clone())
+                status_map
+                    .get(&post.id)
+                    .and_then(|frame| frame.data.clone())
             };
 
             // Check if like action is loading (only when engagement feature is enabled)
