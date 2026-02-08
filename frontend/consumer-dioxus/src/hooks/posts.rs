@@ -70,7 +70,7 @@ pub fn use_post_list() -> Signal<Option<PaginatedList<Post>>> {
     use ruxlog_shared::use_post;
 
     let posts_store = use_post();
-    let data = use_signal(|| None);
+    let mut data = use_signal(|| None);
 
     use_effect(move || {
         spawn(async move {
@@ -90,11 +90,13 @@ pub fn use_post_list_with_query(query: PostListQuery) -> Signal<Option<Paginated
     use ruxlog_shared::use_post;
 
     let posts_store = use_post();
-    let data = use_signal(|| None);
+    let mut data = use_signal(|| None);
+    let query = query.clone();
 
     use_effect(move || {
+        let query = query.clone();
         spawn(async move {
-            posts_store.list_with_query(query.clone()).await;
+            posts_store.list_with_query(query).await;
             let frame = posts_store.list.read();
             if let Some(posts_data) = &frame.data {
                 data.set(Some(posts_data.clone()));
@@ -110,7 +112,7 @@ pub fn use_post_by_id(id: i32) -> Signal<Option<Post>> {
     use ruxlog_shared::use_post;
 
     let posts_store = use_post();
-    let data = use_signal(|| None);
+    let mut data = use_signal(|| None);
 
     use_effect(move || {
         spawn(async move {
@@ -132,7 +134,7 @@ pub fn use_post_by_slug(slug: String) -> Signal<Option<Post>> {
     use ruxlog_shared::use_post;
 
     let posts_store = use_post();
-    let data = use_signal(|| None);
+    let mut data = use_signal(|| None);
 
     use_effect(move || {
         let slug_clone = slug.clone();

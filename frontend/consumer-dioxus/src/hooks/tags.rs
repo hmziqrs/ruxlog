@@ -56,7 +56,7 @@ pub fn use_tags_list() -> Signal<Option<PaginatedList<Tag>>> {
     use ruxlog_shared::use_tag;
 
     let tags_store = use_tag();
-    let data = use_signal(|| None);
+    let mut data = use_signal(|| None);
 
     use_effect(move || {
         spawn(async move {
@@ -76,7 +76,7 @@ pub fn use_tag_by_id(id: i32) -> Signal<Option<Tag>> {
     use ruxlog_shared::use_tag;
 
     let tags_store = use_tag();
-    let data = use_signal(|| None);
+    let mut data = use_signal(|| None);
 
     use_effect(move || {
         spawn(async move {
@@ -98,7 +98,7 @@ pub fn use_tag_by_slug(slug: String) -> Signal<Option<Tag>> {
     use ruxlog_shared::use_tag;
 
     let tags_store = use_tag();
-    let data = use_signal(|| None);
+    let mut data = use_signal(|| None);
 
     use_effect(move || {
         let slug_clone = slug.clone();

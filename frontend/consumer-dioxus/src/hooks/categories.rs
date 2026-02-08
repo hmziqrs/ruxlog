@@ -56,7 +56,7 @@ pub fn use_categories_list() -> Signal<Option<PaginatedList<Category>>> {
     use ruxlog_shared::use_categories;
 
     let categories_store = use_categories();
-    let data = use_signal(|| None);
+    let mut data = use_signal(|| None);
 
     use_effect(move || {
         spawn(async move {
@@ -76,7 +76,7 @@ pub fn use_category_by_id(id: i32) -> Signal<Option<Category>> {
     use ruxlog_shared::use_categories;
 
     let categories_store = use_categories();
-    let data = use_signal(|| None);
+    let mut data = use_signal(|| None);
 
     use_effect(move || {
         spawn(async move {
@@ -98,7 +98,7 @@ pub fn use_category_by_slug(slug: String) -> Signal<Option<Category>> {
     use ruxlog_shared::use_categories;
 
     let categories_store = use_categories();
-    let data = use_signal(|| None);
+    let mut data = use_signal(|| None);
 
     use_effect(move || {
         let slug_clone = slug.clone();
