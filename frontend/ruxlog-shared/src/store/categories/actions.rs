@@ -67,7 +67,7 @@ impl CategoriesState {
 
     /// Public list endpoint without filters
     pub async fn list_all(&self) {
-        let _ = list_state_abstraction(
+        let _ = oxstore::simple_list_state_abstraction(
             &self.list,
             http::get("/category/v1/list").send(),
             "categories",

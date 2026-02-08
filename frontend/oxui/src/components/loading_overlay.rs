@@ -20,7 +20,7 @@ pub fn LoadingOverlay(props: LoadingOverlayProps) -> Element {
             should_render.set(true);
         } else if !is_visible && should_render() {
             spawn(async move {
-                dioxus_time::sleep(Duration::from_millis(FADE_MS)).await;
+                crate::utils::sleep(Duration::from_millis(FADE_MS)).await;
                 should_render.set(false);
             });
         }

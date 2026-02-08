@@ -1,11 +1,10 @@
 use dioxus::prelude::*;
-use hmziq_dioxus_free_icons::icons::si_icons::{
-    SiBluesky, SiDiscord, SiFacebook, SiMastodon, SiMessenger, SiPinterest,
-    SiPocket, SiReddit, SiTelegram, SiThreads, SiTumblr, SiWhatsapp,
-};
 use hmziq_dioxus_free_icons::icons::ld_icons::{
-    LdCheck, LdChevronDown, LdChevronUp, LdCopy, LdLinkedin, LdMail,
-    LdMessageCircle, LdSearch, LdX,
+    LdCheck, LdChevronDown, LdChevronUp, LdCopy, LdLinkedin, LdMail, LdMessageCircle, LdSearch, LdX,
+};
+use hmziq_dioxus_free_icons::icons::si_icons::{
+    SiBluesky, SiDiscord, SiFacebook, SiMastodon, SiMessenger, SiPinterest, SiPocket, SiReddit,
+    SiTelegram, SiThreads, SiTumblr, SiWhatsapp,
 };
 use hmziq_dioxus_free_icons::Icon;
 

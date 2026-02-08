@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_time::sleep;
+use crate::utils::sleep;
 use std::{
     sync::atomic::{AtomicU64, Ordering},
     time::Duration,
