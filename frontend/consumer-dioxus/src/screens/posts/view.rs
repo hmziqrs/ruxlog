@@ -8,6 +8,7 @@ use crate::utils::editorjs::render_editorjs_content;
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::icons::ld_icons::{LdArrowLeft, LdCalendar, LdClock};
 use hmziq_dioxus_free_icons::Icon;
+use oxui::shadcn::button::{Button, ButtonVariant};
 use ruxlog_shared::store::Post;
 
 #[cfg(feature = "engagement")]
@@ -234,32 +235,20 @@ pub fn PostViewScreen(slug: String) -> Element {
                 div { class: "min-h-screen bg-background",
                     BannerPlaceholder {}
 
-                    div { class: "container mx-auto px-4 py-6 max-w-3xl",
-                        // Back button
-                        button {
-                            class: "inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6",
-                            onclick: move |_| { nav.push(crate::router::Route::HomeScreen {}); },
-                            Icon { icon: LdArrowLeft, class: "w-4 h-4" }
-                            "Back"
-                        }
-
+                    div { class: "container mx-auto px-4 py-6 max-w-6xl",
                         // Post header
                         header { class: "mb-8",
                             // Category and tags
                             div { class: "flex flex-wrap gap-2 mb-4",
-                                span { class: "category-pill",
+                                Link {
+                                    to: crate::router::Route::CategoryDetailScreen { slug: post.category.slug.clone() },
+                                    class: "category-pill hover:opacity-90 transition-opacity",
                                     "{post.category.name}"
                                 }
                                 for tag in post.tags.clone() {
-                                    button {
-                                        class: "tag-chip cursor-pointer",
-                                        onclick: {
-                                            let nav = nav.clone();
-                                            let tag_slug = tag.slug.clone();
-                                            move |_| {
-                                                nav.push(crate::router::Route::TagDetailScreen { slug: tag_slug.clone() });
-                                            }
-                                        },
+                                    Link {
+                                        to: crate::router::Route::TagDetailScreen { slug: tag.slug.clone() },
+                                        class: "tag-chip",
                                         "{tag.name}"
                                     }
                                 }
@@ -312,6 +301,16 @@ pub fn PostViewScreen(slug: String) -> Element {
                             post_id: post.id.to_string(),
                             title: post.title.clone(),
                             url: post_url,
+                        }
+
+                        div { class: "flex justify-center pt-8",
+                            Button {
+                                variant: ButtonVariant::Ghost,
+                                class: "h-10 px-4 rounded-lg hover:bg-muted/60",
+                                onclick: move |_| { nav.push(crate::router::Route::HomeScreen {}); },
+                                Icon { icon: LdArrowLeft, class: "w-4 h-4" }
+                                "Back to all posts"
+                            }
                         }
                     }
                 }
