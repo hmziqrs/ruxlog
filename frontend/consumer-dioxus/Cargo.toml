@@ -8,9 +8,10 @@ edition = "2021"
 
 [dependencies]
 chrono = { version = "0.4.40", features = ["serde"] }
-dioxus = { version = "0.7.3", features = ["router"] }
+dioxus = { version = "0.7.3", features = ["router", "fullstack"] }
+dioxus-ssr = { version = "0.7.3", optional = true }
+dioxus-liveview = { version = "0.7.3", optional = true }
 dioxus-time = { version = "0.7.3" }
-reqwest = { version = "0.12.22", features = ["json", "cookies"] }
 serde = "1.0.219"
 serde_json = "1.0.140"
 validator = { version = "0.20", features = ["derive"] }
@@ -18,24 +19,42 @@ hmziq-dioxus-free-icons = { version = "0.10.1", features = [
     "simple-icons",
     "lucide",
 ] }
-gloo-timers = { version = "0.3.0", features = ["futures"] }
 dioxus-charts = "0.1.0"
 regex = "1.10.3"
-gloo-storage = "0.3.0"
-gloo-utils = "0.2.0"
-wasm-bindgen = "0.2.100"
 ammonia = "4.0.0"
 scraper = "0.20.0"
-getrandom = { version = "0.3.4", features = ["wasm_js"] }
 base64 = "0.22"
-wasm-bindgen-futures = "0.4"
-# wasm-cookies = "0.2.1"
 dotenvy = "0.15.7"
 log = "0.4.20"
 once_cell = "1.19.0"
-gloo-net = { version = "0.6.0", default-features = true }
-bevy_pkv = { version = "0.9", default-features = false, features = ["redb"] }
-web-sys = { version = "0.3.69", features = [
+lazy_static = "1.4.0"
+im = "15.1.0"
+futures-channel = "0.3"
+futures-util = "0.3.31"
+oxcore = { path = "../oxcore" }
+oxstore = { path = "../oxstore" }
+oxform = { path = "../oxform" }
+oxui = { path = "../oxui" }
+ruxlog-shared = { path = "../ruxlog-shared" }
+urlencoding = "2.1"
+
+# Server-only dependencies
+tokio = { version = "1", features = ["full"], optional = true }
+
+# WASM-only dependencies (feature-gated)
+gloo-timers = { version = "0.3.0", features = ["futures"], optional = true }
+gloo-storage = { version = "0.3.0", optional = true }
+gloo-utils = { version = "0.2.0", optional = true }
+gloo-net = { version = "0.6.0", default-features = true, optional = true }
+wasm-bindgen = { version = "0.2.100", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+js-sys = { version = "0.3", optional = true }
+serde-wasm-bindgen = { version = "0.6.5", optional = true }
+getrandom = { version = "0.3.4", features = ["wasm_js"], optional = true }
+bevy_pkv = { version = "0.9", default-features = false, features = ["redb"], optional = true }
+uuid = { version = "1.16.0", features = ["v4", "js"], optional = true }
+photon-rs = { version = "0.3.2", optional = true }
+web-sys = { version = "0.3.69", optional = true, features = [
     "Document",
     "Window",
     "HtmlDocument",
@@ -68,20 +87,6 @@ web-sys = { version = "0.3.69", features = [
     "CustomEvent",
     "Event",
 ] }
-lazy_static = "1.4.0"
-im = "15.1.0"
-uuid = { version = "1.16.0", features = ["v4", "js"] }
-photon-rs = "0.3.2"
-futures-channel = "0.3"
-js-sys = "0.3"
-serde-wasm-bindgen = "0.6.5"
-futures-util = "0.3.31"
-oxcore = { path = "../oxcore" }
-oxstore = { path = "../oxstore" }
-oxform = { path = "../oxform" }
-oxui = { path = "../oxui" }
-ruxlog-shared = { path = "../ruxlog-shared" }
-urlencoding = "2.1"
 
 [patch.crates-io]
 # dioxus-time = { git = "https://github.com/DioxusLabs/sdk", branch = "main", version = "0.1.0-alpha.1" }
@@ -89,9 +94,25 @@ dioxus-time = { path = "../dioxus_pkgs/sdk/packages/time", version = "0.7.3" }
 
 [features]
 default = ["web", "basic", "analytics"]
-web = ["dioxus/web"]
+web = [
+    "dioxus/web",
+    "gloo-storage",
+    "gloo-timers",
+    "gloo-utils",
+    "gloo-net",
+    "wasm-bindgen",
+    "wasm-bindgen-futures",
+    "js-sys",
+    "serde-wasm-bindgen",
+    "web-sys",
+    "bevy_pkv",
+    "getrandom",
+    "uuid",
+    "photon-rs",
+]
 desktop = ["dioxus/desktop"]
 mobile = ["dioxus/mobile"]
+server = ["dioxus/server", "dioxus-ssr", "tokio"]
 
 # Blog feature flags
 basic = []

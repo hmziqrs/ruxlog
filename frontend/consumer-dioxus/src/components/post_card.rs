@@ -58,21 +58,21 @@ pub fn get_gradient_for_tag(tag: Option<&str>) -> &'static str {
 pub struct PostCardProps {
     pub post: Post,
     #[props(into)]
-    pub on_click: Option<EventHandler<i32>>,
+    pub on_click: Option<EventHandler<String>>,
 }
 
 /// Standard post card for grid layout
 #[component]
 pub fn PostCard(props: PostCardProps) -> Element {
     let post = props.post.clone();
-    let post_id = post.id;
+    let post_slug = post.slug.clone();
 
     rsx! {
         article {
             class: "card-interactive group h-full",
             onclick: move |_| {
                 if let Some(handler) = &props.on_click {
-                    handler.call(post_id);
+                    handler.call(post_slug.clone());
                 }
             },
             // Media

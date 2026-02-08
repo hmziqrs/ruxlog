@@ -18,8 +18,8 @@ pub enum Route {
     #[route("/")]
     HomeScreen {},
 
-    #[route("/posts/:id")]
-    PostViewScreen { id: i32 },
+    #[route("/posts/:slug")]
+    PostViewScreen { slug: String },
 
     #[route("/tags")]
     TagsScreen {},

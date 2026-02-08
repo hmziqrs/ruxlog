@@ -1,3 +1,4 @@
+pub mod ambient_canvas_background;
 pub mod banner;
 pub mod category_card;
 pub mod engagement;
@@ -11,6 +12,7 @@ pub mod tag_card;
 #[cfg(feature = "comments")]
 pub mod comments_section;
 
+pub use ambient_canvas_background::AmbientCanvasBackground;
 pub use banner::BannerPlaceholder;
 pub use category_card::CategoryCard;
 pub use engagement::{ActionBar, EngagementBar, LikeButton, ShareButton};

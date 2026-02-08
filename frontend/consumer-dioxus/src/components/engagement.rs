@@ -211,7 +211,10 @@ pub fn ActionBar(props: ActionBarProps) -> Element {
     let handle_bookmark = move |_| {
         show_bookmark_hint.set(true);
         spawn(async move {
-            gloo_timers::future::TimeoutFuture::new(3000).await;
+            #[cfg(target_arch = "wasm32")]
+            {
+                gloo_timers::future::TimeoutFuture::new(3000).await;
+            }
             show_bookmark_hint.set(false);
         });
     };

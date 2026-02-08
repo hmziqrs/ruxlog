@@ -189,6 +189,54 @@ consumer-build env='dev':
 consumer-bundle env='dev':
     cd {{consumer_dir}} && {{dotenv_bin}} -e ../../.env.{{env}} -- dx bundle --platform web --release
 
+consumer-build-ssg env='prod':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "=========================================="
+    echo "Building Consumer Frontend with SEO"
+    echo "=========================================="
+    echo "Environment: {{env}}"
+    echo ""
+
+    # Load environment variables from .env file
+    ENV_FILE=".env.{{env}}"
+    if [ ! -f "$ENV_FILE" ]; then
+        echo "Error: $ENV_FILE not found"
+        exit 1
+    fi
+
+    set -a
+    source "$ENV_FILE"
+    set +a
+
+    echo "API URL: $SITE_URL"
+    echo "Consumer URL: $CONSUMER_SITE_URL"
+    echo ""
+
+    # Build the optimized production bundle
+    echo "Building optimized production bundle..."
+    cd {{consumer_dir}} && dx bundle --platform web --release
+
+    echo ""
+    echo "=========================================="
+    echo "✓ Build complete!"
+    echo "=========================================="
+    echo ""
+    echo "Output directory: {{consumer_dir}}/dist/"
+    echo ""
+    echo "SEO Features Included:"
+    echo "  ✓ Dynamic meta tags per page"
+    echo "  ✓ Open Graph tags for social media"
+    echo "  ✓ Twitter Cards"
+    echo "  ✓ JSON-LD structured data"
+    echo "  ✓ Canonical URLs"
+    echo "  ✓ robots.txt"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Test locally: cd {{consumer_dir}}/dist && python3 -m http.server 8000"
+    echo "  2. Deploy to static hosting (Netlify, Vercel, Cloudflare Pages, etc.)"
+    echo "  3. Verify SEO with Facebook Debugger and Twitter Card Validator"
+    echo ""
 
 consumer-tailwind:
     cd {{consumer_dir}} && bun run tailwind

@@ -16,7 +16,7 @@ pub fn TagsScreen() -> Element {
     use_effect(move || {
         let tags = tags_store;
         spawn(async move {
-            tags.list().await;
+            tags.list_all().await;
         });
     });
 
@@ -27,7 +27,7 @@ pub fn TagsScreen() -> Element {
     };
 
     rsx! {
-        div { class: "min-h-screen bg-background",
+        div { class: "min-h-screen",
             div { class: "container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-6xl",
                 if (*tags_frame).is_loading() {
                     div { class: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6",

@@ -1,9 +1,10 @@
 [application]
+title = "Hmziq.rs Blog"
 
 [web.app]
 
-# HTML title tag content
-title = "consumer-dioxus"
+# HTML title tag content (overridden by application.title)
+# title = "consumer-dioxus"
 
 # include `assets` in web platform
 [web.resource]
@@ -19,3 +20,13 @@ script = []
 # Javascript code file
 # serve: [dev-server] only
 script = []
+
+[web.watcher]
+reload_html = true
+
+[web.ssg]
+# Disable static site generation (using dynamic SSR instead)
+enabled = false
+
+# Use incremental SSG (only rebuild changed routes)
+incremental = false

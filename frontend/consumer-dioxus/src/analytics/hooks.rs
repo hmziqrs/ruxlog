@@ -199,6 +199,7 @@ pub fn use_outbound_link_tracker(container_id: &str, post_id: Option<String>) {
             if let Some(document) = window.document() {
                 if let Some(container) = document.get_element_by_id(&container_id) {
                     let current_origin = window.location().origin().unwrap_or_default();
+                    let current_href = window.location().href().unwrap_or_default();
                     let post_id_clone = post_id.clone();
 
                     let closure = Rc::new(wasm_bindgen::closure::Closure::wrap(Box::new(
@@ -213,6 +214,7 @@ pub fn use_outbound_link_tracker(container_id: &str, post_id: Option<String>) {
                                             {
                                                 tracker::track_outbound_link(
                                                     &href,
+                                                    &current_href,
                                                     post_id_clone.as_deref(),
                                                 );
                                             }
