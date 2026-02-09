@@ -232,7 +232,7 @@ pub fn PostViewScreen(slug: String) -> Element {
                 // Inject article structured data
                 StructuredData { json_ld: article_schema(&post) }
 
-                div { class: "min-h-screen bg-background",
+                div { class: "min-h-screen",
                     BannerPlaceholder {}
 
                     div { class: "container mx-auto px-4 py-6 max-w-6xl",
