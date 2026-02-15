@@ -43,6 +43,6 @@ pushd "${PROJECT_ROOT}/backend/api" >/dev/null 2>&1
 cargo run --manifest-path migration/Cargo.toml --bin migrate >/dev/null
 popd >/dev/null 2>&1
 
-"${SCRIPT_DIR}/garage-bootstrap.sh" "${REQUESTED_ENV}" >/dev/null
+"${SCRIPT_DIR}/rustfs-bootstrap.sh" "${REQUESTED_ENV}" >/dev/null
 
-echo "[test-db-setup] Test database + Garage bucket ready" >&2
+echo "[test-db-setup] Test database + RustFS bucket ready" >&2
