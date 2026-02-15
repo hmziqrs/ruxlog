@@ -48,13 +48,10 @@ down env='dev':
 reset env='dev':
     scripts/compose-down.sh .env.{{env}} --volumes
 
-# Database / Garage helpers -------------------------------------------------
+# Database helpers ----------------------------------------------------------
 
 test-db env='test':
     scripts/test-db-setup.sh .env.{{env}}
-
-frontend-env env='dev':
-    scripts/sync-admin-env.sh .env.{{env}}
 
 # Backend API (Axum) --------------------------------------------------------
 
