@@ -28,7 +28,6 @@ docs/
 scripts/
   compose-down.sh
   rustfs-bootstrap.sh
-  sync-admin-env.sh
   test-db-setup.sh
 ```
 
