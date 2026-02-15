@@ -3,10 +3,10 @@
 ## Project Structure & Module Organization
 - `backend/api` hosts the Rust Axum API, database migrations, and operational scripts; other backend infrastructure lives under `backend/` (e.g., `docker/`, `traefik/`).
 - `frontend/admin-dioxus` and `frontend/consumer-dioxus` are the main Dioxus apps; shared UI and utilities live in `frontend/ruxlog-shared`, `frontend/dioxus_pkgs`, and related crates.
-- Top-level `docs/` contains design notes and integration plans; `scripts/` holds helper shell scripts, and `.env.*` files define per-environment configuration.
+- Top-level `docs/KNOWLEDGEBASE.md` is the living project context and deployment notes; `scripts/` holds helper shell scripts, and `.env.*` files define per-environment configuration.
 
 ## Build, Test, and Development Commands
-- `just dev env=dev` starts the core Docker services and initializes storage (see `scripts/garage-bootstrap.sh`).
+- `just dev env=dev` starts the core Docker services and initializes storage (see `scripts/rustfs-bootstrap.sh`).
 - `just api-dev env=dev` runs the backend API; `just admin-dev env=dev` and `just consumer-dev env=dev` run the admin and consumer frontends (requires `bun`, `dx`, and `dotenv`).
 - `just test-db env=test` prepares a disposable test database; basic backend tests run via `cd backend/api && cargo test --all-features`.
 
@@ -33,4 +33,3 @@
 ## Agent-Specific Instructions
 - When working inside directories that contain their own `AGENTS.md`, follow both this file and the more specific local guidelines.
 - Make new commands and scripts discoverable by updating the root `Justfile`, relevant docs, or the appropriate `AGENTS.md`.
-
