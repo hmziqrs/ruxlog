@@ -4,11 +4,11 @@ I built a complete blog platform in Rust — backend, frontend, everything. Two 
 
 ## Why Rust for Everything?
 
-The idea was straightforward: build a blog platform entirely in Rust to push the boundaries of what's possible with the current ecosystem. Not just the backend (where Rust is already proven), but the frontend too — using Dioxus for both the public-facing consumer blog and the admin dashboard.
+It started with a simple idea: build a production-ready project first, then extract a boilerplate from it. The other way around — building a boilerplate first and then a project on top — felt counterproductive. A boilerplate designed in isolation ends up with features a real project might never need. Ironically, that's exactly what happened anyway. The project grew, and I ended up disabling a lot of features behind flags for the actual blog.
 
-I wanted to test full cross-platform capabilities. One language, one type system, shared domain models between server and client, and binaries for web, desktop, and Android from the same codebase.
+The project itself is just a blog. Backend in Axum, frontend in Dioxus for both the consumer blog and the admin dashboard. I also wanted to see how the same frontend code would behave across desktop, mobile, and web — not as a cross-platform stress test, but just to get a sense of where things stand with Dioxus today.
 
-It started as a boilerplate project to learn Rust and have a solid starting point for future work. But boilerplates feel abstract — it's easier to implement features when they solve a real problem. So it became a blog, and the scope grew from there.
+The two frontends share components and state management stores between them, not business logic between server and client. There's no shared domain layer across that boundary — the admin and consumer apps just reuse the same UI building blocks and data stores.
 
 ## The Stack
 
