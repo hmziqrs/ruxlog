@@ -1,6 +1,8 @@
 # Building a Full-Stack Blog Platform in Rust: Lessons from Ruxlog
 
-I built a complete blog platform in Rust — backend, frontend, everything. Two Dioxus apps, an Axum API, a suite of shared libraries, and targets for web, desktop, and mobile. Here's what I learned, what worked, what didn't, and why I'm both pausing and not giving up on the Rust frontend ecosystem.
+I built a blog platform in Rust. Backend, frontend, all of it. Two Dioxus apps, an Axum API, bunch of shared libraries, and targets for web, desktop and mobile. This is what I learned, what worked, what didn't, and why I'm pausing but not giving up on the Rust frontend ecosystem.
+
+Also worth mentioning upfront, this article was written with help from AI. I wrote the raw thoughts and direction, AI helped structure and polish it. Same way I built most of this project honestly.
 
 ## Why Rust for Everything?
 
@@ -12,76 +14,75 @@ The two frontends share components and state management stores between them, not
 
 ## The Stack
 
-**Backend**: Axum + SeaORM + PostgreSQL. Session-based auth backed by Valkey (Redis-compatible). S3-compatible object storage (RustFS for local dev, Cloudflare R2 for production). SMTP email via lettre. OpenTelemetry for observability.
+Backend is Axum with SeaORM and PostgreSQL. Sessions are stored in Valkey (Redis-compatible). For file storage I'm using RustFS locally and Cloudflare R2 in production.
+Frontend is two separate Dioxus apps. Consumer blog has server-side rendering for SEO stuff like meta tags, Open Graph, JSON-LD structured data. The admin is a SPA with EditorJS for the post editor, photon-rs for image editing, and dioxus-charts for analytics. EditorJS is a JavaScript library so I had to write custom JavaScript bindings and bundle them with Bun to make it work with Dioxus. That's the kind of thing you don't think about until you're already deep into it. The two apps are separate because I didn't want to bloat the public blog with editor and image processing dependencies.
 
-**Frontend**: Two separate Dioxus apps. The consumer blog uses server-side rendering for SEO — dynamic meta tags, Open Graph, JSON-LD structured data. The admin dashboard is a pure SPA with EditorJS for rich text editing, photon-rs for image processing, and analytics charts. They're separate because bundling code editors and image processors into the public blog would be absurd.
+For shared code there's a few libraries both apps use. `oxcore` handles HTTP requests across platforms (reqwest on native, gloo-net on WASM). `oxform` is for form handling with validation, I wrote it following the same patterns as React Hook Form. `oxstore` is for state management. Both `oxstore` and `oxform` were handwritten with thought out architecture. Then there's `oxui` which is a Shadcn/Radix-inspired component library that was mostly vibe coded. Honestly building an entire component library by hand would have taken forever so AI did most of the heavy lifting there.
 
-**Shared code**: A set of libraries that both apps consume — `oxcore` for platform-agnostic HTTP (reqwest on native, gloo-net on WASM), `oxstore` for state management, `oxform` for validated forms, and `oxui`, a Shadcn/Radix-inspired component library I built from scratch because nothing like it existed in the Dioxus ecosystem.
-
-**Feature flags everywhere**: The codebase is heavily feature-gated. The backend's default `basic` feature gives you a minimal blog API. Flip on `full` and you get comments, newsletters, analytics, OAuth, ACL, route blocking, and a data seeding system. Same pattern on the frontend — the consumer defaults to a read-only public blog, but feature flags progressively enable auth, profiles, comments, and engagement features.
+The whole codebase is heavily feature-gated. This wasn't planned from the start. It became necessary because I let AI loose and ended up with a ton of features I didn't need for the initial release. Email notifications via lettre are fully implemented but disabled since I don't have an active email provider yet. Feature flags let me ship a minimal blog without having to rip all that code out. I'll go deeper into this in a future article about how AI development can lead to bloated planning and premature feature implementation.
 
 ## What Worked Well
 
-**Axum is excellent.** The backend was genuinely enjoyable to build. Axum's middleware composition, type-safe extractors, and the broader tower ecosystem make for a clean, performant API server. SeaORM handled database operations well enough, and the custom `rux-auth` crate I built on top of tower-sessions gave me exactly the authentication layer I needed — session-based, role-based, composable.
+**Axum is great.** The backend was genuinely fun to build. Middleware composition, type-safe extractors, the whole tower ecosystem. It just works well together. SeaORM was good enough for database stuff, and the custom `rux-auth` crate I built on top of tower-sessions gave me the auth layer I wanted. Session-based, role-based, composable.
 
-**Shared types are a superpower.** Having the same Rust structs for API responses on both server and client eliminates an entire class of bugs. No more hoping your TypeScript types match your Go structs. The compiler tells you when they don't.
+**Shared types between apps.** Having the same Rust structs for API responses in both frontend apps removes a whole category of bugs. No more hoping your TypeScript types match what the server actually sends. The compiler just tells you when something is off.
 
-**Dioxus's mental model is refreshing.** Coming from React, not having to do mental gymnastics about `useState` on the server is genuinely nice. The signal-based reactivity is clean, and the hybrid approach for data fetching between server and client components just works once you understand it. Server functions for SSR data fetching, `use_server_cached` for hydration-safe state — it's well-thought-out.
+**Dioxus's mental model.** Coming from React, not having to think about whether `useState` is running on the server or client is really nice. Signal-based reactivity feels clean. The hybrid data fetching approach with server functions and `use_server_cached` for hydration-safe state makes sense once you get it.
 
-**Feature flags made iteration possible.** When you're one person building a full-stack platform, being able to ship a minimal blog while having comments, analytics, and user management already implemented but behind flags is a practical approach. Ship the MVP, enable features when they're polished.
+**Feature flags saved the project.** When you're one person building a full-stack platform, being able to ship a minimal blog while having a bunch of other stuff already built but turned off is really practical. Ship the MVP, turn on features when they're ready.
 
 ## Where Things Got Painful
 
-**The ecosystem gap is real.** This is the honest part. Building `oxui` from scratch — an entire component library — just to have basic UI primitives is not fast-paced development. In React/Vue/Svelte land, you pick from dozens of mature component libraries and get moving. In Dioxus, you're implementing accordion animations and combobox keyboard navigation yourself.
+**The ecosystem gap.** This is the real honest part. I had to build `oxui` from scratch just to have basic UI components. In React or Vue or Svelte you just pick a component library and move on. In Dioxus you're implementing accordion animations and combobox keyboard navigation yourself. That's not fast.
 
-**Documentation and examples were a recurring blocker.** Configuring SSR/SSG required digging into the Dioxus core repository, filtering examples for similar patterns, and occasionally landing on Google page 3 to find a relevant article or YouTube video. This isn't a criticism of the Dioxus team — they're doing incredible work with limited resources — but it's the reality of an early ecosystem. Basic things that Next.js or Astro handle elegantly required significant investigation.
+**Documentation was rough.** Setting up SSR/SSG meant digging through the Dioxus source code, filtering examples for patterns that might work, and sometimes ending up on Google page 3 looking for some random article or YouTube video. Not a criticism of the Dioxus team, they're doing amazing work with what they have. But that's just where the ecosystem is right now. Things that Next.js or Astro handle out of the box needed real investigation here.
 
-**AI-assisted development was a double-edged sword.** I used Claude Code, Codex, and other AI tools throughout the project. They made planning and implementing new features deceptively easy — to the point where the codebase bloated with fully built features I didn't actually need yet. This deserves its own deep dive, so I'm writing a separate article on how AI-driven development can lead to bloated planning and premature feature implementation. Stay tuned for that one.
+**AI development was a double-edged sword.** I used Claude Code, Codex, and other tools throughout the project. They made it so easy to plan and build features that I ended up with way more than I needed. OTEL auth, comments, user profiles, reports, banning — all fully built, none needed for launch. This topic deserves its own article so I'm writing one separately. Stay tuned.
 
-**Cross-platform ambitions met reality.** The original plan included native Firebase Analytics, Crashlytics, and push notifications via Rust FFI. I scrapped it. I'm not fluent enough in Rust to write reliable native interop, and vibe-coding it would create more problems than it solved. The goal thinned out to: release a basic read-only blog, but at least ship binaries for desktop and Android.
+**Cross-platform ambitions didn't survive contact with reality.** Original plan was to include native Firebase Analytics, Crashlytics, push notifications through Rust FFI. I dropped all of it. I'm not fluent enough in Rust to write solid native interop, and vibe coding that kind of stuff would just create problems. Goal became simpler: release a basic read-only blog, but at least provide binaries for desktop and Android.
 
 ## The Codebase in Numbers
 
-- **30+ database entities** — users, posts, categories, tags, media (with variants and usage tracking), comments, likes, views, sessions, bans, series, revisions, newsletters, ACL, and more.
-- **15+ API modules** — all versioned, most feature-gated, with a layered middleware stack (request tracking, CORS, auth, CSRF, compression, tracing).
-- **18+ oxui components** — built from scratch, Shadcn-inspired, covering everything from buttons and cards to dialogs, comboboxes, and data tables.
-- **5 shared libraries** — oxcore, oxstore, oxform, oxui, ruxlog-shared — plus custom Dioxus SDK extensions for geolocation, notifications, storage, and window utilities.
-- **4 target platforms** — web, desktop, mobile, and server (SSR).
+- **30+ database entities** — users, posts, categories, tags, media with variants, comments, likes, views, sessions, bans, series, revisions, newsletters, ACL, and more
+- **15+ API modules** — all versioned, most feature-gated, with middleware for request tracking, CORS, auth, CSRF, compression, tracing
+- **18+ oxui components** — vibe coded, Shadcn-inspired, from buttons and cards to dialogs, comboboxes and data tables
+- **5 shared libraries** — oxcore, oxstore, oxform, oxui, ruxlog-shared, plus custom Dioxus SDK extensions for geolocation, notifications, storage, window utilities
+- **4 target platforms** — web, desktop, mobile, and server (SSR)
 
 ## Will I Stop Using Rust and Dioxus?
 
 No and yes.
 
-No, I won't stop using Rust. It remains my go-to for backend work, and I regularly solve problems in it for the challenge and satisfaction. Axum is production-ready and a joy to work with.
+No I won't stop using Rust. It's still my go-to for backend work. I solve HackerRank problems in Rust for fun. Axum is production-ready and I enjoy working with it.
 
-But I'm pausing on building frontend-heavy projects with Dioxus — for now. The ecosystem needs time. Properly maintained UI libraries would be a massive indicator of readiness. Firebase/analytics/push notification packages that just work. Documentation that covers common patterns without requiring source-code archaeology.
+But I'm pausing frontend projects with Dioxus for now. The ecosystem needs time. Having properly maintained UI libraries would be a big sign that things are ready. Firebase, analytics, push notification packages that just work out of the box. Documentation that covers common stuff without needing you to read the framework source code.
 
-In practical terms, for fast-paced development cycles today, mature tools like Next.js, Astro, TanStack, React Native, Flutter, and Tauri provide a dramatically better developer experience. Even in terms of raw performance, Bun with TypeScript gets you near-Go performance without Rust's complexity.
+For fast-paced development right now, tools like Next.js, Astro, TanStack, React Native, Flutter, and Tauri are just way ahead in terms of developer experience. Even performance wise, Bun with TypeScript gets you close to Go performance without the complexity of Rust.
 
-That said, this was my third Dioxus project. I've had genuine fun with every one. The framework's approach to reactivity, its server/client model, and the promise of what it's becoming are compelling.
+That said this was my third Dioxus project and I had fun with all of them. The reactivity model, the server/client approach, what the framework is becoming — it's genuinely compelling.
 
 ## What I'm Watching
 
-**Dioxus Native Renderer.** This is the one I'm most excited about. A native GPU-rendered UI — not a webview wrapper like Tauri or Electron — would be a game-changer for desktop applications. Nothing beats the feel of native rendering, and it's why I still prefer Flutter for mobile (GPU rendering across all platforms). If Dioxus achieves this with a mature component ecosystem, it could genuinely replace Electron for a class of desktop apps.
+**Dioxus Native Renderer.** This is what I'm most excited about. A native GPU-rendered UI, not a webview wrapper like Tauri or Electron. That would be huge for desktop apps. Nothing beats the feel of native rendering and that's why I still prefer Flutter for mobile, it uses GPU rendering across all platforms. If Dioxus gets this right with a good component ecosystem it could seriously replace Electron for a lot of use cases.
 
-**The broader Rust UI ecosystem.** Between Dioxus, Bevy (for games), and projects like Iced and egui, Rust is slowly building a real frontend story. It's not there yet for production fast-paced work, but the trajectory is clear.
+**The broader Rust UI ecosystem.** Between Dioxus, Bevy for games, and stuff like Iced and egui, Rust is slowly building a real frontend story. Not ready for production fast-paced work yet but the direction is clear.
 
 ## Takeaways
 
-1. **Rust backend is production-ready.** Axum, SeaORM, tower — the ecosystem is mature and performant. No reservations here.
+1. **Rust backend is production-ready.** Axum, SeaORM, tower — mature and performant. No reservations.
 
-2. **Rust frontend is promising but not fast-paced-ready.** You'll spend significant time building infrastructure that other ecosystems provide out of the box.
+2. **Rust frontend is promising but not there yet.** You'll spend a lot of time building stuff that other ecosystems give you for free.
 
-3. **Shared types between server and client are worth the investment.** The safety guarantees alone justify the approach, even if the frontend framework is still maturing.
+3. **Shared types between apps are worth it.** The safety you get from the compiler makes up for the extra effort.
 
-4. **Feature flags are essential for solo developers.** Ship small, enable progressively. Don't let scope creep block your MVP.
+4. **Feature flags are a lifesaver for solo devs.** Ship small, turn things on when they're ready. Don't let scope creep block your release.
 
-5. **AI tools need a human owner.** They're accelerators, not autopilots. More on this in an upcoming article about bloated AI-driven development.
+5. **AI tools need a human driving.** They're accelerators not autopilots. More on this in an upcoming article about how AI bloats projects.
 
-6. **Know when to pause.** Using immature tools isn't failure — it's gathering data. I'll revisit Dioxus when the ecosystem catches up to the framework's ambition.
+6. **Know when to pause.** Using early tools isn't failure, it's collecting data. I'll come back to Dioxus when the ecosystem catches up to what the framework is trying to be.
 
-Ruxlog is open source at [github.com/hmziqrs/ruxlog](https://github.com/hmziqrs/ruxlog). The backend is solid, the frontend is functional, and the shared libraries might save someone else from building an accordion component from scratch in Rust.
+Ruxlog is open source at [github.com/hmziqrs/ruxlog](https://github.com/hmziqrs/ruxlog). Backend is solid, frontend works, and the shared libraries might save someone else from having to build an accordion component from scratch in Rust.
 
 ---
 
-*Written by [hmziqrs](https://github.com/hmziqrs)*
+*Written by [hmziqrs](https://github.com/hmziqrs) with help from AI for structuring and editing.*
