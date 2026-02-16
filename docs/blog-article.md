@@ -16,7 +16,7 @@ The two frontends share components and state management stores between them, not
 
 Backend is Axum with SeaORM and PostgreSQL. Frontend is two separate Dioxus apps — a consumer blog with SSR for SEO, and an admin SPA with a post editor, image editing, and analytics. The two apps are separate because I didn't want to bloat the public blog with editor and image processing dependencies. Both apps share a set of libraries for HTTP requests, form handling, state management, and a Shadcn-inspired component library.
 
-The whole codebase is heavily feature-gated. This wasn't planned from the start. It became necessary because I let AI loose and ended up with a ton of features I didn't need for the initial release. Email notifications, sessions, file storage — all implemented but some disabled for now. Feature flags let me ship a minimal blog without having to rip all that code out. I'll go deeper into this in a future article about how AI development can lead to bloated planning and premature feature implementation.
+The whole codebase is heavily feature-gated. This wasn't planned from the start. It became necessary because I let AI loose and ended up with a ton of features I didn't need for the initial release. Email notifications, sessions, file storage — all implemented but some disabled for now. Feature flags let me ship a minimal blog without having to rip all that code out.
 
 ## What Worked Well
 
@@ -32,11 +32,27 @@ The whole codebase is heavily feature-gated. This wasn't planned from the start.
 
 **The ecosystem gap.** This is the real honest part. I had to build `oxui` from scratch just to have basic UI components. In React or Vue or Svelte you just pick a component library and move on. In Dioxus you're implementing accordion animations and combobox keyboard navigation yourself. That's not fast.
 
-**Figuring things out took longer than it should have.** Not because the libraries aren't capable — they are. But finding out *how* to use them often meant reading source code instead of examples. I started with Diesel for the ORM but hit a wall with dynamic queries. I needed filters, sorting, and pagination on the same query, but Diesel's boxed queries can't be cloned, so you can't count total results and fetch a page from the same dynamic query. SeaORM handled all of that without friction. For validation I tried garde first, but it conflicted with Axum's state extractor — combining both on a handler just broke. Switched to validator, and eventually wrote custom extractors so validation errors came back in a consistent, structured format the frontend could actually parse, instead of plain strings. Same story with Dioxus SSR — setting up server-side rendering meant digging through source code, filtering examples for patterns that might work, and sometimes ending up on Google page 3 looking for some random article or YouTube video. Every single one of these could have been solved faster if proper examples existed. Instead I spent time digging through source code, trying combinations, and figuring things out by trial and error. None of this is a criticism of any team or maintainer — the libraries genuinely work well once you know how to use them. But this is a pattern across the Rust ecosystem, not just the projects I used. Look at Iced or GPUI — both are impressive frameworks with real potential, but the documentation and examples aren't there yet. Iced especially, the lack of examples for even basic patterns is one of the main reasons people hesitate to adopt it. And it creates a compounding problem: if developers can't easily learn how a framework works, they're not going to build libraries, crates, and utilities on top of it either. The ecosystem can't grow without that foundation. And with AI-assisted development being so popular now, this problem gets worse. There are a growing number of new Rust libraries and crates that just don't work reliably — published fast, not tested well. AI tools also can't help you much when the docs and examples don't exist in their training data. I tried vibe coding a simple app with GPUI entirely through AI and it just didn't work. The models didn't have enough context about the framework to generate anything usable.
+**Figuring things out took longer than it should have.** Not because the libraries aren't capable — they are. But finding out *how* to use them often meant reading source code instead of examples.
 
-**AI development was a double-edged sword.** I used Claude Code, Codex, and other tools throughout the project. They made it so easy to plan and build features that I ended up with way more than I needed. OTEL auth, comments, user profiles, reports, banning — all fully built, none needed for launch. This topic deserves its own article so I'm writing one separately. Stay tuned.
+I started with Diesel for the ORM but hit a wall with dynamic queries. I needed filters, sorting, and pagination on the same query, but Diesel's boxed queries can't be cloned, so you can't count total results and fetch a page from the same dynamic query. SeaORM handled all of that without friction.
+
+For validation I tried garde first, but it didn't play well with Axum's state extractor. To make them work together I had to add a macro to every validator struct — not broken exactly, but tedious boilerplate that added up fast.
+
+Then with both garde and validator, I couldn't figure out how to write a custom extractor for validation errors. I spent two days researching it. The built-in validator extractor was returning plain strings, and I wanted properly structured JSON that matched the error format I was already using for internal errors. Couldn't get there. This was about a year ago and I was less experienced with Rust, so it could have been a skill issue, a docs issue, or both — I honestly can't say for sure now. But either way, that kind of thing shouldn't take two days.
+
+Same story with Dioxus SSR — setting up server-side rendering meant digging through source code, filtering examples for patterns that might work, and sometimes ending up on Google page 3 looking for some random article or YouTube video.
+
+Every single one of these could have been solved faster if proper examples existed. Instead I spent time digging through source code, trying combinations, and figuring things out by trial and error. None of this is a criticism of any team or maintainer — the libraries genuinely work well once you know how to use them.
+
+But this is a pattern across the Rust ecosystem, not just the projects I used. Look at Iced or GPUI — both are impressive frameworks with real potential, but the documentation and examples aren't there yet. Iced especially, the lack of examples for even basic patterns is one of the main reasons people hesitate to adopt it. And it creates a compounding problem: if developers can't easily learn how a framework works, they're not going to build libraries, crates, and utilities on top of it either. The ecosystem can't grow without that foundation.
+
+And with AI-assisted development being so popular now, this problem gets worse. There are a growing number of new Rust libraries and crates that just don't work reliably — published fast, not tested well. AI tools also can't help you much when the docs and examples don't exist in their training data. I tried vibe coding a simple app with GPUI entirely through AI and it just didn't work. The models didn't have enough context about the framework to generate anything usable.
+
+**AI development was a double-edged sword.** I used Claude Code, Codex, and other tools throughout the project. They made it so easy to plan and build features that I ended up with way more than I needed. OTEL auth, comments, user profiles, reports, banning — all fully built, none needed for launch. I'm writing a separate article about how AI development leads to bloated planning and premature feature implementation.
 
 **Cross-platform ambitions didn't survive contact with reality.** Original plan was to include native Firebase Analytics, Crashlytics, push notifications through Rust FFI. I dropped all of it. I'm not fluent enough in Rust to write solid native interop, and vibe coding that kind of stuff would just create problems. Goal became simpler: release a basic read-only blog, but at least provide binaries for desktop and Android.
+
+<!-- TODO: Add details about how the desktop and Android targets actually went. Did they build and run? Any platform-specific issues? What was the experience like shipping those binaries? -->
 
 ## Will I Stop Using Rust and Dioxus?
 
@@ -46,7 +62,7 @@ No I won't stop using Rust. It's still my go-to for backend work. I solve Hacker
 
 But I'm pausing frontend projects with Dioxus for now. The ecosystem needs time. Having properly maintained UI libraries would be a big sign that things are ready. Firebase, analytics, push notification packages that just work out of the box. Documentation that covers common stuff without needing you to read the framework source code.
 
-For fast-paced development right now, tools like Next.js, Astro, TanStack, React Native, Flutter, and Tauri are just way ahead in terms of developer experience. Even performance wise, Bun with TypeScript gets you close to Go performance without the complexity of Rust.
+For fast-paced development right now, tools like Next.js, Astro, TanStack, React Native, Flutter, and Tauri are just way ahead in terms of developer experience.
 
 That said this was my third Dioxus project and I had fun with all of them. The reactivity model, the server/client approach, what the framework is becoming — it's genuinely compelling.
 
@@ -66,9 +82,11 @@ That said this was my third Dioxus project and I had fun with all of them. The r
 
 4. **Feature flags are a lifesaver for solo devs.** Ship small, turn things on when they're ready. Don't let scope creep block your release.
 
-5. **AI tools need a human driving.** They're accelerators not autopilots. More on this in an upcoming article about how AI bloats projects.
+5. **AI tools need a human driving.** They're accelerators not autopilots.
 
 6. **Know when to pause.** Using early tools isn't failure, it's collecting data. I'll come back to Dioxus when the ecosystem catches up to what the framework is trying to be.
+
+<!-- TODO: Add a short section about the deployed state — is the blog live? How does it perform in production? Any production gotchas worth mentioning? -->
 
 Ruxlog is open source at [github.com/hmziqrs/ruxlog](https://github.com/hmziqrs/ruxlog). Backend is solid, frontend works, and the shared libraries might save someone else from having to build an accordion component from scratch in Rust.
 
