@@ -36,7 +36,7 @@ It started as a boilerplate project to learn Rust and have a solid starting poin
 
 **Documentation and examples were a recurring blocker.** Configuring SSR/SSG required digging into the Dioxus core repository, filtering examples for similar patterns, and occasionally landing on Google page 3 to find a relevant article or YouTube video. This isn't a criticism of the Dioxus team — they're doing incredible work with limited resources — but it's the reality of an early ecosystem. Basic things that Next.js or Astro handle elegantly required significant investigation.
 
-**AI-assisted development was a double-edged sword.** I used Claude Code, Codex, and other AI tools throughout the project. They made planning and implementing new features easy — deceptively so. The codebase ended up with fully implemented features like OTEL authentication, comments, user profiles, reports, and banning. But implementing all of them via AI-assisted coding created more surface area to test and maintain than it provided value. It slowed me down instead of speeding me up. The lesson: AI is great at generating code, but someone still needs to own the quality and coherence of the whole system.
+**AI-assisted development was a double-edged sword.** I used Claude Code, Codex, and other AI tools throughout the project. They made planning and implementing new features deceptively easy — to the point where the codebase bloated with fully built features I didn't actually need yet. This deserves its own deep dive, so I'm writing a separate article on how AI-driven development can lead to bloated planning and premature feature implementation. Stay tuned for that one.
 
 **Cross-platform ambitions met reality.** The original plan included native Firebase Analytics, Crashlytics, and push notifications via Rust FFI. I scrapped it. I'm not fluent enough in Rust to write reliable native interop, and vibe-coding it would create more problems than it solved. The goal thinned out to: release a basic read-only blog, but at least ship binaries for desktop and Android.
 
@@ -76,7 +76,7 @@ That said, this was my third Dioxus project. I've had genuine fun with every one
 
 4. **Feature flags are essential for solo developers.** Ship small, enable progressively. Don't let scope creep block your MVP.
 
-5. **AI tools need a human owner.** They're accelerators, not autopilots. The code they generate needs someone who understands the system to maintain coherence.
+5. **AI tools need a human owner.** They're accelerators, not autopilots. More on this in an upcoming article about bloated AI-driven development.
 
 6. **Know when to pause.** Using immature tools isn't failure — it's gathering data. I'll revisit Dioxus when the ecosystem catches up to the framework's ambition.
 
