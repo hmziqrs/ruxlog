@@ -3643,11 +3643,6 @@
       }
     }
   }
-  .sm\:p-6 {
-    @media (width >= 40rem) {
-      padding: calc(0.25rem * 6);
-    }
-  }
   .sm\:text-left {
     @media (width >= 40rem) {
       text-align: left;
