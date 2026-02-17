@@ -44,7 +44,7 @@ Same story with Dioxus SSR — setting up server-side rendering meant digging th
 
 Every single one of these could have been solved faster if proper examples existed. Instead I spent time digging through source code, trying combinations, and figuring things out by trial and error. None of this is a criticism of any team or maintainer — the libraries genuinely work well once you know how to use them.
 
-But this is a pattern across the Rust ecosystem, not just the projects I used. Look at Iced or GPUI — both are impressive frameworks with real potential, but the documentation and examples aren't there yet. Iced especially, the lack of examples for even basic patterns is one of the main reasons people hesitate to adopt it. And it creates a compounding problem: if developers can't easily learn how a framework works, they're not going to build libraries, crates, and utilities on top of it either. The ecosystem can't grow without that foundation.
+But this is a pattern across the Rust ecosystem, not just the projects I used. Look at Iced or GPUI — both are impressive frameworks with real potential, but the documentation and examples aren't there yet. Having used GPUI as well, I'd say it's actually in a better position here. It's somewhat documented, and the entire Zed editor codebase serves as one source of truth — you can find real-world usage of practically every API in a single, actively maintained project. Iced doesn't have that. To find examples you have to look across multiple repositories, and most of them are using different Iced versions. There's no single codebase you can point to and say "this is how you build a real app with Iced." That's a big reason people hesitate to adopt it. And it creates a compounding problem: if developers can't easily learn how a framework works, they're not going to build libraries, crates, and utilities on top of it either. The ecosystem can't grow without that foundation.
 
 And with AI-assisted development being so popular now, this problem gets worse. There are a growing number of new Rust libraries and crates that just don't work reliably — published fast, not tested well. AI tools also can't help you much when the docs and examples don't exist in their training data. I tried vibe coding a simple app with GPUI entirely through AI and it just didn't work. The models didn't have enough context about the framework to generate anything usable.
 
@@ -52,7 +52,7 @@ And with AI-assisted development being so popular now, this problem gets worse. 
 
 **Cross-platform ambitions didn't survive contact with reality.** Original plan was to include native Firebase Analytics, Crashlytics, push notifications through Rust FFI. I dropped all of it. I'm not fluent enough in Rust to write solid native interop, and vibe coding that kind of stuff would just create problems. Goal became simpler: release a basic read-only blog, but at least provide binaries for desktop and Android.
 
-<!-- TODO: Add details about how the desktop and Android targets actually went. Did they build and run? Any platform-specific issues? What was the experience like shipping those binaries? -->
+That didn't happen either. The native renderer is still experimental and doesn't work properly yet, which is expected for where the project is right now. The webview target works fine, but shipping desktop and mobile binaries that just wrap a webview didn't make sense — if it's a webview, you can just open the website. So I dropped the binaries entirely.
 
 ## Will I Stop Using Rust and Dioxus?
 
@@ -64,11 +64,11 @@ But I'm pausing frontend projects with Dioxus for now. The ecosystem needs time.
 
 For fast-paced development right now, tools like Next.js, Astro, TanStack, React Native, Flutter, and Tauri are just way ahead in terms of developer experience.
 
-That said this was my third Dioxus project and I had fun with all of them. The reactivity model, the server/client approach, what the framework is becoming — it's genuinely compelling.
+That said this was my third Dioxus project and I had fun with all of them. The reactivity model, the server/client approach, what the framework is becoming — it's genuinely compelling. I don't regret building Ruxlog in Dioxus. The whole point was to build something I can come back to and run again when native rendering is production-ready.
 
 ## What I'm Watching
 
-**Dioxus Native Renderer.** This is what I'm most excited about. A native GPU-rendered UI, not a webview wrapper like Tauri or Electron. That would be huge for desktop apps. Nothing beats the feel of native rendering and that's why I still prefer Flutter for mobile, it uses GPU rendering across all platforms. If Dioxus gets this right with a good component ecosystem it could seriously replace Electron for a lot of use cases.
+**Dioxus Native Renderer.** This is what I'm most excited about. A native GPU-rendered UI, not a webview wrapper like Tauri or Electron. It's still experimental and not production-ready, which is exactly why I didn't ship desktop or mobile binaries — there's no point wrapping a webview when users can just open the site. But when native rendering works properly, that changes everything. Nothing beats the feel of native rendering and that's why I still prefer Flutter for mobile, it uses GPU rendering across all platforms. If Dioxus gets this right with a good component ecosystem it could seriously replace Electron for a lot of use cases. And honestly, that's part of why I don't regret building this project in Dioxus — the codebase is there, ready to run again when native is properly supported.
 
 **The broader Rust UI ecosystem.** Between Dioxus, Bevy for games, and stuff like Iced and egui, Rust is slowly building a real frontend story. Not ready for production fast-paced work yet but the direction is clear.
 
