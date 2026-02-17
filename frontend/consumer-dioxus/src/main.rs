@@ -46,7 +46,7 @@ fn main() {
         .launch(App);
 }
 
-#[cfg(all(feature = "web", not(feature = "server")))]
+#[cfg(all(feature = "web", not(any(feature = "server", feature = "desktop", feature = "mobile"))))]
 fn main() {
     configure_http_client();
 
@@ -57,10 +57,12 @@ fn main() {
         .launch(App);
 }
 
-// Fallback for when neither feature is enabled (e.g., cargo check)
+// Desktop, mobile, or any other non-server/non-web build (dx builds native
+// clients without enabling the desktop/mobile Cargo features)
 #[cfg(not(any(feature = "server", feature = "web")))]
 fn main() {
-    panic!("Must enable either 'server' or 'web' feature");
+    configure_http_client();
+    dioxus::launch(App);
 }
 
 const TAILWIND_CSS: Asset = asset!("/assets/tailwind.css");
