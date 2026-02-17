@@ -74,7 +74,8 @@ _fe app cmd env:
     dir="frontend/{{app}}-dioxus"
     case "{{cmd}}" in
         dev)            cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- bash -c 'dx serve --platform web --port ${{uppercase(app)}}_PORT' ;;
-        desktop)        cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- bash -c 'dx serve --platform desktop --renderer native --port ${{uppercase(app)}}_PORT' ;;
+        desktop)        cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- bash -c 'dx serve --platform desktop --port ${{uppercase(app)}}_PORT' ;;
+        desktop-native) cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- bash -c 'dx serve --platform desktop --renderer native --port ${{uppercase(app)}}_PORT' ;;
         build)          cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- dx build --platform web --release ;;
         bundle)         cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- dx bundle --platform web --release ;;
         tailwind)       cd "$dir" && bun run tailwind ;;
