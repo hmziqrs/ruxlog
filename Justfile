@@ -101,6 +101,117 @@ admin cmd='dev' env='dev':
 consumer cmd='dev' env='dev':
     just _fe consumer {{cmd}} {{env}}
 
+# Consumer static demo SSG builds (public routes + markdown content)
+consumer-demo-build env='dev' base_path='/':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    env_name="{{env}}"
+    env_name="${env_name#env=}"
+    base_path_arg="{{base_path}}"
+    base_path_arg="${base_path_arg#base_path=}"
+    cd frontend/consumer-dioxus
+    BASE_PATH_OVERRIDE="$base_path_arg" {{dotenv_bin}} -e "../../.env.${env_name}" -- bash -lc '
+      set -euo pipefail
+      base_path="${CONSUMER_BASE_PATH:-$BASE_PATH_OVERRIDE}"
+      unset PORT
+      dx build \
+        --fullstack \
+        --ssg \
+        --release \
+        --no-default-features \
+        --base-path "$base_path" \
+        @client --platform web --features "web demo-static-content basic analytics" \
+        @server --platform server --features "server demo-static-content basic analytics"
+
+      # dx can leave root index.html as a shell page even when SSG renders "/".
+      # Regenerate "/" HTML from the built server so static hosting hydrates correctly.
+      out_root="target/dx/consumer-dioxus/release/web"
+      server_bin="$out_root/consumer-dioxus"
+      public_dir="$out_root/public"
+      root_html="$public_dir/index.html"
+      if [ -x "$server_bin" ]; then
+        tmp_html="$(mktemp)"
+        ssg_pid=""
+        cleanup_root_render() {
+          if [ -n "$ssg_pid" ]; then
+            kill "$ssg_pid" >/dev/null 2>&1 || true
+            wait "$ssg_pid" 2>/dev/null || true
+          fi
+          rm -f "$tmp_html"
+        }
+        trap cleanup_root_render EXIT
+
+        PORT=39999 "$server_bin" >/tmp/consumer_demo_root_ssg.log 2>&1 &
+        ssg_pid=$!
+        for _ in $(seq 1 100); do
+          if curl -fsS "http://127.0.0.1:39999/" -o "$tmp_html"; then
+            mv "$tmp_html" "$root_html"
+            tmp_html=""
+            break
+          fi
+          sleep 0.1
+        done
+
+        cleanup_root_render
+        trap - EXIT
+      fi
+    '
+
+consumer-demo-bundle env='dev' base_path='/':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    env_name="{{env}}"
+    env_name="${env_name#env=}"
+    base_path_arg="{{base_path}}"
+    base_path_arg="${base_path_arg#base_path=}"
+    cd frontend/consumer-dioxus
+    BASE_PATH_OVERRIDE="$base_path_arg" {{dotenv_bin}} -e "../../.env.${env_name}" -- bash -lc '
+      set -euo pipefail
+      base_path="${CONSUMER_BASE_PATH:-$BASE_PATH_OVERRIDE}"
+      unset PORT
+      dx bundle \
+        --fullstack \
+        --ssg \
+        --release \
+        --no-default-features \
+        --base-path "$base_path" \
+        @client --platform web --features "web demo-static-content basic analytics" \
+        @server --platform server --features "server demo-static-content basic analytics"
+
+      # dx can leave root index.html as a shell page even when SSG renders "/".
+      # Regenerate "/" HTML from the built server so static hosting hydrates correctly.
+      out_root="target/dx/consumer-dioxus/release/web"
+      server_bin="$out_root/consumer-dioxus"
+      public_dir="$out_root/public"
+      root_html="$public_dir/index.html"
+      if [ -x "$server_bin" ]; then
+        tmp_html="$(mktemp)"
+        ssg_pid=""
+        cleanup_root_render() {
+          if [ -n "$ssg_pid" ]; then
+            kill "$ssg_pid" >/dev/null 2>&1 || true
+            wait "$ssg_pid" 2>/dev/null || true
+          fi
+          rm -f "$tmp_html"
+        }
+        trap cleanup_root_render EXIT
+
+        PORT=39999 "$server_bin" >/tmp/consumer_demo_root_ssg.log 2>&1 &
+        ssg_pid=$!
+        for _ in $(seq 1 100); do
+          if curl -fsS "http://127.0.0.1:39999/" -o "$tmp_html"; then
+            mv "$tmp_html" "$root_html"
+            tmp_html=""
+            break
+          fi
+          sleep 0.1
+        done
+
+        cleanup_root_render
+        trap - EXIT
+      fi
+    '
+
 # Desktop builds (with and without native renderer)
 admin-desktop env='dev':
     just _fe admin desktop {{env}}

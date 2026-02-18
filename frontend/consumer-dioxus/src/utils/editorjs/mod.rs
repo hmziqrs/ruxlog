@@ -140,6 +140,16 @@ fn render_delimiter_block(_block: &EditorJsBlock) -> Element {
     }
 }
 
+fn render_raw_block(block: &EditorJsBlock) -> Element {
+    if let EditorJsBlock::Raw { data, .. } = block {
+        rsx! {
+            div { class: "my-6", dangerous_inner_html: "{data.html}" }
+        }
+    } else {
+        rsx! {}
+    }
+}
+
 pub fn render_editorjs_content(content: &PostContent) -> Element {
     rsx! {
         div { class: "prose max-w-none",
@@ -152,9 +162,32 @@ pub fn render_editorjs_content(content: &PostContent) -> Element {
                     EditorJsBlock::Image { .. } => render_image_block(block),
                     EditorJsBlock::Code { .. } => render_code_block(block),
                     EditorJsBlock::Quote { .. } => render_quote_block(block),
+                    EditorJsBlock::Raw { .. } => render_raw_block(block),
                     _ => rsx! {},
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ruxlog_shared::store::RawBlock;
+
+    #[test]
+    fn raw_block_render_path_does_not_panic() {
+        let content = PostContent {
+            time: 0,
+            version: "test".to_string(),
+            blocks: vec![EditorJsBlock::Raw {
+                id: Some("raw".to_string()),
+                data: RawBlock {
+                    html: "<h1>Hello</h1><p>world</p>".to_string(),
+                },
+            }],
+        };
+
+        let _ = render_editorjs_content(&content);
     }
 }

@@ -1,8 +1,11 @@
 use crate::components::{estimate_reading_time, format_date, ActionBar, BannerPlaceholder};
+#[cfg(feature = "demo-static-content")]
+use crate::demo_content;
 use crate::seo::{
     article_schema, breadcrumb_schema, ArticleMetadata, SeoHead, SeoImage, SeoMetadataBuilder,
     StructuredData,
 };
+#[cfg(not(feature = "demo-static-content"))]
 use crate::server_fns::fetch_post_by_slug;
 use crate::utils::editorjs::render_editorjs_content;
 use dioxus::prelude::*;
@@ -55,11 +58,18 @@ fn generate_post_seo(post: &Post) -> crate::seo::SeoMetadata {
 pub fn PostViewScreen(slug: String) -> Element {
     let nav = use_navigator();
 
-    // SSR: Fetch post by slug on server
+    #[cfg(not(feature = "demo-static-content"))]
     let post_result = use_server_future(move || {
         let slug = slug.clone();
         async move { fetch_post_by_slug(slug).await }
     })?;
+    #[cfg(not(feature = "demo-static-content"))]
+    let post_state = post_result();
+
+    #[cfg(feature = "demo-static-content")]
+    let post_state = Some(Ok::<_, ServerFnError>(
+        demo_content::content().post_by_slug(&slug),
+    ));
 
     // Only use likes and auth when engagement feature is enabled
     #[cfg(feature = "engagement")]
@@ -68,9 +78,9 @@ pub fn PostViewScreen(slug: String) -> Element {
     let auth = use_auth();
 
     // Analytics: Track page view and time spent
-    #[cfg(feature = "analytics")]
+    #[cfg(all(feature = "analytics", not(feature = "demo-static-content")))]
     {
-        let route = match &post_result() {
+        let route = match &post_state {
             Some(Ok(Some(post))) => format!("/posts/{}", post.slug),
             _ => "/posts/unknown".to_string(),
         };
@@ -79,7 +89,7 @@ pub fn PostViewScreen(slug: String) -> Element {
 
         // Track post view when post is loaded
         use_effect(move || {
-            if let Some(Ok(Some(ref post_data))) = post_result() {
+            if let Some(Ok(Some(ref post_data))) = post_state {
                 tracker::track_post_view(
                     &post_data.id.to_string(),
                     &post_data.title,
@@ -89,7 +99,14 @@ pub fn PostViewScreen(slug: String) -> Element {
         });
     }
 
-    match post_result() {
+    #[cfg(all(feature = "analytics", feature = "demo-static-content"))]
+    {
+        let route = format!("/posts/{}", slug);
+        use_page_timer(&route);
+        use_scroll_depth(&route);
+    }
+
+    match post_state {
         Some(Ok(Some(post))) => {
             // Generate SEO metadata
             let seo_metadata = generate_post_seo(&post);
