@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use oxstore::PaginatedList;
 use ruxlog_shared::{Post, PostListQuery};
 
-#[cfg(feature = "server")]
+#[cfg(all(feature = "server", not(feature = "demo-static-content")))]
 use crate::server::{fetch_post_by_id, fetch_post_by_slug, fetch_posts, fetch_posts_with_query};
 
 /// Fetch all posts with SSR support
@@ -12,7 +12,7 @@ use crate::server::{fetch_post_by_id, fetch_post_by_slug, fetch_posts, fetch_pos
 /// let posts = use_post_list()?;
 /// let data = posts().ok()?;
 /// ```
-#[cfg(feature = "server")]
+#[cfg(all(feature = "server", not(feature = "demo-static-content")))]
 pub fn use_post_list() -> Resource<Result<PaginatedList<Post>, ServerFnError>> {
     use_server_future(fetch_posts).expect("Failed to create server future for post list")
 }
@@ -27,7 +27,7 @@ pub fn use_post_list() -> Resource<Result<PaginatedList<Post>, ServerFnError>> {
 /// };
 /// let posts = use_post_list_with_query(query)?;
 /// ```
-#[cfg(feature = "server")]
+#[cfg(all(feature = "server", not(feature = "demo-static-content")))]
 pub fn use_post_list_with_query(
     query: PostListQuery,
 ) -> Resource<Result<PaginatedList<Post>, ServerFnError>> {
@@ -42,7 +42,7 @@ pub fn use_post_list_with_query(
 /// let post = use_post_by_id(1)?;
 /// let data = post().ok()?.flatten()?;
 /// ```
-#[cfg(feature = "server")]
+#[cfg(all(feature = "server", not(feature = "demo-static-content")))]
 pub fn use_post_by_id(id: i32) -> Resource<Result<Option<Post>, ServerFnError>> {
     use_server_future(move || fetch_post_by_id(id))
         .expect("Failed to create server future for post by id")
@@ -55,7 +55,7 @@ pub fn use_post_by_id(id: i32) -> Resource<Result<Option<Post>, ServerFnError>> 
 /// let post = use_post_by_slug("my-post-slug".to_string())?;
 /// let data = post().ok()?.flatten()?;
 /// ```
-#[cfg(feature = "server")]
+#[cfg(all(feature = "server", not(feature = "demo-static-content")))]
 pub fn use_post_by_slug(slug: String) -> Resource<Result<Option<Post>, ServerFnError>> {
     use_server_future(move || fetch_post_by_slug(slug.clone()))
         .expect("Failed to create server future for post by slug")
@@ -65,7 +65,7 @@ pub fn use_post_by_slug(slug: String) -> Resource<Result<Option<Post>, ServerFnE
 // Client-only fallbacks (when server feature is disabled)
 // ============================================================================
 
-#[cfg(not(feature = "server"))]
+#[cfg(any(not(feature = "server"), feature = "demo-static-content"))]
 pub fn use_post_list() -> Signal<Option<PaginatedList<Post>>> {
     use ruxlog_shared::use_post;
 
@@ -85,7 +85,7 @@ pub fn use_post_list() -> Signal<Option<PaginatedList<Post>>> {
     data
 }
 
-#[cfg(not(feature = "server"))]
+#[cfg(any(not(feature = "server"), feature = "demo-static-content"))]
 pub fn use_post_list_with_query(query: PostListQuery) -> Signal<Option<PaginatedList<Post>>> {
     use ruxlog_shared::use_post;
 
@@ -107,7 +107,7 @@ pub fn use_post_list_with_query(query: PostListQuery) -> Signal<Option<Paginated
     data
 }
 
-#[cfg(not(feature = "server"))]
+#[cfg(any(not(feature = "server"), feature = "demo-static-content"))]
 pub fn use_post_by_id(id: i32) -> Signal<Option<Post>> {
     use ruxlog_shared::use_post;
 
@@ -129,7 +129,7 @@ pub fn use_post_by_id(id: i32) -> Signal<Option<Post>> {
     data
 }
 
-#[cfg(not(feature = "server"))]
+#[cfg(any(not(feature = "server"), feature = "demo-static-content"))]
 pub fn use_post_by_slug(slug: String) -> Signal<Option<Post>> {
     use ruxlog_shared::use_post;
 

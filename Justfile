@@ -212,6 +212,55 @@ consumer-demo-bundle env='dev' base_path='/':
       fi
     '
 
+# Consumer native demo mode (desktop/mobile) using local markdown content
+consumer-demo-desktop env='dev':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    env_name="{{env}}"
+    env_name="${env_name#env=}"
+    cd frontend/consumer-dioxus
+    {{dotenv_bin}} -e "../../.env.${env_name}" -- bash -lc 'dx serve --platform desktop --no-default-features --features "desktop basic demo-static-content" --port ${CONSUMER_PORT}'
+
+consumer-demo-desktop-native env='dev':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    env_name="{{env}}"
+    env_name="${env_name#env=}"
+    cd frontend/consumer-dioxus
+    {{dotenv_bin}} -e "../../.env.${env_name}" -- bash -lc 'dx serve --platform desktop --renderer native --no-default-features --features "desktop basic demo-static-content" --port ${CONSUMER_PORT}'
+
+consumer-demo-mobile env='dev':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    env_name="{{env}}"
+    env_name="${env_name#env=}"
+    cd frontend/consumer-dioxus
+    {{dotenv_bin}} -e "../../.env.${env_name}" -- bash -lc 'dx serve --platform android --no-default-features --features "mobile basic demo-static-content" --port ${CONSUMER_PORT}'
+
+consumer-demo-mobile-native env='dev':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    env_name="{{env}}"
+    env_name="${env_name#env=}"
+    cd frontend/consumer-dioxus
+    {{dotenv_bin}} -e "../../.env.${env_name}" -- bash -lc 'dx serve --platform android --renderer native --no-default-features --features "mobile basic demo-static-content" --port ${CONSUMER_PORT}'
+
+consumer-demo-build-desktop env='dev':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    env_name="{{env}}"
+    env_name="${env_name#env=}"
+    cd frontend/consumer-dioxus
+    {{dotenv_bin}} -e "../../.env.${env_name}" -- dx build --platform desktop --release --no-default-features --features "desktop basic demo-static-content"
+
+consumer-demo-build-mobile env='dev':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    env_name="{{env}}"
+    env_name="${env_name#env=}"
+    cd frontend/consumer-dioxus
+    {{dotenv_bin}} -e "../../.env.${env_name}" -- dx build --platform android --release --no-default-features --features "mobile basic demo-static-content"
+
 # Desktop builds (with and without native renderer)
 admin-desktop env='dev':
     just _fe admin desktop {{env}}
@@ -220,10 +269,20 @@ admin-desktop-native env='dev':
     just _fe admin desktop-native {{env}}
 
 consumer-desktop env='dev':
-    just _fe consumer desktop {{env}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    env_name="{{env}}"
+    env_name="${env_name#env=}"
+    cd frontend/consumer-dioxus
+    {{dotenv_bin}} -e "../../.env.${env_name}" -- bash -lc 'dx serve --platform desktop --no-default-features --features "desktop basic" --port ${CONSUMER_PORT}'
 
 consumer-desktop-native env='dev':
-    just _fe consumer desktop-native {{env}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    env_name="{{env}}"
+    env_name="${env_name#env=}"
+    cd frontend/consumer-dioxus
+    {{dotenv_bin}} -e "../../.env.${env_name}" -- bash -lc 'dx serve --platform desktop --renderer native --no-default-features --features "desktop basic" --port ${CONSUMER_PORT}'
 
 # Mobile builds (Android only - with and without native renderer)
 admin-mobile env='dev':
@@ -233,10 +292,20 @@ admin-mobile-native env='dev':
     just _fe admin mobile-native {{env}}
 
 consumer-mobile env='dev':
-    just _fe consumer mobile {{env}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    env_name="{{env}}"
+    env_name="${env_name#env=}"
+    cd frontend/consumer-dioxus
+    {{dotenv_bin}} -e "../../.env.${env_name}" -- bash -lc 'dx serve --platform android --no-default-features --features "mobile basic" --port ${CONSUMER_PORT}'
 
 consumer-mobile-native env='dev':
-    just _fe consumer mobile-native {{env}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    env_name="{{env}}"
+    env_name="${env_name#env=}"
+    cd frontend/consumer-dioxus
+    {{dotenv_bin}} -e "../../.env.${env_name}" -- bash -lc 'dx serve --platform android --renderer native --no-default-features --features "mobile basic" --port ${CONSUMER_PORT}'
 
 # Production builds for desktop and mobile
 admin-build-desktop env='dev':
@@ -252,16 +321,36 @@ admin-build-mobile-native env='dev':
     just _fe admin build-mobile-native {{env}}
 
 consumer-build-desktop env='dev':
-    just _fe consumer build-desktop {{env}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    env_name="{{env}}"
+    env_name="${env_name#env=}"
+    cd frontend/consumer-dioxus
+    {{dotenv_bin}} -e "../../.env.${env_name}" -- dx build --platform desktop --release --no-default-features --features "desktop basic"
 
 consumer-build-desktop-native env='dev':
-    just _fe consumer build-desktop-native {{env}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    env_name="{{env}}"
+    env_name="${env_name#env=}"
+    cd frontend/consumer-dioxus
+    {{dotenv_bin}} -e "../../.env.${env_name}" -- dx build --platform desktop --renderer native --release --no-default-features --features "desktop basic"
 
 consumer-build-mobile env='dev':
-    just _fe consumer build-mobile {{env}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    env_name="{{env}}"
+    env_name="${env_name#env=}"
+    cd frontend/consumer-dioxus
+    {{dotenv_bin}} -e "../../.env.${env_name}" -- dx build --platform android --release --no-default-features --features "mobile basic"
 
 consumer-build-mobile-native env='dev':
-    just _fe consumer build-mobile-native {{env}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    env_name="{{env}}"
+    env_name="${env_name#env=}"
+    cd frontend/consumer-dioxus
+    {{dotenv_bin}} -e "../../.env.${env_name}" -- dx build --platform android --renderer native --release --no-default-features --features "mobile basic"
 
 # Bundling for distribution
 admin-bundle-desktop env='dev':
@@ -271,10 +360,20 @@ admin-bundle-mobile env='dev':
     just _fe admin bundle-mobile {{env}}
 
 consumer-bundle-desktop env='dev':
-    just _fe consumer bundle-desktop {{env}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    env_name="{{env}}"
+    env_name="${env_name#env=}"
+    cd frontend/consumer-dioxus
+    {{dotenv_bin}} -e "../../.env.${env_name}" -- dx bundle --platform desktop --release --no-default-features --features "desktop basic"
 
 consumer-bundle-mobile env='dev':
-    just _fe consumer bundle-mobile {{env}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    env_name="{{env}}"
+    env_name="${env_name#env=}"
+    cd frontend/consumer-dioxus
+    {{dotenv_bin}} -e "../../.env.${env_name}" -- dx bundle --platform android --release --no-default-features --features "mobile basic"
 
 # Admin-specific recipes -----------------------------------------------------
 
