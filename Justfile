@@ -77,6 +77,7 @@ _fe app cmd env:
         desktop)        cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- bash -c 'dx serve --platform desktop --port ${{uppercase(app)}}_PORT' ;;
         desktop-native) cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- bash -c 'dx serve --platform desktop --renderer native --port ${{uppercase(app)}}_PORT' ;;
         build)          cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- dx build --platform web --release ;;
+        build-desktop)  cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- dx build --platform desktop --release ;;
         bundle)         cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- dx bundle --platform web --release ;;
         tailwind)       cd "$dir" && bun run tailwind ;;
         tailwind-build) cd "$dir" && bun run tailwind:build ;;

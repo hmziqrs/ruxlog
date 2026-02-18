@@ -46,7 +46,10 @@ fn main() {
         .launch(App);
 }
 
-#[cfg(all(feature = "web", not(any(feature = "server", feature = "desktop", feature = "mobile"))))]
+#[cfg(all(
+    feature = "web",
+    not(any(feature = "server", feature = "desktop", feature = "mobile"))
+))]
 fn main() {
     configure_http_client();
 
@@ -83,19 +86,20 @@ fn App() -> Element {
     });
 
     // Initialize document theme from persistent storage on app mount (WASM-only)
+    // Defaults to dark mode when no preference is stored
     #[cfg(target_arch = "wasm32")]
     use_effect(|| {
         let stored = utils::persist::get_theme();
         spawn(async move {
             match stored.as_deref() {
-                Some("dark") => {
-                    let _ = document::eval("document.documentElement.classList.add('dark');").await;
-                }
                 Some("light") => {
                     let _ =
                         document::eval("document.documentElement.classList.remove('dark');").await;
                 }
-                _ => {}
+                _ => {
+                    // Default to dark mode for "dark", None, or any other value
+                    let _ = document::eval("document.documentElement.classList.add('dark');").await;
+                }
             }
         });
     });
