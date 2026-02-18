@@ -25,28 +25,59 @@ pub fn NavBarContainer() -> Element {
     let user = auth_store.user.read();
 
     let mut dark_theme = use_context_provider(|| Signal::new(DarkMode(true)));
+    let mut has_js_support = use_signal(|| false);
 
-    // Initialize theme from DOM (JS eval only available in WASM)
-    #[cfg(target_arch = "wasm32")]
+    // Detect if JavaScript is available (webview vs native renderer)
+    // This runs on both webview and native, but only succeeds on webview
     use_effect(move || {
         spawn(async move {
-            let is_dark =
-                document::eval("return document.documentElement.classList.contains('dark');")
+            // Try to evaluate a simple JavaScript expression
+            match document::eval("return true;").await {
+                Ok(_) => {
+                    has_js_support.set(true);
+                    // Now check the actual theme state from DOM
+                    let is_dark = document::eval(
+                        "return document.documentElement.classList.contains('dark');",
+                    )
                     .await
                     .unwrap()
                     .to_string();
-            dark_theme.set(DarkMode(is_dark.parse::<bool>().unwrap_or(false)));
+                    dark_theme.set(DarkMode(is_dark.parse::<bool>().unwrap_or(true)));
+                }
+                Err(_) => {
+                    has_js_support.set(false);
+                }
+            }
         });
     });
 
     let toggle_dark_mode = move |_: MouseEvent| {
         dark_theme.write().toggle();
         let is_dark = (*dark_theme.read()).0;
-        #[cfg(target_arch = "wasm32")]
         spawn(async move {
             _ = document::eval("document.documentElement.classList.toggle('dark');").await;
         });
         persist::set_theme(if is_dark { "dark" } else { "light" });
+    };
+
+    // Theme toggle button (only available when JavaScript is available - webview, not native)
+    let theme_toggle_ui: Option<Element> = {
+        if *has_js_support.read() {
+            Some(rsx! {
+                button {
+                    onclick: toggle_dark_mode,
+                    class: "icon-button",
+                    aria_label: "Toggle theme",
+                    if (*dark_theme.read()).0 {
+                        Icon { icon: LdSun, class: "w-5 h-5" }
+                    } else {
+                        Icon { icon: LdMoon, class: "w-5 h-5" }
+                    }
+                }
+            })
+        } else {
+            None
+        }
     };
 
     // Prepare auth UI element (conditionally compiled)
@@ -117,16 +148,9 @@ pub fn NavBarContainer() -> Element {
                                     Icon { icon: LdGithub }
                                 }
                             }
-                            button {
-                                onclick: toggle_dark_mode,
-                                class: "icon-button",
-                                aria_label: "Toggle theme",
-                                if (*dark_theme.read()).0 {
-                                    Icon { icon: LdSun, class: "w-5 h-5" }
-                                } else {
-                                    Icon { icon: LdMoon, class: "w-5 h-5" }
-                                }
-                            }
+
+                            // Theme toggle (only available on WASM/webview, not native renderer)
+                            { theme_toggle_ui }
 
                             // User menu - use Dioxus Link for client-side navigation (only with consumer-auth feature)
                             { auth_ui }
