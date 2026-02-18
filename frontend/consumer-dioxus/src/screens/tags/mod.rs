@@ -6,8 +6,13 @@ use crate::components::TagCard;
 use crate::router::Route;
 use dioxus::prelude::*;
 use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
+
+#[cfg(feature = "demo-static-content")]
+use crate::demo_content;
+#[cfg(not(feature = "demo-static-content"))]
 use ruxlog_shared::store::use_tag;
 
+#[cfg(not(feature = "demo-static-content"))]
 #[component]
 pub fn TagsScreen() -> Element {
     let tags_store = use_tag();
@@ -65,6 +70,46 @@ pub fn TagsScreen() -> Element {
                         div { "No content available" }
                     }
                 }
+            }
+        }
+    }
+}
+
+#[cfg(feature = "demo-static-content")]
+#[component]
+pub fn TagsScreen() -> Element {
+    let nav = use_navigator();
+
+    let tags = demo_content::content().tags().to_vec();
+
+    let on_tag_click = move |slug: String| {
+        nav.push(Route::TagDetailScreen { slug });
+    };
+
+    let content = if tags.is_empty() {
+        rsx! {
+            div { class: "flex items-center justify-center py-20",
+                div { "No tags found" }
+            }
+        }
+    } else {
+        rsx! {
+            div { class: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6",
+                for tag in tags.iter() {
+                    TagCard {
+                        key: "{tag.id}",
+                        tag: tag.clone(),
+                        on_click: on_tag_click,
+                    }
+                }
+            }
+        }
+    };
+
+    rsx! {
+        div { class: "min-h-screen",
+            div { class: "container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-6xl",
+                {content}
             }
         }
     }

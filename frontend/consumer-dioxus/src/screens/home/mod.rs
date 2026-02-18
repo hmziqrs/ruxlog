@@ -1,6 +1,8 @@
 use crate::components::{
     BannerPlaceholder, FeaturedPostCard, PostCard, PostsEmptyState, PostsLoadingSkeleton,
 };
+#[cfg(feature = "demo-static-content")]
+use crate::demo_content;
 use crate::router::Route;
 use crate::seo::{use_static_seo, website_schema, SeoHead, StructuredData};
 use crate::server_fns::fetch_posts;
@@ -15,9 +17,15 @@ pub fn HomeScreen() -> Element {
     // Generate SEO metadata for homepage
     let seo_metadata = use_static_seo("home");
 
-    // SSR: Fetches on server, serializes result for hydration
-    // The `?` bubbles up suspense, so the server waits for resolution
+    #[cfg(not(feature = "demo-static-content"))]
     let posts_result = use_server_future(|| fetch_posts())?;
+
+    #[cfg(not(feature = "demo-static-content"))]
+    let posts_state = posts_result();
+    #[cfg(feature = "demo-static-content")]
+    let posts_state = Some(Ok::<_, ServerFnError>(demo_content::paginated(
+        demo_content::content().posts(),
+    )));
 
     let on_post_click = move |post_slug: String| {
         nav.push(Route::PostViewScreen { slug: post_slug });
@@ -32,7 +40,7 @@ pub fn HomeScreen() -> Element {
             BannerPlaceholder {}
 
             div { class: "container mx-auto px-4 py-4 max-w-6xl",
-                match posts_result() {
+                match posts_state {
                     Some(Ok(data)) => {
                         if data.data.is_empty() {
                             rsx! { PostsEmptyState {} }

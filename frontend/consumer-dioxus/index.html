@@ -12,5 +12,12 @@
     </head>
     <body class="antialiased min-h-full flex flex-col">
         <div id="main"></div>
+        <script>
+            // Some static builds ship a shell index without SSR hydration bytes.
+            // Dioxus web runtime decodes this value as CBOR-serialized Vec<Option<Vec<u8>>>,
+            // so provide a valid empty payload instead of an empty string.
+            window.initial_dioxus_hydration_data =
+                window.initial_dioxus_hydration_data || "gA==";
+        </script>
     </body>
 </html>

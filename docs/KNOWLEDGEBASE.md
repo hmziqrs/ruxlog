@@ -111,6 +111,26 @@ Implication for MVP:
 - Confirm no auth/profile/comments UI appears in MVP mode.
 - Confirm canonical/SEO base URLs point to blog domain.
 
+## Static Demo SSG (Markdown Content)
+
+For a static demo (GitHub Pages / Cloudflare Pages), consumer supports a demo mode that pre-renders
+public routes from local markdown content.
+
+- Markdown source: `frontend/consumer-dioxus/content/posts/*.md`
+- Build feature: `demo-static-content`
+- SSG route discovery: `static_routes` server function in `frontend/consumer-dioxus/src/server_fns.rs`
+
+Commands:
+
+- Build demo: `just consumer-demo-build env=prod base_path=/`
+- Bundle demo: `just consumer-demo-bundle env=prod base_path=/`
+
+Base path behavior:
+
+- `CONSUMER_BASE_PATH` controls the default route base path for demo commands.
+- Root hosting: keep `CONSUMER_BASE_PATH=/`
+- GitHub Pages subpath hosting: set `CONSUMER_BASE_PATH=/your-repo/`
+
 ## Project Context
 
 - Admin and consumer are separate by design to avoid bundling admin-heavy dependencies into the public blog.

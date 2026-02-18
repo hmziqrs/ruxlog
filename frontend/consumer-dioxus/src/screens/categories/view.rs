@@ -1,4 +1,6 @@
 use crate::components::{PostCard, PostsLoadingSkeleton};
+#[cfg(feature = "demo-static-content")]
+use crate::demo_content;
 use crate::router::Route;
 use crate::seo::{breadcrumb_schema, SeoHead, SeoMetadataBuilder, StructuredData};
 use crate::server_fns::{fetch_category_by_slug, fetch_posts_by_category};
@@ -10,14 +12,21 @@ use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 pub fn CategoryDetailScreen(slug: String) -> Element {
     let nav = use_navigator();
 
-    // SSR: Fetch category by slug
+    #[cfg(not(feature = "demo-static-content"))]
     let category_result = use_server_future(move || {
         let slug = slug.clone();
         async move { fetch_category_by_slug(slug).await }
     })?;
 
+    #[cfg(not(feature = "demo-static-content"))]
+    let category_state = category_result();
+    #[cfg(feature = "demo-static-content")]
+    let category_state = Some(Ok::<_, ServerFnError>(
+        demo_content::content().category_by_slug(&slug),
+    ));
+
     // Get category for dependent query
-    let category = match category_result() {
+    let category = match category_state {
         Some(Ok(c)) => c,
         Some(Err(e)) => {
             return rsx! {
@@ -49,10 +58,17 @@ pub fn CategoryDetailScreen(slug: String) -> Element {
         };
     };
 
-    // SSR: Fetch posts by category
-    let category_id = category.id;
-    let posts_result =
-        use_server_future(move || async move { fetch_posts_by_category(category_id).await })?;
+    #[cfg(not(feature = "demo-static-content"))]
+    let posts_result = {
+        let category_id = category.id;
+        use_server_future(move || async move { fetch_posts_by_category(category_id).await })?
+    };
+    #[cfg(not(feature = "demo-static-content"))]
+    let posts_state = posts_result();
+    #[cfg(feature = "demo-static-content")]
+    let posts_state = Some(Ok::<_, ServerFnError>(demo_content::paginated(
+        &demo_content::content().posts_by_category_id(category.id),
+    )));
 
     let on_post_click = move |post_slug: String| {
         nav.push(Route::PostViewScreen { slug: post_slug });
@@ -81,7 +97,7 @@ pub fn CategoryDetailScreen(slug: String) -> Element {
             div { class: "container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-6xl",
                 h1 { class: "text-3xl font-bold mb-8", "{cat_name}" }
 
-                match posts_result() {
+                match posts_state {
                     Some(Ok(data)) => {
                         if data.data.is_empty() {
                             rsx! {
