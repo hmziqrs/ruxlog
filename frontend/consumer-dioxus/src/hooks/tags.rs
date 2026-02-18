@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use oxstore::PaginatedList;
 use ruxlog_shared::Tag;
 
-#[cfg(feature = "server")]
+#[cfg(all(feature = "server", not(feature = "demo-static-content")))]
 use crate::server::{fetch_tag_by_id, fetch_tags};
 
 /// Fetch all tags with SSR support
@@ -12,13 +12,13 @@ use crate::server::{fetch_tag_by_id, fetch_tags};
 /// let tags = use_tags_list()?;
 /// let data = tags().ok()?;
 /// ```
-#[cfg(feature = "server")]
+#[cfg(all(feature = "server", not(feature = "demo-static-content")))]
 pub fn use_tags_list() -> Resource<Result<PaginatedList<Tag>, ServerFnError>> {
     use_server_future(fetch_tags).expect("Failed to create server future for tags")
 }
 
 /// Get a single tag by ID
-#[cfg(feature = "server")]
+#[cfg(all(feature = "server", not(feature = "demo-static-content")))]
 pub fn use_tag_by_id(id: i32) -> Resource<Result<Option<Tag>, ServerFnError>> {
     use_server_future(move || fetch_tag_by_id(id))
         .expect("Failed to create server future for tag by id")
@@ -33,7 +33,7 @@ pub fn use_tag_by_id(id: i32) -> Resource<Result<Option<Tag>, ServerFnError>> {
 ///     // Use tag
 /// }
 /// ```
-#[cfg(feature = "server")]
+#[cfg(all(feature = "server", not(feature = "demo-static-content")))]
 pub fn use_tag_by_slug(slug: String) -> Memo<Option<Tag>> {
     let list = use_tags_list();
 
@@ -51,7 +51,7 @@ pub fn use_tag_by_slug(slug: String) -> Memo<Option<Tag>> {
 // Client-only fallbacks (when server feature is disabled)
 // ============================================================================
 
-#[cfg(not(feature = "server"))]
+#[cfg(any(not(feature = "server"), feature = "demo-static-content"))]
 pub fn use_tags_list() -> Signal<Option<PaginatedList<Tag>>> {
     use ruxlog_shared::use_tag;
 
@@ -71,7 +71,7 @@ pub fn use_tags_list() -> Signal<Option<PaginatedList<Tag>>> {
     data
 }
 
-#[cfg(not(feature = "server"))]
+#[cfg(any(not(feature = "server"), feature = "demo-static-content"))]
 pub fn use_tag_by_id(id: i32) -> Signal<Option<Tag>> {
     use ruxlog_shared::use_tag;
 
@@ -93,7 +93,7 @@ pub fn use_tag_by_id(id: i32) -> Signal<Option<Tag>> {
     data
 }
 
-#[cfg(not(feature = "server"))]
+#[cfg(any(not(feature = "server"), feature = "demo-static-content"))]
 pub fn use_tag_by_slug(slug: String) -> Signal<Option<Tag>> {
     use ruxlog_shared::use_tag;
 
