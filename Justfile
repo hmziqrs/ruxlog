@@ -73,17 +73,24 @@ _fe app cmd env:
     set -euo pipefail
     dir="frontend/{{app}}-dioxus"
     case "{{cmd}}" in
-        dev)            cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- bash -c 'dx serve --platform web --port ${{uppercase(app)}}_PORT' ;;
-        desktop)        cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- bash -c 'dx serve --platform desktop --port ${{uppercase(app)}}_PORT' ;;
-        desktop-native) cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- bash -c 'dx serve --platform desktop --renderer native --port ${{uppercase(app)}}_PORT' ;;
-        build)          cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- dx build --platform web --release ;;
-        build-desktop)  cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- dx build --platform desktop --release ;;
-        bundle)         cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- dx bundle --platform web --release ;;
-        tailwind)       cd "$dir" && bun run tailwind ;;
-        tailwind-build) cd "$dir" && bun run tailwind:build ;;
-        install)        {{dotenv_bin}} -e ".env.{{env}}" -- bash -lc "cd '$dir' && bun install" ;;
-        clean)          {{dotenv_bin}} -e ".env.{{env}}" -- bash -lc "cd '$dir' && cargo clean" ;;
-        *)              echo "Unknown frontend command: {{cmd}}" && exit 1 ;;
+        dev)                cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- bash -c 'dx serve --platform web --port ${{uppercase(app)}}_PORT' ;;
+        desktop)            cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- bash -c 'dx serve --platform desktop --port ${{uppercase(app)}}_PORT' ;;
+        desktop-native)     cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- bash -c 'dx serve --platform desktop --renderer native --port ${{uppercase(app)}}_PORT' ;;
+        mobile)             cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- bash -c 'dx serve --platform android --port ${{uppercase(app)}}_PORT' ;;
+        mobile-native)      cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- bash -c 'dx serve --platform android --renderer native --port ${{uppercase(app)}}_PORT' ;;
+        build)              cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- dx build --platform web --release ;;
+        build-desktop)      cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- dx build --platform desktop --release ;;
+        build-desktop-native) cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- dx build --platform desktop --renderer native --release ;;
+        build-mobile)       cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- dx build --platform android --release ;;
+        build-mobile-native) cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- dx build --platform android --renderer native --release ;;
+        bundle)             cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- dx bundle --platform web --release ;;
+        bundle-desktop)     cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- dx bundle --platform desktop --release ;;
+        bundle-mobile)      cd "$dir" && {{dotenv_bin}} -e "../../.env.{{env}}" -- dx bundle --platform android --release ;;
+        tailwind)           cd "$dir" && bun run tailwind ;;
+        tailwind-build)     cd "$dir" && bun run tailwind:build ;;
+        install)            {{dotenv_bin}} -e ".env.{{env}}" -- bash -lc "cd '$dir' && bun install" ;;
+        clean)              {{dotenv_bin}} -e ".env.{{env}}" -- bash -lc "cd '$dir' && cargo clean" ;;
+        *)                  echo "Unknown frontend command: {{cmd}}" && exit 1 ;;
     esac
 
 # Admin frontend
@@ -93,6 +100,70 @@ admin cmd='dev' env='dev':
 # Consumer frontend
 consumer cmd='dev' env='dev':
     just _fe consumer {{cmd}} {{env}}
+
+# Desktop builds (with and without native renderer)
+admin-desktop env='dev':
+    just _fe admin desktop {{env}}
+
+admin-desktop-native env='dev':
+    just _fe admin desktop-native {{env}}
+
+consumer-desktop env='dev':
+    just _fe consumer desktop {{env}}
+
+consumer-desktop-native env='dev':
+    just _fe consumer desktop-native {{env}}
+
+# Mobile builds (Android only - with and without native renderer)
+admin-mobile env='dev':
+    just _fe admin mobile {{env}}
+
+admin-mobile-native env='dev':
+    just _fe admin mobile-native {{env}}
+
+consumer-mobile env='dev':
+    just _fe consumer mobile {{env}}
+
+consumer-mobile-native env='dev':
+    just _fe consumer mobile-native {{env}}
+
+# Production builds for desktop and mobile
+admin-build-desktop env='dev':
+    just _fe admin build-desktop {{env}}
+
+admin-build-desktop-native env='dev':
+    just _fe admin build-desktop-native {{env}}
+
+admin-build-mobile env='dev':
+    just _fe admin build-mobile {{env}}
+
+admin-build-mobile-native env='dev':
+    just _fe admin build-mobile-native {{env}}
+
+consumer-build-desktop env='dev':
+    just _fe consumer build-desktop {{env}}
+
+consumer-build-desktop-native env='dev':
+    just _fe consumer build-desktop-native {{env}}
+
+consumer-build-mobile env='dev':
+    just _fe consumer build-mobile {{env}}
+
+consumer-build-mobile-native env='dev':
+    just _fe consumer build-mobile-native {{env}}
+
+# Bundling for distribution
+admin-bundle-desktop env='dev':
+    just _fe admin bundle-desktop {{env}}
+
+admin-bundle-mobile env='dev':
+    just _fe admin bundle-mobile {{env}}
+
+consumer-bundle-desktop env='dev':
+    just _fe consumer bundle-desktop {{env}}
+
+consumer-bundle-mobile env='dev':
+    just _fe consumer bundle-mobile {{env}}
 
 # Admin-specific recipes -----------------------------------------------------
 
