@@ -21,7 +21,7 @@ env:
 
 jobs:
   desktop-linux:
-    name: linux-desktop-${{ matrix.app.id }}-${{ matrix.arch.id }}
+    name: linux-desktop-${{ matrix.app.id }}-${{ matrix.arch.id }}-${{ matrix.renderer.id }}
     runs-on: ${{ matrix.arch.runner }}
     timeout-minutes: 90
     strategy:
@@ -31,9 +31,11 @@ jobs:
           - id: admin-dioxus
             desktop_features: "desktop basic"
             mobile_features: "mobile basic"
+            bundle_id_base: "com.hmziq.ruxlog.admin"
           - id: consumer-dioxus
-            desktop_features: "desktop basic"
-            mobile_features: "mobile basic"
+            desktop_features: "desktop basic demo-static-content"
+            mobile_features: "mobile basic demo-static-content"
+            bundle_id_base: "com.hmziq.ruxlog.consumer"
         arch:
           - id: x86_64
             runner: ubuntu-latest
@@ -41,6 +43,9 @@ jobs:
           - id: arm64
             runner: ubuntu-24.04-arm
             rust_target: aarch64-unknown-linux-gnu
+        renderer:
+          - id: webview
+          - id: native
 
     steps:
       - uses: actions/checkout@v4
@@ -74,11 +79,27 @@ jobs:
           cargo install --locked dioxus-cli --version "${DIOXUS_CLI_VERSION}"
           dx --version
 
+      - name: Set renderer-specific bundle identifier
+        working-directory: frontend/${{ matrix.app.id }}
+        run: |
+          set -euo pipefail
+          bundle_id="${{ matrix.app.bundle_id_base }}.${{ matrix.renderer.id }}"
+          if grep -Eq '^[[:space:]]*\\[bundle\\][[:space:]]*$' Dioxus.toml; then
+            if grep -Eq '^[[:space:]]*identifier[[:space:]]*=' Dioxus.toml; then
+              sed -i -E "0,/^[[:space:]]*identifier[[:space:]]*=.*/s//identifier = \"${bundle_id}\"/" Dioxus.toml
+            else
+              sed -i -E "/^[[:space:]]*\\[bundle\\][[:space:]]*$/a identifier = \"${bundle_id}\"" Dioxus.toml
+            fi
+          else
+            printf "\n[bundle]\nidentifier = \"%s\"\n" "${bundle_id}" >> Dioxus.toml
+          fi
+
       - name: Build desktop release
         working-directory: frontend/${{ matrix.app.id }}
         run: |
           dx build \
             --platform desktop \
+            --renderer "${{ matrix.renderer.id }}" \
             --release \
             --no-default-features \
             --features "${{ matrix.app.desktop_features }}"
@@ -89,7 +110,7 @@ jobs:
           set -euo pipefail
           out_root="target/dx/${{ matrix.app.id }}/release"
           src_dir="${out_root}/desktop"
-          dest_dir="release-artifacts/linux-${{ matrix.arch.id }}"
+          dest_dir="release-artifacts/linux-${{ matrix.arch.id }}-${{ matrix.renderer.id }}"
 
           if [ ! -d "${src_dir}" ]; then
             echo "Expected output directory not found: ${src_dir}" >&2
@@ -103,12 +124,12 @@ jobs:
       - name: Upload platform-specific artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.app.id }}-linux-${{ matrix.arch.id }}
+          name: release-${{ matrix.app.id }}-linux-${{ matrix.arch.id }}-${{ matrix.renderer.id }}
           path: frontend/${{ matrix.app.id }}/release-artifacts
           if-no-files-found: error
 
   desktop-windows:
-    name: windows-desktop-${{ matrix.app.id }}-${{ matrix.arch.id }}
+    name: windows-desktop-${{ matrix.app.id }}-${{ matrix.arch.id }}-${{ matrix.renderer.id }}
     runs-on: ${{ matrix.arch.runner }}
     timeout-minutes: 90
     strategy:
@@ -118,9 +139,11 @@ jobs:
           - id: admin-dioxus
             desktop_features: "desktop basic"
             mobile_features: "mobile basic"
+            bundle_id_base: "com.hmziq.ruxlog.admin"
           - id: consumer-dioxus
-            desktop_features: "desktop basic"
-            mobile_features: "mobile basic"
+            desktop_features: "desktop basic demo-static-content"
+            mobile_features: "mobile basic demo-static-content"
+            bundle_id_base: "com.hmziq.ruxlog.consumer"
         arch:
           - id: x86_64
             runner: windows-latest
@@ -128,6 +151,9 @@ jobs:
           - id: arm64
             runner: windows-11-arm
             rust_target: aarch64-pc-windows-msvc
+        renderer:
+          - id: webview
+          - id: native
 
     steps:
       - uses: actions/checkout@v4
@@ -147,12 +173,29 @@ jobs:
           cargo install --locked dioxus-cli --version "${DIOXUS_CLI_VERSION}"
           dx --version
 
+      - name: Set renderer-specific bundle identifier
+        working-directory: frontend/${{ matrix.app.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle_id="${{ matrix.app.bundle_id_base }}.${{ matrix.renderer.id }}"
+          if grep -Eq '^[[:space:]]*\\[bundle\\][[:space:]]*$' Dioxus.toml; then
+            if grep -Eq '^[[:space:]]*identifier[[:space:]]*=' Dioxus.toml; then
+              sed -i -E "0,/^[[:space:]]*identifier[[:space:]]*=.*/s//identifier = \"${bundle_id}\"/" Dioxus.toml
+            else
+              sed -i -E "/^[[:space:]]*\\[bundle\\][[:space:]]*$/a identifier = \"${bundle_id}\"" Dioxus.toml
+            fi
+          else
+            printf "\n[bundle]\nidentifier = \"%s\"\n" "${bundle_id}" >> Dioxus.toml
+          fi
+
       - name: Build desktop release
         working-directory: frontend/${{ matrix.app.id }}
         shell: bash
         run: |
           dx build \
             --platform desktop \
+            --renderer "${{ matrix.renderer.id }}" \
             --release \
             --no-default-features \
             --features "${{ matrix.app.desktop_features }}"
@@ -164,7 +207,7 @@ jobs:
           set -euo pipefail
           out_root="target/dx/${{ matrix.app.id }}/release"
           src_dir="${out_root}/desktop"
-          dest_dir="release-artifacts/windows-${{ matrix.arch.id }}"
+          dest_dir="release-artifacts/windows-${{ matrix.arch.id }}-${{ matrix.renderer.id }}"
 
           if [ ! -d "${src_dir}" ]; then
             echo "Expected output directory not found: ${src_dir}" >&2
@@ -178,12 +221,12 @@ jobs:
       - name: Upload platform-specific artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.app.id }}-windows-${{ matrix.arch.id }}
+          name: release-${{ matrix.app.id }}-windows-${{ matrix.arch.id }}-${{ matrix.renderer.id }}
           path: frontend/${{ matrix.app.id }}/release-artifacts
           if-no-files-found: error
 
   android:
-    name: android-${{ matrix.app.id }}-${{ matrix.arch.id }}
+    name: android-${{ matrix.app.id }}-${{ matrix.arch.id }}-${{ matrix.renderer.id }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
@@ -193,14 +236,19 @@ jobs:
           - id: admin-dioxus
             desktop_features: "desktop basic"
             mobile_features: "mobile basic"
+            bundle_id_base: "com.hmziq.ruxlog.admin"
           - id: consumer-dioxus
-            desktop_features: "desktop basic"
-            mobile_features: "mobile basic"
+            desktop_features: "desktop basic demo-static-content"
+            mobile_features: "mobile basic demo-static-content"
+            bundle_id_base: "com.hmziq.ruxlog.consumer"
         arch:
           - id: x86_64
             rust_target: x86_64-linux-android
           - id: arm64
             rust_target: aarch64-linux-android
+        renderer:
+          - id: webview
+          - id: native
 
     steps:
       - uses: actions/checkout@v4
@@ -237,11 +285,27 @@ jobs:
           cargo install --locked dioxus-cli --version "${DIOXUS_CLI_VERSION}"
           dx --version
 
+      - name: Set renderer-specific bundle identifier
+        working-directory: frontend/${{ matrix.app.id }}
+        run: |
+          set -euo pipefail
+          bundle_id="${{ matrix.app.bundle_id_base }}.${{ matrix.renderer.id }}"
+          if grep -Eq '^[[:space:]]*\\[bundle\\][[:space:]]*$' Dioxus.toml; then
+            if grep -Eq '^[[:space:]]*identifier[[:space:]]*=' Dioxus.toml; then
+              sed -i -E "0,/^[[:space:]]*identifier[[:space:]]*=.*/s//identifier = \"${bundle_id}\"/" Dioxus.toml
+            else
+              sed -i -E "/^[[:space:]]*\\[bundle\\][[:space:]]*$/a identifier = \"${bundle_id}\"" Dioxus.toml
+            fi
+          else
+            printf "\n[bundle]\nidentifier = \"%s\"\n" "${bundle_id}" >> Dioxus.toml
+          fi
+
       - name: Build Android release
         working-directory: frontend/${{ matrix.app.id }}
         run: |
           dx build \
             --platform android \
+            --renderer "${{ matrix.renderer.id }}" \
             --release \
             --target "${{ matrix.arch.rust_target }}" \
             --no-default-features \
@@ -252,7 +316,7 @@ jobs:
         run: |
           set -euo pipefail
           out_root="target/dx/${{ matrix.app.id }}/release/android"
-          dest_dir="release-artifacts/android-${{ matrix.arch.id }}"
+          dest_dir="release-artifacts/android-${{ matrix.arch.id }}-${{ matrix.renderer.id }}"
 
           if [ ! -d "${out_root}" ]; then
             echo "Expected Android output directory not found: ${out_root}" >&2
@@ -278,7 +342,7 @@ jobs:
       - name: Upload platform-specific artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.app.id }}-android-${{ matrix.arch.id }}
+          name: release-${{ matrix.app.id }}-android-${{ matrix.arch.id }}-${{ matrix.renderer.id }}
           path: frontend/${{ matrix.app.id }}/release-artifacts
           if-no-files-found: error
 
@@ -304,23 +368,26 @@ jobs:
 
           apps=("admin-dioxus" "consumer-dioxus")
           platforms=("linux" "windows" "android")
+          renderers=("webview" "native")
 
           for app in "${apps[@]}"; do
             for platform in "${platforms[@]}"; do
-              x86_dir="artifacts/release-${app}-${platform}-x86_64"
-              arm_dir="artifacts/release-${app}-${platform}-arm64"
-              universal_dir="universal/${app}-${platform}-universal"
-              archive="universal/${app}-${platform}-universal.tar.gz"
+              for renderer in "${renderers[@]}"; do
+                x86_dir="artifacts/release-${app}-${platform}-x86_64-${renderer}"
+                arm_dir="artifacts/release-${app}-${platform}-arm64-${renderer}"
+                universal_dir="universal/${app}-${platform}-${renderer}-universal"
+                archive="universal/${app}-${platform}-${renderer}-universal.tar.gz"
 
-              if [ ! -d "${x86_dir}" ] || [ ! -d "${arm_dir}" ]; then
-                echo "Missing architecture artifacts for ${app} / ${platform}" >&2
-                exit 1
-              fi
+                if [ ! -d "${x86_dir}" ] || [ ! -d "${arm_dir}" ]; then
+                  echo "Missing architecture artifacts for ${app} / ${platform} / ${renderer}" >&2
+                  exit 1
+                fi
 
-              mkdir -p "${universal_dir}/x86_64" "${universal_dir}/arm64"
-              cp -R "${x86_dir}/." "${universal_dir}/x86_64/"
-              cp -R "${arm_dir}/." "${universal_dir}/arm64/"
-              tar -C universal -czf "${archive}" "$(basename "${universal_dir}")"
+                mkdir -p "${universal_dir}/x86_64" "${universal_dir}/arm64"
+                cp -R "${x86_dir}/." "${universal_dir}/x86_64/"
+                cp -R "${arm_dir}/." "${universal_dir}/arm64/"
+                tar -C universal -czf "${archive}" "$(basename "${universal_dir}")"
+              done
             done
           done
 
