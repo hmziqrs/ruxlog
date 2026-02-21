@@ -1,0 +1,367 @@
+name: release-builds
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+      - "release-*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-builds-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  DIOXUS_CLI_VERSION: "0.7.3"
+  RUST_BACKTRACE: "1"
+
+jobs:
+  desktop-linux:
+    name: linux-desktop-${{ matrix.app.id }}-${{ matrix.arch.id }}
+    runs-on: ${{ matrix.arch.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - id: admin-dioxus
+            desktop_features: "desktop basic"
+            mobile_features: "mobile basic"
+          - id: consumer-dioxus
+            desktop_features: "desktop basic"
+            mobile_features: "mobile basic"
+        arch:
+          - id: x86_64
+            runner: ubuntu-latest
+            rust_target: x86_64-unknown-linux-gnu
+          - id: arm64
+            runner: ubuntu-24.04-arm
+            rust_target: aarch64-unknown-linux-gnu
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux desktop prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            lld
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.arch.rust_target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            frontend/${{ matrix.app.id }} -> target
+
+      - name: Install Dioxus CLI
+        run: |
+          cargo install --locked dioxus-cli --version "${DIOXUS_CLI_VERSION}"
+          dx --version
+
+      - name: Build desktop release
+        working-directory: frontend/${{ matrix.app.id }}
+        run: |
+          dx build \
+            --platform desktop \
+            --release \
+            --no-default-features \
+            --features "${{ matrix.app.desktop_features }}"
+
+      - name: Collect platform-specific artifacts
+        working-directory: frontend/${{ matrix.app.id }}
+        run: |
+          set -euo pipefail
+          out_root="target/dx/${{ matrix.app.id }}/release"
+          src_dir="${out_root}/desktop"
+          dest_dir="release-artifacts/linux-${{ matrix.arch.id }}"
+
+          if [ ! -d "${src_dir}" ]; then
+            echo "Expected output directory not found: ${src_dir}" >&2
+            find target/dx -maxdepth 4 -type d || true
+            exit 1
+          fi
+
+          mkdir -p "$(dirname "${dest_dir}")"
+          cp -R "${src_dir}" "${dest_dir}"
+
+      - name: Upload platform-specific artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.app.id }}-linux-${{ matrix.arch.id }}
+          path: frontend/${{ matrix.app.id }}/release-artifacts
+          if-no-files-found: error
+
+  desktop-windows:
+    name: windows-desktop-${{ matrix.app.id }}-${{ matrix.arch.id }}
+    runs-on: ${{ matrix.arch.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - id: admin-dioxus
+            desktop_features: "desktop basic"
+            mobile_features: "mobile basic"
+          - id: consumer-dioxus
+            desktop_features: "desktop basic"
+            mobile_features: "mobile basic"
+        arch:
+          - id: x86_64
+            runner: windows-latest
+            rust_target: x86_64-pc-windows-msvc
+          - id: arm64
+            runner: windows-11-arm
+            rust_target: aarch64-pc-windows-msvc
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.arch.rust_target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            frontend/${{ matrix.app.id }} -> target
+
+      - name: Install Dioxus CLI
+        shell: bash
+        run: |
+          cargo install --locked dioxus-cli --version "${DIOXUS_CLI_VERSION}"
+          dx --version
+
+      - name: Build desktop release
+        working-directory: frontend/${{ matrix.app.id }}
+        shell: bash
+        run: |
+          dx build \
+            --platform desktop \
+            --release \
+            --no-default-features \
+            --features "${{ matrix.app.desktop_features }}"
+
+      - name: Collect platform-specific artifacts
+        working-directory: frontend/${{ matrix.app.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          out_root="target/dx/${{ matrix.app.id }}/release"
+          src_dir="${out_root}/desktop"
+          dest_dir="release-artifacts/windows-${{ matrix.arch.id }}"
+
+          if [ ! -d "${src_dir}" ]; then
+            echo "Expected output directory not found: ${src_dir}" >&2
+            find target/dx -maxdepth 4 -type d || true
+            exit 1
+          fi
+
+          mkdir -p "$(dirname "${dest_dir}")"
+          cp -R "${src_dir}" "${dest_dir}"
+
+      - name: Upload platform-specific artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.app.id }}-windows-${{ matrix.arch.id }}
+          path: frontend/${{ matrix.app.id }}/release-artifacts
+          if-no-files-found: error
+
+  android:
+    name: android-${{ matrix.app.id }}-${{ matrix.arch.id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - id: admin-dioxus
+            desktop_features: "desktop basic"
+            mobile_features: "mobile basic"
+          - id: consumer-dioxus
+            desktop_features: "desktop basic"
+            mobile_features: "mobile basic"
+        arch:
+          - id: x86_64
+            rust_target: x86_64-linux-android
+          - id: arm64
+            rust_target: aarch64-linux-android
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK + NDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools platforms;android-35 build-tools;35.0.0 ndk;27.2.12479018 cmake;3.22.1"
+
+      - name: Configure Android environment
+        run: |
+          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/27.2.12479018" >> "${GITHUB_ENV}"
+          echo "NDK_HOME=${ANDROID_SDK_ROOT}/ndk/27.2.12479018" >> "${GITHUB_ENV}"
+          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${ANDROID_SDK_ROOT}/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang" >> "${GITHUB_ENV}"
+          echo "CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER=${ANDROID_SDK_ROOT}/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android24-clang" >> "${GITHUB_ENV}"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.arch.rust_target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            frontend/${{ matrix.app.id }} -> target
+
+      - name: Install Dioxus CLI
+        run: |
+          cargo install --locked dioxus-cli --version "${DIOXUS_CLI_VERSION}"
+          dx --version
+
+      - name: Build Android release
+        working-directory: frontend/${{ matrix.app.id }}
+        run: |
+          dx build \
+            --platform android \
+            --release \
+            --target "${{ matrix.arch.rust_target }}" \
+            --no-default-features \
+            --features "${{ matrix.app.mobile_features }}"
+
+      - name: Collect platform-specific artifacts
+        working-directory: frontend/${{ matrix.app.id }}
+        run: |
+          set -euo pipefail
+          out_root="target/dx/${{ matrix.app.id }}/release/android"
+          dest_dir="release-artifacts/android-${{ matrix.arch.id }}"
+
+          if [ ! -d "${out_root}" ]; then
+            echo "Expected Android output directory not found: ${out_root}" >&2
+            find target/dx -maxdepth 6 -type d || true
+            exit 1
+          fi
+
+          mkdir -p "${dest_dir}"
+          found=0
+          while IFS= read -r -d '' file; do
+            rel="${file#${out_root}/}"
+            mkdir -p "${dest_dir}/$(dirname "${rel}")"
+            cp "${file}" "${dest_dir}/${rel}"
+            found=1
+          done < <(find "${out_root}" -type f \( -name "*.apk" -o -name "*.aab" -o -name "*.apks" -o -name "output-metadata.json" \) -print0)
+
+          if [ "${found}" -eq 0 ]; then
+            echo "No Android package artifacts found under ${out_root}" >&2
+            find "${out_root}" -maxdepth 8 -type f || true
+            exit 1
+          fi
+
+      - name: Upload platform-specific artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.app.id }}-android-${{ matrix.arch.id }}
+          path: frontend/${{ matrix.app.id }}/release-artifacts
+          if-no-files-found: error
+
+  universal:
+    name: universal-archives
+    needs:
+      - desktop-linux
+      - desktop-windows
+      - android
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Download all platform-specific artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Build universal multi-arch archives
+        run: |
+          set -euo pipefail
+          mkdir -p universal
+
+          apps=("admin-dioxus" "consumer-dioxus")
+          platforms=("linux" "windows" "android")
+
+          for app in "${apps[@]}"; do
+            for platform in "${platforms[@]}"; do
+              x86_dir="artifacts/release-${app}-${platform}-x86_64"
+              arm_dir="artifacts/release-${app}-${platform}-arm64"
+              universal_dir="universal/${app}-${platform}-universal"
+              archive="universal/${app}-${platform}-universal.tar.gz"
+
+              if [ ! -d "${x86_dir}" ] || [ ! -d "${arm_dir}" ]; then
+                echo "Missing architecture artifacts for ${app} / ${platform}" >&2
+                exit 1
+              fi
+
+              mkdir -p "${universal_dir}/x86_64" "${universal_dir}/arm64"
+              cp -R "${x86_dir}/." "${universal_dir}/x86_64/"
+              cp -R "${arm_dir}/." "${universal_dir}/arm64/"
+              tar -C universal -czf "${archive}" "$(basename "${universal_dir}")"
+            done
+          done
+
+          sha256sum universal/*.tar.gz > universal/SHA256SUMS.txt
+
+      - name: Upload universal artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-universal
+          path: universal
+          if-no-files-found: error
+
+  publish-release:
+    name: publish-release-assets
+    needs:
+      - universal
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create release archives
+        run: |
+          set -euo pipefail
+          mkdir -p release-files
+          for dir in artifacts/*; do
+            [ -d "${dir}" ] || continue
+            name="$(basename "${dir}")"
+            tar -C artifacts -czf "release-files/${name}.tar.gz" "${name}"
+          done
+          sha256sum release-files/*.tar.gz > release-files/SHA256SUMS.txt
+
+      - name: Upload assets to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-files/*.tar.gz
+            release-files/SHA256SUMS.txt
+          generate_release_notes: true
