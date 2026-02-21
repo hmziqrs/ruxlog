@@ -143,3 +143,7 @@ inherits = "dev"
 
 [build-dependencies]
 dotenvy = "0.15.7"
+
+[target.'cfg(target_os = "android")'.dependencies]
+android-activity = "0.6"
+blitz-shell = "0.2.3"

@@ -88,6 +88,20 @@ fn main() {
 // clients without enabling the desktop/mobile Cargo features)
 #[cfg(not(any(feature = "server", feature = "web")))]
 fn main() {
+    run_client();
+}
+
+#[cfg(all(target_os = "android", not(any(feature = "server", feature = "web"))))]
+#[no_mangle]
+fn android_main(app: android_activity::AndroidApp) {
+    // dioxus-native (used by `--renderer native`) needs the Android app handle
+    // registered before creating its winit event loop.
+    blitz_shell::set_android_app(app);
+    run_client();
+}
+
+#[cfg(not(any(feature = "server", feature = "web")))]
+fn run_client() {
     configure_http_client();
     dioxus::launch(App);
 }
