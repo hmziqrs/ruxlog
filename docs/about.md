@@ -20,4 +20,4 @@ Open source at [github.com/hmziqrs/ruxlog](https://github.com/hmziqrs/ruxlog).
 
 ## Author
 
-Built by [hmziqrs](https://github.com/hmziqrs).
+Built by [hmziqrs](https://github.com/hmziqrs) • [hmziqrs@gmail.com](mailto:hmziqrs@gmail.com).

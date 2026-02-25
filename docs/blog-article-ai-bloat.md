@@ -45,4 +45,4 @@
 
 ---
 
-*Written by [hmziqrs](https://github.com/hmziqrs)*
+*Written by [hmziqrs](https://github.com/hmziqrs) • [hmziqrs@gmail.com](mailto:hmziqrs@gmail.com)*
