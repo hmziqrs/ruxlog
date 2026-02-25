@@ -92,4 +92,4 @@ Ruxlog is open source at [github.com/hmziqrs/ruxlog](https://github.com/hmziqrs/
 
 ---
 
-*Written by [hmziqrs](https://github.com/hmziqrs) with help from AI for structuring and editing.*
+*Written by [hmziqrs](https://github.com/hmziqrs) • [hmziqrs@gmail.com](mailto:hmziqrs@gmail.com) with help from AI for structuring and editing.*

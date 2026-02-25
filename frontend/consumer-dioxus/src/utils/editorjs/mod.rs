@@ -152,7 +152,7 @@ fn render_raw_block(block: &EditorJsBlock) -> Element {
 
 pub fn render_editorjs_content(content: &PostContent) -> Element {
     rsx! {
-        div { class: "prose max-w-none",
+        div { class: "max-w-none",
             for block in &content.blocks {
                 match block {
                     EditorJsBlock::Header { .. } => render_header_block(block),
