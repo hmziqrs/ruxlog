@@ -87,14 +87,19 @@ pub fn PostViewScreen(slug: String) -> Element {
         use_page_timer(&route);
         use_scroll_depth(&route);
 
+        let tracking_post = match &post_state {
+            Some(Ok(Some(post))) => Some((
+                post.id.to_string(),
+                post.title.clone(),
+                post.category.name.clone(),
+            )),
+            _ => None,
+        };
+
         // Track post view when post is loaded
         use_effect(move || {
-            if let Some(Ok(Some(ref post_data))) = post_state {
-                tracker::track_post_view(
-                    &post_data.id.to_string(),
-                    &post_data.title,
-                    Some(&post_data.category.name),
-                );
+            if let Some((post_id, post_title, category_name)) = tracking_post.as_ref() {
+                tracker::track_post_view(post_id, post_title, Some(category_name));
             }
         });
     }
