@@ -96,7 +96,7 @@ web-sys = { version = "0.3.69", optional = true, features = [
 dioxus-time = { path = "../dioxus_pkgs/sdk/packages/time", version = "0.7.3" }
 
 [features]
-default = ["web", "basic", "analytics"]
+default = ["web", "basic"]
 web = [
     "dioxus/web",
     "gloo-storage",
