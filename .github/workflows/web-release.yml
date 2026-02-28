@@ -44,6 +44,11 @@ jobs:
           echo "$HOME/.dioxus/bin" >> "$GITHUB_PATH"
           dx --version
 
+      - name: Set base_path for GitHub Pages
+        working-directory: frontend/consumer-dioxus
+        run: |
+          sed -i 's/\[web\.app\]/[web.app]\nbase_path = "ruxlog"/' Dioxus.toml
+
       - name: Build consumer web release
         working-directory: frontend/consumer-dioxus
         run: |
@@ -57,7 +62,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: consumer-web
-          path: frontend/consumer-dioxus/target/dx/consumer-dioxus/release/web
+          path: frontend/consumer-dioxus/target/dx/consumer-dioxus/release/web/public
           if-no-files-found: error
           retention-days: 1
 
@@ -74,7 +79,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: consumer-web
-          path: public
+          path: site
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -82,7 +87,7 @@ jobs:
       - name: Upload to GitHub Pages
         uses: actions/upload-pages-artifact@v3
         with:
-          path: public
+          path: site
 
       - name: Deploy to GitHub Pages
         id: deployment
