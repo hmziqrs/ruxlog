@@ -1,4 +1,4 @@
-```name: web-release
+name: web-release
 
 on:
   workflow_dispatch:
