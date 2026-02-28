@@ -21,7 +21,6 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  DIOXUS_CLI_VERSION: "0.7.3"
 
 jobs:
   build:
@@ -41,7 +40,8 @@ jobs:
 
       - name: Install Dioxus CLI
         run: |
-          cargo install --locked dioxus-cli --version "${DIOXUS_CLI_VERSION}"
+          curl -sSL https://dioxus.dev/install.sh | bash
+          echo "$HOME/.dioxus/bin" >> "$GITHUB_PATH"
           dx --version
 
       - name: Build consumer web release
