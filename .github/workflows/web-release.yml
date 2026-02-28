@@ -1,0 +1,89 @@
+```name: web-release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - "v*"
+      - "release-*"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  DIOXUS_CLI_VERSION: "0.7.3"
+
+jobs:
+  build:
+    name: build-consumer-web
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            frontend/consumer-dioxus -> target
+
+      - name: Install Dioxus CLI
+        run: |
+          cargo install --locked dioxus-cli --version "${DIOXUS_CLI_VERSION}"
+          dx --version
+
+      - name: Build consumer web release
+        working-directory: frontend/consumer-dioxus
+        run: |
+          dx build \
+            --platform web \
+            --release \
+            --no-default-features \
+            --features "web demo-static-content basic analytics"
+
+      - name: Upload consumer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: consumer-web
+          path: frontend/consumer-dioxus/target/dx/consumer-dioxus/release/web
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy:
+    name: deploy-to-pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Download consumer artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: consumer-web
+          path: public
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
