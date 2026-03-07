@@ -57,8 +57,9 @@ jobs:
           dx build \
             --platform web \
             --release \
+            --ssg \
             --no-default-features \
-            --features "web demo-static-content basic"
+            --features "demo-static-content basic"
 
       - name: Upload consumer artifact
         uses: actions/upload-artifact@v4
