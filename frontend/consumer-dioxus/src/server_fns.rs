@@ -260,7 +260,6 @@ mod demo_static {
         Ok(demo_content::content().category_by_slug(&slug))
     }
 
-    #[cfg(feature = "server")]
     #[server(endpoint = "static_routes", output = server_fn::codec::Json)]
     pub async fn static_routes() -> Result<Vec<String>, ServerFnError> {
         let mut routes = Route::static_routes()
