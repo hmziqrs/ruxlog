@@ -44,12 +44,7 @@ jobs:
           echo "$HOME/.dioxus/bin" >> "$GITHUB_PATH"
           dx --version
 
-      - name: Set base_path for GitHub Pages
-        working-directory: frontend/consumer-dioxus
-        run: |
-          sed -i 's/\[web\.app\]/[web.app]\nbase_path = "ruxlog"/' Dioxus.toml
-
-      - name: Build consumer web release
+      - name: Build consumer web release (SSG)
         working-directory: frontend/consumer-dioxus
         env:
           CONSUMER_SITE_URL: https://hmziqrs.github.io/ruxlog
@@ -60,6 +55,18 @@ jobs:
             --ssg \
             --no-default-features \
             --features "demo-static-content basic"
+
+      - name: Rewrite paths for GitHub Pages subpath
+        working-directory: frontend/consumer-dioxus/target/dx/consumer-dioxus/release/web/public
+        run: |
+          BASE="/ruxlog"
+          # Normalize /./assets/ to /assets/ first
+          find . -name '*.html' -exec sed -i 's|"/\./|"/|g' {} +
+          # Prefix all internal absolute paths with base path
+          find . -name '*.html' -exec sed -i \
+            -e "s|href=\"/|href=\"${BASE}/|g" \
+            -e "s|src=\"/|src=\"${BASE}/|g" \
+            {} +
 
       - name: Upload consumer artifact
         uses: actions/upload-artifact@v4
