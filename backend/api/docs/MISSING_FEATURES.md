@@ -2,7 +2,7 @@
 
 This document captures focused, low-complexity features for a senior engineer’s personal blog. It aligns with existing modules and route patterns, avoids unnecessary complexity (search, media processing, analytics, social, notifications), and uses `post_v1` for content enhancements, keeps auth under `auth_v1`, uses admin-style comment moderation, trims API enhancements, and removes timelines.
 
-Additionally, this file enumerates concrete wiring: router additions, controller/validator stubs, SeaORM models (actions/model/slice), and migration stubs per module to integrate cleanly with the current codebase and CLAUDE.md patterns.
+Additionally, this file enumerates concrete wiring: router additions, controller/validator stubs, SeaORM models (actions/model/slice), and migration stubs per module to integrate cleanly with the current codebase and AGENTS.md patterns.
 
 ## 1) Feed Module (`feed_v1`) — Completed
 Why: Standard syndication for readers and aggregators.
