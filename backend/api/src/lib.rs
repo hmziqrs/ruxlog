@@ -12,4 +12,7 @@ pub mod utils;
 #[cfg(feature = "seed-system")]
 pub mod tui;
 
+#[cfg(test)]
+pub mod test_utils;
+
 pub use crate::state::AppState;
