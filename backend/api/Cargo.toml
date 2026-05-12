@@ -120,6 +120,7 @@ lettre = { version = "0.11.9", features = ["default", "tokio1-native-tls"] }
 regex = "1.11.1"
 lazy_static = "1.5.0"
 async-trait = "0.1.88"
+tera = "1"
 log = "0.4.27"
 
 aws-config = { version = "1.6.2", features = ["behavior-version-latest"] }
