@@ -8,10 +8,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 FROM base AS deps
 COPY api/Cargo.toml api/Cargo.toml
 COPY api/Cargo.lock api/Cargo.lock
+COPY api/crates/rux-auth/Cargo.toml api/crates/rux-auth/Cargo.toml
 COPY api/migration/Cargo.toml api/migration/Cargo.toml
 COPY api/migration/Cargo.lock api/migration/Cargo.lock
-# Create dummy main.rs to satisfy cargo fetch with default-run
-RUN mkdir -p api/src && echo "fn main() {}" > api/src/main.rs
+# Create dummy source files to satisfy cargo fetch with workspace members
+RUN mkdir -p api/src api/crates/rux-auth/src api/migration/src \
+    && echo "fn main() {}" > api/src/main.rs \
+    && echo "" > api/crates/rux-auth/src/lib.rs \
+    && echo "" > api/migration/src/lib.rs
 RUN cd api && cargo fetch --locked
 
 FROM deps AS builder

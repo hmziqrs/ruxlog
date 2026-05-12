@@ -1,5 +1,7 @@
 pub mod config;
 pub mod db;
+#[cfg(feature = "openapi")]
+pub mod docs;
 pub mod error;
 pub mod extractors;
 pub mod middlewares;

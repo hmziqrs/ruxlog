@@ -228,3 +228,41 @@ fn constant_time_eq_str(a: &str, b: &str) -> bool {
     }
     diff == 0
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_stripe_provider_name() {
+        let provider = StripeProvider::new("sk_test_key".into(), "whsec_secret".into());
+        assert_eq!(provider.provider_name(), "stripe");
+    }
+
+    #[test]
+    fn test_stripe_new() {
+        let provider = StripeProvider::new("sk_live_abc123".into(), "whsec_def456".into());
+        assert_eq!(provider.secret_key, "sk_live_abc123");
+        assert_eq!(provider.webhook_secret, "whsec_def456");
+    }
+
+    #[test]
+    fn test_constant_time_eq_str_equal() {
+        assert!(constant_time_eq_str("abc123", "abc123"));
+    }
+
+    #[test]
+    fn test_constant_time_eq_str_different() {
+        assert!(!constant_time_eq_str("abc123", "abc124"));
+    }
+
+    #[test]
+    fn test_constant_time_eq_str_different_lengths() {
+        assert!(!constant_time_eq_str("abc", "abcd"));
+    }
+
+    #[test]
+    fn test_constant_time_eq_str_empty() {
+        assert!(constant_time_eq_str("", ""));
+    }
+}

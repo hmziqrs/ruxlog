@@ -241,3 +241,47 @@ fn constant_time_eq_str(a: &str, b: &str) -> bool {
     }
     diff == 0
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_lemon_squeezy_provider_name() {
+        let provider = LemonSqueezyProvider::new("api_key".into(), "whsec".into(), "store_1".into());
+        assert_eq!(provider.provider_name(), "lemon_squeezy");
+    }
+
+    #[test]
+    fn test_lemon_squeezy_new() {
+        let provider = LemonSqueezyProvider::new("key_abc".into(), "secret_def".into(), "store_123".into());
+        assert_eq!(provider.api_key, "key_abc");
+        assert_eq!(provider.webhook_secret, "secret_def");
+        assert_eq!(provider.store_id, "store_123");
+    }
+
+    #[test]
+    fn test_lemon_squeezy_from_env_missing() {
+        // Ensure none of the required env vars are set
+        std::env::remove_var("LEMONSQUEEZY_API_KEY");
+        std::env::remove_var("LEMONSQUEEZY_WEBHOOK_SECRET");
+        std::env::remove_var("LEMONSQUEEZY_STORE_ID");
+        let result = LemonSqueezyProvider::from_env();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_constant_time_eq_str_equal() {
+        assert!(constant_time_eq_str("abcdef", "abcdef"));
+    }
+
+    #[test]
+    fn test_constant_time_eq_str_different() {
+        assert!(!constant_time_eq_str("abcdef", "abcdeg"));
+    }
+
+    #[test]
+    fn test_constant_time_eq_str_different_lengths() {
+        assert!(!constant_time_eq_str("short", "longer"));
+    }
+}

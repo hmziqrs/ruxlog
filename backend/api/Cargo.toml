@@ -42,13 +42,16 @@ admin-routes = []
 seed-system = []
 scheduler = []
 
+# OpenAPI documentation
+openapi = ["utoipa", "utoipa-swagger-ui"]
+
 # Billing / monetization — each provider is feature-gated
 billing = ["billing-stripe"]
-billing-stripe = []
-billing-polar = []
-billing-lemonsqueezy = []
-billing-paddle = []
-billing-crypto = []
+billing-stripe = ["billing"]
+billing-polar = ["billing"]
+billing-lemonsqueezy = ["billing"]
+billing-paddle = ["billing"]
+billing-crypto = ["billing"]
 
 [dependencies]
 rux-auth = { path = "./crates/rux-auth" }
@@ -143,6 +146,8 @@ ratatui = "0.29"
 crossterm = "0.29"
 tuirealm = "3.2.0"
 tui-realm-stdlib = "3.0.0"
+utoipa = { version = "5", features = ["axum_extras"], optional = true }
+utoipa-swagger-ui = { version = "9", features = ["axum"], optional = true }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

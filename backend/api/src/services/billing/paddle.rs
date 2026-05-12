@@ -156,7 +156,7 @@ impl BillingProvider for PaddleProvider {
 
     async fn verify_webhook(&self, event: WebhookEvent) -> Result<ParsedWebhook, BillingError> {
         // Verify Paddle webhook signature using HMAC-SHA256
-        if let Some(signature) = event.headers.get("paddle-signature") {
+        if !event.signature.is_empty() {
             use hmac::{Hmac, Mac};
             use sha2::Sha256;
 
@@ -170,7 +170,7 @@ impl BillingProvider for PaddleProvider {
             mac.update(payload_str.as_bytes());
             let expected = hex::encode(mac.finalize().into_bytes());
 
-            if !constant_time_eq_str(&expected, signature) {
+            if !constant_time_eq_str(&expected, &event.signature) {
                 return Err(BillingError::WebhookVerification(
                     "Invalid Paddle webhook signature".into(),
                 ));
@@ -216,4 +216,45 @@ fn constant_time_eq_str(a: &str, b: &str) -> bool {
         .zip(b_bytes.iter())
         .fold(0, |acc, (x, y)| acc | (x ^ y))
         == 0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_paddle_provider_name() {
+        let provider = PaddleProvider::new("paddle_token".into(), "paddle_secret".into());
+        assert_eq!(provider.provider_name(), "paddle");
+    }
+
+    #[test]
+    fn test_paddle_new() {
+        let provider = PaddleProvider::new("tok_abc".into(), "whsec_xyz".into());
+        assert_eq!(provider.client_token, "tok_abc");
+        assert_eq!(provider.webhook_secret, "whsec_xyz");
+    }
+
+    #[test]
+    fn test_paddle_from_env_missing() {
+        std::env::remove_var("PADDLE_CLIENT_TOKEN");
+        std::env::remove_var("PADDLE_WEBHOOK_SECRET");
+        let result = PaddleProvider::from_env();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_constant_time_eq_str_equal() {
+        assert!(constant_time_eq_str("test123", "test123"));
+    }
+
+    #[test]
+    fn test_constant_time_eq_str_different() {
+        assert!(!constant_time_eq_str("test123", "test124"));
+    }
+
+    #[test]
+    fn test_constant_time_eq_str_different_lengths() {
+        assert!(!constant_time_eq_str("abc", "abcdef"));
+    }
 }
