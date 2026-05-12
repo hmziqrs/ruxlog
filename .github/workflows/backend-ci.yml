@@ -1,0 +1,61 @@
+name: backend-ci
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "backend/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+  pull_request:
+    paths:
+      - "backend/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  check:
+    name: fmt + clippy + check + test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            backend/api -> target
+            backend/api/crates/rux-auth -> target
+
+      - name: Check formatting
+        run: cargo fmt --check --all
+        working-directory: backend/api
+
+      - name: Clippy (basic)
+        run: cargo clippy -- -D warnings
+        working-directory: backend/api
+
+      - name: Clippy (full features)
+        run: cargo clippy --features full -- -D warnings
+        working-directory: backend/api
+
+      - name: Check (basic)
+        run: cargo check
+        working-directory: backend/api
+
+      - name: Check (full features)
+        run: cargo check --features full
+        working-directory: backend/api
+
+      - name: Run tests
+        run: cargo test
+        working-directory: backend/api

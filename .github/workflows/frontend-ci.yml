@@ -1,0 +1,76 @@
+name: frontend-ci
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "frontend/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+  pull_request:
+    paths:
+      - "frontend/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  check:
+    name: check-frontend-crates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            frontend/admin-dioxus -> target
+            frontend/consumer-dioxus -> target
+            frontend/ruxlog-shared -> target
+            frontend/oxui -> target
+            frontend/oxcore -> target
+            frontend/oxstore -> target
+            frontend/oxform -> target
+
+      - name: Check oxui
+        run: cargo check -p oxui
+        working-directory: frontend/oxui
+
+      - name: Check oxcore
+        run: cargo check -p oxcore
+        working-directory: frontend/oxcore
+
+      - name: Check oxstore
+        run: cargo check -p oxstore
+        working-directory: frontend/oxstore
+
+      - name: Check oxform
+        run: cargo check -p oxform
+        working-directory: frontend/oxform
+
+      - name: Check ruxlog-shared
+        run: cargo check -p ruxlog-shared
+        working-directory: frontend/ruxlog-shared
+
+      - name: Check consumer-dioxus (basic)
+        run: cargo check -p consumer-dioxus
+        working-directory: frontend/consumer-dioxus
+
+      - name: Check consumer-dioxus (full)
+        run: cargo check -p consumer-dioxus --features full
+        working-directory: frontend/consumer-dioxus
+
+      - name: Check admin-dioxus (basic)
+        run: cargo check -p admin-dioxus
+        working-directory: frontend/admin-dioxus
+
+      - name: Check admin-dioxus (full)
+        run: cargo check -p admin-dioxus --features full
+        working-directory: frontend/admin-dioxus
