@@ -162,3 +162,21 @@ impl BillingProvider for PolarProvider {
         ))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_polar_provider_name() {
+        let provider = PolarProvider::new("polar_token".into(), "polar_secret".into());
+        assert_eq!(provider.provider_name(), "polar");
+    }
+
+    #[test]
+    fn test_polar_new() {
+        let provider = PolarProvider::new("access_tok_abc".into(), "whsec_xyz".into());
+        assert_eq!(provider.access_token, "access_tok_abc");
+        assert_eq!(provider.webhook_secret, "whsec_xyz");
+    }
+}

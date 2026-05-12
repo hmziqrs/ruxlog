@@ -126,3 +126,103 @@ impl BillingProvider for CryptoProvider {
         ))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_crypto_provider_name() {
+        let provider = CryptoProvider::new(
+            "0xWalletAddr".into(),
+            "https://api.blockcypher.com/v1".into(),
+            "api_key".into(),
+            "BTC".into(),
+        );
+        assert_eq!(provider.provider_name(), "crypto");
+    }
+
+    #[test]
+    fn test_crypto_new() {
+        let provider = CryptoProvider::new(
+            "bc1qwallet".into(),
+            "https://api.example.com".into(),
+            "key_secret".into(),
+            "ETH".into(),
+        );
+        assert_eq!(provider.wallet_address, "bc1qwallet");
+        assert_eq!(provider.api_url, "https://api.example.com");
+        assert_eq!(provider.api_key, "key_secret");
+        assert_eq!(provider.currency, "ETH");
+    }
+
+    #[tokio::test]
+    async fn test_crypto_create_checkout_format() {
+        let provider = CryptoProvider::new(
+            "0xDeadBeef".into(),
+            "https://api.blockchain.example".into(),
+            "my_key".into(),
+            "BTC".into(),
+        );
+
+        let result = provider
+            .create_checkout("100_USD", "user@example.com", 42, "https://example.com/success", "https://example.com/cancel")
+            .await
+            .expect("checkout should succeed");
+
+        // Session ID should start with "rux-{user_id}-"
+        assert!(result.session_id.starts_with("rux-42-"), "session_id should start with rux-42-, got: {}", result.session_id);
+
+        // Checkout URL should contain the wallet address and API URL
+        assert!(result.checkout_url.contains("0xDeadBeef"), "checkout_url should contain wallet address");
+        assert!(result.checkout_url.contains("100_USD"), "checkout_url should contain plan slug");
+        assert!(result.checkout_url.contains("api.blockchain.example"), "checkout_url should contain API URL");
+    }
+
+    #[tokio::test]
+    async fn test_crypto_cancel_subscription_always_ok() {
+        let provider = CryptoProvider::new(
+            "0xAddr".into(),
+            "https://api.example.com".into(),
+            "key".into(),
+            "BTC".into(),
+        );
+
+        // Crypto cancel_subscription should always succeed (no real subscription)
+        let result = provider.cancel_subscription("any_id", true).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_crypto_get_subscription_returns_active() {
+        let provider = CryptoProvider::new(
+            "0xAddr".into(),
+            "https://api.example.com".into(),
+            "key".into(),
+            "BTC".into(),
+        );
+
+        let sub = provider
+            .get_subscription("payment_123")
+            .await
+            .expect("get_subscription should succeed");
+
+        assert_eq!(sub.status, "active");
+        assert_eq!(sub.provider_subscription_id, "payment_123");
+        assert!(!sub.cancel_at_period_end);
+        assert!(sub.current_period_end.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_crypto_portal_session_returns_error() {
+        let provider = CryptoProvider::new(
+            "0xAddr".into(),
+            "https://api.example.com".into(),
+            "key".into(),
+            "BTC".into(),
+        );
+
+        let result = provider.create_portal_session("customer_id", "https://return.url").await;
+        assert!(result.is_err());
+    }
+}

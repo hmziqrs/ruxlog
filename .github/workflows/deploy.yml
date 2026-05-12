@@ -1,0 +1,103 @@
+name: Deploy
+
+on:
+  push:
+    branches: [develop]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run smoke tests
+        run: |
+          echo "Smoke tests would run against staging environment"
+          echo "TODO: Add actual smoke test commands against deployed staging"
+
+      - name: Deploy notification
+        run: |
+          echo "Staging deployment triggered for commit ${{ github.sha }}"
+          echo "TODO: Add actual deployment commands (docker compose, kubectl, etc.)"
+
+  deploy-production:
+    name: Deploy to Production
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run database migrations
+        run: |
+          echo "Database migrations would run here"
+          echo "TODO: Add migration command (e.g., cargo run -- migration run)"
+
+      - name: Deploy
+        run: |
+          echo "Production deployment triggered for tag ${{ github.ref_name }}"
+          echo "TODO: Add actual deployment commands"
+
+      - name: Health check
+        run: |
+          echo "Waiting for deployment to be healthy..."
+          echo "TODO: Add health check against production URL"
+
+  smoke-tests:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make smoke scripts executable
+        run: chmod +x backend/api/tests/*.sh
+
+      - name: Run smoke test scripts
+        run: |
+          echo "Running smoke tests against ${{ vars.API_URL || 'http://localhost:1100' }}"
+          for script in backend/api/tests/*.sh; do
+            echo "Running $script..."
+            # Scripts require a running API — skip in CI for now
+            # bash "$script"
+            echo "  (skipped — requires live API)"
+          done
+
+  rollback-docs:
+    name: Rollback Procedure
+    runs-on: ubuntu-latest
+    if: false  # Only runs manually
+
+    steps:
+      - name: Document rollback steps
+        run: |
+          echo "## Rollback Procedure"
+          echo ""
+          echo "1. Identify the last known good tag:"
+          echo "   git tag --sort=-creatordate | head -5"
+          echo ""
+          echo "2. Revert to the previous deployment:"
+          echo "   docker compose --profile full down"
+          echo "   git checkout <previous-tag>"
+          echo "   docker compose --profile full up --build -d"
+          echo ""
+          echo "3. If database migration was applied:"
+          echo "   cargo run -- migration down --steps 1"
+          echo ""
+          echo "4. Verify health:"
+          echo "   curl -f http://localhost:1100/healthz"

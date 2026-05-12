@@ -121,6 +121,17 @@ pub fn router(state: AppState) -> Router<AppState> {
         router = router.nest("/billing/v1", billing_v1::routes());
     }
 
+    #[cfg(feature = "openapi")]
+    {
+        use utoipa::OpenApi;
+        use utoipa_swagger_ui::SwaggerUi;
+
+        router = router.merge(
+            SwaggerUi::new("/api/docs")
+                .url("/api/docs.json", crate::docs::ApiDoc::openapi()),
+        );
+    }
+
     router
         .layer(middleware::from_fn(security_headers::security_headers))
         .layer(middleware::from_fn(request_id_middleware))

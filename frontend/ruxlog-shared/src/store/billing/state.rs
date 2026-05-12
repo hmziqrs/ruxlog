@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
-use oxstore::{PaginatedList, StateFrame};
+use oxstore::StateFrame;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
