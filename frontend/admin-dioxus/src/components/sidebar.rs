@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::icons::ld_icons::{
-    LdAreaChart, LdCreditCard, LdFileText, LdFolder, LdHome, LdImage, LdLogOut, LdPlus, LdTag,
-    LdUser,
+    LdAreaChart, LdCreditCard, LdFileText, LdFolder, LdHome, LdImage, LdLogOut, LdPlus, LdShieldCheck,
+    LdTag, LdUser, LdBolt,
 };
 use hmziq_dioxus_free_icons::Icon;
 
@@ -310,6 +310,22 @@ pub fn Sidebar(expanded: Signal<bool>, toggle: EventHandler<()>) -> Element {
                     {routes_nav}
                     {acl_nav}
                     {billing_nav}
+
+                    SidebarModuleLink {
+                        main_route: Route::AuditLogViewerScreen {},
+                        icon: rsx! { Icon { icon: LdShieldCheck } },
+                        label: "Audit Logs",
+                        is_active: is_active(Route::AuditLogViewerScreen {}),
+                        on_close: move |_| toggle.call(()),
+                    }
+
+                    SidebarModuleLink {
+                        main_route: Route::SystemHealthScreen {},
+                        icon: rsx! { Icon { icon: LdBolt } },
+                        label: "System Health",
+                        is_active: is_active(Route::SystemHealthScreen {}),
+                        on_close: move |_| toggle.call(()),
+                    }
 
                     SidebarModuleLink {
                         main_route: Route::ProfileSecurityScreen {},

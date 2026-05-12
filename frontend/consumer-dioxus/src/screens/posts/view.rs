@@ -1,4 +1,4 @@
-use crate::components::{estimate_reading_time, format_date, ActionBar, BannerPlaceholder, PaywallOverlay, ReadingProgressBar, RelatedPosts, TableOfContents};
+use crate::components::{estimate_reading_time, format_date, ActionBar, BannerPlaceholder, PaywallOverlay, ReadingProgressBar, RelatedPosts, SeriesNavigation, TableOfContents};
 use crate::seo::{
     article_schema, breadcrumb_schema, ArticleMetadata, SeoHead, SeoImage, SeoMetadataBuilder,
     StructuredData,
@@ -346,6 +346,12 @@ pub fn PostViewScreen(slug: String) -> Element {
                             post_id: post.id.to_string(),
                             title: post.title.clone(),
                             url: post_url,
+                        }
+
+                        // Series navigation
+                        SeriesNavigation {
+                            series_id: None,
+                            series_title: None,
                         }
 
                         // Related posts

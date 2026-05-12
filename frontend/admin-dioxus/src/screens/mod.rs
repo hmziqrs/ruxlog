@@ -20,6 +20,9 @@ mod comments;
 #[cfg(feature = "newsletter")]
 mod newsletter;
 
+mod audit;
+mod system_health;
+
 #[cfg(feature = "user-management")]
 mod users;
 
@@ -44,6 +47,9 @@ pub use comments::*;
 
 #[cfg(feature = "newsletter")]
 pub use newsletter::*;
+
+pub use audit::*;
+pub use system_health::*;
 
 #[cfg(feature = "user-management")]
 pub use users::*;
