@@ -32,6 +32,9 @@ use crate::modules::admin_route_v1;
 #[cfg(feature = "seed-system")]
 use crate::modules::seed_v1;
 
+#[cfg(feature = "billing")]
+use crate::modules::billing_v1;
+
 use super::AppState;
 
 pub fn router() -> Router<AppState> {
@@ -92,6 +95,11 @@ pub fn router() -> Router<AppState> {
     #[cfg(feature = "seed-system")]
     {
         router = router.nest("/admin/seed/v1", seed_v1::routes());
+    }
+
+    #[cfg(feature = "billing")]
+    {
+        router = router.nest("/billing/v1", billing_v1::routes());
     }
 
     router

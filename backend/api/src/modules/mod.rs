@@ -35,3 +35,6 @@ pub mod admin_route_v1;
 
 #[cfg(feature = "seed-system")]
 pub mod seed_v1;
+
+#[cfg(feature = "billing")]
+pub mod billing_v1;
