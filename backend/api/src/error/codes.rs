@@ -293,3 +293,67 @@ impl fmt::Display for ErrorCode {
         write!(f, "{}", json_string.trim_matches('"'))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::StatusCode;
+
+    #[test]
+    fn all_codes_have_non_empty_default_messages() {
+        let codes = [
+            ErrorCode::InvalidCredentials,
+            ErrorCode::UserNotFound,
+            ErrorCode::SessionExpired,
+            ErrorCode::Unauthorized,
+            ErrorCode::DatabaseConnectionError,
+            ErrorCode::RecordNotFound,
+            ErrorCode::DuplicateEntry,
+            ErrorCode::InternalServerError,
+            ErrorCode::RateLimited,
+            ErrorCode::FileTooLarge,
+            ErrorCode::PostNotFound,
+            ErrorCode::CategoryNotFound,
+            ErrorCode::TagNotFound,
+        ];
+        for code in &codes {
+            assert!(!code.default_message().is_empty(), "{:?} has empty message", code);
+        }
+    }
+
+    #[test]
+    fn status_code_mappings() {
+        assert_eq!(ErrorCode::InvalidCredentials.status_code(), StatusCode::UNAUTHORIZED);
+        assert_eq!(ErrorCode::Unauthorized.status_code(), StatusCode::FORBIDDEN);
+        assert_eq!(ErrorCode::TooManyAttempts.status_code(), StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(ErrorCode::RecordNotFound.status_code(), StatusCode::NOT_FOUND);
+        assert_eq!(ErrorCode::DuplicateEntry.status_code(), StatusCode::CONFLICT);
+        assert_eq!(ErrorCode::InternalServerError.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(ErrorCode::FileTooLarge.status_code(), StatusCode::PAYLOAD_TOO_LARGE);
+        assert_eq!(ErrorCode::ServiceUnavailable.status_code(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(ErrorCode::Timeout.status_code(), StatusCode::GATEWAY_TIMEOUT);
+        assert_eq!(ErrorCode::BusinessRuleViolation.status_code(), StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    #[test]
+    fn display_format_matches_serde_rename() {
+        assert_eq!(ErrorCode::InvalidCredentials.to_string(), "AUTH_001");
+        assert_eq!(ErrorCode::RecordNotFound.to_string(), "DB_002");
+        assert_eq!(ErrorCode::InternalServerError.to_string(), "SRV_001");
+        assert_eq!(ErrorCode::PostNotFound.to_string(), "PST_001");
+    }
+
+    #[test]
+    fn serde_roundtrip() {
+        let json = serde_json::to_string(&ErrorCode::InvalidCredentials).unwrap();
+        assert_eq!(json, "\"AUTH_001\"");
+        let parsed: ErrorCode = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, ErrorCode::InvalidCredentials);
+    }
+
+    #[test]
+    fn equality() {
+        assert_eq!(ErrorCode::RecordNotFound, ErrorCode::RecordNotFound);
+        assert_ne!(ErrorCode::RecordNotFound, ErrorCode::UserNotFound);
+    }
+}

@@ -247,6 +247,195 @@ pub mod controller {
 
         build_xml_response("application/atom+xml; charset=utf-8", xml)
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        // ── xml_escape ─────────────────────────────────────────────────
+
+        #[test]
+        fn xml_escape_ampersand() {
+            assert_eq!(xml_escape("a&b"), "a&amp;b");
+        }
+
+        #[test]
+        fn xml_escape_angle_brackets() {
+            assert_eq!(xml_escape("<div>"), "&lt;div&gt;");
+        }
+
+        #[test]
+        fn xml_escape_quotes() {
+            assert_eq!(
+                xml_escape(r#"say "hi" and it's fine"#),
+                "say &quot;hi&quot; and it&apos;s fine"
+            );
+        }
+
+        #[test]
+        fn xml_escape_all_entities() {
+            let input = "<tag attr='val'&more>";
+            let escaped = xml_escape(input);
+            assert!(escaped.contains("&lt;"));
+            assert!(escaped.contains("&gt;"));
+            assert!(escaped.contains("&apos;"));
+            assert!(escaped.contains("&amp;"));
+        }
+
+        #[test]
+        fn xml_escape_plain_string_unchanged() {
+            assert_eq!(xml_escape("hello world"), "hello world");
+        }
+
+        #[test]
+        fn xml_escape_empty() {
+            assert_eq!(xml_escape(""), "");
+        }
+
+        // ── content_to_summary ─────────────────────────────────────────
+
+        #[test]
+        fn content_to_summary_paragraph() {
+            let json = serde_json::json!({
+                "blocks": [
+                    { "type": "paragraph", "data": { "text": "Hello world" } }
+                ]
+            });
+            assert_eq!(content_to_summary(&json, 100), "Hello world");
+        }
+
+        #[test]
+        fn content_to_summary_header() {
+            let json = serde_json::json!({
+                "blocks": [
+                    { "type": "header", "data": { "text": "Title" } }
+                ]
+            });
+            assert_eq!(content_to_summary(&json, 100), "Title");
+        }
+
+        #[test]
+        fn content_to_summary_quote() {
+            let json = serde_json::json!({
+                "blocks": [
+                    { "type": "quote", "data": { "text": "To be or not to be" } }
+                ]
+            });
+            assert_eq!(content_to_summary(&json, 100), "To be or not to be");
+        }
+
+        #[test]
+        fn content_to_summary_alert() {
+            let json = serde_json::json!({
+                "blocks": [
+                    { "type": "alert", "data": { "message": "Warning!" } }
+                ]
+            });
+            assert_eq!(content_to_summary(&json, 100), "Warning!");
+        }
+
+        #[test]
+        fn content_to_summary_checklist() {
+            let json = serde_json::json!({
+                "blocks": [
+                    {
+                        "type": "checklist",
+                        "data": {
+                            "items": [
+                                { "text": "Buy milk" },
+                                { "text": "Walk dog" }
+                            ]
+                        }
+                    }
+                ]
+            });
+            assert_eq!(content_to_summary(&json, 100), "Buy milk, Walk dog");
+        }
+
+        #[test]
+        fn content_to_summary_code() {
+            let json = serde_json::json!({
+                "blocks": [
+                    { "type": "code", "data": { "code": "fn main() {}" } }
+                ]
+            });
+            assert_eq!(content_to_summary(&json, 100), "fn main() {}");
+        }
+
+        #[test]
+        fn content_to_summary_unknown_type_skipped() {
+            let json = serde_json::json!({
+                "blocks": [
+                    { "type": "image", "data": { "url": "http://example.com/img.png" } },
+                    { "type": "paragraph", "data": { "text": "Visible" } }
+                ]
+            });
+            let result = content_to_summary(&json, 100);
+            assert_eq!(result, "Visible");
+        }
+
+        #[test]
+        fn content_to_summary_multiple_blocks_joined() {
+            let json = serde_json::json!({
+                "blocks": [
+                    { "type": "paragraph", "data": { "text": "First" } },
+                    { "type": "paragraph", "data": { "text": "Second" } }
+                ]
+            });
+            assert_eq!(content_to_summary(&json, 100), "First Second");
+        }
+
+        #[test]
+        fn content_to_summary_respects_max_len() {
+            let json = serde_json::json!({
+                "blocks": [
+                    { "type": "paragraph", "data": { "text": "A very long text that exceeds the limit" } }
+                ]
+            });
+            let result = content_to_summary(&json, 10);
+            // The function breaks once out.len() >= max_len (byte-based), then
+            // truncates by chars().take(max_len). "A very lon" is 10 bytes and
+            // 10 chars, so the 'g' never gets appended.
+            assert_eq!(result, "A very lon");
+        }
+
+        #[test]
+        fn content_to_summary_empty_blocks_falls_back_to_json_string() {
+            let json = serde_json::json!({ "not": "blocks" });
+            let result = content_to_summary(&json, 200);
+            // Falls back to the entire JSON as a string
+            assert!(result.contains("not"));
+            assert!(result.contains("blocks"));
+        }
+
+        #[test]
+        fn content_to_summary_empty_value() {
+            let json = serde_json::json!({});
+            let result = content_to_summary(&json, 100);
+            // Fallback: the JSON representation of {}
+            assert!(!result.is_empty());
+        }
+
+        #[test]
+        fn content_to_summary_max_len_zero() {
+            let json = serde_json::json!({
+                "blocks": [
+                    { "type": "paragraph", "data": { "text": "Hello" } }
+                ]
+            });
+            assert_eq!(content_to_summary(&json, 0), "");
+        }
+
+        #[test]
+        fn content_to_summary_truncates_fallback_json() {
+            let json = serde_json::json!({
+                "some_key": "some relatively long value here"
+            });
+            let result = content_to_summary(&json, 5);
+            // The fallback JSON string is also truncated
+            assert_eq!(result.len(), 5);
+        }
+    }
 }
 
 pub fn routes() -> Router<AppState> {
