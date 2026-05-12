@@ -20,6 +20,8 @@ use crate::screens::SonnerDemoScreen;
 use crate::screens::TagsAddScreen;
 use crate::screens::TagsEditScreen;
 use crate::screens::TagsListScreen;
+use crate::screens::AuditLogViewerScreen;
+use crate::screens::SystemHealthScreen;
 
 #[cfg(feature = "analytics")]
 use crate::screens::AnalyticsScreen;
@@ -42,8 +44,8 @@ use crate::screens::{UsersAddScreen, UsersEditScreen, UsersListScreen};
 #[cfg(feature = "billing")]
 use crate::screens::{
     BillingInvoicesListScreen, BillingPaymentsListScreen, BillingPlanAddScreen,
-    BillingPlanEditScreen, BillingPlansListScreen, BillingSubscriptionsListScreen,
-    PaymentMethodsScreen, RefundsListScreen,
+    BillingPlanEditScreen, BillingPlansListScreen, BillingSettingsScreen,
+    BillingSubscriptionsListScreen, PaymentMethodsScreen, RefundsListScreen,
 };
 
 #[derive(Debug, Clone, Routable, PartialEq)]
@@ -56,6 +58,12 @@ pub enum Route {
 
     #[route("/login")]
     LoginScreen {},
+
+    #[route("/audit-logs")]
+    AuditLogViewerScreen {},
+
+    #[route("/system-health")]
+    SystemHealthScreen {},
 
     #[cfg(feature = "analytics")]
     #[route("/analytics")]
@@ -155,6 +163,10 @@ pub enum Route {
     #[cfg(feature = "billing")]
     #[route("/billing/methods")]
     PaymentMethodsScreen {},
+
+    #[cfg(feature = "billing")]
+    #[route("/billing/settings")]
+    BillingSettingsScreen {},
 
     #[cfg(feature = "billing")]
     #[route("/billing/refunds")]

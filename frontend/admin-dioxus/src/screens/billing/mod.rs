@@ -5,6 +5,7 @@ pub mod plan_add;
 pub mod plan_edit;
 pub mod plans_list;
 pub mod refunds_list;
+pub mod settings;
 pub mod subscriptions_list;
 
 pub use invoices_list::*;
@@ -14,4 +15,5 @@ pub use plan_add::*;
 pub use plan_edit::*;
 pub use plans_list::*;
 pub use refunds_list::*;
+pub use settings::*;
 pub use subscriptions_list::*;

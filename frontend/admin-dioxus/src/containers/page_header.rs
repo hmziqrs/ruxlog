@@ -71,6 +71,7 @@ pub fn PageHeader(props: PageHeaderProps) -> Element {
             ("upload".to_string(), None),
         ],
         Route::MediaListScreen {} => vec![("media".to_string(), None)],
+        Route::AuditLogViewerScreen {} => vec![("audit logs".to_string(), None)],
         Route::SonnerDemoScreen {} => {
             vec![("demo".to_string(), None), ("sonner".to_string(), None)]
         }
@@ -161,6 +162,14 @@ pub fn PageHeader(props: PageHeaderProps) -> Element {
         #[cfg(feature = "billing")]
         Route::RefundsListScreen {} => {
             vec![("billing".to_string(), None), ("refunds".to_string(), None)]
+        }
+        #[cfg(feature = "billing")]
+        Route::BillingSettingsScreen {} => {
+            vec![("billing".to_string(), None), ("settings".to_string(), None)]
+        }
+
+        Route::SystemHealthScreen {} => {
+            vec![("system".to_string(), None), ("health".to_string(), None)]
         }
 
         Route::HomeScreen {} | Route::LoginScreen {} => vec![],

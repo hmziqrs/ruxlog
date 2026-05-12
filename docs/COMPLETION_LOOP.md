@@ -167,7 +167,7 @@ Feature-gated monetization. Each payment provider is a separate Cargo feature.
 - [x] **9.7** Create `InvoicesListScreen` (`/billing/invoices`): table with invoice number, user, amount, status, date.
 - [x] **9.8** Create `PaymentMethodsScreen` (`/billing/methods`): admin view of all payment methods, filter by provider.
 - [x] **9.9** Create `RefundsListScreen` (`/billing/refunds`): table with payment ref, amount, reason, status, date.
-- [ ] **9.10** Create `BillingSettingsScreen` (`/settings/billing`): toggle active providers (Stripe/Polar/LemonSqueezy/Paddle/Crypto), configure webhook endpoints, test webhook button.
+- [x] **9.10** Create `BillingSettingsScreen` (`/settings/billing`): toggle active providers (Stripe/Polar/LemonSqueezy/Paddle/Crypto), configure webhook endpoints, test webhook button.
 - [x] **9.11** Add billing screens to admin sidebar navigation (conditional on `billing` feature).
 - [x] **9.12** Create `ruxlog-shared` billing stores: `plans`, `subscriptions`, `payments`, `invoices` stores with API actions.
 - [ ] **9.13** Browser-agent E2E: start dev stack, seed plans, navigate to each billing screen, create a plan, list subscriptions, export payments CSV, verify all screens render with data.
@@ -214,7 +214,7 @@ Fill placeholder screens and add missing features.
 - [x] **12.6** Reading progress bar on `PostViewScreen` — CSS-based scroll indicator.
 - [x] **12.7** Table of contents on `PostViewScreen` — auto-generated from Editor.js headers block.
 - [x] **12.8** Related posts section on `PostViewScreen` — show posts with overlapping tags.
-- [ ] **12.9** Series navigation on `PostViewScreen` — if post is part of a series, show series card with all posts.
+- [x] **12.9** Series navigation on `PostViewScreen` — if post is part of a series, show series card with all posts.
 - [x] **12.10** Cookie consent banner — GDPR compliance. Show on first visit, store preference in localStorage.
 - [ ] **12.11** Browser-agent E2E for every consumer screen: home, post detail, tags list, tag detail, categories list, category detail, about, contact, advertise, search, pricing, billing. Verify dynamic data loads, forms submit, navigation works.
 
@@ -226,8 +226,8 @@ Fill gaps in admin screens.
 - [ ] **13.2** Admin dashboard enhancements: add recent comments widget, recent subscribers widget, quick draft button.
 - [ ] **13.3** Bulk import/export: CSV import for posts, categories, tags. CSV export for users, subscribers, payments.
 - [ ] **13.4** Notification settings screen: configure email notification preferences per event type (new comment, new subscriber, payment received, etc.).
-- [ ] **13.5** System health screen: show Postgres stats, Redis stats, RustFS storage usage, API uptime, recent errors.
-- [ ] **13.6** Audit log viewer screen: paginated table of audit events with filters (user, action type, date range).
+- [x] **13.5** System health screen: show Postgres stats, Redis stats, RustFS storage usage, API uptime, recent errors.
+- [x] **13.6** Audit log viewer screen: paginated table of audit events with filters (user, action type, date range).
 - [ ] **13.7** Browser-agent E2E for every admin screen: dashboard, posts CRUD, categories CRUD, tags CRUD, media upload/manage, comments moderation, newsletter, analytics, users, billing screens, settings, audit logs, system health.
 
 ### Phase 14 — SEO and Performance

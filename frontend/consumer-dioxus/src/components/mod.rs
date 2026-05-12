@@ -12,6 +12,7 @@ pub mod related_posts;
 pub mod share_box;
 pub mod table_of_contents;
 pub mod paywall;
+pub mod series_navigation;
 pub mod tag_card;
 
 #[cfg(feature = "comments")]
@@ -30,6 +31,7 @@ pub use reading_progress::ReadingProgressBar;
 pub use related_posts::RelatedPosts;
 pub use share_box::ShareBox;
 pub use paywall::PaywallOverlay;
+pub use series_navigation::SeriesNavigation;
 pub use table_of_contents::TableOfContents;
 pub use tag_card::TagCard;
 
