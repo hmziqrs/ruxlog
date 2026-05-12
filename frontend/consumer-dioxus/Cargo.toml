@@ -116,11 +116,12 @@ server = ["dioxus/server", "dioxus-ssr", "tokio"]
 
 # Blog feature flags
 basic = []
-full = ["consumer-auth", "profile-management", "comments", "engagement"]
+full = ["consumer-auth", "profile-management", "comments", "engagement", "billing"]
 
 # Authentication features
 consumer-auth = []           # Enables login/register/auth functionality
 profile-management = ["consumer-auth"]  # Requires consumer-auth
+billing = []                 # Enables paywall, pricing, and billing screens
 comments = []
 engagement = []              # Enables views, likes, and social engagement metrics
 analytics = []               # Enables Firebase Analytics tracking (wasm32-only, enabled by default)

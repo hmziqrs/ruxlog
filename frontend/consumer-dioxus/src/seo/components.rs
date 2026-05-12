@@ -39,6 +39,20 @@ pub fn SeoHead(metadata: SeoMetadata) -> Element {
         // Canonical URL
         document::Link { rel: "canonical", href: canonical.clone() }
 
+        // RSS/Atom feed links
+        document::Link {
+            rel: "alternate",
+            r#type: "application/rss+xml",
+            title: "{SEO_CONFIG.site_name} RSS Feed",
+            href: format!("{}/feed/v1/rss", SEO_CONFIG.consumer_url)
+        }
+        document::Link {
+            rel: "alternate",
+            r#type: "application/atom+xml",
+            title: "{SEO_CONFIG.site_name} Atom Feed",
+            href: format!("{}/feed/v1/atom", SEO_CONFIG.consumer_url)
+        }
+
         // Open Graph tags
         document::Meta { property: "og:type", content: metadata.og_type() }
         document::Meta { property: "og:title", content: title.clone() }
