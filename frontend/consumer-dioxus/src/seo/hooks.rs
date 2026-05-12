@@ -206,6 +206,22 @@ fn build_tag_seo(tag: &ruxlog_shared::Tag) -> SeoMetadata {
 /// Predefined SEO metadata for static pages
 pub fn use_static_seo(page: &str) -> SeoMetadata {
     match page {
+        "categories" => SeoMetadataBuilder::new()
+            .title("Categories")
+            .description(&format!(
+                "Browse all categories on {}",
+                SEO_CONFIG.site_name
+            ))
+            .canonical("/categories")
+            .build(),
+        "tags" => SeoMetadataBuilder::new()
+            .title("Tags")
+            .description(&format!(
+                "Browse all tags on {}",
+                SEO_CONFIG.site_name
+            ))
+            .canonical("/tags")
+            .build(),
         "about" => SeoMetadataBuilder::new()
             .title("About")
             .description(&format!(
