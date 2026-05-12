@@ -21,6 +21,7 @@ mod comments;
 mod newsletter;
 
 mod audit;
+mod notification_settings;
 mod system_health;
 
 #[cfg(feature = "user-management")]
@@ -49,6 +50,7 @@ pub use comments::*;
 pub use newsletter::*;
 
 pub use audit::*;
+pub use notification_settings::*;
 pub use system_health::*;
 
 #[cfg(feature = "user-management")]

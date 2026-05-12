@@ -21,6 +21,7 @@ use crate::screens::TagsAddScreen;
 use crate::screens::TagsEditScreen;
 use crate::screens::TagsListScreen;
 use crate::screens::AuditLogViewerScreen;
+use crate::screens::NotificationSettingsScreen;
 use crate::screens::SystemHealthScreen;
 
 #[cfg(feature = "analytics")]
@@ -64,6 +65,9 @@ pub enum Route {
 
     #[route("/system-health")]
     SystemHealthScreen {},
+
+    #[route("/settings/notifications")]
+    NotificationSettingsScreen {},
 
     #[cfg(feature = "analytics")]
     #[route("/analytics")]

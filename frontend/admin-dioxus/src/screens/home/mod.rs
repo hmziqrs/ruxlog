@@ -28,6 +28,44 @@ pub fn HomeScreen() -> Element {
     }
 }
 
+// Mock data structures for dashboard widgets
+#[derive(Debug, Clone)]
+struct MockComment {
+    author: String,
+    post_title: String,
+    date: String,
+}
+
+fn mock_recent_comments() -> Vec<MockComment> {
+    vec![
+        MockComment {
+            author: "Alice Johnson".to_string(),
+            post_title: "Getting Started with Rust".to_string(),
+            date: "2026-05-12".to_string(),
+        },
+        MockComment {
+            author: "Bob Martinez".to_string(),
+            post_title: "Understanding Axum Middleware".to_string(),
+            date: "2026-05-11".to_string(),
+        },
+        MockComment {
+            author: "Carol Nguyen".to_string(),
+            post_title: "Deploying to Cloudflare Workers".to_string(),
+            date: "2026-05-10".to_string(),
+        },
+        MockComment {
+            author: "Dave Smith".to_string(),
+            post_title: "Dioxus 0.6 Release Notes".to_string(),
+            date: "2026-05-09".to_string(),
+        },
+        MockComment {
+            author: "Eve Williams".to_string(),
+            post_title: "Type-Safe APIs with Drizzle".to_string(),
+            date: "2026-05-08".to_string(),
+        },
+    ]
+}
+
 // Basic dashboard for minimal blog mode
 #[cfg(not(feature = "analytics"))]
 fn basic_dashboard() -> Element {
@@ -35,6 +73,7 @@ fn basic_dashboard() -> Element {
     use hmziq_dioxus_free_icons::{icons::ld_icons::*, Icon};
 
     let nav = use_navigator();
+    let recent_comments = mock_recent_comments();
 
     rsx! {
         div { class: "min-h-screen bg-transparent text-foreground",
@@ -44,6 +83,43 @@ fn basic_dashboard() -> Element {
             }
 
             div { class: "container mx-auto px-4 my-8",
+                // Stats overview row
+                div { class: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-8",
+                    // Total Posts
+                    div { class: "rounded-lg border border-border/70 bg-card p-5",
+                        div { class: "flex items-center justify-between mb-2",
+                            p { class: "text-sm font-medium text-muted-foreground", "Total Posts" }
+                            div { class: "w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center",
+                                Icon { icon: LdFileText, width: 16, height: 16, fill: "currentColor" }
+                            }
+                        }
+                        p { class: "text-2xl font-bold", "24" }
+                        p { class: "text-xs text-muted-foreground mt-1", "Published blog posts" }
+                    }
+                    // Total Comments
+                    div { class: "rounded-lg border border-border/70 bg-card p-5",
+                        div { class: "flex items-center justify-between mb-2",
+                            p { class: "text-sm font-medium text-muted-foreground", "Total Comments" }
+                            div { class: "w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center",
+                                Icon { icon: LdMessageSquare, width: 16, height: 16, fill: "currentColor" }
+                            }
+                        }
+                        p { class: "text-2xl font-bold", "152" }
+                        p { class: "text-xs text-muted-foreground mt-1", "Across all posts" }
+                    }
+                    // Total Users
+                    div { class: "rounded-lg border border-border/70 bg-card p-5",
+                        div { class: "flex items-center justify-between mb-2",
+                            p { class: "text-sm font-medium text-muted-foreground", "Total Users" }
+                            div { class: "w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center",
+                                Icon { icon: LdUser, width: 16, height: 16, fill: "currentColor" }
+                            }
+                        }
+                        p { class: "text-2xl font-bold", "38" }
+                        p { class: "text-xs text-muted-foreground mt-1", "Registered users" }
+                    }
+                }
+
                 // Quick action cards
                 div { class: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8",
                     // Posts card
@@ -99,6 +175,69 @@ fn basic_dashboard() -> Element {
                     }
                 }
 
+                // Quick Actions section
+                div { class: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-8",
+                    div {
+                        class: "flex items-center gap-3 p-4 rounded-lg border border-border/70 bg-card hover:bg-accent/50 cursor-pointer transition-colors",
+                        onclick: move |_| { nav.push(Route::PostsAddScreen {}); },
+                        div { class: "w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center",
+                            Icon { icon: LdPlus, width: 18, height: 18, fill: "currentColor", class: "text-green-600 dark:text-green-400" }
+                        }
+                        div {
+                            p { class: "text-sm font-semibold", "New Post" }
+                            p { class: "text-xs text-muted-foreground", "Create a new blog post" }
+                        }
+                    }
+                    div {
+                        class: "flex items-center gap-3 p-4 rounded-lg border border-border/70 bg-card hover:bg-accent/50 cursor-pointer transition-colors",
+                        onclick: move |_| { nav.push(Route::MediaUploadScreen {}); },
+                        div { class: "w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center",
+                            Icon { icon: LdUpload, width: 18, height: 18, fill: "currentColor", class: "text-blue-600 dark:text-blue-400" }
+                        }
+                        div {
+                            p { class: "text-sm font-semibold", "Upload Media" }
+                            p { class: "text-xs text-muted-foreground", "Add images and files" }
+                        }
+                    }
+                    div {
+                        class: "flex items-center gap-3 p-4 rounded-lg border border-border/70 bg-card hover:bg-accent/50 cursor-pointer transition-colors",
+                        onclick: move |_| { nav.push(Route::HomeScreen {}); },
+                        div { class: "w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center",
+                            Icon { icon: LdSend, width: 18, height: 18, fill: "currentColor", class: "text-purple-600 dark:text-purple-400" }
+                        }
+                        div {
+                            p { class: "text-sm font-semibold", "Send Newsletter" }
+                            p { class: "text-xs text-muted-foreground", "Email your subscribers" }
+                        }
+                    }
+                }
+
+                // Recent Comments widget
+                div { class: "rounded-lg border border-border/70 bg-card p-6 mb-8",
+                    h2 { class: "text-lg font-semibold mb-4", "Recent Comments" }
+                    div { class: "divide-y divide-border",
+                        for comment in recent_comments.iter() {
+                            {
+                                let author = comment.author.clone();
+                                let post_title = comment.post_title.clone();
+                                let date = comment.date.clone();
+                                rsx! {
+                                    div { class: "flex items-start justify-between py-3 first:pt-0 last:pb-0",
+                                        div { class: "space-y-1",
+                                            p { class: "text-sm font-medium", "{author}" }
+                                            p { class: "text-xs text-muted-foreground",
+                                                "on "
+                                                span { class: "font-medium text-foreground", "{post_title}" }
+                                            }
+                                        }
+                                        span { class: "text-xs text-muted-foreground shrink-0 ml-4", "{date}" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Getting started section
                 div { class: "rounded-lg border border-border/70 bg-card p-6",
                     h2 { class: "text-xl font-semibold mb-4", "Getting Started" }
@@ -141,8 +280,13 @@ fn basic_dashboard() -> Element {
 // Full analytics dashboard
 #[cfg(feature = "analytics")]
 fn analytics_dashboard() -> Element {
+    use crate::router::Route;
+    use hmziq_dioxus_free_icons::{icons::ld_icons::*, Icon};
+
+    let nav = use_navigator();
     let analytics = use_analytics();
     let filters = use_analytics_filters();
+    let recent_comments = mock_recent_comments();
 
     // Local state for page views chart-specific filters
     let mut page_views_interval = use_signal(|| AnalyticsInterval::Day);
@@ -328,6 +472,69 @@ fn analytics_dashboard() -> Element {
                         title: "Publishing activity".to_string(),
                         height_class: "h-72".to_string(),
                         description: Some("Posts by status across recent days.".to_string()),
+                    }
+                }
+
+                // Quick Actions section
+                div { class: "grid grid-cols-1 md:grid-cols-3 gap-4",
+                    div {
+                        class: "flex items-center gap-3 p-4 rounded-lg border border-border/70 bg-card hover:bg-accent/50 cursor-pointer transition-colors",
+                        onclick: move |_| { nav.push(Route::PostsAddScreen {}); },
+                        div { class: "w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center",
+                            Icon { icon: LdPlus, width: 18, height: 18, fill: "currentColor", class: "text-green-600 dark:text-green-400" }
+                        }
+                        div {
+                            p { class: "text-sm font-semibold", "New Post" }
+                            p { class: "text-xs text-muted-foreground", "Create a new blog post" }
+                        }
+                    }
+                    div {
+                        class: "flex items-center gap-3 p-4 rounded-lg border border-border/70 bg-card hover:bg-accent/50 cursor-pointer transition-colors",
+                        onclick: move |_| { nav.push(Route::MediaUploadScreen {}); },
+                        div { class: "w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center",
+                            Icon { icon: LdUpload, width: 18, height: 18, fill: "currentColor", class: "text-blue-600 dark:text-blue-400" }
+                        }
+                        div {
+                            p { class: "text-sm font-semibold", "Upload Media" }
+                            p { class: "text-xs text-muted-foreground", "Add images and files" }
+                        }
+                    }
+                    div {
+                        class: "flex items-center gap-3 p-4 rounded-lg border border-border/70 bg-card hover:bg-accent/50 cursor-pointer transition-colors",
+                        onclick: move |_| { nav.push(Route::HomeScreen {}); },
+                        div { class: "w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center",
+                            Icon { icon: LdSend, width: 18, height: 18, fill: "currentColor", class: "text-purple-600 dark:text-purple-400" }
+                        }
+                        div {
+                            p { class: "text-sm font-semibold", "Send Newsletter" }
+                            p { class: "text-xs text-muted-foreground", "Email your subscribers" }
+                        }
+                    }
+                }
+
+                // Recent Comments widget
+                div { class: "rounded-lg border border-border/70 bg-card p-6",
+                    h2 { class: "text-lg font-semibold mb-4", "Recent Comments" }
+                    div { class: "divide-y divide-border",
+                        for comment in recent_comments.iter() {
+                            {
+                                let author = comment.author.clone();
+                                let post_title = comment.post_title.clone();
+                                let date = comment.date.clone();
+                                rsx! {
+                                    div { class: "flex items-start justify-between py-3 first:pt-0 last:pb-0",
+                                        div { class: "space-y-1",
+                                            p { class: "text-sm font-medium", "{author}" }
+                                            p { class: "text-xs text-muted-foreground",
+                                                "on "
+                                                span { class: "font-medium text-foreground", "{post_title}" }
+                                            }
+                                        }
+                                        span { class: "text-xs text-muted-foreground shrink-0 ml-4", "{date}" }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 

@@ -172,6 +172,10 @@ pub fn PageHeader(props: PageHeaderProps) -> Element {
             vec![("system".to_string(), None), ("health".to_string(), None)]
         }
 
+        Route::NotificationSettingsScreen {} => {
+            vec![("settings".to_string(), None), ("notifications".to_string(), None)]
+        }
+
         Route::HomeScreen {} | Route::LoginScreen {} => vec![],
     };
 
