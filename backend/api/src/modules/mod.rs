@@ -38,3 +38,5 @@ pub mod seed_v1;
 
 #[cfg(feature = "billing")]
 pub mod billing_v1;
+
+pub mod search_v1;
