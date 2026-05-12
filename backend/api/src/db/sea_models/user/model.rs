@@ -28,6 +28,7 @@ impl UserRole {
         }
     }
 
+    #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         match self {
             UserRole::SuperAdmin => "super-admin".to_string(),
@@ -38,6 +39,7 @@ impl UserRole {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Result<Self, String> {
         match s.to_lowercase().as_str() {
             "super-admin" => Ok(UserRole::SuperAdmin),

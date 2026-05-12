@@ -179,7 +179,7 @@ pub async fn register(
         Err(err) => {
             warn!(error = ?err, "Registration failed");
             tracing::Span::current().record("result", "failure");
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -348,7 +348,7 @@ pub async fn sessions_list(
                 "page": page,
             })),
         )),
-        Err(err) => Err(err.into()),
+        Err(err) => Err(err),
     }
 }
 
@@ -364,6 +364,6 @@ pub async fn sessions_terminate(
             Json(json!({ "message": "Session terminated" })),
         )),
         Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)),
-        Err(err) => Err(err.into()),
+        Err(err) => Err(err),
     }
 }

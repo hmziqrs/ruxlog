@@ -107,13 +107,12 @@ impl Entity {
             .order_by_desc(Column::CreatedAt)
             .all(conn)
             .await
-            .map(|results| {
+            .inspect(|results| {
                 info!(
                     uploader_id,
                     count = results.len(),
                     "Media listed by uploader"
                 );
-                results
             })
             .map_err(ErrorResponse::from)
     }
@@ -128,9 +127,8 @@ impl Entity {
             .order_by_desc(Column::CreatedAt)
             .all(conn)
             .await
-            .map(|results| {
+            .inspect(|results| {
                 info!(reference_type = ?reference, count = results.len(), "Media listed by reference");
-                results
             })
             .map_err(ErrorResponse::from)
     }

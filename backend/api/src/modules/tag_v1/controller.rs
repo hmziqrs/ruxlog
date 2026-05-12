@@ -152,7 +152,7 @@ pub async fn find_by_id_or_slug(
         }
         Err(err) => {
             error!("Failed to find tag: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -181,7 +181,7 @@ pub async fn find_with_query(
     payload: ValidatedJson<V1TagQueryParams>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let tag_query = payload.0.into_query();
-    let page = tag_query.page.clone().unwrap_or(1);
+    let page = tag_query.page.unwrap_or(1);
 
     match Tag::find_with_query(&state.sea_db, tag_query).await {
         Ok((tags, total)) => {

@@ -1,19 +1,14 @@
 use serde::{Deserialize, Serialize};
 
 /// Seed mode for controlling data generation randomness
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum SeedMode {
     /// Random seed based on current timestamp - unique data each run
+    #[default]
     Random,
     /// Static seed with specific value - reproducible data
     Static { value: u64 },
-}
-
-impl Default for SeedMode {
-    fn default() -> Self {
-        Self::Random
-    }
 }
 
 impl SeedMode {

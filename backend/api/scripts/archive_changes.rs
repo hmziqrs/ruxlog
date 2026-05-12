@@ -28,7 +28,7 @@ struct GitStatus {
 
 fn get_git_status() -> Result<GitStatus, Box<dyn std::error::Error>> {
     let staged_output = Command::new("git")
-        .args(&["diff", "--cached", "--name-only", "--diff-filter=ACMR"])
+        .args(["diff", "--cached", "--name-only", "--diff-filter=ACMR"])
         .output()?;
 
     let staged = String::from_utf8_lossy(&staged_output.stdout)
@@ -38,7 +38,7 @@ fn get_git_status() -> Result<GitStatus, Box<dyn std::error::Error>> {
         .collect();
 
     let unstaged_output = Command::new("git")
-        .args(&["diff", "--name-only", "--diff-filter=ACMR"])
+        .args(["diff", "--name-only", "--diff-filter=ACMR"])
         .output()?;
 
     let unstaged = String::from_utf8_lossy(&unstaged_output.stdout)
@@ -48,7 +48,7 @@ fn get_git_status() -> Result<GitStatus, Box<dyn std::error::Error>> {
         .collect();
 
     let untracked_output = Command::new("git")
-        .args(&["ls-files", "--others", "--exclude-standard"])
+        .args(["ls-files", "--others", "--exclude-standard"])
         .output()?;
 
     let untracked = String::from_utf8_lossy(&untracked_output.stdout)
@@ -106,7 +106,7 @@ fn create_archive(
     let status = Command::new("sh")
         .current_dir(root_dir)
         .arg("-c")
-        .arg(&format!(
+        .arg(format!(
             "cat {} | zip -q -@ {}",
             temp_file_list.display(),
             zip_path.display()

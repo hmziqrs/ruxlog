@@ -2,6 +2,7 @@ use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, RedirectUrl, T
 
 use crate::error::{ErrorCode, ErrorResponse};
 
+#[allow(clippy::result_large_err)]
 pub fn get_google_oauth_client() -> Result<BasicClient, ErrorResponse> {
     let client_id = std::env::var("GOOGLE_CLIENT_ID").map_err(|_| {
         ErrorResponse::new(ErrorCode::InternalServerError)

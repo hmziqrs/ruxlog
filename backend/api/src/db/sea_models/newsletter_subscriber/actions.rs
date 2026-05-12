@@ -187,7 +187,7 @@ impl Entity {
         match Self::find_by_id(subscriber_id).one(conn).await {
             Ok(Some(model)) => Ok(model),
             Ok(None) => Err(ErrorResponse::new(ErrorCode::SubscriberNotFound)
-                .with_message(&format!("Subscriber with ID {} not found", subscriber_id))),
+                .with_message(format!("Subscriber with ID {} not found", subscriber_id))),
             Err(err) => Err(err.into()),
         }
     }

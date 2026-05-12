@@ -50,7 +50,7 @@ pub async fn verify(
         }
         Err(err) => {
             warn!(user_id, "Invalid email verification code");
-            return Err(err.into());
+            return Err(err);
         }
     }
 
@@ -98,7 +98,7 @@ pub async fn resend(
         Err(err) => {
             if err.code != ErrorCode::InvalidInput {
                 error!(user_id, "Error checking verification delay: {}", err);
-                return Err(err.into());
+                return Err(err);
             }
         }
     }
@@ -109,7 +109,7 @@ pub async fn resend(
         Ok(_) => (),
         Err(err) => {
             warn!(user_id, "Abuse limiter blocked verification resend");
-            return Err(err.into());
+            return Err(err);
         }
     }
 

@@ -10,7 +10,7 @@ use axum::{
 use crate::{middlewares::auth_guard, AppState};
 
 pub fn routes() -> Router<AppState> {
-    let admin = Router::<AppState>::new()
+    Router::<AppState>::new()
         .route("/block", post(controller::block_route))
         .route("/unblock", post(controller::unblock_route))
         .route("/update", post(controller::update_route_status))
@@ -35,7 +35,5 @@ pub fn routes() -> Router<AppState> {
         )
         .route_layer(middleware::from_fn(
             auth_guard::verified_with_role::<{ auth_guard::ROLE_ADMIN }>,
-        ));
-
-    admin
+        ))
 }

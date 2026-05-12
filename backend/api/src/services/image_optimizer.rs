@@ -160,7 +160,7 @@ pub fn optimize(
         }
         Err(reason) => {
             warn!(reason = ?reason, "Skipping optimization");
-            tracing::Span::current().record("outcome", &format!("skipped_{:?}", reason));
+            tracing::Span::current().record("outcome", format!("skipped_{:?}", reason));
             metrics
                 .optimization_skipped
                 .add(1, &[KeyValue::new("reason", format!("{:?}", reason))]);

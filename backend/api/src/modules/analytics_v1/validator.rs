@@ -52,7 +52,7 @@ impl AnalyticsEnvelope {
         let page = self.page.unwrap_or(1).max(1);
 
         let sort_order =
-            SortOrder::from_option(self.sort_order.as_ref().map(|value| value.as_str()));
+            SortOrder::from_option(self.sort_order.as_deref());
 
         ResolvedAnalyticsEnvelope {
             date_from: start_of_day(lower_bound),
@@ -167,10 +167,11 @@ impl SortOrder {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum AnalyticsInterval {
     Hour,
+    #[default]
     Day,
     Week,
     Month,
@@ -201,12 +202,6 @@ impl AnalyticsInterval {
                 format!("to_char(date_trunc('month', {column}), 'YYYY-MM')")
             }
         }
-    }
-}
-
-impl Default for AnalyticsInterval {
-    fn default() -> Self {
-        AnalyticsInterval::Day
     }
 }
 
@@ -371,17 +366,12 @@ fn default_min_views() -> i64 {
     100
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum CommentRateSort {
+    #[default]
     CommentRate,
     Comments,
-}
-
-impl Default for CommentRateSort {
-    fn default() -> Self {
-        CommentRateSort::CommentRate
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
@@ -500,11 +490,12 @@ pub struct MediaUploadPoint {
     pub avg_size_mb: f64,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub enum DashboardPeriod {
     #[serde(rename = "7d")]
     SevenDays,
     #[serde(rename = "30d")]
+    #[default]
     ThirtyDays,
     #[serde(rename = "90d")]
     NinetyDays,
@@ -525,12 +516,6 @@ impl DashboardPeriod {
             DashboardPeriod::ThirtyDays => Duration::days(30),
             DashboardPeriod::NinetyDays => Duration::days(90),
         }
-    }
-}
-
-impl Default for DashboardPeriod {
-    fn default() -> Self {
-        DashboardPeriod::ThirtyDays
     }
 }
 

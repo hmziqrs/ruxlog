@@ -52,7 +52,7 @@ pub async fn create(
         Err(err) => {
             error!(error = ?err, user_id = user.id, "Failed to create post");
             tracing::Span::current().record("result", "failure");
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -103,7 +103,7 @@ pub async fn find_by_id_or_slug(
         Err(err) => {
             error!(error = ?err, "Database error while finding post");
             tracing::Span::current().record("result", "error");
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -140,7 +140,7 @@ pub async fn update(
         Err(err) => {
             error!(error = ?err, post_id, "Failed to update post");
             tracing::Span::current().record("result", "failure");
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -160,7 +160,7 @@ pub async fn delete(
         }
         Ok(_) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
             .with_message("Internal server error occurred while deleting post")),
-        Err(err) => Err(err.into()),
+        Err(err) => Err(err),
     }
 }
 
@@ -169,7 +169,7 @@ pub async fn find_published_posts(
     State(state): State<AppState>,
     payload: ValidatedJson<V1PostQueryParams>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let page = payload.page.clone().unwrap_or(1);
+    let page = payload.page.unwrap_or(1);
     match post::Entity::find_published_paginated(
         &state.sea_db,
         &state.object_storage.public_url,
@@ -182,11 +182,11 @@ pub async fn find_published_posts(
             Json(json!({
                 "data": posts,
                 "total": total,
-                "per_page": post::Entity::PER_PAGE as u64,
+                "per_page": post::Entity::PER_PAGE,
                 "page": page,
             })),
         )),
-        Err(err) => Err(err.into()),
+        Err(err) => Err(err),
     }
 }
 
@@ -244,7 +244,7 @@ pub async fn query(
         }
     }
 
-    let page = query_params.page.clone().unwrap_or(1);
+    let page = query_params.page.unwrap_or(1);
 
     match post::Entity::search(
         &state.sea_db,
@@ -262,7 +262,7 @@ pub async fn query(
                 "page": page,
             })),
         )),
-        Err(err) => Err(err.into()),
+        Err(err) => Err(err),
     }
 }
 
@@ -308,10 +308,10 @@ pub async fn autosave(
             .await
             {
                 Ok(_) => Ok((StatusCode::OK, Json(json!(revision)))),
-                Err(err) => Err(err.into()),
+                Err(err) => Err(err),
             }
         }
-        Err(err) => Err(err.into()),
+        Err(err) => Err(err),
     }
 }
 
@@ -329,7 +329,7 @@ pub async fn revisions_list(
             StatusCode::OK,
             Json(json!({ "data": items, "total": total, "page": page })),
         )),
-        Err(err) => Err(err.into()),
+        Err(err) => Err(err),
     }
 }
 
@@ -397,10 +397,10 @@ pub async fn revisions_restore(
             .await
             {
                 Ok(new_rev) => Ok((StatusCode::OK, Json(json!(new_rev)))),
-                Err(err) => Err(err.into()),
+                Err(err) => Err(err),
             }
         }
-        Err(err) => Err(err.into()),
+        Err(err) => Err(err),
     }
 }
 
@@ -415,7 +415,7 @@ pub async fn schedule(
 
     match scheduled_post::Entity::upsert(&state.sea_db, p.post_id, p.publish_at).await {
         Ok(model) => Ok((StatusCode::OK, Json(json!(model)))),
-        Err(err) => Err(err.into()),
+        Err(err) => Err(err),
     }
 }
 
@@ -430,7 +430,7 @@ pub async fn series_create(
 
     match post_series::Entity::create(&state.sea_db, p.name, p.slug, p.description).await {
         Ok(series) => Ok((StatusCode::CREATED, Json(json!(series)))),
-        Err(err) => Err(err.into()),
+        Err(err) => Err(err),
     }
 }
 
@@ -456,7 +456,7 @@ pub async fn series_update(
         Ok(None) => {
             Err(ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Series not found"))
         }
-        Err(err) => Err(err.into()),
+        Err(err) => Err(err),
     }
 }
 
@@ -478,7 +478,7 @@ pub async fn series_delete(
         }
         Ok(_) => Err(ErrorResponse::new(ErrorCode::InternalServerError)
             .with_message("Internal server error occurred while deleting series")),
-        Err(err) => Err(err.into()),
+        Err(err) => Err(err),
     }
 }
 
@@ -489,7 +489,7 @@ pub async fn series_list(
     payload: ValidatedJson<V1SeriesListQuery>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let _user = auth.user.unwrap();
-    let page = payload.page.clone().unwrap_or(1);
+    let page = payload.page.unwrap_or(1);
 
     match post_series::Entity::list(&state.sea_db, payload.page, None, payload.search.clone()).await
     {
@@ -515,7 +515,7 @@ pub async fn series_list(
                 Json(json!({ "data": data, "total": total, "page": page })),
             ))
         }
-        Err(err) => Err(err.into()),
+        Err(err) => Err(err),
     }
 }
 
@@ -535,7 +535,7 @@ pub async fn series_add(
 
     match post_series_post::Entity::add(&state.sea_db, payload).await {
         Ok(model) => Ok((StatusCode::CREATED, Json(json!(model)))),
-        Err(err) => Err(err.into()),
+        Err(err) => Err(err),
     }
 }
 
@@ -557,7 +557,7 @@ pub async fn series_remove(
         Ok(_) => {
             Err(ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Mapping not found"))
         }
-        Err(err) => Err(err.into()),
+        Err(err) => Err(err),
     }
 }
 
@@ -606,7 +606,7 @@ pub async fn like_post(
         }
         Err(err) => {
             error!(user_id = user.id, post_id, "Failed to like post: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -650,7 +650,7 @@ pub async fn unlike_post(
         }
         Err(err) => {
             error!(user_id = user.id, post_id, "Failed to unlike post: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -674,7 +674,7 @@ pub async fn like_status(
                 user_id = user.id,
                 post_id, "Failed to get like status: {}", err
             );
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -702,7 +702,7 @@ pub async fn like_status_batch(
                 user_id = user.id,
                 "Failed to get batch like status: {}", err
             );
-            Err(err.into())
+            Err(err)
         }
     }
 }

@@ -201,8 +201,7 @@ impl RouteBlockerService {
             Ok(_) => Ok(()),
             Err(e) => {
                 tracing::error!("Failed to initialize Redis sync: {}", e);
-                Err(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                Err(Box::new(std::io::Error::other(
                     format!("Redis sync failed: {}", e),
                 )))
             }

@@ -77,7 +77,7 @@ where
 
             info!("ROUTER BLOCKER WORKING");
 
-            if let Some(_) = matched_pattern {
+            if matched_pattern.is_some() {
                 if let Err(err) = RouteBlockerService::record_route_pattern(&state, &pattern).await
                 {
                     error!(

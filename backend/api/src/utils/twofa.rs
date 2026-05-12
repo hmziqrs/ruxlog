@@ -5,7 +5,6 @@ use sha1::Sha1;
 use sha2::{Digest, Sha256};
 
 /// Alphabet for Base32 encoding/decoding without padding (RFC 4648)
-
 /// Default TOTP step in seconds
 pub const DEFAULT_TOTP_STEP: u64 = 30;
 /// Default TOTP digits
@@ -46,7 +45,7 @@ pub fn generate_totp_code_at(
     let secret = data_encoding::BASE32_NOPAD
         .decode(secret_base32.as_bytes())
         .ok()?;
-    let counter = (now.timestamp() as i64).div_euclid(step as i64) as u64;
+    let counter = now.timestamp().div_euclid(step as i64) as u64;
 
     let mut msg = [0u8; 8];
     for (i, b) in counter.to_be_bytes().iter().enumerate() {
@@ -99,7 +98,7 @@ pub fn verify_totp_code_at(
         Err(_) => return false,
     };
 
-    let current_counter = (now.timestamp() as i64).div_euclid(step as i64);
+    let current_counter = now.timestamp().div_euclid(step as i64);
 
     for i in -window..=window {
         let counter = (current_counter + i) as u64;

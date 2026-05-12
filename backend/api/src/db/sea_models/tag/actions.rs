@@ -102,7 +102,7 @@ impl Entity {
         match Self::find_by_id(tag_id).one(conn).await {
             Ok(Some(model)) => Ok(model),
             Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                .with_message(&format!("Tag with ID {} not found", tag_id))),
+                .with_message(format!("Tag with ID {} not found", tag_id))),
             Err(err) => Err(err.into()),
         }
     }

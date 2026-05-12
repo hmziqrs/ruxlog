@@ -647,7 +647,7 @@ pub async fn comment_rate(
         vec![
             Value::ChronoDateTimeWithTimeZone(Some(Box::new(resolved.date_from))),
             Value::ChronoDateTimeWithTimeZone(Some(Box::new(resolved.date_to))),
-            Value::BigInt(Some(min_views as i64)),
+            Value::BigInt(Some(min_views)),
             Value::BigInt(Some(limit)),
             Value::BigInt(Some(offset)),
         ],
@@ -1010,6 +1010,7 @@ fn status_label_from_str(status: &str) -> String {
     }
 }
 
+#[allow(clippy::result_large_err)]
 fn parse_status_filters(
     statuses: Option<&Vec<String>>,
 ) -> Result<Option<Vec<PostStatus>>, ErrorResponse> {

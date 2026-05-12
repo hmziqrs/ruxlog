@@ -75,7 +75,7 @@ impl Entity {
                 }
                 Err(err) => {
                     trx.rollback().await?;
-                    return Err(err.into());
+                    return Err(err);
                 }
             },
             Err(err) => {

@@ -128,7 +128,7 @@ pub async fn subscribe(
         }
         Err(err) => {
             error!(email = %email, "Failed to create newsletter subscription: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -154,7 +154,7 @@ pub async fn unsubscribe(
         }
         Err(err) => {
             error!(email = %email, "Failed to unsubscribe: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -248,7 +248,7 @@ pub async fn list_subscribers(
         }
         Err(err) => {
             error!("Failed to list newsletter subscribers: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -274,7 +274,7 @@ pub async fn confirm(
         }
         Err(err) => {
             error!(email = %email, "Failed to confirm subscription: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
