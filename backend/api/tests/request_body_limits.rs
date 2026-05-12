@@ -34,24 +34,6 @@ async fn accept_multipart(mut multipart: Multipart) -> StatusCode {
     }
 }
 
-fn build_router() -> Router {
-    Router::new()
-        .route("/default", post(accept_bytes))
-        .nest(
-            "/post/v1",
-            Router::new()
-                .route("/payload", post(accept_bytes))
-                .layer(RequestBodyLimitLayer::new(body_limits::POST)),
-        )
-        .nest(
-            "/media/v1",
-            Router::new()
-                .route("/upload", post(accept_multipart))
-                .layer(RequestBodyLimitLayer::new(body_limits::MEDIA)),
-        )
-        .layer(RequestBodyLimitLayer::new(body_limits::DEFAULT))
-}
-
 fn multipart_body(boundary: &str, filename: &str, bytes: &[u8]) -> Vec<u8> {
     let mut body = Vec::new();
     body.extend(format!("--{}\r\n", boundary).as_bytes());
@@ -69,9 +51,27 @@ fn multipart_body(boundary: &str, filename: &str, bytes: &[u8]) -> Vec<u8> {
     body
 }
 
+fn default_router() -> Router {
+    Router::new()
+        .route("/default", post(accept_bytes))
+        .layer(RequestBodyLimitLayer::new(body_limits::DEFAULT))
+}
+
+fn post_router() -> Router {
+    Router::new()
+        .route("/payload", post(accept_bytes))
+        .layer(RequestBodyLimitLayer::new(body_limits::POST))
+}
+
+fn media_router() -> Router {
+    Router::new()
+        .route("/upload", post(accept_multipart))
+        .layer(RequestBodyLimitLayer::new(body_limits::MEDIA))
+}
+
 #[tokio::test]
 async fn default_payload_under_limit_is_accepted() {
-    let app = build_router();
+    let app = default_router();
     let body = vec![b'a'; 60 * 1024];
 
     let response = app
@@ -91,7 +91,7 @@ async fn default_payload_under_limit_is_accepted() {
 
 #[tokio::test]
 async fn default_payload_over_limit_is_rejected() {
-    let app = build_router();
+    let app = default_router();
     let body = vec![b'a'; 70 * 1024];
 
     let response = app
@@ -111,14 +111,14 @@ async fn default_payload_over_limit_is_rejected() {
 
 #[tokio::test]
 async fn post_payload_under_limit_is_accepted() {
-    let app = build_router();
-    let body = std::fs::read("tmp/240kb.json").expect("240kb.json fixture must exist");
+    let app = post_router();
+    let body = std::fs::read("tests/fixtures/240kb.json").expect("240kb.json fixture must exist");
 
     let response = app
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/post/v1/payload")
+                .uri("/payload")
                 .header("content-type", "application/json")
                 .body(Body::from(body))
                 .unwrap(),
@@ -131,14 +131,14 @@ async fn post_payload_under_limit_is_accepted() {
 
 #[tokio::test]
 async fn post_payload_over_limit_is_rejected() {
-    let app = build_router();
-    let body = std::fs::read("tmp/260kb.json").expect("260kb.json fixture must exist");
+    let app = post_router();
+    let body = std::fs::read("tests/fixtures/260kb.json").expect("260kb.json fixture must exist");
 
     let response = app
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/post/v1/payload")
+                .uri("/payload")
                 .header("content-type", "application/json")
                 .body(Body::from(body))
                 .unwrap(),
@@ -151,8 +151,8 @@ async fn post_payload_over_limit_is_rejected() {
 
 #[tokio::test]
 async fn media_payload_under_limit_is_accepted() {
-    let app = build_router();
-    let bytes = std::fs::read("tmp/2mbunder.jpg").expect("2mbunder.jpg fixture must exist");
+    let app = media_router();
+    let bytes = std::fs::read("tests/fixtures/2mbunder.jpg").expect("2mbunder.jpg fixture must exist");
     let boundary = "BOUNDARY";
     let body = multipart_body(boundary, "2mbunder.jpg", &bytes);
 
@@ -160,7 +160,7 @@ async fn media_payload_under_limit_is_accepted() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/media/v1/upload")
+                .uri("/upload")
                 .header(
                     "content-type",
                     format!("multipart/form-data; boundary={}", boundary),
@@ -176,8 +176,8 @@ async fn media_payload_under_limit_is_accepted() {
 
 #[tokio::test]
 async fn media_payload_over_limit_is_rejected() {
-    let app = build_router();
-    let bytes = std::fs::read("tmp/2mbplus.jpg").expect("2mbplus.jpg fixture must exist");
+    let app = media_router();
+    let bytes = std::fs::read("tests/fixtures/2mbplus.jpg").expect("2mbplus.jpg fixture must exist");
     let boundary = "BOUNDARY";
     let body = multipart_body(boundary, "2mbplus.jpg", &bytes);
 
@@ -185,7 +185,7 @@ async fn media_payload_over_limit_is_rejected() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/media/v1/upload")
+                .uri("/upload")
                 .header(
                     "content-type",
                     format!("multipart/form-data; boundary={}", boundary),
