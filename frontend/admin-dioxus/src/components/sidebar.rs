@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::icons::ld_icons::{
-    LdAreaChart, LdCreditCard, LdFileText, LdFolder, LdHome, LdImage, LdLogOut, LdPlus, LdShieldCheck,
-    LdTag, LdUser, LdBolt,
+    LdAreaChart, LdBell, LdBolt, LdCreditCard, LdFileText, LdFolder, LdHome, LdImage, LdLogOut, LdPlus,
+    LdShieldCheck, LdTag, LdUser,
 };
 use hmziq_dioxus_free_icons::Icon;
 
@@ -324,6 +324,14 @@ pub fn Sidebar(expanded: Signal<bool>, toggle: EventHandler<()>) -> Element {
                         icon: rsx! { Icon { icon: LdBolt } },
                         label: "System Health",
                         is_active: is_active(Route::SystemHealthScreen {}),
+                        on_close: move |_| toggle.call(()),
+                    }
+
+                    SidebarModuleLink {
+                        main_route: Route::NotificationSettingsScreen {},
+                        icon: rsx! { Icon { icon: LdBell } },
+                        label: "Notifications",
+                        is_active: is_active(Route::NotificationSettingsScreen {}),
                         on_close: move |_| toggle.call(()),
                     }
 

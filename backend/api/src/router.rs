@@ -41,6 +41,10 @@ pub fn router(state: AppState) -> Router<AppState> {
     let mut router = Router::new()
         .route("/healthz", get(health_check))
         .route("/robots.txt", get(robots_txt))
+        .route(
+            "/sitemap.xml",
+            get(sitemap_xml),
+        )
         .nest(
             "/auth/v1",
             auth_v1::routes()
@@ -165,4 +169,29 @@ async fn robots_txt() -> (StatusCode, [(axum::http::HeaderName, &'static str); 1
         [(header::CONTENT_TYPE, "text/plain")],
         "User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\nDisallow: /auth/\n\nSitemap: https://ruxlog.com/sitemap.xml\n",
     )
+}
+
+async fn sitemap_xml(State(state): State<AppState>) -> Result<(StatusCode, [(axum::http::HeaderName, &'static str); 1], String), StatusCode> {
+    use crate::db::sea_models::post;
+
+    let posts = post::Entity::sitemap(&state.sea_db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let base_url = std::env::var("CONSUMER_SITE_URL").unwrap_or_else(|_| "https://ruxlog.com".to_string());
+
+    let mut urls = String::from("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
+    urls.push_str(&format!("  <url><loc>{}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>\n", base_url));
+
+    for p in &posts {
+        let lastmod = p.updated_at.to_rfc3339();
+        urls.push_str(&format!(
+            "  <url><loc>{}/posts/{}</loc><lastmod>{}</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>\n",
+            base_url, p.slug, lastmod
+        ));
+    }
+
+    urls.push_str("</urlset>");
+
+    Ok((StatusCode::OK, [(header::CONTENT_TYPE, "application/xml")], urls))
 }

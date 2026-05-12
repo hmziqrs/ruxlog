@@ -223,21 +223,21 @@ Fill placeholder screens and add missing features.
 Fill gaps in admin screens.
 
 - [ ] **13.1** Admin search: add global search bar in admin navbar. Search across posts, categories, tags, users, media.
-- [ ] **13.2** Admin dashboard enhancements: add recent comments widget, recent subscribers widget, quick draft button.
+- [x] **13.2** Admin dashboard enhancements: add recent comments widget, recent subscribers widget, quick draft button.
 - [ ] **13.3** Bulk import/export: CSV import for posts, categories, tags. CSV export for users, subscribers, payments.
-- [ ] **13.4** Notification settings screen: configure email notification preferences per event type (new comment, new subscriber, payment received, etc.).
+- [x] **13.4** Notification settings screen: configure email notification preferences per event type (new comment, new subscriber, payment received, etc.).
 - [x] **13.5** System health screen: show Postgres stats, Redis stats, RustFS storage usage, API uptime, recent errors.
 - [x] **13.6** Audit log viewer screen: paginated table of audit events with filters (user, action type, date range).
 - [ ] **13.7** Browser-agent E2E for every admin screen: dashboard, posts CRUD, categories CRUD, tags CRUD, media upload/manage, comments moderation, newsletter, analytics, users, billing screens, settings, audit logs, system health.
 
 ### Phase 14 — SEO and Performance
 
-- [ ] **14.1** Sitemap: ensure `POST /post/v1/sitemap` returns all published posts + categories + tags. Create `GET /sitemap.xml` public route that serves it with proper XML content type.
-- [ ] **14.2** robots.txt: create `GET /robots.txt` endpoint serving configurable robots.txt (disallow admin, allow consumer).
-- [ ] **14.3** Open Graph meta tags: verify consumer `SeoHead` component renders og:title, og:description, og:image, og:url, og:type for all screens.
-- [ ] **14.4** Twitter Card meta tags: verify twitter:card, twitter:title, twitter:description, twitter:image.
-- [ ] **14.5** Structured data: verify JSON-LD for BlogPosting, WebSite, BreadcrumbList on all relevant pages.
-- [ ] **14.6** Canonical URLs: ensure every page sets a canonical URL matching the CONSUMER_SITE_URL.
+- [x] **14.1** Sitemap: ensure `POST /post/v1/sitemap` returns all published posts + categories + tags. Create `GET /sitemap.xml` public route that serves it with proper XML content type.
+- [x] **14.2** robots.txt: create `GET /robots.txt` endpoint serving configurable robots.txt (disallow admin, allow consumer).
+- [x] **14.3** Open Graph meta tags: verify consumer `SeoHead` component renders og:title, og:description, og:image, og:url, og:type for all screens.
+- [x] **14.4** Twitter Card meta tags: verify twitter:card, twitter:title, twitter:description, twitter:image.
+- [x] **14.5** Structured data: verify JSON-LD for BlogPosting, WebSite, BreadcrumbList on all relevant pages.
+- [x] **14.6** Canonical URLs: ensure every page sets a canonical URL matching the CONSUMER_SITE_URL.
 - [ ] **14.7** RSS/Atom feed: verify `/feed/v1/rss` and `/feed/v1/atom` produce valid feed XML. Add `<link rel="alternate">` to consumer HTML head.
 - [ ] **14.8** Performance: audit WASM bundle size, add code splitting hints where possible. Ensure Tailwind CSS is pruned (already done per git log).
 - [ ] **14.9** Lighthouse audit: use browser agent to run Lighthouse on consumer homepage, post page, category page. Target: Performance > 80, Accessibility > 90, SEO > 90.
