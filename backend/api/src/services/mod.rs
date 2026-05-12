@@ -22,3 +22,6 @@ pub mod seed;
 
 #[cfg(feature = "seed-system")]
 pub mod seed_config;
+
+#[cfg(feature = "billing")]
+pub mod billing;

@@ -25,7 +25,8 @@ full = [
     "image-optimization",
     "admin-acl",
     "admin-routes",
-    "seed-system"
+    "seed-system",
+    "billing",
 ]
 
 # Individual features
@@ -39,6 +40,14 @@ image-optimization = ["image"]
 admin-acl = []
 admin-routes = []
 seed-system = []
+
+# Billing / monetization — each provider is feature-gated
+billing = ["billing-stripe"]
+billing-stripe = []
+billing-polar = []
+billing-lemonsqueezy = []
+billing-paddle = []
+billing-crypto = []
 
 [dependencies]
 rux-auth = { path = "./crates/rux-auth" }

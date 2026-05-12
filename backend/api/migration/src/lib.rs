@@ -39,6 +39,13 @@ mod m20251204_000032_rename_media_variant_table;
 mod m20251205_000033_create_app_constants_table;
 mod m20251220_000035_create_user_bans_table;
 mod m20260125_000036_alter_media_add_bucket_drop_file_url;
+mod m20260512_000037_create_plans_table;
+mod m20260512_000038_create_subscriptions_table;
+mod m20260512_000039_create_payments_table;
+mod m20260512_000040_create_invoices_table;
+mod m20260512_000041_create_payout_accounts_table;
+mod m20260512_000042_create_payout_ledger_table;
+mod m20260512_000043_create_discount_codes_table;
 
 pub struct Migrator;
 
@@ -85,6 +92,13 @@ impl MigratorTrait for Migrator {
             Box::new(m20251125_000034_create_post_likes_table::Migration),
             Box::new(m20251220_000035_create_user_bans_table::Migration),
             Box::new(m20260125_000036_alter_media_add_bucket_drop_file_url::Migration),
+            Box::new(m20260512_000037_create_plans_table::Migration),
+            Box::new(m20260512_000038_create_subscriptions_table::Migration),
+            Box::new(m20260512_000039_create_payments_table::Migration),
+            Box::new(m20260512_000040_create_invoices_table::Migration),
+            Box::new(m20260512_000041_create_payout_accounts_table::Migration),
+            Box::new(m20260512_000042_create_payout_ledger_table::Migration),
+            Box::new(m20260512_000043_create_discount_codes_table::Migration),
         ]
     }
 }
