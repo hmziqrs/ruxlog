@@ -38,7 +38,8 @@ impl MigrationTrait for Migration {
                 RETURN NEW;
             END
             $$ LANGUAGE plpgsql
-            "#.to_string(),
+            "#
+            .to_string(),
         ))
         .await?;
 
@@ -55,7 +56,8 @@ impl MigrationTrait for Migration {
             "CREATE TRIGGER posts_search_vector_trigger \
                 BEFORE INSERT OR UPDATE OF title, excerpt, slug ON posts \
                 FOR EACH ROW \
-                EXECUTE FUNCTION posts_search_vector_update()".to_string(),
+                EXECUTE FUNCTION posts_search_vector_update()"
+                .to_string(),
         ))
         .await?;
 
@@ -68,7 +70,8 @@ impl MigrationTrait for Migration {
                 setweight(to_tsvector('english', COALESCE(excerpt, '')), 'B') ||
                 setweight(to_tsvector('english', COALESCE(slug, '')), 'C')
             WHERE search_vector IS NULL
-            "#.to_string(),
+            "#
+            .to_string(),
         ))
         .await?;
 

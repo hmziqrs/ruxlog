@@ -166,17 +166,36 @@ mod tests {
         );
 
         let result = provider
-            .create_checkout("100_USD", "user@example.com", 42, "https://example.com/success", "https://example.com/cancel")
+            .create_checkout(
+                "100_USD",
+                "user@example.com",
+                42,
+                "https://example.com/success",
+                "https://example.com/cancel",
+            )
             .await
             .expect("checkout should succeed");
 
         // Session ID should start with "rux-{user_id}-"
-        assert!(result.session_id.starts_with("rux-42-"), "session_id should start with rux-42-, got: {}", result.session_id);
+        assert!(
+            result.session_id.starts_with("rux-42-"),
+            "session_id should start with rux-42-, got: {}",
+            result.session_id
+        );
 
         // Checkout URL should contain the wallet address and API URL
-        assert!(result.checkout_url.contains("0xDeadBeef"), "checkout_url should contain wallet address");
-        assert!(result.checkout_url.contains("100_USD"), "checkout_url should contain plan slug");
-        assert!(result.checkout_url.contains("api.blockchain.example"), "checkout_url should contain API URL");
+        assert!(
+            result.checkout_url.contains("0xDeadBeef"),
+            "checkout_url should contain wallet address"
+        );
+        assert!(
+            result.checkout_url.contains("100_USD"),
+            "checkout_url should contain plan slug"
+        );
+        assert!(
+            result.checkout_url.contains("api.blockchain.example"),
+            "checkout_url should contain API URL"
+        );
     }
 
     #[tokio::test]
@@ -222,7 +241,9 @@ mod tests {
             "BTC".into(),
         );
 
-        let result = provider.create_portal_session("customer_id", "https://return.url").await;
+        let result = provider
+            .create_portal_session("customer_id", "https://return.url")
+            .await;
         assert!(result.is_err());
     }
 }

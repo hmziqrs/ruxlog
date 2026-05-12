@@ -248,13 +248,15 @@ mod tests {
 
     #[test]
     fn test_lemon_squeezy_provider_name() {
-        let provider = LemonSqueezyProvider::new("api_key".into(), "whsec".into(), "store_1".into());
+        let provider =
+            LemonSqueezyProvider::new("api_key".into(), "whsec".into(), "store_1".into());
         assert_eq!(provider.provider_name(), "lemon_squeezy");
     }
 
     #[test]
     fn test_lemon_squeezy_new() {
-        let provider = LemonSqueezyProvider::new("key_abc".into(), "secret_def".into(), "store_123".into());
+        let provider =
+            LemonSqueezyProvider::new("key_abc".into(), "secret_def".into(), "store_123".into());
         assert_eq!(provider.api_key, "key_abc");
         assert_eq!(provider.webhook_secret, "secret_def");
         assert_eq!(provider.store_id, "store_123");
