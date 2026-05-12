@@ -6,8 +6,6 @@ use oxui::components::SonnerToaster;
 pub mod components;
 mod config;
 pub mod containers;
-#[cfg(feature = "demo-static-content")]
-pub mod demo_content;
 pub mod env;
 pub mod hooks;
 pub mod router;
@@ -38,34 +36,12 @@ fn configure_http_client() {
 }
 
 #[cfg(feature = "server")]
-fn static_dir() -> std::path::PathBuf {
-    std::env::current_exe()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("public")
-}
-
-#[cfg(feature = "server")]
 fn main() {
     configure_http_client();
 
     dioxus::LaunchBuilder::new()
         .with_cfg(server_only! {
-            {
-                #[cfg(feature = "demo-static-content")]
-                {
-                    dioxus::server::ServeConfig::builder().incremental(
-                        dioxus::server::IncrementalRendererConfig::new()
-                            .static_dir(static_dir())
-                            .clear_cache(false),
-                    )
-                }
-                #[cfg(not(feature = "demo-static-content"))]
-                {
-                    dioxus::server::ServeConfig::default()
-                }
-            }
+            dioxus::server::ServeConfig::default()
         })
         .launch(App);
 }

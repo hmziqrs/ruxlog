@@ -23,7 +23,3 @@ script = []
 
 [web.watcher]
 reload_html = true
-
-[web.ssg]
-enabled = true
-incremental = true

@@ -1,6 +1,4 @@
 use crate::components::{PostCard, PostsLoadingSkeleton};
-#[cfg(feature = "demo-static-content")]
-use crate::demo_content;
 use crate::router::Route;
 use crate::seo::{breadcrumb_schema, SeoHead, SeoMetadataBuilder, StructuredData};
 use crate::server_fns::{fetch_category_by_slug, fetch_posts_by_category};
@@ -12,18 +10,12 @@ use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 pub fn CategoryDetailScreen(slug: String) -> Element {
     let nav = use_navigator();
 
-    #[cfg(not(feature = "demo-static-content"))]
     let category_result = use_server_future(move || {
         let slug = slug.clone();
         async move { fetch_category_by_slug(slug).await }
     })?;
 
-    #[cfg(not(feature = "demo-static-content"))]
     let category_state = category_result();
-    #[cfg(feature = "demo-static-content")]
-    let category_state = Some(Ok::<_, ServerFnError>(
-        demo_content::content().category_by_slug(&slug),
-    ));
 
     // Get category for dependent query
     let category = match category_state {
@@ -58,17 +50,11 @@ pub fn CategoryDetailScreen(slug: String) -> Element {
         };
     };
 
-    #[cfg(not(feature = "demo-static-content"))]
     let posts_result = {
         let category_id = category.id;
         use_server_future(move || async move { fetch_posts_by_category(category_id).await })?
     };
-    #[cfg(not(feature = "demo-static-content"))]
     let posts_state = posts_result();
-    #[cfg(feature = "demo-static-content")]
-    let posts_state = Some(Ok::<_, ServerFnError>(demo_content::paginated(
-        &demo_content::content().posts_by_category_id(category.id),
-    )));
 
     let on_post_click = move |post_slug: String| {
         nav.push(Route::PostViewScreen { slug: post_slug });
