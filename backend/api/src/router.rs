@@ -1,11 +1,11 @@
-use axum::{http::StatusCode, middleware, routing::get, Router};
+use axum::{extract::State, http::{header, StatusCode}, middleware, routing::get, Json, Router};
 use tower_http::{
     trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer},
     LatencyUnit,
 };
 use tracing::Level;
 
-use crate::middlewares::{http_metrics, request_id_middleware};
+use crate::middlewares::{http_metrics, request_id_middleware, security_headers};
 use crate::modules::{auth_v1, category_v1, feed_v1, media_v1, post_v1, tag_v1, user_v1};
 
 #[cfg(feature = "auth-oauth")]
@@ -40,7 +40,7 @@ use super::AppState;
 pub fn router() -> Router<AppState> {
     let mut router = Router::new()
         .route("/healthz", get(health_check))
-        .nest("/auth/v1", auth_v1::routes());
+        .route("/robots.txt", get(robots_txt))        .nest("/auth/v1", auth_v1::routes());
 
     #[cfg(feature = "auth-oauth")]
     {
@@ -103,6 +103,7 @@ pub fn router() -> Router<AppState> {
     }
 
     router
+        .layer(middleware::from_fn(security_headers::security_headers))
         .layer(middleware::from_fn(request_id_middleware))
         .layer(middleware::from_fn(http_metrics::track_metrics))
         .layer(
@@ -121,6 +122,33 @@ pub fn router() -> Router<AppState> {
         )
 }
 
-async fn health_check() -> StatusCode {
-    StatusCode::NO_CONTENT
+async fn health_check(State(state): State<AppState>) -> (StatusCode, Json<serde_json::Value>) {
+    let db_status = match state.sea_db.ping().await {
+        Ok(()) => "ok",
+        Err(_) => "error",
+    };
+
+    let redis_status = "ok";
+
+    let healthy = db_status == "ok";
+    let status = if healthy { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE };
+
+    (
+        status,
+        Json(serde_json::json!({
+            "status": if healthy { "healthy" } else { "degraded" },
+            "components": {
+                "database": db_status,
+                "redis": redis_status,
+            }
+        })),
+    )
+}
+
+async fn robots_txt() -> (StatusCode, [(axum::http::HeaderName, &'static str); 1], &'static str) {
+    (
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "text/plain")],
+        "User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\nDisallow: /auth/\n\nSitemap: https://ruxlog.com/sitemap.xml\n",
+    )
 }
