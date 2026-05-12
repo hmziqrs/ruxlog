@@ -117,7 +117,136 @@ Implication for MVP:
 - Consumer aims for practical delivery first: publishable blog with stable backend integration before adding extra user features.
 - Codebase includes both handwritten and AI-assisted work; prioritize consistency and cleanup iteratively while shipping.
 
+## Monetization & Billing
+
+Billing is entirely feature-gated behind the `billing` Cargo feature. Each payment provider is a separate feature flag.
+
+### BillingProvider Trait
+
+All payment integrations implement `BillingProvider` (`backend/api/src/services/billing/provider.rs`). The trait defines:
+
+- `provider_name()` -- identifier string (e.g., `"stripe"`, `"polar"`)
+- `create_checkout()` -- create a checkout session for a plan, returning a `CheckoutSession` with a redirect URL
+- `cancel_subscription()` -- cancel at the provider (immediately or at period end)
+- `get_subscription()` -- fetch current subscription status
+- `verify_webhook()` -- verify and parse incoming webhook events into `ParsedWebhook`
+- `create_portal_session()` -- create a customer portal session for self-service management
+
+Adding a new provider requires only implementing this trait and registering it behind a new feature flag.
+
+### Feature-Gated Providers
+
+| Feature Flag | Provider | File |
+|---|---|---|
+| `billing-stripe` | Stripe | `backend/api/src/services/billing/stripe.rs` |
+| `billing-polar` | Polar.sh | `backend/api/src/services/billing/polar.rs` |
+| `billing-lemonsqueezy` | LemonSqueezy | `backend/api/src/services/billing/lemon_squeezy.rs` |
+| `billing-paddle` | Paddle | `backend/api/src/services/billing/paddle.rs` |
+| `billing-crypto` | Crypto (no-KYC) | `backend/api/src/services/billing/crypto.rs` |
+
+The `billing` feature enables `billing-stripe` by default. Additional providers are opt-in via Cargo features.
+
+### Database Tables
+
+All billing tables are created by migrations prefixed `m20260512_*`:
+
+| Table | Purpose |
+|---|---|
+| `plans` | Subscription plans (name, slug, price, interval, trial days, features list) |
+| `subscriptions` | User subscriptions (provider ref, status, current period, cancel-at-period-end) |
+| `payments` | Payment records (provider ref, amount, currency, status) |
+| `invoices` | Generated invoices linked to payments |
+| `payout_accounts` | Operator payout configuration per provider |
+| `payout_ledger` | Payout transaction history |
+| `discount_codes` | Discount/promo codes (code, percent off, max uses, expiry) |
+| `post_access` | Per-post paywall gating (post_id, required plan, access level) |
+| `audit_logs` | General audit trail for billing operations |
+
+SeaORM models live in `backend/api/src/db/sea_models/`.
+
+### API Endpoints
+
+All billing routes are mounted at `/billing/v1` (feature-gated behind `billing`):
+
+**Public (no auth)**
+- `GET /billing/v1/plans` -- list active plans
+- `GET /billing/v1/access/{post_id}` -- check if a post requires a subscription
+- `POST /billing/v1/webhook/{provider}` -- webhook receiver for provider callbacks
+
+**Authenticated (any logged-in user)**
+- `POST /billing/v1/checkout` -- create a checkout session
+- `GET /billing/v1/subscriptions` -- list current user's subscriptions
+- `GET /billing/v1/payments` -- list current user's payments
+
+**Admin (role: admin)**
+- `POST /billing/v1/plan/list` -- list all plans
+- `POST /billing/v1/plan/create` -- create a plan
+- `POST /billing/v1/plan/update/{plan_id}` -- update a plan
+- `POST /billing/v1/plan/delete/{plan_id}` -- delete a plan
+- `POST /billing/v1/subscription/list` -- list all subscriptions
+- `POST /billing/v1/subscription/cancel/{subscription_id}` -- cancel a subscription
+- `POST /billing/v1/payment/list` -- list all payments
+- `POST /billing/v1/invoice/list` -- list all invoices
+- `POST /billing/v1/discount/list` -- list discount codes
+- `POST /billing/v1/discount/create` -- create a discount code
+- `POST /billing/v1/discount/delete/{code_id}` -- delete a discount code
+- `POST /billing/v1/post/access/{post_id}` -- set post paywall access
+
+### Environment Variables
+
+Each provider requires its own set of credentials in `.env`:
+
+```bash
+# Stripe
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_PUBLIC_KEY=
+
+# Polar.sh
+POLAR_ACCESS_TOKEN=
+POLAR_WEBHOOK_SECRET=
+
+# LemonSqueezy
+LEMONSQUEEZY_API_KEY=
+LEMONSQUEEZY_WEBHOOK_SECRET=
+LEMONSQUEEZY_STORE_ID=
+
+# Paddle
+PADDLE_API_KEY=
+PADDLE_WEBHOOK_SECRET=
+
+# Crypto (no-KYC)
+CRYPTO_WALLET_ADDRESS=
+CRYPTO_API_URL=
+CRYPTO_API_KEY=
+CRYPTO_CURRENCY=BTC
+```
+
+Only set variables for providers you have enabled via feature flags.
+
+### Admin Billing UI
+
+The admin console (`frontend/admin-dioxus`) can include billing management screens. These are behind the `billing` feature flag and provide interfaces for:
+
+- Plan CRUD (create, edit, reorder, activate/deactivate)
+- Subscription oversight (list, view details, cancel)
+- Payment and invoice browsing
+- Discount code management
+- Post access control (assign paywall plans to posts)
+
+### Consumer Paywall
+
+The consumer frontend (`frontend/consumer-dioxus`) can display paywall and pricing UI:
+
+- Public pricing page listing active plans
+- Checkout flow (redirect to provider-hosted checkout)
+- Post access check before showing gated content
+- "My subscriptions" view for authenticated users
+
 ## Documentation Policy
 
-- Keep only this file in `docs/` unless new docs are directly operational.
-- If behavior changes, update this file in the same PR as code/config updates.
+- Keep this file (`docs/KNOWLEDGEBASE.md`) as the primary operational reference.
+- `CONTRIBUTING.md` at the repo root covers contribution guidelines.
+- `CHANGELOG.md` at the repo root documents release history.
+- `AGENTS.md` files in subdirectories provide module-specific conventions for code agents.
+- If behavior changes, update the relevant docs in the same PR as code/config updates.
