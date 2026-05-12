@@ -18,7 +18,11 @@ pub fn ReadingProgressBar() -> Element {
                 if let Some(document) = window.document() {
                     if let Some(body) = document.body() {
                         let scroll_height = body.scroll_height() as f64;
-                        let client_height = window.inner_height().unwrap_or(0.0.into()).as_f64().unwrap_or(0.0);
+                        let client_height = window
+                            .inner_height()
+                            .unwrap_or(0.0.into())
+                            .as_f64()
+                            .unwrap_or(0.0);
                         let scrollable = scroll_height - client_height;
                         if scrollable > 0.0 {
                             let scroll_top = window.scroll_y().unwrap_or(0.0);

@@ -14,10 +14,19 @@ pub fn routes() -> Router<AppState> {
         // Plan CRUD
         .route("/plan/list", post(controller::admin_list_plans))
         .route("/plan/create", post(controller::admin_create_plan))
-        .route("/plan/update/{plan_id}", post(controller::admin_update_plan))
-        .route("/plan/delete/{plan_id}", post(controller::admin_delete_plan))
+        .route(
+            "/plan/update/{plan_id}",
+            post(controller::admin_update_plan),
+        )
+        .route(
+            "/plan/delete/{plan_id}",
+            post(controller::admin_delete_plan),
+        )
         // Subscription management
-        .route("/subscription/list", post(controller::admin_list_subscriptions))
+        .route(
+            "/subscription/list",
+            post(controller::admin_list_subscriptions),
+        )
         .route(
             "/subscription/cancel/{subscription_id}",
             post(controller::admin_cancel_subscription),
@@ -26,8 +35,14 @@ pub fn routes() -> Router<AppState> {
         .route("/payment/list", post(controller::admin_list_payments))
         .route("/invoice/list", post(controller::admin_list_invoices))
         // Discount codes
-        .route("/discount/list", post(controller::admin_list_discount_codes))
-        .route("/discount/create", post(controller::admin_create_discount_code))
+        .route(
+            "/discount/list",
+            post(controller::admin_list_discount_codes),
+        )
+        .route(
+            "/discount/create",
+            post(controller::admin_create_discount_code),
+        )
         .route(
             "/discount/delete/{code_id}",
             post(controller::admin_delete_discount_code),

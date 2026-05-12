@@ -207,61 +207,66 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let state_for_blocker = state.clone();
         tokio::spawn(async move {
-        let notify = route_blocker_config::notifier();
+            let notify = route_blocker_config::notifier();
 
-        // Set initial next sync time
-        route_blocker_config::set_next_sync_at(route_blocker_config::calculate_next_sync());
+            // Set initial next sync time
+            route_blocker_config::set_next_sync_at(route_blocker_config::calculate_next_sync());
 
-        loop {
-            if route_blocker_config::is_paused() {
-                tokio::select! {
-                    _ = notify.notified() => {},
-                    _ = tokio::time::sleep(Duration::from_secs(5)) => {},
+            loop {
+                if route_blocker_config::is_paused() {
+                    tokio::select! {
+                        _ = notify.notified() => {},
+                        _ = tokio::time::sleep(Duration::from_secs(5)) => {},
+                    }
+                    continue;
                 }
-                continue;
-            }
 
-            let force_sync = route_blocker_config::take_force_sync_flag();
+                let force_sync = route_blocker_config::take_force_sync_flag();
 
-            if !force_sync {
-                let interval_secs = route_blocker_config::get_sync_interval_secs();
-                let next_sync = route_blocker_config::calculate_next_sync();
-                route_blocker_config::set_next_sync_at(next_sync);
+                if !force_sync {
+                    let interval_secs = route_blocker_config::get_sync_interval_secs();
+                    let next_sync = route_blocker_config::calculate_next_sync();
+                    route_blocker_config::set_next_sync_at(next_sync);
 
-                let sleep = tokio::time::sleep(Duration::from_secs(interval_secs));
-                tokio::pin!(sleep);
+                    let sleep = tokio::time::sleep(Duration::from_secs(interval_secs));
+                    tokio::pin!(sleep);
 
-                tokio::select! {
-                    _ = &mut sleep => {},
-                    _ = notify.notified() => {
-                        // config change: restart loop to re-read state.
-                        continue;
+                    tokio::select! {
+                        _ = &mut sleep => {},
+                        _ = notify.notified() => {
+                            // config change: restart loop to re-read state.
+                            continue;
+                        }
                     }
                 }
+
+                if route_blocker_config::is_paused() {
+                    continue;
+                }
+
+                route_blocker_config::set_sync_running(true);
+                let sync_start = chrono::Utc::now();
+
+                if let Err(err) =
+                    RouteBlockerService::initialize_redis_sync(&state_for_blocker).await
+                {
+                    tracing::error!(
+                        error = %err,
+                        "Periodic route blocker Redis sync failed"
+                    );
+                } else {
+                    tracing::info!("Periodic route blocker Redis sync completed successfully");
+                }
+
+                route_blocker_config::set_last_sync_at(sync_start);
+                route_blocker_config::set_sync_running(false);
+                route_blocker_config::set_next_sync_at(route_blocker_config::calculate_next_sync());
             }
-
-            if route_blocker_config::is_paused() {
-                continue;
-            }
-
-            route_blocker_config::set_sync_running(true);
-            let sync_start = chrono::Utc::now();
-
-            if let Err(err) = RouteBlockerService::initialize_redis_sync(&state_for_blocker).await {
-                tracing::error!(
-                    error = %err,
-                    "Periodic route blocker Redis sync failed"
-                );
-            } else {
-                tracing::info!("Periodic route blocker Redis sync completed successfully");
-            }
-
-            route_blocker_config::set_last_sync_at(sync_start);
-            route_blocker_config::set_sync_running(false);
-            route_blocker_config::set_next_sync_at(route_blocker_config::calculate_next_sync());
-        }
         });
     }
+
+    #[cfg(feature = "scheduler")]
+    services::scheduler::start_scheduler(state.clone());
 
     tracing::info!("Redis successfully established.");
     let session_store = RedisStore::new(redis_pool);

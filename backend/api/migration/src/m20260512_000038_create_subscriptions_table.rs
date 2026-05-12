@@ -20,11 +20,13 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Subscriptions::UserId).integer().not_null())
                     .col(ColumnDef::new(Subscriptions::PlanId).integer().not_null())
-                    .col(ColumnDef::new(Subscriptions::Provider).string_len(50).not_null())
-                    .col(ColumnDef::new(Subscriptions::ProviderCustomerId).string_len(255))
                     .col(
-                        ColumnDef::new(Subscriptions::ProviderSubscriptionId).string_len(255),
+                        ColumnDef::new(Subscriptions::Provider)
+                            .string_len(50)
+                            .not_null(),
                     )
+                    .col(ColumnDef::new(Subscriptions::ProviderCustomerId).string_len(255))
+                    .col(ColumnDef::new(Subscriptions::ProviderSubscriptionId).string_len(255))
                     .col(
                         ColumnDef::new(Subscriptions::Status)
                             .string_len(30)
@@ -35,10 +37,7 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Subscriptions::CurrentPeriodStart)
                             .timestamp_with_time_zone(),
                     )
-                    .col(
-                        ColumnDef::new(Subscriptions::CurrentPeriodEnd)
-                            .timestamp_with_time_zone(),
-                    )
+                    .col(ColumnDef::new(Subscriptions::CurrentPeriodEnd).timestamp_with_time_zone())
                     .col(
                         ColumnDef::new(Subscriptions::CancelAtPeriodEnd)
                             .boolean()

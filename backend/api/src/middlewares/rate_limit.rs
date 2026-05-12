@@ -149,8 +149,10 @@ where
                 Value::from(window_secs as i64),
             ];
 
-            let result: Result<Vec<Value>, _> =
-                state.redis_pool.eval(SLIDING_WINDOW_SCRIPT, keys, args).await;
+            let result: Result<Vec<Value>, _> = state
+                .redis_pool
+                .eval(SLIDING_WINDOW_SCRIPT, keys, args)
+                .await;
 
             let (count, ttl) = match result {
                 Ok(values) => {
@@ -215,7 +217,8 @@ where
 
 /// Helper to insert a numeric header value, falling back gracefully.
 fn insert_header(headers: &mut axum::http::HeaderMap, name: &HeaderName, value: u64) {
-    let val = HeaderValue::from_str(&value.to_string()).unwrap_or_else(|_| HeaderValue::from_static("0"));
+    let val =
+        HeaderValue::from_str(&value.to_string()).unwrap_or_else(|_| HeaderValue::from_static("0"));
     headers.insert(name, val);
 }
 

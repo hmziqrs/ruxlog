@@ -19,7 +19,11 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(PayoutLedger::UserId).integer().not_null())
-                    .col(ColumnDef::new(PayoutLedger::AmountCents).integer().not_null())
+                    .col(
+                        ColumnDef::new(PayoutLedger::AmountCents)
+                            .integer()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(PayoutLedger::Currency)
                             .string_len(3)
@@ -34,7 +38,11 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(PayoutLedger::ReferenceType).string_len(50))
                     .col(ColumnDef::new(PayoutLedger::ReferenceId).string_len(255))
                     .col(ColumnDef::new(PayoutLedger::Description).text())
-                    .col(ColumnDef::new(PayoutLedger::BalanceAfter).integer().not_null())
+                    .col(
+                        ColumnDef::new(PayoutLedger::BalanceAfter)
+                            .integer()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(PayoutLedger::CreatedAt)
                             .timestamp_with_time_zone()

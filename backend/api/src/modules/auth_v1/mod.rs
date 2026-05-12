@@ -6,8 +6,7 @@ use axum::{middleware, routing::post, Router};
 use crate::{middlewares::auth_guard, AppState};
 
 pub fn routes() -> Router<AppState> {
-    let mut public = Router::<AppState>::new()
-        .route("/log_in", post(controller::log_in));
+    let mut public = Router::<AppState>::new().route("/log_in", post(controller::log_in));
 
     #[cfg(feature = "user-management")]
     {
@@ -16,8 +15,7 @@ pub fn routes() -> Router<AppState> {
 
     let public = public.route_layer(middleware::from_fn(auth_guard::unauthenticated));
 
-    let mut authenticated = Router::<AppState>::new()
-        .route("/log_out", post(controller::log_out));
+    let mut authenticated = Router::<AppState>::new().route("/log_out", post(controller::log_out));
 
     #[cfg(feature = "auth-2fa")]
     {

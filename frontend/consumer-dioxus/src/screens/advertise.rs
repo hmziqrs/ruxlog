@@ -1,9 +1,7 @@
 use crate::config::BRAND;
 use crate::seo::{breadcrumb_schema, use_static_seo, SeoHead, StructuredData};
 use dioxus::prelude::*;
-use hmziq_dioxus_free_icons::icons::ld_icons::{
-    LdMegaphone, LdBarChart, LdTarget, LdUsers,
-};
+use hmziq_dioxus_free_icons::icons::ld_icons::{LdBarChart, LdMegaphone, LdTarget, LdUsers};
 use hmziq_dioxus_free_icons::Icon;
 
 #[component]

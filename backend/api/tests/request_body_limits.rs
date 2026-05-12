@@ -152,7 +152,8 @@ async fn post_payload_over_limit_is_rejected() {
 #[tokio::test]
 async fn media_payload_under_limit_is_accepted() {
     let app = media_router();
-    let bytes = std::fs::read("tests/fixtures/2mbunder.jpg").expect("2mbunder.jpg fixture must exist");
+    let bytes =
+        std::fs::read("tests/fixtures/2mbunder.jpg").expect("2mbunder.jpg fixture must exist");
     let boundary = "BOUNDARY";
     let body = multipart_body(boundary, "2mbunder.jpg", &bytes);
 
@@ -177,7 +178,8 @@ async fn media_payload_under_limit_is_accepted() {
 #[tokio::test]
 async fn media_payload_over_limit_is_rejected() {
     let app = media_router();
-    let bytes = std::fs::read("tests/fixtures/2mbplus.jpg").expect("2mbplus.jpg fixture must exist");
+    let bytes =
+        std::fs::read("tests/fixtures/2mbplus.jpg").expect("2mbplus.jpg fixture must exist");
     let boundary = "BOUNDARY";
     let body = multipart_body(boundary, "2mbplus.jpg", &bytes);
 

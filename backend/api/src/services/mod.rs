@@ -25,3 +25,6 @@ pub mod seed_config;
 
 #[cfg(feature = "billing")]
 pub mod billing;
+
+#[cfg(feature = "scheduler")]
+pub mod scheduler;

@@ -21,6 +21,7 @@ use crate::screens::TagsAddScreen;
 use crate::screens::TagsEditScreen;
 use crate::screens::TagsListScreen;
 use crate::screens::AuditLogViewerScreen;
+use crate::screens::ImportExportScreen;
 use crate::screens::NotificationSettingsScreen;
 use crate::screens::SystemHealthScreen;
 
@@ -175,6 +176,9 @@ pub enum Route {
     #[cfg(feature = "billing")]
     #[route("/billing/refunds")]
     RefundsListScreen {},
+
+    #[route("/import-export")]
+    ImportExportScreen {},
 
     #[route("/demo/sonner")]
     SonnerDemoScreen {},

@@ -8,17 +8,19 @@ use axum::{
     extract::{Path, State},
     Extension, Json,
 };
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, Set};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, Set,
+};
 use serde_json::json;
 
-use crate::error::response::ErrorResponse;
-use crate::error::codes::ErrorCode;
+use crate::db::sea_models::discount_code;
+use crate::db::sea_models::invoice;
+use crate::db::sea_models::payment;
 use crate::db::sea_models::plan;
 use crate::db::sea_models::post_access;
 use crate::db::sea_models::subscription;
-use crate::db::sea_models::payment;
-use crate::db::sea_models::invoice;
-use crate::db::sea_models::discount_code;
+use crate::error::codes::ErrorCode;
+use crate::error::response::ErrorResponse;
 use crate::AppState;
 
 use super::validator::*;
@@ -74,17 +76,14 @@ pub async fn admin_create_plan(
         ..Default::default()
     };
 
-    let model = active_model
-        .insert(&state.sea_db)
-        .await
-        .map_err(|e| {
-            if e.to_string().contains("duplicate") || e.to_string().contains("unique") {
-                ErrorResponse::new(ErrorCode::DuplicateEntry)
-                    .with_message("A plan with this slug already exists")
-            } else {
-                ErrorResponse::new(ErrorCode::QueryError)
-            }
-        })?;
+    let model = active_model.insert(&state.sea_db).await.map_err(|e| {
+        if e.to_string().contains("duplicate") || e.to_string().contains("unique") {
+            ErrorResponse::new(ErrorCode::DuplicateEntry)
+                .with_message("A plan with this slug already exists")
+        } else {
+            ErrorResponse::new(ErrorCode::QueryError)
+        }
+    })?;
 
     Ok(Json(json!({
         "data": { "id": model.id, "slug": model.slug },
@@ -101,7 +100,9 @@ pub async fn admin_update_plan(
         .one(&state.sea_db)
         .await
         .map_err(|_| ErrorResponse::new(ErrorCode::QueryError))?
-        .ok_or_else(|| ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Plan not found"))?;
+        .ok_or_else(|| {
+            ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Plan not found")
+        })?;
 
     let mut active: plan::ActiveModel = existing.into();
 
@@ -198,9 +199,10 @@ pub async fn admin_cancel_subscription(
     active.status = Set(subscription::model::SubscriptionStatus::Canceled);
     active.cancel_at_period_end = Set(false);
     active.updated_at = Set(chrono::Utc::now().fixed_offset());
-    active.update(&state.sea_db).await.map_err(|_| {
-        ErrorResponse::new(ErrorCode::QueryError)
-    })?;
+    active
+        .update(&state.sea_db)
+        .await
+        .map_err(|_| ErrorResponse::new(ErrorCode::QueryError))?;
 
     Ok(Json(json!({ "message": "Subscription canceled" })))
 }
@@ -267,17 +269,14 @@ pub async fn admin_create_discount_code(
         ..Default::default()
     };
 
-    let model = active_model
-        .insert(&state.sea_db)
-        .await
-        .map_err(|e| {
-            if e.to_string().contains("duplicate") || e.to_string().contains("unique") {
-                ErrorResponse::new(ErrorCode::DuplicateEntry)
-                    .with_message("A discount code with this code already exists")
-            } else {
-                ErrorResponse::new(ErrorCode::QueryError)
-            }
-        })?;
+    let model = active_model.insert(&state.sea_db).await.map_err(|e| {
+        if e.to_string().contains("duplicate") || e.to_string().contains("unique") {
+            ErrorResponse::new(ErrorCode::DuplicateEntry)
+                .with_message("A discount code with this code already exists")
+        } else {
+            ErrorResponse::new(ErrorCode::QueryError)
+        }
+    })?;
 
     Ok(Json(json!({
         "data": { "id": model.id, "code": model.code },
@@ -331,8 +330,12 @@ pub async fn create_checkout(
             ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Plan not found")
         })?;
 
-    let _success_url = payload.success_url.unwrap_or_else(|| "/billing/success".to_string());
-    let _cancel_url = payload.cancel_url.unwrap_or_else(|| "/billing/cancel".to_string());
+    let _success_url = payload
+        .success_url
+        .unwrap_or_else(|| "/billing/success".to_string());
+    let _cancel_url = payload
+        .cancel_url
+        .unwrap_or_else(|| "/billing/cancel".to_string());
 
     // TODO: Route to the configured provider based on plan metadata
     // For now return a placeholder

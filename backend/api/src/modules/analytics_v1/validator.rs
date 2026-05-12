@@ -51,8 +51,7 @@ impl AnalyticsEnvelope {
             .unwrap_or(DEFAULT_PER_PAGE);
         let page = self.page.unwrap_or(1).max(1);
 
-        let sort_order =
-            SortOrder::from_option(self.sort_order.as_deref());
+        let sort_order = SortOrder::from_option(self.sort_order.as_deref());
 
         ResolvedAnalyticsEnvelope {
             date_from: start_of_day(lower_bound),
@@ -808,7 +807,10 @@ mod tests {
                 sort_order: Some(order.into()),
                 ..Default::default()
             };
-            assert!(env.validate().is_ok(), "sort_order '{order}' should be valid");
+            assert!(
+                env.validate().is_ok(),
+                "sort_order '{order}' should be valid"
+            );
         }
     }
 
@@ -985,10 +987,7 @@ mod tests {
     #[test]
     fn interval_day_bucket_expr() {
         let expr = AnalyticsInterval::Day.to_bucket_expr("created_at");
-        assert_eq!(
-            expr,
-            "to_char(date_trunc('day', created_at), 'YYYY-MM-DD')"
-        );
+        assert_eq!(expr, "to_char(date_trunc('day', created_at), 'YYYY-MM-DD')");
     }
 
     #[test]
@@ -1003,10 +1002,7 @@ mod tests {
     #[test]
     fn interval_month_bucket_expr() {
         let expr = AnalyticsInterval::Month.to_bucket_expr("created_at");
-        assert_eq!(
-            expr,
-            "to_char(date_trunc('month', created_at), 'YYYY-MM')"
-        );
+        assert_eq!(expr, "to_char(date_trunc('month', created_at), 'YYYY-MM')");
     }
 
     #[test]
@@ -1040,8 +1036,14 @@ mod tests {
     #[test]
     fn dashboard_period_as_duration() {
         assert_eq!(DashboardPeriod::SevenDays.as_duration(), Duration::days(7));
-        assert_eq!(DashboardPeriod::ThirtyDays.as_duration(), Duration::days(30));
-        assert_eq!(DashboardPeriod::NinetyDays.as_duration(), Duration::days(90));
+        assert_eq!(
+            DashboardPeriod::ThirtyDays.as_duration(),
+            Duration::days(30)
+        );
+        assert_eq!(
+            DashboardPeriod::NinetyDays.as_duration(),
+            Duration::days(90)
+        );
     }
 
     #[test]
@@ -1296,28 +1298,19 @@ mod tests {
     #[test]
     fn parse_date_yyyy_mm_dd() {
         let date = parse_date("2025-06-15").unwrap();
-        assert_eq!(
-            date,
-            NaiveDate::from_ymd_opt(2025, 6, 15).unwrap()
-        );
+        assert_eq!(date, NaiveDate::from_ymd_opt(2025, 6, 15).unwrap());
     }
 
     #[test]
     fn parse_date_rfc3339() {
         let date = parse_date("2025-06-15T12:30:00Z").unwrap();
-        assert_eq!(
-            date,
-            NaiveDate::from_ymd_opt(2025, 6, 15).unwrap()
-        );
+        assert_eq!(date, NaiveDate::from_ymd_opt(2025, 6, 15).unwrap());
     }
 
     #[test]
     fn parse_date_rfc3339_with_offset() {
         let date = parse_date("2025-06-15T12:30:00+05:30").unwrap();
-        assert_eq!(
-            date,
-            NaiveDate::from_ymd_opt(2025, 6, 15).unwrap()
-        );
+        assert_eq!(date, NaiveDate::from_ymd_opt(2025, 6, 15).unwrap());
     }
 
     #[test]
@@ -1339,10 +1332,7 @@ mod tests {
     fn parse_date_yyyy_mm_dd_preferred_over_rfc3339() {
         // Both formats could parse "2025-06-15" but the YYYY-MM-DD path runs first
         let date = parse_date("2025-06-15").unwrap();
-        assert_eq!(
-            date,
-            NaiveDate::from_ymd_opt(2025, 6, 15).unwrap()
-        );
+        assert_eq!(date, NaiveDate::from_ymd_opt(2025, 6, 15).unwrap());
     }
 
     // ── Constants ────────────────────────────────────────────────────────

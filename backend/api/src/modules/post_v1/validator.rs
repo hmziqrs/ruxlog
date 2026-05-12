@@ -203,7 +203,12 @@ impl Validate for EditorJsDocument {
                             row.as_array()
                                 .filter(|cells| !cells.is_empty())
                                 .map(|cells| {
-                                    cells.iter().all(|cell| matches!(cell, Value::String(_) | Value::Number(_) | Value::Bool(_)))
+                                    cells.iter().all(|cell| {
+                                        matches!(
+                                            cell,
+                                            Value::String(_) | Value::Number(_) | Value::Bool(_)
+                                        )
+                                    })
                                 })
                                 .unwrap_or(false)
                         });
@@ -444,7 +449,7 @@ mod tests {
 
     #[test]
     fn valid_paragraph_accepted() {
-        let doc = make_doc(vec![("paragraph", serde_json::json!({"text": "Hello"}) )]);
+        let doc = make_doc(vec![("paragraph", serde_json::json!({"text": "Hello"}))]);
         assert!(doc.validate().is_ok());
     }
 
@@ -462,7 +467,10 @@ mod tests {
 
     #[test]
     fn valid_header_accepted() {
-        let doc = make_doc(vec![("header", serde_json::json!({"text": "Title", "level": 1}))]);
+        let doc = make_doc(vec![(
+            "header",
+            serde_json::json!({"text": "Title", "level": 1}),
+        )]);
         assert!(doc.validate().is_ok());
     }
 
@@ -474,13 +482,19 @@ mod tests {
 
     #[test]
     fn header_level_out_of_range_rejected() {
-        let doc = make_doc(vec![("header", serde_json::json!({"text": "Title", "level": 7}))]);
+        let doc = make_doc(vec![(
+            "header",
+            serde_json::json!({"text": "Title", "level": 7}),
+        )]);
         assert!(doc.validate().is_err());
     }
 
     #[test]
     fn header_empty_text_rejected() {
-        let doc = make_doc(vec![("header", serde_json::json!({"text": "", "level": 2}))]);
+        let doc = make_doc(vec![(
+            "header",
+            serde_json::json!({"text": "", "level": 2}),
+        )]);
         assert!(doc.validate().is_err());
     }
 
@@ -491,13 +505,20 @@ mod tests {
                 "alert",
                 serde_json::json!({"message": "msg", "type": alert_type}),
             )]);
-            assert!(doc.validate().is_ok(), "alert type '{}' should be valid", alert_type);
+            assert!(
+                doc.validate().is_ok(),
+                "alert type '{}' should be valid",
+                alert_type
+            );
         }
     }
 
     #[test]
     fn alert_invalid_type_rejected() {
-        let doc = make_doc(vec![("alert", serde_json::json!({"message": "msg", "type": "custom"}))]);
+        let doc = make_doc(vec![(
+            "alert",
+            serde_json::json!({"message": "msg", "type": "custom"}),
+        )]);
         assert!(doc.validate().is_err());
     }
 

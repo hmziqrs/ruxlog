@@ -1,4 +1,6 @@
-use super::{LikeActionResponse, LikeState, LikeStatus, LikeStatusBatchRequest, LikeStatusBatchResponse};
+use super::{
+    LikeActionResponse, LikeState, LikeStatus, LikeStatusBatchRequest, LikeStatusBatchResponse,
+};
 use oxcore::http;
 use oxstore::StateFrame;
 
@@ -242,7 +244,9 @@ impl LikeState {
             }
         }
 
-        let payload = LikeStatusBatchRequest { post_ids: post_ids.clone() };
+        let payload = LikeStatusBatchRequest {
+            post_ids: post_ids.clone(),
+        };
         let result = http::post("/post/v1/like/status/batch", &payload)
             .send()
             .await;

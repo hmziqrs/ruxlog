@@ -92,7 +92,9 @@ impl BillingState {
         let mut frame: StateFrame<Vec<Subscription>> = StateFrame::new();
         frame.set_loading();
         *self.subscriptions_list.write() = frame;
-        let result = http::post("/billing/v1/subscription/list", &()).send().await;
+        let result = http::post("/billing/v1/subscription/list", &())
+            .send()
+            .await;
         let mut frame: StateFrame<Vec<Subscription>> = StateFrame::new();
         match result {
             Ok(resp) => {
@@ -220,7 +222,9 @@ impl BillingState {
         let mut frame = StateFrame::new();
         frame.set_loading();
         *self.discount_code_add.write() = frame;
-        let result = http::post("/billing/v1/discount/create", &payload).send().await;
+        let result = http::post("/billing/v1/discount/create", &payload)
+            .send()
+            .await;
         let mut frame = StateFrame::new();
         match result {
             Ok(resp) => {

@@ -345,10 +345,7 @@ mod tests {
         );
         assert_eq!(CustomSeedTarget::PostRevisions.label(), "Post revisions");
         assert_eq!(CustomSeedTarget::PostSeries.label(), "Post series");
-        assert_eq!(
-            CustomSeedTarget::ScheduledPosts.label(),
-            "Scheduled posts"
-        );
+        assert_eq!(CustomSeedTarget::ScheduledPosts.label(), "Scheduled posts");
         assert_eq!(CustomSeedTarget::Media.label(), "Media");
         assert_eq!(CustomSeedTarget::MediaVariants.label(), "Media variants");
         assert_eq!(CustomSeedTarget::MediaUsage.label(), "Media usage");
@@ -375,27 +372,54 @@ mod tests {
 
     #[test]
     fn count_for_target_users() {
-        assert_eq!(SeedSizePreset::Low.count_for_target(CustomSeedTarget::Users), 10);
-        assert_eq!(SeedSizePreset::Default.count_for_target(CustomSeedTarget::Users), 25);
-        assert_eq!(SeedSizePreset::Massive.count_for_target(CustomSeedTarget::Users), 400);
+        assert_eq!(
+            SeedSizePreset::Low.count_for_target(CustomSeedTarget::Users),
+            10
+        );
+        assert_eq!(
+            SeedSizePreset::Default.count_for_target(CustomSeedTarget::Users),
+            25
+        );
+        assert_eq!(
+            SeedSizePreset::Massive.count_for_target(CustomSeedTarget::Users),
+            400
+        );
     }
 
     #[test]
     fn count_for_target_posts() {
-        assert_eq!(SeedSizePreset::Low.count_for_target(CustomSeedTarget::Posts), 10);
-        assert_eq!(SeedSizePreset::Massive.count_for_target(CustomSeedTarget::Posts), 500);
+        assert_eq!(
+            SeedSizePreset::Low.count_for_target(CustomSeedTarget::Posts),
+            10
+        );
+        assert_eq!(
+            SeedSizePreset::Massive.count_for_target(CustomSeedTarget::Posts),
+            500
+        );
     }
 
     #[test]
     fn count_for_target_post_views() {
-        assert_eq!(SeedSizePreset::Low.count_for_target(CustomSeedTarget::PostViews), 200);
-        assert_eq!(SeedSizePreset::Massive.count_for_target(CustomSeedTarget::PostViews), 10000);
+        assert_eq!(
+            SeedSizePreset::Low.count_for_target(CustomSeedTarget::PostViews),
+            200
+        );
+        assert_eq!(
+            SeedSizePreset::Massive.count_for_target(CustomSeedTarget::PostViews),
+            10000
+        );
     }
 
     #[test]
     fn count_for_target_categories() {
-        assert_eq!(SeedSizePreset::Low.count_for_target(CustomSeedTarget::Categories), 5);
-        assert_eq!(SeedSizePreset::Massive.count_for_target(CustomSeedTarget::Categories), 120);
+        assert_eq!(
+            SeedSizePreset::Low.count_for_target(CustomSeedTarget::Categories),
+            5
+        );
+        assert_eq!(
+            SeedSizePreset::Massive.count_for_target(CustomSeedTarget::Categories),
+            120
+        );
     }
 
     #[test]
@@ -468,7 +492,10 @@ mod tests {
         let preset = get_preset("demo").expect("demo preset should exist");
         assert_eq!(preset.name, "demo");
         assert_eq!(preset.seed, 1000);
-        assert_eq!(preset.description, "Consistent seed for demos and screenshots");
+        assert_eq!(
+            preset.description,
+            "Consistent seed for demos and screenshots"
+        );
     }
 
     #[test]

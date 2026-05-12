@@ -2,7 +2,11 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "subscription_status")]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "subscription_status"
+)]
 #[serde(rename_all = "snake_case")]
 pub enum SubscriptionStatus {
     #[sea_orm(string_value = "active")]

@@ -52,8 +52,7 @@ pub fn PricingScreen() -> Element {
                             }
                         }
                     } else {
-                        error_msg
-                            .set(Some("Plans are not available at this time.".to_string()));
+                        error_msg.set(Some("Plans are not available at this time.".to_string()));
                         loading.set(false);
                     }
                 }

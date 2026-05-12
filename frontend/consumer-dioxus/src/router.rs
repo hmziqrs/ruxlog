@@ -1,8 +1,8 @@
 use crate::containers::NavBarContainer;
 use crate::screens::{
     AboutScreen, AdvertiseScreen, BillingScreen, CategoriesScreen, CategoryDetailScreen,
-    ContactScreen, HomeScreen, PostViewScreen, PrivacyPolicyScreen, PricingScreen,
-    SearchScreen, TagDetailScreen, TagsScreen, TermsScreen,
+    ContactScreen, HomeScreen, PostViewScreen, PricingScreen, PrivacyPolicyScreen, SearchScreen,
+    TagDetailScreen, TagsScreen, TermsScreen,
 };
 use dioxus::prelude::*;
 

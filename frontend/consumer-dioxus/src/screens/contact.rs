@@ -1,7 +1,7 @@
 use crate::config::BRAND;
 use crate::seo::{breadcrumb_schema, use_static_seo, SeoHead, StructuredData};
 use dioxus::prelude::*;
-use hmziq_dioxus_free_icons::icons::ld_icons::{LdMail, LdMapPin, LdClock};
+use hmziq_dioxus_free_icons::icons::ld_icons::{LdClock, LdMail, LdMapPin};
 use hmziq_dioxus_free_icons::Icon;
 use oxui::shadcn::button::{Button, ButtonVariant};
 
@@ -20,7 +20,10 @@ pub fn ContactScreen() -> Element {
         let email_val = email.read().clone();
         let message_val = message.read().clone();
 
-        if name_val.trim().is_empty() || email_val.trim().is_empty() || message_val.trim().is_empty() {
+        if name_val.trim().is_empty()
+            || email_val.trim().is_empty()
+            || message_val.trim().is_empty()
+        {
             return;
         }
 

@@ -7,15 +7,20 @@ pub fn CookieConsent() -> Element {
     let mut visible = use_signal(|| {
         #[cfg(target_arch = "wasm32")]
         {
-            let stored = js_sys::Reflect::get(&web_sys::window().unwrap().local_storage().unwrap().unwrap(), &wasm_bindgen::JsValue::from_str("cookie_consent"))
-                .ok();
+            let stored = js_sys::Reflect::get(
+                &web_sys::window().unwrap().local_storage().unwrap().unwrap(),
+                &wasm_bindgen::JsValue::from_str("cookie_consent"),
+            )
+            .ok();
             match stored {
                 Some(val) => !js_sys::Boolean::from(val).value_of(),
                 None => true,
             }
         }
         #[cfg(not(target_arch = "wasm32"))]
-        { false }
+        {
+            false
+        }
     });
 
     let on_accept = move |_| {
