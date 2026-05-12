@@ -63,7 +63,7 @@ pub fn CommentsSection(props: CommentsSectionProps) -> Element {
             div { class: "flex items-center gap-3 mb-6",
                 Icon { icon: LdMessageCircle, class: "w-5 h-5" }
                 h2 { class: "text-xl font-semibold", "Comments" }
-                if let Some(data) = &(*comments_frame).data {
+                if let Some(data) = comments_frame.data {
                     span { "({data.data.len()})" }
                 }
             }
@@ -108,7 +108,7 @@ pub fn CommentsSection(props: CommentsSectionProps) -> Element {
                             if (*add_frame).is_failed() {
                                 div { class: "mt-2",
                                     ErrorDetails {
-                                        error: (*add_frame).error.clone(),
+                                        error: add_frame.error.clone(),
                                         variant: ErrorDetailsVariant::Minimum,
                                     }
                                 }
@@ -147,11 +147,11 @@ pub fn CommentsSection(props: CommentsSectionProps) -> Element {
             } else if (*comments_frame).is_failed() {
                 div { class: "p-4",
                     ErrorDetails {
-                        error: (*comments_frame).error.clone(),
+                        error: comments_frame.error.clone(),
                         variant: ErrorDetailsVariant::Collapsed,
                     }
                 }
-            } else if let Some(data) = &(*comments_frame).data {
+            } else if let Some(data) = comments_frame.data {
                 if data.data.is_empty() {
                     div { class: "text-center py-12",
                         Icon { icon: LdMessageCircle, class: "w-8 h-8 mx-auto mb-4" }

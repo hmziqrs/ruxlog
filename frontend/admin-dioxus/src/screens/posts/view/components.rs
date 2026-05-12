@@ -372,7 +372,7 @@ fn render_button_block(block: &EditorJsBlock) -> Element {
 }
 
 fn render_unknown_block(block: &EditorJsBlock) -> Element {
-    if let EditorJsBlock::Unknown { .. } = block {
+    if let EditorJsBlock::Unknown = block {
         rsx! {
             div { class: "my-4 p-3 rounded bg-muted text-sm",
                 "Unsupported block type"
@@ -404,7 +404,7 @@ fn render_editorjs_content(content: &PostContent) -> Element {
                     EditorJsBlock::Button { .. } => render_button_block(block),
                     EditorJsBlock::Alert { .. } => render_alert_block(block),
                     EditorJsBlock::Checklist { .. } => render_checklist_block(block),
-                    EditorJsBlock::Unknown { .. } => render_unknown_block(block),
+                    EditorJsBlock::Unknown => render_unknown_block(block),
                 }
             }
         }

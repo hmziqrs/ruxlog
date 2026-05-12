@@ -39,12 +39,12 @@ pub fn CategoriesScreen() -> Element {
                     div { class: "flex items-center justify-center py-20",
                         div { class: "max-w-md w-full",
                             ErrorDetails {
-                                error: (*categories_frame).error.clone(),
+                                error: categories_frame.error.clone(),
                                 variant: ErrorDetailsVariant::Collapsed,
                             }
                         }
                     }
-                } else if let Some(data) = &(*categories_frame).data {
+                } else if let Some(data) = categories_frame.data {
                     if data.data.is_empty() {
                         div { class: "flex items-center justify-center py-20",
                             div { "No categories found" }

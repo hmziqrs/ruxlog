@@ -66,7 +66,7 @@ pub fn PostViewScreen(slug: String) -> Element {
     let post_state = post_result();
 
     // Check post access (paywall)
-    let mut access_type = use_signal(|| String::new());
+    let mut access_type = use_signal(String::new);
     let mut access_checked = use_signal(|| false);
 
     if let Some(Ok(Some(post))) = &post_state {
@@ -191,7 +191,7 @@ pub fn PostViewScreen(slug: String) -> Element {
             let published_date = post
                 .published_at
                 .as_ref()
-                .map(|dt| format_date(dt))
+                .map(format_date)
                 .unwrap_or_else(|| format_date(&post.created_at));
 
             let reading_time = estimate_reading_time(&post.content);

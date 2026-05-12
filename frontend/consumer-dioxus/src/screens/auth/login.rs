@@ -16,7 +16,7 @@ pub fn LoginScreen() -> Element {
     let login_status = auth_store.login_status.read();
     let nav = use_navigator();
 
-    use_context_provider(|| GridContext::new());
+    use_context_provider(GridContext::new);
 
     let signup_link = rsx! {
         p { class: "text-sm text-center mt-4",

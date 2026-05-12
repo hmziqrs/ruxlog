@@ -14,6 +14,12 @@ pub struct LoginForm {
     pub password: String,
 }
 
+impl Default for LoginForm {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LoginForm {
     #[allow(dead_code)]
     pub fn new() -> Self {

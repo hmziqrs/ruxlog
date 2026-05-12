@@ -107,9 +107,9 @@ pub struct EngagementBarProps {
 pub fn EngagementBar(props: EngagementBarProps) -> Element {
     use hmziq_dioxus_free_icons::icons::ld_icons::{LdEye, LdMessageCircle};
 
-    let is_liked = props.is_liked;
-    let post_id = props.post_id.clone();
-    let post_title = props.post_title.clone();
+    let _is_liked = props.is_liked;
+    let _post_id = props.post_id.clone();
+    let _post_title = props.post_title.clone();
 
     rsx! {
         div { class: "flex items-center gap-3",
@@ -166,7 +166,7 @@ pub struct ActionBarProps {
 #[component]
 pub fn ActionBar(props: ActionBarProps) -> Element {
     let mut show_bookmark_hint = use_signal(|| false);
-    let mut feedback_message = use_signal(|| String::new());
+    let feedback_message = use_signal(String::new);
     let mut show_share_modal = use_signal(|| false);
 
     // Store props in signals for use in closures

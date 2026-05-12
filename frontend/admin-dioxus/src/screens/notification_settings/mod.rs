@@ -21,7 +21,7 @@ pub fn NotificationSettingsScreen() -> Element {
     let mut channel_webhook = use_signal(|| false);
 
     // Webhook URL
-    let mut webhook_url = use_signal(|| String::new());
+    let mut webhook_url = use_signal(String::new);
 
     rsx! {
         div { class: "min-h-screen bg-transparent text-foreground",

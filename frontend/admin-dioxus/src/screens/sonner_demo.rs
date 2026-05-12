@@ -1,3 +1,5 @@
+#![allow(clippy::field_reassign_with_default)]
+
 use dioxus::prelude::*;
 use dioxus_time::sleep;
 use std::time::Duration;

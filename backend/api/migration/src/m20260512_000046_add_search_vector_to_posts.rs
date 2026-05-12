@@ -42,16 +42,20 @@ impl MigrationTrait for Migration {
         ))
         .await?;
 
+        // Drop existing trigger
+        db.execute(Statement::from_string(
+            backend,
+            "DROP TRIGGER IF EXISTS posts_search_vector_trigger ON posts".to_string(),
+        ))
+        .await?;
+
         // Create trigger
         db.execute(Statement::from_string(
             backend,
-            r#"
-            DROP TRIGGER IF EXISTS posts_search_vector_trigger ON posts;
-            CREATE TRIGGER posts_search_vector_trigger
-                BEFORE INSERT OR UPDATE OF title, excerpt, slug ON posts
-                FOR EACH ROW
-                EXECUTE FUNCTION posts_search_vector_update()
-            "#.to_string(),
+            "CREATE TRIGGER posts_search_vector_trigger \
+                BEFORE INSERT OR UPDATE OF title, excerpt, slug ON posts \
+                FOR EACH ROW \
+                EXECUTE FUNCTION posts_search_vector_update()".to_string(),
         ))
         .await?;
 

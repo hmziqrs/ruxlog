@@ -165,7 +165,7 @@ pub fn SearchScreen() -> Element {
                                 SearchResultCard {
                                     key: "{hit.id}",
                                     hit: hit.clone(),
-                                    on_click: on_post_click.clone(),
+                                    on_click: on_post_click,
                                 }
                             }
                         }

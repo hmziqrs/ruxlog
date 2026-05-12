@@ -10,6 +10,7 @@ use std::sync::Mutex;
 pub static PKV: Lazy<Mutex<PkvStore>> =
     Lazy::new(|| Mutex::new(PkvStore::new("Ruxlog", "ConsumerDioxus")));
 
+#[allow(dead_code)]
 const THEME_KEY: &str = "theme"; // values: "dark" | "light"
 
 #[cfg(target_arch = "wasm32")]

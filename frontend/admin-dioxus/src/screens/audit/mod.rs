@@ -106,12 +106,12 @@ fn mock_data() -> Vec<AuditLogEntry> {
 pub fn AuditLogViewerScreen() -> Element {
     let mut current_page = use_signal(|| 1i64);
     let mut action_filter = use_signal(|| "All".to_string());
-    let mut user_search = use_signal(|| String::new());
-    let mut date_from = use_signal(|| String::new());
-    let mut date_to = use_signal(|| String::new());
+    let mut user_search = use_signal(String::new);
+    let mut date_from = use_signal(String::new);
+    let mut date_to = use_signal(String::new);
 
     // TODO: Replace with real API data fetching
-    let all_entries = use_signal(|| mock_data());
+    let all_entries = use_signal(mock_data);
 
     // Apply filters
     let filtered = use_memo(move || {

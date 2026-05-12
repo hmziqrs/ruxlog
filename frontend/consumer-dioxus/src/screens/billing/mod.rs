@@ -6,6 +6,7 @@ use hmziq_dioxus_free_icons::icons::ld_icons::{LdCalendar, LdCheck, LdCreditCard
 use hmziq_dioxus_free_icons::Icon;
 
 #[derive(Debug, Clone, serde::Deserialize)]
+#[allow(dead_code)]
 struct Subscription {
     id: i32,
     plan_name: String,
@@ -17,6 +18,7 @@ struct Subscription {
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
+#[allow(dead_code)]
 struct Payment {
     id: i32,
     amount_cents: i32,

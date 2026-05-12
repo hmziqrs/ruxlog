@@ -11,9 +11,9 @@ pub fn ProfileEditScreen() -> Element {
 
     let mut name = use_signal(|| user.as_ref().map(|u| u.name.clone()).unwrap_or_default());
     let mut email = use_signal(|| user.as_ref().map(|u| u.email.clone()).unwrap_or_default());
-    let mut current_password = use_signal(|| String::new());
-    let mut new_password = use_signal(|| String::new());
-    let mut confirm_password = use_signal(|| String::new());
+    let mut current_password = use_signal(String::new);
+    let mut new_password = use_signal(String::new);
+    let mut confirm_password = use_signal(String::new);
     let mut validation_error = use_signal(|| Option::<String>::None);
     let mut success_message = use_signal(|| Option::<String>::None);
 

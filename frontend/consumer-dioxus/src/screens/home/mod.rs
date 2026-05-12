@@ -15,7 +15,7 @@ pub fn HomeScreen() -> Element {
     // Generate SEO metadata for homepage
     let seo_metadata = use_static_seo("home");
 
-    let posts_result = use_server_future(|| fetch_posts())?;
+    let posts_result = use_server_future(fetch_posts)?;
 
     let posts_state = posts_result();
 

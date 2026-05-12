@@ -54,7 +54,7 @@ pub fn NavBarContainer() -> Element {
 
     let toggle_dark_mode = move |_: MouseEvent| {
         dark_theme.write().toggle();
-        let is_dark = (*dark_theme.read()).0;
+        let is_dark = dark_theme.read().0;
         spawn(async move {
             _ = document::eval("document.documentElement.classList.toggle('dark');").await;
         });
@@ -69,7 +69,7 @@ pub fn NavBarContainer() -> Element {
                     onclick: toggle_dark_mode,
                     class: "icon-button",
                     aria_label: "Toggle theme",
-                    if (*dark_theme.read()).0 {
+                    if dark_theme.read().0 {
                         Icon { icon: LdSun, class: "w-5 h-5" }
                     } else {
                         Icon { icon: LdMoon, class: "w-5 h-5" }
@@ -143,8 +143,8 @@ pub fn NavBarContainer() -> Element {
 
                         // Search bar
                         {
-                            let nav = use_navigator();
-                            let mut search_focused = use_signal(|| false);
+                            let _nav = use_navigator();
+                            let search_focused = use_signal(|| false);
                             rsx! {
                                 div {
                                     class: "hidden md:flex items-center max-w-xs flex-1 mx-4",
