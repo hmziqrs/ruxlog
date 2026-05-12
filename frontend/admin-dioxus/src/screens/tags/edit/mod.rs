@@ -32,7 +32,6 @@ pub fn TagsEditScreen(id: i32) -> Element {
         error_options: ToastOptions::default().with_action(Some(Action::with_on_click(
             "Retry".into(),
             {
-                let tags = tags;
                 Callback::new(move |_| {
                     if let Some(payload) = tags
                         .edit

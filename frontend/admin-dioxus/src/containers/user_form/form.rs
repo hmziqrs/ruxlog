@@ -34,6 +34,12 @@ pub struct UserForm {
     pub is_update: bool,
 }
 
+impl Default for UserForm {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl UserForm {
     pub fn new() -> Self {
         UserForm {

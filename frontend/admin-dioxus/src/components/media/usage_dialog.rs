@@ -13,11 +13,9 @@ pub fn MediaUsageDialog(is_open: Signal<bool>, media: Media) -> Element {
     use_effect({
         let is_open = is_open;
         let media_id = media.id;
-        let media_state = media_state;
         move || {
             if *is_open.read() {
                 let media_id = media_id;
-                let media_state = media_state;
                 spawn(async move {
                     media_state.usage_details(media_id).await;
                 });

@@ -51,6 +51,12 @@ fn validate_slug(slug: &str) -> Result<(), ValidationError> {
     Ok(())
 }
 
+impl Default for CategoryForm {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CategoryForm {
     pub fn new() -> Self {
         CategoryForm {
@@ -159,7 +165,7 @@ impl CategoryForm {
                 .trim()
                 .parse::<i32>()
                 .ok()
-                .map(|v| Some(v))
+                .map(Some)
                 .or(Some(None))
         };
 

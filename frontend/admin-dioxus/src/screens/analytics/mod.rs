@@ -72,18 +72,6 @@ pub fn AnalyticsScreen() -> Element {
 
     // Effect to load data when filters change
     use_effect({
-        let filters = filters;
-        let summary_period = summary_period;
-        let pv_interval = pv_interval;
-        let pv_post_id = pv_post_id;
-        let pv_author_id = pv_author_id;
-        let pv_only_unique = pv_only_unique;
-        let publishing_interval = publishing_interval;
-        // NOTE: Commented out overkill analytics for personal blog
-        // let registration_interval = registration_interval;
-        // let verification_interval = verification_interval;
-        // let newsletter_interval = newsletter_interval;
-        // let media_interval = media_interval;
         move || {
             let envelope = filters.build_envelope();
             let analytics = analytics;
@@ -291,12 +279,8 @@ pub fn AnalyticsScreen() -> Element {
                         compact: false,
                         current_interval: *pv_interval.read(),
                         on_interval_change: Some(EventHandler::new({
-                            let analytics = analytics;
-                            let filters = filters;
                             move |interval: AnalyticsInterval| {
                                 *pv_interval.write() = interval;
-                                let analytics = analytics;
-                                let filters = filters;
                                 spawn(async move {
                                     let envelope = filters.build_envelope();
                                     let req = PageViewsRequest {
@@ -314,12 +298,8 @@ pub fn AnalyticsScreen() -> Element {
                         })),
                         current_post_id: *pv_post_id.read(),
                         on_post_id_change: Some(EventHandler::new({
-                            let analytics = analytics;
-                            let filters = filters;
                             move |post_id: Option<i32>| {
                                 *pv_post_id.write() = post_id;
-                                let analytics = analytics;
-                                let filters = filters;
                                 spawn(async move {
                                     let envelope = filters.build_envelope();
                                     let req = PageViewsRequest {
@@ -337,12 +317,8 @@ pub fn AnalyticsScreen() -> Element {
                         })),
                         current_author_id: *pv_author_id.read(),
                         on_author_id_change: Some(EventHandler::new({
-                            let analytics = analytics;
-                            let filters = filters;
                             move |author_id: Option<i32>| {
                                 *pv_author_id.write() = author_id;
-                                let analytics = analytics;
-                                let filters = filters;
                                 spawn(async move {
                                     let envelope = filters.build_envelope();
                                     let req = PageViewsRequest {
@@ -360,12 +336,8 @@ pub fn AnalyticsScreen() -> Element {
                         })),
                         current_only_unique: *pv_only_unique.read(),
                         on_only_unique_change: Some(EventHandler::new({
-                            let analytics = analytics;
-                            let filters = filters;
                             move |only_unique: bool| {
                                 *pv_only_unique.write() = only_unique;
-                                let analytics = analytics;
-                                let filters = filters;
                                 spawn(async move {
                                     let envelope = filters.build_envelope();
                                     let req = PageViewsRequest {

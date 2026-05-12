@@ -131,7 +131,7 @@ pub fn DataTableScreen<T: Clone + PartialEq + 'static>(props: DataTableScreenPro
                                 title: props.error_title.clone(),
                                 class: Some("w-full".to_string()),
                             }
-                            if let (Some(label), Some(on_retry)) = (props.error_retry_label.clone(), props.on_error_retry.clone()) {
+                            if let (Some(label), Some(on_retry)) = (props.error_retry_label, props.on_error_retry) {
                                 div { class: "mt-4",
                                     Button {
                                         variant: ButtonVariant::Outline,
@@ -180,7 +180,7 @@ pub fn DataTableScreen<T: Clone + PartialEq + 'static>(props: DataTableScreenPro
                                                             class: "h-8 bg-transparent hover:bg-muted/50 -ml-3 text-left justify-start font-medium p-2 text-xs md:text-sm",
                                                                 onclick: {
                                                                     let field = header.field.clone().unwrap_or_default();
-                                                                    let on_sort = props.on_sort.clone();
+                                                                    let on_sort = props.on_sort;
                                                                     move |_| {
                                                                         if let Some(handler) = &on_sort {
                                                                             handler.call(field.clone());

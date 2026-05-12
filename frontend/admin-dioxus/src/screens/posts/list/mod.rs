@@ -30,7 +30,7 @@ pub fn PostsListScreen() -> Element {
     let users_state = use_user();
 
     // Use direct filter signal instead of context-based filters
-    let filters = use_signal(|| PostListQuery::new());
+    let filters = use_signal(PostListQuery::new);
 
     // Initialize context for UI-specific state (view mode, selections)
     let ctx = PostListContext::new();
@@ -55,7 +55,6 @@ pub fn PostsListScreen() -> Element {
 
     // Effect to load posts when filters change - using the trait method
     use_effect({
-        let list_state = list_state;
         let mut selected_ids = ctx.selected_ids;
         move || {
             let q = filters();
@@ -198,7 +197,7 @@ pub fn PostsListScreen() -> Element {
             frame: (posts_state.list)(),
             headers: if *ctx.view_mode.read() == ViewMode::Table { Some(headers) } else { None },
             current_sort_field: if *ctx.view_mode.read() == ViewMode::Table { Some(list_state.sort_field()) } else { None },
-            on_sort: if *ctx.view_mode.read() == ViewMode::Table { Some(handlers.handle_sort.clone()) } else { None },
+            on_sort: if *ctx.view_mode.read() == ViewMode::Table { Some(handlers.handle_sort) } else { None },
             header: Some(PageHeaderProps {
                 title: "Posts".to_string(),
                 description: "Manage and view your blog posts. Create, edit, and organize content.".to_string(),
@@ -221,7 +220,7 @@ pub fn PostsListScreen() -> Element {
                 search_value: list_state.search_input(),
                 search_placeholder: "Search posts by title, content, or author".to_string(),
                 disabled: list_loading,
-                on_search_input: handlers.handle_search.clone(),
+                on_search_input: handlers.handle_search,
                 status_selected: match filters.read().status {
                     Some(ruxlog_shared::store::PostStatus::Published) => "Published".to_string(),
                     Some(ruxlog_shared::store::PostStatus::Draft) => "Draft".to_string(),

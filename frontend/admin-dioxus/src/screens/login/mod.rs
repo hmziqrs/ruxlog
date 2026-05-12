@@ -17,7 +17,7 @@ pub fn LoginScreen() -> Element {
     let auth_store = use_auth();
     let login_status = auth_store.login_status.read();
 
-    use_context_provider(|| GridContext::new());
+    use_context_provider(GridContext::new);
 
     rsx! {
         div { class: "relative flex items-center justify-center min-h-screen overflow-hidden transition-colors duration-300",

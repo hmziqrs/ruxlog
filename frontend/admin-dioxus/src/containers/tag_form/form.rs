@@ -36,6 +36,12 @@ fn validate_slug(slug: &str) -> Result<(), ValidationError> {
     Ok(())
 }
 
+impl Default for TagForm {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TagForm {
     pub fn new() -> Self {
         TagForm {

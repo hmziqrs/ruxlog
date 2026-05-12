@@ -4,7 +4,6 @@ use dioxus::prelude::*;
 pub fn ImportExportScreen() -> Element {
     let mut import_type = use_signal(|| "posts".to_string());
     let mut exporting = use_signal(|| false);
-    let mut importing = use_signal(|| false);
     let mut message = use_signal(|| Option::<String>::None);
 
     let handle_export = move |_| {

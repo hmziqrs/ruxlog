@@ -25,9 +25,9 @@ pub fn CategoriesListScreen() -> Element {
     let nav = use_navigator();
     let cats_state = use_categories();
 
-    let filters = use_signal(|| CategoriesListQuery::new());
+    let filters = use_signal(CategoriesListQuery::new);
     // Local selection state for the current page
-    let selected_ids = use_signal(|| Vec::<i32>::new());
+    let selected_ids = use_signal(Vec::<i32>::new);
 
     // Use the enhanced hook that creates handlers for us
     let (list_state, handlers) = use_list_screen_with_handlers(
@@ -40,7 +40,6 @@ pub fn CategoriesListScreen() -> Element {
 
     // Effect to load data when filters change - using the trait method
     use_effect({
-        let list_state = list_state;
         let mut selected_ids = selected_ids;
         move || {
             let q = filters();
@@ -146,7 +145,7 @@ pub fn CategoriesListScreen() -> Element {
             }),
             headers: Some(headers),
             current_sort_field: Some(list_state.sort_field()),
-            on_sort: Some(handlers.handle_sort.clone()),
+            on_sort: Some(handlers.handle_sort),
             error_title: Some("Failed to load categories".to_string()),
             error_retry_label: Some("Retry".to_string()),
             on_error_retry: Some(EventHandler::new(move |_| handlers.handle_retry.call(()))),
@@ -154,7 +153,7 @@ pub fn CategoriesListScreen() -> Element {
                 search_value: list_state.search_input(),
                 search_placeholder: "Search categories by name, description, or slug".to_string(),
                 disabled: list_loading,
-                on_search_input: handlers.handle_search.clone(),
+                on_search_input: handlers.handle_search,
                 status_selected: match filters.read().is_active {
                     Some(true) => "Active".to_string(),
                     Some(false) => "Inactive".to_string(),
@@ -229,7 +228,7 @@ pub fn CategoriesListScreen() -> Element {
                     }
                 }
             } else {
-                {categories.iter().cloned().map(|category| {
+                {categories.iter().map(|category| {
                     let category_id = category.id;
                     rsx! {
                         tr { class: "border-b border-zinc-200 dark:border-zinc-800 hover:bg-muted/30 transition-colors",

@@ -15,7 +15,6 @@ pub fn use_user_view(id: i32) -> UserViewState {
 
     // Trigger fetch on mount/when needed
     {
-        let users = users;
         use_effect(move || {
             let view_map = users.view.read();
             let needs_fetch = match view_map.get(&id) {

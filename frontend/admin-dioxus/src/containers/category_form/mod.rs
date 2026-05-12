@@ -1,3 +1,4 @@
+#[allow(clippy::module_inception)]
 mod category_form;
 mod form;
 

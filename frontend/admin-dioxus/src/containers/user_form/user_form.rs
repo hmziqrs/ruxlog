@@ -414,7 +414,7 @@ pub fn UserFormContainer(props: UserFormContainerProps) -> Element {
                         }
                         Button { class: "flex-1 w-auto",
                             onclick: move |_| {
-                                let submit = props.on_submit.clone();
+                                let submit = props.on_submit;
 
                                 // Check if passwords match before submitting
                                 let form_data = form.peek().data.clone();

@@ -47,7 +47,7 @@ pub fn use_state_frame_toast<D: Clone + 'static, M: Clone + 'static>(
     let error_message = state.error_message();
 
     // Store prev value in memo for the effect to access
-    let prev_loading_memo = use_memo(move || prev_loading());
+    let prev_loading_memo = use_memo(&prev_loading);
 
     use_effect(use_reactive!(|(loading, success, failed)| {
         let prev = prev_loading_memo();
@@ -116,7 +116,7 @@ pub fn use_state_frame_map_toast<K, D, M>(
     let error_message = frame.error_message();
 
     // Store prev value in memo for the effect to access
-    let prev_loading_memo = use_memo(move || prev_loading());
+    let prev_loading_memo = use_memo(&prev_loading);
 
     use_effect(use_reactive!(|(loading, success, failed)| {
         let prev = prev_loading_memo();

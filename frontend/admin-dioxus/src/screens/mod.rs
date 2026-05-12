@@ -4,7 +4,7 @@ mod login;
 mod media;
 mod posts;
 mod profile;
-mod settings;
+pub mod settings;
 mod sonner_demo;
 mod tags;
 

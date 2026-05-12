@@ -21,7 +21,7 @@ fn format_bytes(bytes: usize) -> String {
 pub fn CompressTool() -> Element {
     let editor = use_image_editor();
     let is_processing = *editor.is_processing.read();
-    let compression_savings = editor.compression_savings.read().clone();
+    let compression_savings = *editor.compression_savings.read();
 
     let handle_apply = move |_| {
         spawn(async move {

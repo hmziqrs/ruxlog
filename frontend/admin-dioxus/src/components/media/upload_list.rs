@@ -81,7 +81,7 @@ pub fn MediaUploadList(props: MediaUploadListProps) -> Element {
                             (file_info.filename, file_info.size)
                         } else if let Some(media) = media_state.get_uploaded_media(&blob_url_str) {
                             // Fallback to media object if file info not available
-                            let name = media.object_key.split('/').last().unwrap_or("Unknown").to_string();
+                            let name = media.object_key.split('/').next_back().unwrap_or("Unknown").to_string();
                             (name, media.size)
                         } else {
                             ("Uploading...".to_string(), 0)

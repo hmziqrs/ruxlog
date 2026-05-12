@@ -31,8 +31,8 @@ pub fn MediaListScreen() -> Element {
     let nav = use_navigator();
     let media_state = use_media();
 
-    let filters = use_signal(|| MediaListQuery::new());
-    let selected_ids = use_signal(|| Vec::<i32>::new());
+    let filters = use_signal(MediaListQuery::new);
+    let selected_ids = use_signal(Vec::<i32>::new);
     let usage_dialog_open = use_signal(|| false);
     let usage_dialog_media = use_signal(|| None::<Media>);
 
@@ -47,7 +47,6 @@ pub fn MediaListScreen() -> Element {
 
     // Effect to load data when filters change
     use_effect({
-        let list_state = list_state;
         let mut selected_ids = selected_ids;
         move || {
             let q = filters();
@@ -154,7 +153,7 @@ pub fn MediaListScreen() -> Element {
             }),
             headers: Some(headers),
             current_sort_field: Some(list_state.sort_field()),
-            on_sort: Some(handlers.handle_sort.clone()),
+            on_sort: Some(handlers.handle_sort),
             error_title: Some("Failed to load media".to_string()),
             error_retry_label: Some("Retry".to_string()),
             on_error_retry: Some(EventHandler::new(move |_| handlers.handle_retry.call(()))),
@@ -162,7 +161,7 @@ pub fn MediaListScreen() -> Element {
                 search_value: list_state.search_input(),
                 search_placeholder: "Search media by filename or type".to_string(),
                 disabled: list_loading,
-                on_search_input: handlers.handle_search.clone(),
+                on_search_input: handlers.handle_search,
                 status_selected: match &filters.read().reference_type {
                     Some(MediaReference::Post) => "Post".to_string(),
                     Some(MediaReference::Category) => "Category".to_string(),
@@ -234,9 +233,9 @@ pub fn MediaListScreen() -> Element {
                     }
                 }
             } else {
-                {media_items.iter().cloned().map(|media| {
+                {media_items.iter().map(|media| {
                     let media_id = media.id;
-                    let filename = media.object_key.split('/').last().unwrap_or("Unknown").to_string();
+                    let filename = media.object_key.split('/').next_back().unwrap_or("Unknown").to_string();
                     let mime_type = media.mime_type.clone();
                     let file_type_short = if let Some(ext) = &media.extension {
                         ext.to_uppercase()
@@ -254,7 +253,7 @@ pub fn MediaListScreen() -> Element {
                     use_state_frame_map_toast(&media_state.remove, media_id, toast_config);
 
                     // Check if this item is being deleted
-                    let is_deleting = media_state.remove.read().get(&media_id).map_or(false, |frame| frame.is_loading());
+                    let is_deleting = media_state.remove.read().get(&media_id).is_some_and(|frame| frame.is_loading());
 
                     rsx! {
                         tr {

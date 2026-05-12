@@ -55,7 +55,7 @@ pub fn MediaUploadZone(props: MediaUploadZoneProps) -> Element {
     let reference_type = props.reference_type.clone();
     let max_files = props.max_files;
     let allowed_types = props.allowed_types.clone();
-    let on_upload_handler = props.on_upload.clone();
+    let on_upload_handler = props.on_upload;
 
     // Open file picker
     let open_picker = {
@@ -66,7 +66,7 @@ pub fn MediaUploadZone(props: MediaUploadZoneProps) -> Element {
                 if let Some(doc) = window.document() {
                     if let Some(el) = doc.get_element_by_id(&id) {
                         if let Ok(input) = el.dyn_into::<HtmlInputElement>() {
-                            let _ = input.click();
+                            input.click();
                         }
                     }
                 }
@@ -81,8 +81,8 @@ pub fn MediaUploadZone(props: MediaUploadZoneProps) -> Element {
         let id = input_id();
         let reference_type_clone = reference_type.clone();
         let allowed_types_clone = allowed_types.clone();
-        let on_upload_clone = on_upload_handler.clone();
-        let on_file_selected_clone = props.on_file_selected.clone();
+        let on_upload_clone = on_upload_handler;
+        let on_file_selected_clone = props.on_file_selected;
 
         spawn(async move {
             // Get the input element by ID

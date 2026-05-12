@@ -182,7 +182,7 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
                 "[BlogForm] Setting up __on_editor_change handler for post_id: {:?}",
                 post_id
             );
-            let handler = editor_change_handler.clone();
+            let handler = editor_change_handler;
             let current_post_id = post_id;
             let on_change = Closure::wrap(Box::new(move |detail: String| {
                 tracing::debug!(
@@ -331,7 +331,7 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
         None
     };
     let any_success = (post_id.is_none() && add_state.is_success())
-        || (post_id.is_some() && edit_state.as_ref().map_or(false, |s| s.is_success()));
+        || (post_id.is_some() && edit_state.as_ref().is_some_and(|s| s.is_success()));
 
     let prev_success = use_previous(any_success);
 
@@ -378,7 +378,7 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
                     None
                 };
 
-                let is_failed = add_state.is_failed() || edit_state.as_ref().map_or(false, |s| s.is_failed());
+                let is_failed = add_state.is_failed() || edit_state.as_ref().is_some_and(|s| s.is_failed());
                 let error_message = add_state.error_message().or_else(|| edit_state.as_ref().and_then(|s| s.error_message()));
 
                 if is_failed {
@@ -731,7 +731,7 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
                         } else {
                             None
                         };
-                        add_state.is_loading() || edit_state.as_ref().map_or(false, |s| s.is_loading())
+                        add_state.is_loading() || edit_state.as_ref().is_some_and(|s| s.is_loading())
                     },
                     onclick: move |_| {
                         let form_data = form.read();
@@ -809,7 +809,7 @@ pub fn BlogFormContainer(post_id: Option<i32>) -> Element {
                                 } else {
                                     None
                                 };
-                                let is_submitting = add_state.is_loading() || edit_state.as_ref().map_or(false, |s| s.is_loading());
+                                let is_submitting = add_state.is_loading() || edit_state.as_ref().is_some_and(|s| s.is_loading());
 
                                 if is_submitting {
                                     rsx! {

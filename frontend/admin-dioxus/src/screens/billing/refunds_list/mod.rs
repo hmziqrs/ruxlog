@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use oxui::shadcn::badge::{Badge, BadgeVariant};
+use oxui::shadcn::badge::Badge;
 use oxui::shadcn::button::{Button, ButtonVariant};
 use ruxlog_shared::store::{use_billing, Payment};
 
@@ -84,7 +84,7 @@ fn refund_row(payment: &Payment) -> Element {
         payment.currency,
         payment.amount_cents as f64 / 100.0
     );
-    let created = crate::utils::dates::format_short_date_dt(&payment.created_at);
+    let _created = crate::utils::dates::format_short_date_dt(&payment.created_at);
 
     rsx! {
         tr { class: "border-b border-zinc-200 dark:border-zinc-800 hover:bg-muted/30 transition-colors",

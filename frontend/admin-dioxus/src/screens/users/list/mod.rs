@@ -31,9 +31,9 @@ pub fn UsersListScreen() -> Element {
     let users_state = use_user();
     let toasts = use_sonner();
 
-    let filters = use_signal(|| UsersListQuery::new());
+    let filters = use_signal(UsersListQuery::new);
     // Local selection state for the current page
-    let selected_ids = use_signal(|| Vec::<i32>::new());
+    let selected_ids = use_signal(Vec::<i32>::new);
     // Dialog state for viewing user details
     let mut details_dialog_open = use_signal(|| false);
     let mut selected_user_for_details = use_signal(|| None::<User>);
@@ -49,7 +49,6 @@ pub fn UsersListScreen() -> Element {
 
     // Effect to load data when filters change - using the trait method
     use_effect({
-        let list_state = list_state;
         let mut selected_ids = selected_ids;
         move || {
             let q = filters();
@@ -155,7 +154,7 @@ pub fn UsersListScreen() -> Element {
             }),
             headers: Some(headers),
             current_sort_field: Some(list_state.sort_field()),
-            on_sort: Some(handlers.handle_sort.clone()),
+            on_sort: Some(handlers.handle_sort),
             error_title: Some("Failed to load users".to_string()),
             error_retry_label: Some("Retry".to_string()),
             on_error_retry: Some(EventHandler::new(move |_| handlers.handle_retry.call(()))),
@@ -163,7 +162,7 @@ pub fn UsersListScreen() -> Element {
                 search_value: list_state.search_input(),
                 search_placeholder: "Search users by name or email".to_string(),
                 disabled: list_loading,
-                on_search_input: handlers.handle_search.clone(),
+                on_search_input: handlers.handle_search,
                 status_selected: match filters.read().status {
                     Some(true) => "Verified".to_string(),
                     Some(false) => "Unverified".to_string(),
@@ -238,7 +237,7 @@ pub fn UsersListScreen() -> Element {
                     }
                 }
             } else {
-                {users.iter().cloned().map(|user| {
+                {users.iter().map(|user| {
                     let user_id = user.id;
                     let user_name = user.name.clone();
                     let user_is_verified = user.is_verified;

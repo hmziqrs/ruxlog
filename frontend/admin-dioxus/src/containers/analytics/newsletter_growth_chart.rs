@@ -38,13 +38,13 @@ pub fn NewsletterGrowthChart(props: NewsletterGrowthChartProps) -> Element {
     let analytics = use_analytics();
 
     // Local interval state (for future filter controls).
-    let interval = use_signal(|| props.default_interval.clone());
+    let interval = use_signal(|| props.default_interval);
 
     // One-time initial fetch on mount.
     // In future iterations we can refetch when `interval` changes.
     use_future(move || {
         let analytics = analytics;
-        let interval = interval.read().clone();
+        let interval = *interval.read();
 
         async move {
             // Map enum to backend interval if needed (we pass the enum directly below).
@@ -303,7 +303,7 @@ fn NewsletterGrowthChartInner(props: NewsletterGrowthChartInnerProps) -> Element
                     {
                         // Net growth polyline drawn after bars.
                         if points.len() >= 2 {
-                            let d = net_points_to_path(&points, padding_left, step, padding_top, chart_height, max_abs_net);
+                            let d = net_points_to_path(points, padding_left, step, padding_top, chart_height, max_abs_net);
                             rsx! {
                                 path {
                                     d: "{d}",
@@ -314,7 +314,7 @@ fn NewsletterGrowthChartInner(props: NewsletterGrowthChartInnerProps) -> Element
                             }
                         } else if points.len() == 1 {
                             // Single point: draw a small circle
-                            let (x, y) = single_net_point(&points, padding_left, step, padding_top, chart_height, max_abs_net);
+                            let (x, y) = single_net_point(points, padding_left, step, padding_top, chart_height, max_abs_net);
                             rsx! {
                                 circle {
                                     cx: "{x}",

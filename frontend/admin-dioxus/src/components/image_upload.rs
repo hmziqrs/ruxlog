@@ -48,7 +48,7 @@ pub fn ImageUpload(props: ImageUploadProps) -> Element {
                 if let Some(doc) = window.document() {
                     if let Some(el) = doc.get_element_by_id(&id) {
                         if let Ok(input) = el.dyn_into::<HtmlInputElement>() {
-                            let _ = input.click();
+                            input.click();
                         }
                     }
                 }

@@ -1,3 +1,4 @@
+#[allow(clippy::module_inception)]
 mod blog_form;
 mod form;
 

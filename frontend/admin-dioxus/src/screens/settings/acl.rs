@@ -26,7 +26,7 @@ use ruxlog_shared::store::{use_acl, AclCreatePayload, AclListQuery, AppConstant}
 #[component]
 pub fn AclSettingsScreen() -> Element {
     let acl_state = use_acl();
-    let filters = use_signal(|| AclListQuery::new());
+    let filters = use_signal(AclListQuery::new);
     let (list_state, handlers) = use_list_screen_with_handlers(
         Some(ListScreenConfig {
             default_sort_field: "key".to_string(),
@@ -44,7 +44,6 @@ pub fn AclSettingsScreen() -> Element {
     let mut dialog_open = use_signal(|| false);
 
     use_effect({
-        let list_state = list_state;
         move || {
             let query = filters();
             let _tick = list_state.reload_tick();
@@ -197,7 +196,7 @@ pub fn AclSettingsScreen() -> Element {
         search_value: list_state.search_input(),
         search_placeholder: "Search constants by key or description".to_string(),
         disabled: list_loading,
-        on_search_input: handlers.handle_search.clone(),
+        on_search_input: handlers.handle_search,
         status_selected: match filters_snapshot.is_sensitive {
             Some(true) => "Sensitive".to_string(),
             Some(false) => "Non-sensitive".to_string(),
@@ -375,7 +374,7 @@ pub fn AclSettingsScreen() -> Element {
             }),
             headers: Some(headers),
             current_sort_field: Some(list_state.sort_field()),
-            on_sort: Some(handlers.handle_sort.clone()),
+            on_sort: Some(handlers.handle_sort),
             error_title: Some("Failed to load constants".to_string()),
             error_retry_label: Some("Retry".to_string()),
             on_error_retry: Some(EventHandler::new(move |_| handlers.handle_retry.call(()))),
@@ -467,7 +466,6 @@ fn AclRow(constant: AppConstant, on_edit: EventHandler<()>) -> Element {
 
     let delete_constant = {
         let key = constant.key.clone();
-        let acl_state = acl_state;
         move |_| {
             let key = key.clone();
             spawn(async move {
@@ -500,7 +498,7 @@ fn AclRow(constant: AppConstant, on_edit: EventHandler<()>) -> Element {
                         class: "bg-background border-zinc-200 dark:border-zinc-800",
                         DropdownMenuItem {
                             onclick: {
-                                let on_edit = on_edit.clone();
+                                let on_edit = on_edit;
                                 move |_| { on_edit.call(()); }
                             },
                             "Edit"

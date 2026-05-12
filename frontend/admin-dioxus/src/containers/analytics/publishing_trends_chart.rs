@@ -283,11 +283,11 @@ pub fn PublishingTrendsChart(props: PublishingTrendsChartProps) -> Element {
 fn format_bucket_label(bucket: &str) -> String {
     // Handle week format "2024-W01" -> "W01"
     if bucket.contains("-W") {
-        return bucket.split('-').last().unwrap_or(bucket).to_string();
+        return bucket.split('-').next_back().unwrap_or(bucket).to_string();
     }
     // Handle month format "2024-01" -> "Jan"
     if bucket.len() == 7 && bucket.chars().nth(4) == Some('-') {
-        let month = bucket.split('-').last().unwrap_or("01");
+        let month = bucket.split('-').next_back().unwrap_or("01");
         return match month {
             "01" => "Jan",
             "02" => "Feb",
@@ -307,7 +307,7 @@ fn format_bucket_label(bucket: &str) -> String {
     }
     // Handle day format "2024-01-15" -> "15"
     if bucket.len() == 10 {
-        return bucket.split('-').last().unwrap_or(bucket).to_string();
+        return bucket.split('-').next_back().unwrap_or(bucket).to_string();
     }
     bucket.to_string()
 }

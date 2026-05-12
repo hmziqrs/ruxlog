@@ -14,7 +14,7 @@ pub fn NavBarContainer() -> Element {
     let auth_user = auth_store.user.read();
     let mut sidebar_open = use_signal(|| false);
     let mut dark_theme = use_context_provider(|| Signal::new(DarkMode(true)));
-    let mut search_query = use_signal(|| String::new());
+    let mut search_query = use_signal(String::new);
     let nav = use_navigator();
 
     use_effect(move || {
@@ -30,7 +30,7 @@ pub fn NavBarContainer() -> Element {
 
     let toggle_dark_mode = move |_: MouseEvent| {
         dark_theme.write().toggle();
-        let is_dark = (*dark_theme.read()).0;
+        let is_dark = dark_theme.read().0;
         // Update DOM immediately and persist preference via bevy_pkv and localStorage (handled in persist)
         spawn(async move {
             _ = document::eval("document.documentElement.classList.toggle('dark');").await;

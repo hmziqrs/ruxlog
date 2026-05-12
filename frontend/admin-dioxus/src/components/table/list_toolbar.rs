@@ -30,7 +30,7 @@ pub struct ListToolbarProps {
 /// Generic list toolbar with a search input and a status select.
 #[component]
 pub fn ListToolbar(props: ListToolbarProps) -> Element {
-    let on_search = props.on_search_input.clone();
+    let on_search = props.on_search_input;
     let placeholder = props.search_placeholder.clone();
     let status_options = props.status_options.clone().unwrap_or_else(|| {
         vec![

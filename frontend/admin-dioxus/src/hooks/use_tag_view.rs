@@ -15,7 +15,6 @@ pub fn use_tag_view(id: i32) -> TagViewState {
 
     // Trigger fetch on mount/when needed
     {
-        let tags = tags;
         use_effect(move || {
             let view_map = tags.view.read();
             let needs_fetch = match view_map.get(&id) {

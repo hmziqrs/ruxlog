@@ -183,14 +183,12 @@ pub fn TableView(
                                     DropdownMenuContent { class: "w-40",
                                         DropdownMenuItem {
                                             onclick: {
-                                                let nav = nav.clone();
                                                 move |_| { nav.push(Route::PostsViewScreen { id: post_id }); }
                                             },
                                             "View"
                                         }
                                         DropdownMenuItem {
                                             onclick: {
-                                                let nav = nav.clone();
                                                 move |_| { nav.push(Route::PostsEditScreen { id: post_id }); }
                                             },
                                             "Edit"
@@ -200,9 +198,7 @@ pub fn TableView(
                                         DropdownMenuItem {
                                             class: "text-red-600 dark:text-red-400",
                                             onclick: {
-                                                let posts_state = posts_state;
                                                 move |_| {
-                                                    let posts_state = posts_state;
                                                     spawn(async move {
                                                         posts_state.remove(post_id).await;
                                                         let remove_state = posts_state.remove.read();

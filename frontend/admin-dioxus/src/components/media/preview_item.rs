@@ -24,7 +24,7 @@ pub fn MediaPreviewItem(
     let filename = media
         .object_key
         .split('/')
-        .last()
+        .next_back()
         .unwrap_or("Unknown")
         .to_string();
 
