@@ -15,11 +15,14 @@ pub enum TemplateError {
 fn tera_instance() -> Result<Tera, TemplateError> {
     let mut tera = Tera::default();
 
-    tera.add_raw_template("email_verification", include_str!("email_verification.html"))
-        .map_err(|e| TemplateError::Render {
-            name: "email_verification".into(),
-            source: e,
-        })?;
+    tera.add_raw_template(
+        "email_verification",
+        include_str!("email_verification.html"),
+    )
+    .map_err(|e| TemplateError::Render {
+        name: "email_verification".into(),
+        source: e,
+    })?;
 
     tera.add_raw_template("forgot_password", include_str!("forgot_password.html"))
         .map_err(|e| TemplateError::Render {
@@ -91,7 +94,10 @@ mod tests {
         let mut ctx = tera::Context::new();
         ctx.insert("app_name", "TestApp");
         ctx.insert("user_name", "Alice");
-        ctx.insert("verification_url", "https://example.com/verify?token=abc123");
+        ctx.insert(
+            "verification_url",
+            "https://example.com/verify?token=abc123",
+        );
         let html = render("email_verification", &ctx).unwrap();
         assert!(html.contains("Alice"));
         assert!(html.contains("TestApp"));
@@ -124,7 +130,10 @@ mod tests {
     fn render_newsletter_confirmation() {
         let mut ctx = tera::Context::new();
         ctx.insert("app_name", "TestApp");
-        ctx.insert("confirm_url", "https://example.com/newsletter/confirm?token=t");
+        ctx.insert(
+            "confirm_url",
+            "https://example.com/newsletter/confirm?token=t",
+        );
         let html = render("newsletter_confirmation", &ctx).unwrap();
         assert!(html.contains("Confirm Subscription"));
     }
