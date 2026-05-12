@@ -28,6 +28,7 @@ pub mod seed_run;
 pub mod subscription;
 pub mod tag;
 pub mod user;
+pub mod audit_log;
 pub mod user_ban;
 pub mod user_session;
 

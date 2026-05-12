@@ -6,7 +6,7 @@ use tower_http::{
 use tracing::Level;
 
 use crate::middlewares::{http_metrics, request_id_middleware, security_headers};
-use crate::modules::{auth_v1, category_v1, feed_v1, media_v1, post_v1, tag_v1, user_v1};
+use crate::modules::{auth_v1, category_v1, feed_v1, media_v1, post_v1, search_v1, tag_v1, user_v1};
 
 #[cfg(feature = "auth-oauth")]
 use crate::modules::google_auth_v1;
@@ -70,7 +70,8 @@ pub fn router() -> Router<AppState> {
         .nest("/category/v1", category_v1::routes())
         .nest("/tag/v1", tag_v1::routes())
         .nest("/media/v1", media_v1::routes())
-        .nest("/feed/v1", feed_v1::routes());
+        .nest("/feed/v1", feed_v1::routes())
+        .nest("/search/v1", search_v1::routes());
 
     #[cfg(feature = "newsletter")]
     {
