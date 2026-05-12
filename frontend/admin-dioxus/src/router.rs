@@ -39,6 +39,12 @@ use crate::screens::AclSettingsScreen;
 #[cfg(feature = "user-management")]
 use crate::screens::{UsersAddScreen, UsersEditScreen, UsersListScreen};
 
+#[cfg(feature = "billing")]
+use crate::screens::{
+    BillingPaymentsListScreen, BillingPlanAddScreen, BillingPlansListScreen,
+    BillingSubscriptionsListScreen,
+};
+
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
 pub enum Route {
@@ -120,6 +126,22 @@ pub enum Route {
     #[cfg(feature = "user-management")]
     #[route("/users")]
     UsersListScreen {},
+
+    #[cfg(feature = "billing")]
+    #[route("/billing/plans")]
+    BillingPlansListScreen {},
+
+    #[cfg(feature = "billing")]
+    #[route("/billing/plans/add")]
+    BillingPlanAddScreen {},
+
+    #[cfg(feature = "billing")]
+    #[route("/billing/subscriptions")]
+    BillingSubscriptionsListScreen {},
+
+    #[cfg(feature = "billing")]
+    #[route("/billing/payments")]
+    BillingPaymentsListScreen {},
 
     #[route("/demo/sonner")]
     SonnerDemoScreen {},

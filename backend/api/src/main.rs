@@ -308,7 +308,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Clone the database connection for the Extension layer (used by auth middleware)
     let db_extension = Extension(state.sea_db.clone());
 
-    let mut app = router::router()
+    let mut app = router::router(state.clone())
         .layer(ip_source.into_extension())
         .layer(db_extension)
         .layer(session_layer)

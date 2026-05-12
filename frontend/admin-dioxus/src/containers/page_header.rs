@@ -125,6 +125,25 @@ pub fn PageHeader(props: PageHeaderProps) -> Element {
             vec![("settings".to_string(), None), ("acl".to_string(), None)]
         }
 
+        #[cfg(feature = "billing")]
+        Route::BillingPlansListScreen {} => {
+            vec![("billing".to_string(), None), ("plans".to_string(), None)]
+        }
+        #[cfg(feature = "billing")]
+        Route::BillingPlanAddScreen {} => vec![
+            ("billing".to_string(), None),
+            ("plans".to_string(), Some(Route::BillingPlansListScreen {})),
+            ("add".to_string(), None),
+        ],
+        #[cfg(feature = "billing")]
+        Route::BillingSubscriptionsListScreen {} => {
+            vec![("billing".to_string(), None), ("subscriptions".to_string(), None)]
+        }
+        #[cfg(feature = "billing")]
+        Route::BillingPaymentsListScreen {} => {
+            vec![("billing".to_string(), None), ("payments".to_string(), None)]
+        }
+
         Route::HomeScreen {} | Route::LoginScreen {} => vec![],
     };
 

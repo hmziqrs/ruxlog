@@ -1,6 +1,7 @@
 pub mod auth_guard;
 pub mod cors;
 pub mod http_metrics;
+pub mod rate_limit;
 pub mod request_id;
 pub mod route_blocker;
 pub mod security_headers;

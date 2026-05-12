@@ -95,7 +95,7 @@ mobile = ["dioxus/mobile"]
 
 # Blog feature flags
 basic = []
-full = ["analytics", "newsletter", "comments", "user-management", "admin-acl", "admin-routes"]
+full = ["analytics", "newsletter", "comments", "user-management", "admin-acl", "admin-routes", "billing"]
 
 analytics = []
 newsletter = []
@@ -103,6 +103,7 @@ comments = []
 user-management = []
 admin-acl = []
 admin-routes = []
+billing = []
 
 [profile]
 

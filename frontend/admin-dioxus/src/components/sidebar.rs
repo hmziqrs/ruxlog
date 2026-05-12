@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::icons::ld_icons::{
-    LdAreaChart, LdFileText, LdFolder, LdHome, LdImage, LdLogOut, LdPlus, LdTag, LdUser,
+    LdAreaChart, LdCreditCard, LdFileText, LdFolder, LdHome, LdImage, LdLogOut, LdPlus, LdTag,
+    LdUser,
 };
 use hmziq_dioxus_free_icons::Icon;
 
@@ -202,6 +203,27 @@ pub fn Sidebar(expanded: Signal<bool>, toggle: EventHandler<()>) -> Element {
         }
     };
 
+    let billing_nav: Option<Element> = {
+        #[cfg(feature = "billing")]
+        {
+            Some(rsx! {
+                SidebarModuleLink {
+                    main_route: Route::BillingPlansListScreen {},
+                    add_route: Some(Route::BillingPlanAddScreen {}),
+                    icon: rsx! { Icon { icon: LdCreditCard } },
+                    label: "Billing",
+                    is_active: is_active(Route::BillingPlansListScreen {}),
+                    on_close: move |_| toggle.call(()),
+                }
+            })
+        }
+
+        #[cfg(not(feature = "billing"))]
+        {
+            None
+        }
+    };
+
     rsx! {
         div {
             class: format!(
@@ -287,6 +309,7 @@ pub fn Sidebar(expanded: Signal<bool>, toggle: EventHandler<()>) -> Element {
                     {newsletter_nav}
                     {routes_nav}
                     {acl_nav}
+                    {billing_nav}
 
                     SidebarModuleLink {
                         main_route: Route::ProfileSecurityScreen {},

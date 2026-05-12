@@ -11,6 +11,9 @@ mod tags;
 #[cfg(feature = "analytics")]
 mod analytics;
 
+#[cfg(feature = "billing")]
+mod billing;
+
 #[cfg(feature = "comments")]
 mod comments;
 
@@ -32,6 +35,9 @@ pub use tags::*;
 
 #[cfg(feature = "analytics")]
 pub use analytics::*;
+
+#[cfg(feature = "billing")]
+pub use billing::*;
 
 #[cfg(feature = "comments")]
 pub use comments::*;
