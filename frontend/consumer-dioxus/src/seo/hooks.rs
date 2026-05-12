@@ -246,6 +246,14 @@ pub fn use_static_seo(page: &str) -> SeoMetadata {
             ))
             .canonical("/advertise")
             .build(),
+        "search" => SeoMetadataBuilder::new()
+            .title("Search")
+            .description(&format!(
+                "Search posts on {} - find articles, tutorials, and stories",
+                SEO_CONFIG.site_name
+            ))
+            .canonical("/search")
+            .build(),
         "home" => SeoMetadataBuilder::new()
             .title("")
             .description(SEO_CONFIG.default_description)

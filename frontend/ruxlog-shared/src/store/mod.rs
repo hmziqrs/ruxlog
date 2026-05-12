@@ -5,6 +5,8 @@ pub mod admin_routes;
 #[cfg(feature = "analytics-store")]
 pub mod analytics;
 pub mod auth;
+#[cfg(feature = "billing-store")]
+pub mod billing;
 pub mod categories;
 pub mod comments;
 pub mod email_verification;
@@ -27,6 +29,8 @@ pub use admin_routes::*;
 #[cfg(feature = "analytics-store")]
 pub use analytics::*;
 pub use auth::*;
+#[cfg(feature = "billing-store")]
+pub use billing::*;
 pub use categories::*;
 pub use comments::*;
 pub use email_verification::*;

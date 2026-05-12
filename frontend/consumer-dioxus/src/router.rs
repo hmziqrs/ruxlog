@@ -1,7 +1,8 @@
 use crate::containers::NavBarContainer;
 use crate::screens::{
     AboutScreen, AdvertiseScreen, CategoriesScreen, CategoryDetailScreen, ContactScreen,
-    HomeScreen, PostViewScreen, PrivacyPolicyScreen, TagDetailScreen, TagsScreen, TermsScreen,
+    HomeScreen, PostViewScreen, PrivacyPolicyScreen, SearchScreen, TagDetailScreen, TagsScreen,
+    TermsScreen,
 };
 use dioxus::prelude::*;
 
@@ -63,4 +64,7 @@ pub enum Route {
 
     #[route("/advertise")]
     AdvertiseScreen {},
+
+    #[route("/search")]
+    SearchScreen {},
 }

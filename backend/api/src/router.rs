@@ -5,7 +5,7 @@ use tower_http::{
 };
 use tracing::Level;
 
-use crate::middlewares::{http_metrics, request_id_middleware, security_headers};
+use crate::middlewares::{http_metrics, rate_limit, request_id_middleware, security_headers};
 use crate::modules::{auth_v1, category_v1, feed_v1, media_v1, post_v1, search_v1, tag_v1, user_v1};
 
 #[cfg(feature = "auth-oauth")]
@@ -37,10 +37,15 @@ use crate::modules::billing_v1;
 
 use super::AppState;
 
-pub fn router() -> Router<AppState> {
+pub fn router(state: AppState) -> Router<AppState> {
     let mut router = Router::new()
         .route("/healthz", get(health_check))
-        .route("/robots.txt", get(robots_txt))        .nest("/auth/v1", auth_v1::routes());
+        .route("/robots.txt", get(robots_txt))
+        .nest(
+            "/auth/v1",
+            auth_v1::routes()
+                .layer(rate_limit::RateLimitLayer::new(state.clone(), 5, 60)),
+        );
 
     #[cfg(feature = "auth-oauth")]
     {
@@ -63,7 +68,11 @@ pub fn router() -> Router<AppState> {
 
     #[cfg(feature = "comments")]
     {
-        router = router.nest("/post/comment/v1", post_comment_v1::routes());
+        router = router.nest(
+            "/post/comment/v1",
+            post_comment_v1::routes()
+                .layer(rate_limit::RateLimitLayer::new(state.clone(), 10, 60)), // 10 req/min
+        );
     }
 
     router = router
@@ -75,7 +84,11 @@ pub fn router() -> Router<AppState> {
 
     #[cfg(feature = "newsletter")]
     {
-        router = router.nest("/newsletter/v1", newsletter_v1::routes());
+        router = router.nest(
+            "/newsletter/v1",
+            newsletter_v1::routes()
+                .layer(rate_limit::RateLimitLayer::new(state.clone(), 5, 60)), // 5 req/min
+        );
     }
 
     #[cfg(feature = "analytics")]

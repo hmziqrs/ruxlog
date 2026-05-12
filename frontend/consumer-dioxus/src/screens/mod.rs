@@ -5,6 +5,7 @@ mod contact;
 mod home;
 mod posts;
 mod privacy_policy;
+mod search;
 mod tags;
 mod terms;
 
@@ -21,6 +22,7 @@ pub use contact::*;
 pub use home::*;
 pub use posts::*;
 pub use privacy_policy::*;
+pub use search::*;
 pub use tags::*;
 pub use terms::*;
 
