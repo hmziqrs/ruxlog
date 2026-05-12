@@ -2,38 +2,24 @@ use dioxus::prelude::*;
 use oxstore::PaginatedList;
 use ruxlog_shared::Category;
 
-#[cfg(all(feature = "server", not(feature = "demo-static-content")))]
+#[cfg(feature = "server")]
 use crate::server::{fetch_categories, fetch_category_by_id};
 
 /// Fetch all categories with SSR support
-///
-/// # Example
-/// ```rust
-/// let categories = use_categories_list()?;
-/// let data = categories().ok()?;
-/// ```
-#[cfg(all(feature = "server", not(feature = "demo-static-content")))]
+#[cfg(feature = "server")]
 pub fn use_categories_list() -> Resource<Result<PaginatedList<Category>, ServerFnError>> {
     use_server_future(fetch_categories).expect("Failed to create server future for categories")
 }
 
 /// Get a single category by ID
-#[cfg(all(feature = "server", not(feature = "demo-static-content")))]
+#[cfg(feature = "server")]
 pub fn use_category_by_id(id: i32) -> Resource<Result<Option<Category>, ServerFnError>> {
     use_server_future(move || fetch_category_by_id(id))
         .expect("Failed to create server future for category by id")
 }
 
 /// Find category by slug from fetched list
-///
-/// # Example
-/// ```rust
-/// let category = use_category_by_slug("rust".to_string());
-/// if let Some(cat) = category() {
-///     // Use category
-/// }
-/// ```
-#[cfg(all(feature = "server", not(feature = "demo-static-content")))]
+#[cfg(feature = "server")]
 pub fn use_category_by_slug(slug: String) -> Memo<Option<Category>> {
     let list = use_categories_list();
 
@@ -51,7 +37,7 @@ pub fn use_category_by_slug(slug: String) -> Memo<Option<Category>> {
 // Client-only fallbacks (when server feature is disabled)
 // ============================================================================
 
-#[cfg(any(not(feature = "server"), feature = "demo-static-content"))]
+#[cfg(not(feature = "server"))]
 pub fn use_categories_list() -> Signal<Option<PaginatedList<Category>>> {
     use ruxlog_shared::use_categories;
 
@@ -71,7 +57,7 @@ pub fn use_categories_list() -> Signal<Option<PaginatedList<Category>>> {
     data
 }
 
-#[cfg(any(not(feature = "server"), feature = "demo-static-content"))]
+#[cfg(not(feature = "server"))]
 pub fn use_category_by_id(id: i32) -> Signal<Option<Category>> {
     use ruxlog_shared::use_categories;
 
@@ -93,7 +79,7 @@ pub fn use_category_by_id(id: i32) -> Signal<Option<Category>> {
     data
 }
 
-#[cfg(any(not(feature = "server"), feature = "demo-static-content"))]
+#[cfg(not(feature = "server"))]
 pub fn use_category_by_slug(slug: String) -> Signal<Option<Category>> {
     use ruxlog_shared::use_categories;
 

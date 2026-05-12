@@ -1,6 +1,4 @@
 use crate::components::{PostCard, PostsLoadingSkeleton};
-#[cfg(feature = "demo-static-content")]
-use crate::demo_content;
 use crate::router::Route;
 use crate::seo::{breadcrumb_schema, SeoHead, SeoMetadataBuilder, StructuredData};
 use crate::server_fns::{fetch_posts_by_tag, fetch_tag_by_slug};
@@ -12,18 +10,12 @@ use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 pub fn TagDetailScreen(slug: String) -> Element {
     let nav = use_navigator();
 
-    #[cfg(not(feature = "demo-static-content"))]
     let tag_result = use_server_future(move || {
         let slug = slug.clone();
         async move { fetch_tag_by_slug(slug).await }
     })?;
 
-    #[cfg(not(feature = "demo-static-content"))]
     let tag_state = tag_result();
-    #[cfg(feature = "demo-static-content")]
-    let tag_state = Some(Ok::<_, ServerFnError>(
-        demo_content::content().tag_by_slug(&slug),
-    ));
 
     // Get tag for dependent query
     let tag = match tag_state {
@@ -58,17 +50,11 @@ pub fn TagDetailScreen(slug: String) -> Element {
         };
     };
 
-    #[cfg(not(feature = "demo-static-content"))]
     let posts_result = {
         let tag_id = tag.id;
         use_server_future(move || async move { fetch_posts_by_tag(tag_id).await })?
     };
-    #[cfg(not(feature = "demo-static-content"))]
     let posts_state = posts_result();
-    #[cfg(feature = "demo-static-content")]
-    let posts_state = Some(Ok::<_, ServerFnError>(demo_content::paginated(
-        &demo_content::content().posts_by_tag_id(tag.id),
-    )));
 
     let on_post_click = move |post_slug: String| {
         nav.push(Route::PostViewScreen { slug: post_slug });

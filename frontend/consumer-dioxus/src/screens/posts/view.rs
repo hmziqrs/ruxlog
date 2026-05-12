@@ -1,11 +1,8 @@
 use crate::components::{estimate_reading_time, format_date, ActionBar, BannerPlaceholder};
-#[cfg(feature = "demo-static-content")]
-use crate::demo_content;
 use crate::seo::{
     article_schema, breadcrumb_schema, ArticleMetadata, SeoHead, SeoImage, SeoMetadataBuilder,
     StructuredData,
 };
-#[cfg(not(feature = "demo-static-content"))]
 use crate::server_fns::fetch_post_by_slug;
 use crate::utils::editorjs::render_editorjs_content;
 use dioxus::prelude::*;
@@ -58,18 +55,12 @@ fn generate_post_seo(post: &Post) -> crate::seo::SeoMetadata {
 pub fn PostViewScreen(slug: String) -> Element {
     let nav = use_navigator();
 
-    #[cfg(not(feature = "demo-static-content"))]
     let post_result = use_server_future(move || {
         let slug = slug.clone();
         async move { fetch_post_by_slug(slug).await }
     })?;
-    #[cfg(not(feature = "demo-static-content"))]
-    let post_state = post_result();
 
-    #[cfg(feature = "demo-static-content")]
-    let post_state = Some(Ok::<_, ServerFnError>(
-        demo_content::content().post_by_slug(&slug),
-    ));
+    let post_state = post_result();
 
     // Only use likes and auth when engagement feature is enabled
     #[cfg(feature = "engagement")]
@@ -78,7 +69,7 @@ pub fn PostViewScreen(slug: String) -> Element {
     let auth = use_auth();
 
     // Analytics: Track page view and time spent
-    #[cfg(all(feature = "analytics", not(feature = "demo-static-content")))]
+    #[cfg(feature = "analytics")]
     {
         let route = match &post_state {
             Some(Ok(Some(post))) => format!("/posts/{}", post.slug),
@@ -102,13 +93,6 @@ pub fn PostViewScreen(slug: String) -> Element {
                 tracker::track_post_view(post_id, post_title, Some(category_name));
             }
         });
-    }
-
-    #[cfg(all(feature = "analytics", feature = "demo-static-content"))]
-    {
-        let route = format!("/posts/{}", slug);
-        use_page_timer(&route);
-        use_scroll_depth(&route);
     }
 
     match post_state {
