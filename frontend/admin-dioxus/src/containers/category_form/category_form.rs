@@ -578,7 +578,7 @@ pub fn CategoryFormContainer(props: CategoryFormContainerProps) -> Element {
                                     disabled: is_uploading,
                                     onclick: move |_| {
                                         if !is_uploading {
-                                            let submit = props.on_submit.clone();
+                                            let submit = props.on_submit;
                                             form.write().on_submit(move |val| { submit.call(val); });
                                         }
                                     },

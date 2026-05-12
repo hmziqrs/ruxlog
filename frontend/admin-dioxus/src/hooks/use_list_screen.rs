@@ -29,7 +29,7 @@ pub struct ListScreenState {
 impl ListScreenState {
     pub fn new(config: &ListScreenConfig) -> Self {
         Self {
-            search_input: use_signal(|| String::new()),
+            search_input: use_signal(String::new),
             sort_field: use_signal(|| config.default_sort_field.clone()),
             sort_order: use_signal(|| config.default_sort_order.clone()),
             reload_tick: use_signal(|| 0u32),
@@ -50,7 +50,7 @@ impl ListScreenState {
     }
 
     pub fn reload_tick(&self) -> u32 {
-        self.reload_tick.read().clone()
+        *self.reload_tick.read()
     }
 
     // Utility methods for common operations
@@ -135,7 +135,6 @@ where
 
     // Create handlers
     let handle_sort = {
-        let list_state = list_state;
         let mut filters = filters;
         move |field: String| {
             list_state.handle_sort(field);
@@ -174,7 +173,6 @@ where
     };
 
     let handle_retry = {
-        let list_state = list_state;
         move |_| {
             list_state.trigger_reload();
         }
@@ -201,7 +199,6 @@ where
     };
 
     let handle_clear = {
-        let list_state = list_state;
         let mut filters = filters;
         move |_| {
             list_state.clear_search();

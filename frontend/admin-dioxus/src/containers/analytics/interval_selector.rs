@@ -39,7 +39,7 @@ pub fn IntervalSelector(props: IntervalSelectorProps) -> Element {
                 for (interval, label) in intervals {
                     {
                         let is_active = props.current == interval;
-                        let interval_clone = interval.clone();
+                        let interval_clone = interval;
 
                         rsx! {
                             button {

@@ -15,7 +15,6 @@ pub fn use_category_view(id: i32) -> CategoryViewState {
 
     // Trigger fetch on mount/when needed
     {
-        let categories = categories;
         use_effect(move || {
             let view_map = categories.view.read();
             let needs_fetch = match view_map.get(&id) {

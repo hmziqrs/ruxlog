@@ -62,7 +62,7 @@ pub fn VerificationRatesChart(props: VerificationRatesChartProps) -> Element {
     let current_interval = frame
         .meta
         .as_ref()
-        .map(|req| req.filters.group_by.clone())
+        .map(|req| req.filters.group_by)
         .unwrap_or(AnalyticsInterval::Day);
 
     // Derived max values for basic relative bar/line scaling.

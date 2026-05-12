@@ -27,7 +27,6 @@ pub fn PostsEditScreen(id: i32) -> Element {
         error_options: ToastOptions::default().with_action(Some(Action::with_on_click(
             "Retry".into(),
             {
-                let posts = posts;
                 Callback::new(move |_| {
                     if let Some(payload) = posts
                         .edit

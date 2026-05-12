@@ -10,7 +10,7 @@ use ruxlog_shared::store::{image_editor::EditorTool, use_image_editor};
 #[component]
 pub fn EditorToolbar() -> Element {
     let editor = use_image_editor();
-    let active_tool = editor.active_tool.read().clone();
+    let active_tool = *editor.active_tool.read();
 
     rsx! {
         div {

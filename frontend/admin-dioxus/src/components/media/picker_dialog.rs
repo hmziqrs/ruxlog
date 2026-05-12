@@ -37,13 +37,12 @@ pub struct MediaPickerDialogProps {
 pub fn MediaPickerDialog(props: MediaPickerDialogProps) -> Element {
     let media_state = use_media();
     let mut current_tab = use_signal(|| "browse".to_string());
-    let mut filters = use_signal(|| MediaListQuery::new());
-    let mut selected_ids = use_signal(|| Vec::<i32>::new());
-    let mut upload_blob_urls = use_signal(|| Vec::<String>::new());
+    let mut filters = use_signal(MediaListQuery::new);
+    let mut selected_ids = use_signal(Vec::<i32>::new);
+    let mut upload_blob_urls = use_signal(Vec::<String>::new);
 
     // Load media list when dialog opens
     use_effect({
-        let media_state = media_state;
         move || {
             if props.open {
                 let q = filters();
@@ -221,7 +220,7 @@ pub fn MediaPickerDialog(props: MediaPickerDialogProps) -> Element {
                                                     let media_file_url = media.file_url.clone();
                                                     let media_obj_key = media.object_key.clone();
                                                     let media_size = media.size;
-                                                    let media_created = media.created_at.clone();
+                                                    let media_created = media.created_at;
                                                     let is_selected = selected_ids().contains(&media_id);
                                                     rsx! {
                                                         tr {

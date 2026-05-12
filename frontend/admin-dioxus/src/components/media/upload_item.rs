@@ -72,7 +72,7 @@ pub fn MediaUploadItem(props: MediaUploadItemProps) -> Element {
 
     let handle_remove = {
         let blob_url = blob_url.clone();
-        let on_remove = props.on_remove.clone();
+        let on_remove = props.on_remove;
         move |_| {
             if let Some(handler) = &on_remove {
                 handler.call(blob_url.clone());
@@ -82,7 +82,7 @@ pub fn MediaUploadItem(props: MediaUploadItemProps) -> Element {
 
     let handle_edit = {
         let blob_url = blob_url.clone();
-        let on_edit = props.on_edit.clone();
+        let on_edit = props.on_edit;
         move |_| {
             if let Some(handler) = &on_edit {
                 handler.call(blob_url.clone());

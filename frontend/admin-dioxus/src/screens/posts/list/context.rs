@@ -20,11 +20,11 @@ pub struct PostListContext {
 impl PostListContext {
     pub fn new() -> Self {
         Self {
-            selected_ids: use_signal(|| Vec::new()),
+            selected_ids: use_signal(Vec::new),
             view_mode: use_signal(|| ViewMode::Table),
-            selected_category_ids: use_signal(|| Vec::new()),
-            selected_tag_ids: use_signal(|| Vec::new()),
-            selected_author_ids: use_signal(|| Vec::new()),
+            selected_category_ids: use_signal(Vec::new),
+            selected_tag_ids: use_signal(Vec::new),
+            selected_author_ids: use_signal(Vec::new),
         }
     }
 

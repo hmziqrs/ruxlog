@@ -15,7 +15,6 @@ pub fn use_media_view(id: i32) -> MediaViewState {
 
     // Trigger fetch on mount/when needed
     {
-        let media_state = media_state;
         use_effect(move || {
             let view_map = media_state.view.read();
             let needs_fetch = match view_map.get(&id) {

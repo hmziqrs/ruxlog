@@ -30,7 +30,7 @@ use ruxlog_shared::store::{
 #[component]
 pub fn RoutesSettingsScreen() -> Element {
     let routes_state = use_admin_routes();
-    let filters = use_signal(|| AdminRoutesListQuery::new());
+    let filters = use_signal(AdminRoutesListQuery::new);
     let (list_state, handlers) = use_list_screen_with_handlers(
         Some(ListScreenConfig {
             default_sort_field: "route_pattern".to_string(),
@@ -45,7 +45,6 @@ pub fn RoutesSettingsScreen() -> Element {
     let mut countdown_secs = use_signal(|| 0u64);
 
     use_effect({
-        let list_state = list_state;
         move || {
             let query = filters();
             let _tick = list_state.reload_tick();
@@ -282,7 +281,7 @@ pub fn RoutesSettingsScreen() -> Element {
         search_value: list_state.search_input(),
         search_placeholder: "Search routes by pattern or reason".to_string(),
         disabled: list_loading,
-        on_search_input: handlers.handle_search.clone(),
+        on_search_input: handlers.handle_search,
         status_selected: status_label,
         on_status_select: EventHandler::new(handle_status_select),
         status_options: Some(vec![
@@ -495,7 +494,7 @@ pub fn RoutesSettingsScreen() -> Element {
             }),
             headers: Some(headers),
             current_sort_field: Some(list_state.sort_field()),
-            on_sort: Some(handlers.handle_sort.clone()),
+            on_sort: Some(handlers.handle_sort),
             error_title: Some("Failed to load routes".to_string()),
             error_retry_label: Some("Retry".to_string()),
             on_error_retry: Some(EventHandler::new(move |_| handlers.handle_retry.call(()))),
@@ -564,7 +563,6 @@ fn RouteRow(route: RouteStatus) -> Element {
     let toggle_block = {
         let pattern = route.route_pattern.clone();
         let reason = route.reason.clone();
-        let routes_state = routes_state;
         move |_| {
             let payload = UpdateRoutePayload {
                 is_blocked: !route.is_blocked,
@@ -580,7 +578,6 @@ fn RouteRow(route: RouteStatus) -> Element {
 
     let delete_route = {
         let pattern = route.route_pattern.clone();
-        let routes_state = routes_state;
         move |_| {
             let pattern = pattern.clone();
             spawn(async move {

@@ -178,7 +178,7 @@ pub fn TagFormContainer(props: TagFormContainerProps) -> Element {
                         }
                         Button { class: "flex-1 w-auto",
                             onclick: move |_| {
-                                let submit = props.on_submit.clone();
+                                let submit = props.on_submit;
                                 form.write().on_submit(move |val| { submit.call(val); });
                             },
                             {props.submit_label.clone().unwrap_or_else(|| "Save Tag".to_string())}

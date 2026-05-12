@@ -32,9 +32,9 @@ pub fn AuthGuardContainer() -> Element {
     });
 
     // Handle auth logic on route changes
-    let nav_for_logic = nav.clone();
-    let mut render_blocked_for_logic = render_blocked.clone();
-    let route_for_logic = route.clone();
+    let nav_for_logic = nav;
+    let mut render_blocked_for_logic = render_blocked;
+    let route_for_logic = route;
 
     use_effect(use_reactive!(|(route_for_logic)| {
         let init_status = auth_store.init_status.read();
@@ -43,8 +43,8 @@ pub fn AuthGuardContainer() -> Element {
             let is_open_route = OPEN_ROUTES.iter().any(|r| r == &route_for_logic);
             let is_logged_in = user.is_some();
             let is_admin = user.as_ref().map(|u| u.is_admin()).unwrap_or(false);
-            let nav = nav_for_logic.clone();
-            let route = route_for_logic.clone();
+            let nav = nav_for_logic;
+            let route = route_for_logic;
 
             spawn(async move {
                 // Non-admin users get logged out and redirected to login

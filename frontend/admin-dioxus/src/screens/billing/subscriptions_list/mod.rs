@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 
 use oxui::shadcn::badge::{Badge, BadgeVariant};
 use oxui::shadcn::button::{Button, ButtonVariant};
-use ruxlog_shared::store::{use_billing, Subscription};
+use ruxlog_shared::store::use_billing;
 
 #[component]
 pub fn BillingSubscriptionsListScreen() -> Element {

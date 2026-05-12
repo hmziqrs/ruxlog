@@ -8,7 +8,7 @@ use oxui::shadcn::button::{Button, ButtonVariant};
 use oxui::shadcn::dropdown_menu::{
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 };
-use ruxlog_shared::store::{use_billing, Plan};
+use ruxlog_shared::store::use_billing;
 
 #[component]
 pub fn BillingPlansListScreen() -> Element {
