@@ -44,7 +44,7 @@ pub fn TagsScreen() -> Element {
                             }
                         }
                     }
-                } else if let Some(data) = tags_frame.data {
+                } else if let Some(data) = tags_frame.data.clone() {
                     if data.data.is_empty() {
                         div { class: "flex items-center justify-center py-20",
                             div { "No tags found" }

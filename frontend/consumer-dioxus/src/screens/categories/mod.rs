@@ -44,7 +44,7 @@ pub fn CategoriesScreen() -> Element {
                             }
                         }
                     }
-                } else if let Some(data) = categories_frame.data {
+                } else if let Some(data) = categories_frame.data.clone() {
                     if data.data.is_empty() {
                         div { class: "flex items-center justify-center py-20",
                             div { "No categories found" }

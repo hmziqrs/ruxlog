@@ -144,7 +144,7 @@ pub fn NavBarContainer() -> Element {
                         // Search bar
                         {
                             let _nav = use_navigator();
-                            let search_focused = use_signal(|| false);
+                            let _search_focused = use_signal(|| false);
                             rsx! {
                                 div {
                                     class: "hidden md:flex items-center max-w-xs flex-1 mx-4",
