@@ -246,9 +246,9 @@ Fill gaps in admin screens.
 ### Phase 15 — Security Hardening
 
 - [x] **15.1** CSRF protection: verified with integration tests — missing token returns 401, invalid token returns 401, valid token passes.
-- [ ] **15.2** SQL injection audit: verify all raw SQL uses parameterized queries. Run `cargo clippy` with sql-injection lint.
-- [ ] **15.3** XSS audit: verify all user-generated content is sanitized before rendering. Editor.js content should strip script tags.
-- [ ] **15.4** Auth security: verify session cookies have HttpOnly, Secure, SameSite=Strict flags. Test session fixation prevention (session rotation on login).
+- [x] **15.2** SQL injection audit: verify all raw SQL uses parameterized queries. Run `cargo clippy` with sql-injection lint.
+- [x] **15.3** XSS audit: verify all user-generated content is sanitized before rendering. Editor.js content should strip script tags.
+- [x] **15.4** Auth security: verify session cookies have HttpOnly, Secure, SameSite=Strict flags. Test session fixation prevention (session rotation on login).
 - [x] **15.5** File upload security: body limit tests verify size enforcement at middleware level (6 integration tests).
 - [x] **15.6** Rate limiting verification: Redis-based rate limiting middleware implemented. Applied to auth (5/min), comments (10/min), newsletter (5/min).
 - [x] **15.7** Input validation: TOTP code validation rejects empty, non-numeric, wrong-length codes. Editor.js validator tests cover 15 block types.
@@ -259,7 +259,7 @@ Fill gaps in admin screens.
 
 - [x] **16.1** Backend CI workflow: runs fmt check, clippy (basic + full), cargo check, cargo test --features full, security tests. Uses rust-cache for caching.
 - [x] **16.2** Frontend CI workflow: checks all 7 frontend crates (both basic and full features).
-- [ ] **16.3** Release workflow: update `.github/workflows/web-release.yml` to build consumer with `--features basic` (no demo-static-content).
+- [x] **16.3** Release workflow: update `.github/workflows/web-release.yml` to build consumer with `--features basic` (no demo-static-content).
 - [ ] **16.4** Backend Docker build: fix `Dockerfile.api` to copy all required crates (including `crates/rux-auth/`). Verify `docker compose --profile full up --build` succeeds.
 - [ ] **16.5** Staging deployment workflow: deploy to staging on push to `develop` branch. Run smoke tests against staging.
 - [ ] **16.6** Production deployment workflow: deploy on release tags. Include database migration step before app startup.
@@ -279,10 +279,10 @@ Fill gaps in admin screens.
 
 The final verification. Everything must work end-to-end.
 
-- [ ] **18.1** Backend full test run: `cargo test --features full --workspace`. All pass.
-- [ ] **18.2** Backend clippy: `cargo clippy --features full --workspace -- -D warnings`. Clean.
-- [ ] **18.3** Backend formatting: `cargo fmt --check --all`. Clean.
-- [ ] **18.4** Frontend check: `cargo check -p admin-dioxus --features full && cargo check -p consumer-dioxus --features full`. Clean.
+- [x] **18.1** Backend full test run: `cargo test --features full --workspace`. All pass.
+- [x] **18.2** Backend clippy: `cargo clippy --features full --workspace -- -D warnings`. Clean.
+- [x] **18.3** Backend formatting: `cargo fmt --check --all`. Clean.
+- [x] **18.4** Frontend check: `cargo check -p admin-dioxus --features full && cargo check -p consumer-dioxus --features full`. Clean.
 - [ ] **18.5** Frontend clippy: `cargo clippy -p admin-dioxus -p consumer-dioxus -p ruxlog-shared -p oxui -- -D warnings`. Clean.
 - [ ] **18.6** Smoke tests: run all `backend/api/tests/*.sh` scripts against running API. All pass.
 - [ ] **18.7** Browser E2E — Consumer: start full stack, seed data, navigate every consumer screen. Verify data is dynamic, forms work, search works, paywall works, billing flow works. Take screenshots at each step.
