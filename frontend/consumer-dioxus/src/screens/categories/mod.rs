@@ -4,6 +4,7 @@ pub use view::*;
 
 use crate::components::CategoryCard;
 use crate::router::Route;
+use crate::seo::{use_static_seo, SeoHead};
 use dioxus::prelude::*;
 use oxui::components::error::{ErrorDetails, ErrorDetailsVariant};
 use ruxlog_shared::store::use_categories;
@@ -12,6 +13,7 @@ use ruxlog_shared::store::use_categories;
 pub fn CategoriesScreen() -> Element {
     let categories_store = use_categories();
     let nav = use_navigator();
+    let seo_metadata = use_static_seo("categories");
 
     use_effect(move || {
         let categories = categories_store;
@@ -27,6 +29,7 @@ pub fn CategoriesScreen() -> Element {
     };
 
     rsx! {
+        SeoHead { metadata: seo_metadata }
         div { class: "min-h-screen",
             div { class: "container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-6xl",
                 if (*categories_frame).is_loading() {
