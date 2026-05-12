@@ -17,7 +17,7 @@ pub fn RegisterScreen() -> Element {
 
     let mut password_match_error = use_signal(|| Option::<String>::None);
 
-    use_context_provider(|| GridContext::new());
+    use_context_provider(GridContext::new);
 
     // Navigate to home after successful login (which happens after registration)
     use_effect(move || {

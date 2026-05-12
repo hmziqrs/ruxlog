@@ -33,7 +33,7 @@ pub struct CategoryFormContainerProps {
 #[component]
 pub fn CategoryFormContainer(props: CategoryFormContainerProps) -> Element {
     let nav = use_navigator();
-    let initial_category_form = props.initial.clone().unwrap_or_else(CategoryForm::new);
+    let initial_category_form = props.initial.clone().unwrap_or_default();
     let reset_template = initial_category_form.clone();
     let category_form_hook = use_categories_form(initial_category_form);
     let mut form = category_form_hook.form;

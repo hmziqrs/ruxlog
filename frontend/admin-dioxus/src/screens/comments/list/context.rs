@@ -13,7 +13,7 @@ pub struct CommentListContext {
 impl CommentListContext {
     pub fn new() -> Self {
         Self {
-            selected_ids: use_signal(|| Vec::new()),
+            selected_ids: use_signal(Vec::new),
             selected_user_id: use_signal(|| None),
             selected_post_id: use_signal(|| None),
             selected_flag_filter: use_signal(|| FlagFilter::All),
@@ -24,8 +24,8 @@ impl CommentListContext {
         let mut q = filters.peek().clone();
         q.set_page(1);
 
-        q.user_id = self.selected_user_id.peek().clone();
-        q.post_id = self.selected_post_id.peek().clone();
+        q.user_id = *self.selected_user_id.peek();
+        q.post_id = *self.selected_post_id.peek();
         q.flag_filter = Some(self.selected_flag_filter.peek().clone());
 
         filters.set(q);

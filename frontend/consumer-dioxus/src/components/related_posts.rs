@@ -1,4 +1,4 @@
-use crate::components::post_card::{estimate_reading_time, PostCard};
+use crate::components::post_card::PostCard;
 use crate::server_fns::fetch_posts_by_category;
 use dioxus::prelude::*;
 use ruxlog_shared::store::Post;

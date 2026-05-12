@@ -32,7 +32,7 @@ pub struct UserFormContainerProps {
 #[component]
 pub fn UserFormContainer(props: UserFormContainerProps) -> Element {
     let nav = use_navigator();
-    let initial_user_form = props.initial.clone().unwrap_or_else(UserForm::new);
+    let initial_user_form = props.initial.clone().unwrap_or_default();
     let reset_template = initial_user_form.clone();
     let user_form_hook = use_user_form(initial_user_form);
     let mut form = user_form_hook.form;

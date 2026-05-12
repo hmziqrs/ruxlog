@@ -19,7 +19,7 @@ use ruxlog_shared::store::{use_newsletter, NewsletterSubscriber, SubscriberListQ
 pub fn NewsletterSubscribersScreen() -> Element {
     let newsletter_state = use_newsletter();
 
-    let filters = use_signal(|| SubscriberListQuery::new());
+    let filters = use_signal(SubscriberListQuery::new);
 
     let ctx = NewsletterListContext::new();
     use_context_provider(|| ctx.clone());
@@ -33,7 +33,6 @@ pub fn NewsletterSubscribersScreen() -> Element {
     );
 
     use_effect({
-        let list_state = list_state;
         let mut selected_ids = ctx.selected_ids;
         move || {
             let q = filters();
@@ -118,7 +117,7 @@ pub fn NewsletterSubscribersScreen() -> Element {
             frame: (newsletter_state.subscribers)(),
             headers: Some(headers),
             current_sort_field: Some(list_state.sort_field()),
-            on_sort: Some(handlers.handle_sort.clone()),
+            on_sort: Some(handlers.handle_sort),
             header: Some(PageHeaderProps {
                 title: "Newsletter Subscribers".to_string(),
                 description: "Manage newsletter subscriptions and send campaigns.".to_string(),
@@ -140,7 +139,7 @@ pub fn NewsletterSubscribersScreen() -> Element {
                 search_value: list_state.search_input(),
                 search_placeholder: "Search subscribers by email".to_string(),
                 disabled: list_loading,
-                on_search_input: handlers.handle_search.clone(),
+                on_search_input: handlers.handle_search,
                 status_selected: match filters.read().status {
                     Some(ruxlog_shared::store::SubscriberStatus::Confirmed) => "Confirmed".to_string(),
                     Some(ruxlog_shared::store::SubscriberStatus::Pending) => "Pending".to_string(),

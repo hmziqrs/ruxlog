@@ -26,7 +26,7 @@ pub struct TagFormContainerProps {
 #[component]
 pub fn TagFormContainer(props: TagFormContainerProps) -> Element {
     let nav = use_navigator();
-    let initial_tag_form = props.initial.clone().unwrap_or_else(TagForm::new);
+    let initial_tag_form = props.initial.clone().unwrap_or_default();
     let reset_template = initial_tag_form.clone();
     let tag_form_hook = use_tag_form(initial_tag_form);
     let mut form = tag_form_hook.form;

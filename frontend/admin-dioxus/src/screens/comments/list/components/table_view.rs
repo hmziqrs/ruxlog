@@ -74,13 +74,13 @@ pub fn TableView(
                     let is_selected = ctx.selected_ids.read().contains(&comment_id);
                     let is_hidden = comment.hidden;
                     let mut ctx_clone = ctx.clone();
-                    let on_refresh_hide = on_refresh.clone();
-                    let on_refresh_delete = on_refresh.clone();
+                    let on_refresh_hide = on_refresh;
+                    let on_refresh_delete = on_refresh;
                     let is_moderating = comments_state
                         .moderation
                         .read()
                         .get(&comment_id)
-                        .map_or(false, |frame| frame.is_loading());
+                        .is_some_and(|frame| frame.is_loading());
 
                     rsx! {
                         tr {
@@ -150,9 +150,7 @@ pub fn TableView(
                                         }
                                         DropdownMenuItem {
                                             onclick: {
-                                                let comments_state = comments_state;
                                                 move |_| {
-                                                    let comments_state = comments_state;
                                                     spawn(async move {
                                                         if is_hidden {
                                                             comments_state.unhide(comment_id).await;
@@ -169,9 +167,7 @@ pub fn TableView(
                                         DropdownMenuItem {
                                             class: "text-red-600 dark:text-red-400",
                                             onclick: {
-                                                let comments_state = comments_state;
                                                 move |_| {
-                                                    let comments_state = comments_state;
                                                     spawn(async move {
                                                         comments_state.delete_admin(comment_id).await;
                                                         on_refresh_delete.call(());

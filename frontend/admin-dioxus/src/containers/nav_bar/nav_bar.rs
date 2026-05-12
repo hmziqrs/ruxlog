@@ -103,7 +103,7 @@ pub fn NavBarContainer() -> Element {
                         onclick: toggle_dark_mode,
                         class: "rounded-full p-1 text-muted-foreground transition-colors duration-200 hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                         div { class: "w-4 h-4",
-                            if (*dark_theme.read()).0 {
+                            if dark_theme.read().0 {
                                 Icon { icon: LdSun }
                             } else {
                                 Icon { icon: LdMoon }

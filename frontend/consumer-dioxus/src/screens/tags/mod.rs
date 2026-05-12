@@ -39,12 +39,12 @@ pub fn TagsScreen() -> Element {
                     div { class: "flex items-center justify-center py-20",
                         div { class: "max-w-md w-full",
                             ErrorDetails {
-                                error: (*tags_frame).error.clone(),
+                                error: tags_frame.error.clone(),
                                 variant: ErrorDetailsVariant::Collapsed,
                             }
                         }
                     }
-                } else if let Some(data) = &(*tags_frame).data {
+                } else if let Some(data) = tags_frame.data {
                     if data.data.is_empty() {
                         div { class: "flex items-center justify-center py-20",
                             div { "No tags found" }

@@ -24,7 +24,7 @@ pub fn CommentsListScreen() -> Element {
     let users_state = use_user();
 
     // Use direct filter signal
-    let filters = use_signal(|| CommentListQuery::new());
+    let filters = use_signal(CommentListQuery::new);
 
     // Initialize context for UI-specific state (selections, filter state)
     let ctx = CommentListContext::new();
@@ -48,7 +48,6 @@ pub fn CommentsListScreen() -> Element {
 
     // Effect to load comments when filters change
     use_effect({
-        let list_state = list_state;
         let mut selected_ids = ctx.selected_ids;
         move || {
             let q = filters();
@@ -258,7 +257,7 @@ pub fn CommentsListScreen() -> Element {
             frame: (comments_state.list)(),
             headers: Some(headers),
             current_sort_field: Some(list_state.sort_field()),
-            on_sort: Some(handlers.handle_sort.clone()),
+            on_sort: Some(handlers.handle_sort),
             header: Some(PageHeaderProps {
                 title: "Comments".to_string(),
                 description: "Moderate comments and flags".to_string(),
@@ -273,7 +272,7 @@ pub fn CommentsListScreen() -> Element {
                 search_value: list_state.search_input(),
                 search_placeholder: "Search comments...".to_string(),
                 disabled: list_loading,
-                on_search_input: handlers.handle_search.clone(),
+                on_search_input: handlers.handle_search,
                 status_selected: match filters.read().hidden_filter {
                     Some(HiddenFilter::All) => "All".to_string(),
                     Some(HiddenFilter::Hidden) => "Hidden".to_string(),
@@ -311,8 +310,6 @@ pub fn CommentsListScreen() -> Element {
                 has_data,
                 on_clear: handlers.handle_clear,
                 on_refresh: EventHandler::new({
-                    let comments_state = comments_state;
-                    let filters = filters;
                     move |_| {
                         let comments_state = comments_state;
                         let query = filters();

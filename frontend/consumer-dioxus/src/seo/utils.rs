@@ -48,7 +48,7 @@ pub fn generate_excerpt(content: &str, max_chars: usize) -> String {
 
     // Find last sentence boundary before max_chars
     let truncated = &cleaned[..max_chars];
-    if let Some(pos) = truncated.rfind(|c| c == '.' || c == '!' || c == '?') {
+    if let Some(pos) = truncated.rfind(['.', '!', '?']) {
         cleaned[..=pos].to_string()
     } else if let Some(pos) = truncated.rfind(' ') {
         format!("{}...", &cleaned[..pos])

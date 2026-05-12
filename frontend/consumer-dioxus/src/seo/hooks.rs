@@ -18,7 +18,7 @@ pub fn use_post_seo(post_id: i32) -> Memo<Option<SeoMetadata>> {
         }
 
         let posts_read = posts.list.read();
-        if let Some(list) = &(*posts_read).data {
+        if let Some(list) = posts_read.data {
             if let Some(post) = list.data.iter().find(|p| p.id == post_id) {
                 return Some(build_post_seo(post));
             }
@@ -44,7 +44,7 @@ pub fn use_post_seo_by_slug(slug: String) -> Memo<Option<SeoMetadata>> {
         }
 
         let posts_read = posts.list.read();
-        if let Some(list) = &(*posts_read).data {
+        if let Some(list) = posts_read.data {
             if let Some(post) = list.data.iter().find(|p| p.slug.as_str() == slug.as_str()) {
                 return Some(build_post_seo(post));
             }
@@ -132,7 +132,7 @@ pub fn use_category_seo(slug: String) -> Memo<Option<SeoMetadata>> {
 
     use_memo(move || {
         let categories_read = categories.list.read();
-        if let Some(list) = &(*categories_read).data {
+        if let Some(list) = categories_read.data {
             if let Some(category) = list.data.iter().find(|c| c.slug == slug) {
                 return Some(build_category_seo(category));
             }
@@ -178,7 +178,7 @@ pub fn use_tag_seo(slug: String) -> Memo<Option<SeoMetadata>> {
 
     use_memo(move || {
         let tags_read = tags.list.read();
-        if let Some(list) = &(*tags_read).data {
+        if let Some(list) = tags_read.data {
             if let Some(tag) = list.data.iter().find(|t| t.slug == slug) {
                 return Some(build_tag_seo(tag));
             }

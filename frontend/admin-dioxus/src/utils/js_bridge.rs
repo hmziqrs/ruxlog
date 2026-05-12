@@ -83,15 +83,13 @@ pub async fn editorjs_upload_file(file: File) -> Result<JsValue, JsValue> {
                         }
                         None => {
                             // Check if there was an error
-                            if let Some(status) = media_store.get_upload_status(&blob_url) {
-                                if let UploadStatus::Error(err_msg) = status {
-                                    tracing::error!(
-                                        "[editorjs_upload_file] Upload failed: {}",
-                                        &err_msg
-                                    );
-                                    media_store.cleanup_blob(&blob_url);
-                                    return Err(JsValue::from_str(&err_msg));
-                                }
+                            if let Some(UploadStatus::Error(err_msg)) = media_store.get_upload_status(&blob_url) {
+                                tracing::error!(
+                                    "[editorjs_upload_file] Upload failed: {}",
+                                    &err_msg
+                                );
+                                media_store.cleanup_blob(&blob_url);
+                                return Err(JsValue::from_str(&err_msg));
                             }
                         }
                     }

@@ -11,7 +11,7 @@ pub struct NewsletterListContext {
 impl NewsletterListContext {
     pub fn new() -> Self {
         Self {
-            selected_ids: use_signal(|| Vec::new()),
+            selected_ids: use_signal(Vec::new),
             selected_status: use_signal(|| None),
         }
     }

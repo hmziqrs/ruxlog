@@ -20,6 +20,12 @@ pub struct RegisterForm {
     pub confirm_password: String,
 }
 
+impl Default for RegisterForm {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RegisterForm {
     #[allow(dead_code)]
     pub fn new() -> Self {

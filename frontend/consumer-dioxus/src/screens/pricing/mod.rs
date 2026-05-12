@@ -1,12 +1,11 @@
 use crate::config::BRAND;
-use crate::router::Route;
 use crate::seo::{breadcrumb_schema, SeoHead, SeoMetadataBuilder, StructuredData};
 use dioxus::prelude::*;
-use hmziq_dioxus_free_icons::icons::ld_icons::{LdCheck, LdStar};
+use hmziq_dioxus_free_icons::icons::ld_icons::LdCheck;
 use hmziq_dioxus_free_icons::Icon;
-use oxui::shadcn::button::{Button, ButtonVariant};
 
 #[derive(Debug, Clone, serde::Deserialize)]
+#[allow(dead_code)]
 struct PlanData {
     id: i32,
     name: String,
