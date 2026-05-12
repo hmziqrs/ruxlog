@@ -14,12 +14,39 @@ pub struct LemonSqueezyProvider {
 }
 
 impl LemonSqueezyProvider {
+    /// Create a new provider from explicit values.
     pub fn new(api_key: String, webhook_secret: String, store_id: String) -> Self {
         Self {
             api_key,
             webhook_secret,
             store_id,
         }
+    }
+
+    /// Create a new provider from environment variables.
+    ///
+    /// Reads:
+    /// - `LEMONSQUEEZY_API_KEY`
+    /// - `LEMONSQUEEZY_WEBHOOK_SECRET`
+    /// - `LEMONSQUEEZY_STORE_ID`
+    pub fn from_env() -> Result<Self, BillingError> {
+        let api_key =
+            std::env::var("LEMONSQUEEZY_API_KEY").map_err(|_| {
+                BillingError::Config("LEMONSQUEEZY_API_KEY not set".to_string())
+            })?;
+        let webhook_secret =
+            std::env::var("LEMONSQUEEZY_WEBHOOK_SECRET").map_err(|_| {
+                BillingError::Config("LEMONSQUEEZY_WEBHOOK_SECRET not set".to_string())
+            })?;
+        let store_id =
+            std::env::var("LEMONSQUEEZY_STORE_ID").map_err(|_| {
+                BillingError::Config("LEMONSQUEEZY_STORE_ID not set".to_string())
+            })?;
+        Ok(Self {
+            api_key,
+            webhook_secret,
+            store_id,
+        })
     }
 }
 
@@ -174,6 +201,25 @@ impl BillingProvider for LemonSqueezyProvider {
         let payload_str = String::from_utf8(event.payload.clone())
             .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
 
+        // LemonSqueezy signs webhooks with HMAC-SHA256.
+        // The X-Signature header contains the hex-encoded digest.
+        let expected = {
+            use hmac::{Hmac, Mac};
+            use sha2::Sha256;
+            let mut mac =
+                Hmac::<Sha256>::new_from_slice(self.webhook_secret.as_bytes())
+                    .expect("HMAC accepts any key length");
+            mac.update(event.payload.as_slice());
+            let result = mac.finalize().into_bytes();
+            hex::encode(result)
+        };
+
+        if !constant_time_eq_str(&expected, &event.signature) {
+            return Err(BillingError::WebhookVerification(
+                "X-Signature mismatch".to_string(),
+            ));
+        }
+
         let data: serde_json::Value = serde_json::from_str(&payload_str)
             .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
 
@@ -203,4 +249,15 @@ impl BillingProvider for LemonSqueezyProvider {
             "LemonSqueezy uses its own customer portal".to_string(),
         ))
     }
+}
+
+fn constant_time_eq_str(a: &str, b: &str) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff: u8 = 0;
+    for (x, y) in a.bytes().zip(b.bytes()) {
+        diff |= x ^ y;
+    }
+    diff == 0
 }

@@ -121,6 +121,9 @@ pub fn BillingPlansListScreen() -> Element {
                                                         }
                                                     }
                                                     DropdownMenuContent { class: "bg-background border-zinc-200 dark:border-zinc-800",
+                                                        DropdownMenuItem { onclick: move |_| {
+                                                                nav.push(Route::BillingPlanEditScreen { id: plan_id });
+                                                            }, "Edit" }
                                                         DropdownMenuItem { class: "text-red-600", onclick: move |_| {
                                                                 let billing = billing;
                                                                 let id = plan_id;

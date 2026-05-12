@@ -1,5 +1,7 @@
 use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
+use hmziq_dioxus_free_icons::icons::ld_icons::LdLock;
+use hmziq_dioxus_free_icons::Icon;
 use ruxlog_shared::store::posts::{Post, PostContent};
 
 /// Estimate reading time based on content blocks (avg 200 words per minute)
@@ -59,6 +61,9 @@ pub struct PostCardProps {
     pub post: Post,
     #[props(into)]
     pub on_click: Option<EventHandler<String>>,
+    /// When true (or "paid"/"subscriber_only"), renders a Premium badge on the card.
+    #[props(default)]
+    pub is_premium: bool,
 }
 
 /// Standard post card for grid layout
@@ -92,6 +97,16 @@ pub fn PostCard(props: PostCardProps) -> Element {
                 div { class: "absolute top-3 left-3",
                     span { class: "category-pill",
                         "{post.category.name}"
+                    }
+                }
+
+                // Premium badge
+                if props.is_premium {
+                    div { class: "absolute top-3 right-3",
+                        span { class: "inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary backdrop-blur-sm",
+                            Icon { icon: LdLock, class: "w-3 h-3" }
+                            "Premium"
+                        }
                     }
                 }
             }

@@ -4,7 +4,7 @@ use crate::router::Route;
 use crate::utils::persist;
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::icons::{
-    ld_icons::{LdGithub, LdMoon, LdSun},
+    ld_icons::{LdGithub, LdMoon, LdSearch, LdSun},
     si_icons::SiX,
 };
 
@@ -140,6 +140,27 @@ pub fn NavBarContainer() -> Element {
                             class: "flex items-center gap-2 font-bold text-xl min-w-0",
                             span { class: "truncate", "{BRAND.app_name}" }
                         }
+
+                        // Search bar
+                        {
+                            let nav = use_navigator();
+                            let mut search_focused = use_signal(|| false);
+                            rsx! {
+                                div {
+                                    class: "hidden md:flex items-center max-w-xs flex-1 mx-4",
+                                    div {
+                                        class: "relative w-full",
+                                        Icon { icon: LdSearch, class: "w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" }
+                                        Link {
+                                            to: Route::SearchScreen {},
+                                            class: "w-full pl-9 pr-3 py-1.5 rounded-lg border border-border bg-background text-sm text-muted-foreground hover:border-primary/50 focus-within:ring-1 focus-within:ring-primary block text-left",
+                                            "Search posts..."
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         div { class: "flex items-center gap-3 ml-auto shrink-0",
                             a {
                                 href: "{BRAND.repo_url}",
@@ -148,6 +169,14 @@ pub fn NavBarContainer() -> Element {
                                 div { class: "w-4 h-4",
                                     Icon { icon: LdGithub }
                                 }
+                            }
+
+                            // Mobile search link
+                            Link {
+                                to: Route::SearchScreen {},
+                                class: "md:hidden icon-button",
+                                aria_label: "Search",
+                                Icon { icon: LdSearch, class: "w-5 h-5" }
                             }
 
                             // Theme toggle (only available on WASM/webview, not native renderer)

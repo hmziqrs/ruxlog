@@ -114,7 +114,7 @@ Feature-gated monetization. Each payment provider is a separate Cargo feature.
 - [x] **4.1** Feature `billing-stripe` added. Uses `reqwest` (already present) instead of stripe SDK for lighter deps.
 - [x] **4.2** Created `src/services/billing/stripe.rs`: StripeProvider implementing BillingProvider. Checkout Session create, subscription cancel/immediate, get subscription, HMAC-SHA256 webhook verification, Customer Portal session.
 - [x] **4.3-4.5** Webhook and checkout endpoints unified in `billing_v1` module at `/billing/v1/webhook/{provider}` and `/billing/v1/checkout`.
-- [ ] **4.6** Add Stripe env vars to `.env.*` files.
+- [x] **4.6** Add Stripe env vars to `.env.*` files.
 - [ ] **4.7** Write integration tests with mocked Stripe responses.
 
 ### Phase 5 — Polar.sh Integration
@@ -122,27 +122,27 @@ Feature-gated monetization. Each payment provider is a separate Cargo feature.
 - [x] **5.1** Feature `billing-polar` added.
 - [x] **5.2** Created `src/services/billing/polar.rs`: PolarProvider implementing BillingProvider. Checkout via Polar API, subscription cancel, get subscription, webhook parsing.
 - [x] **5.4-5.5** Unified in billing_v1 webhook/checkout endpoints.
-- [ ] **5.6** Add Polar env vars to `.env.*` files.
+- [x] **5.6** Add Polar env vars to `.env.*` files.
 - [ ] **5.7** Write tests with mocked Polar API responses.
 
 ### Phase 6 — LemonSqueezy Integration
 
-- [ ] **6.1** Create feature `billing-lemonsqueezy = ["billing"]`.
-- [ ] **6.2** Create `src/services/billing/lemonsqueezy_provider.rs`: implements billing trait. LemonSqueezy API: create checkout, manage subscription, verify webhook.
-- [ ] **6.3** Research LemonSqueezy API via `mcp__web_reader__webReader` — read https://docs.lemonsqueezy.com/api endpoint specs.
-- [ ] **6.4** Create `POST /billing/v1/webhook/lemonsqueezy` — verify signature (X-Signature header), dispatch events.
-- [ ] **6.5** Create `POST /billing/v1/checkout/lemonsqueezy` — create checkout, return redirect URL.
-- [ ] **6.6** Add env vars: `LEMONSQUEEZY_API_KEY`, `LEMONSQUEEZY_WEBHOOK_SECRET`, `LEMONSQUEEZY_STORE_ID`.
+- [x] **6.1** Create feature `billing-lemonsqueezy = ["billing"]`.
+- [x] **6.2** Create `src/services/billing/lemonsqueezy_provider.rs`: implements billing trait. LemonSqueezy API: create checkout, manage subscription, verify webhook.
+- [x] **6.3** Research LemonSqueezy API via `mcp__web_reader__webReader` — read https://docs.lemonsqueezy.com/api endpoint specs.
+- [x] **6.4** Create `POST /billing/v1/webhook/lemonsqueezy` — verify signature (X-Signature header), dispatch events.
+- [x] **6.5** Create `POST /billing/v1/checkout/lemonsqueezy` — create checkout, return redirect URL.
+- [x] **6.6** Add env vars: `LEMONSQUEEZY_API_KEY`, `LEMONSQUEEZY_WEBHOOK_SECRET`, `LEMONSQUEEZY_STORE_ID`.
 - [ ] **6.7** Write tests with mocked LemonSqueezy responses.
 
 ### Phase 7 — Paddle Integration
 
-- [ ] **7.1** Add `paddle` optional dep or use reqwest. Create feature `billing-paddle = ["billing"]`.
-- [ ] **7.2** Create `src/services/billing/paddle_provider.rs`: implements billing trait. Paddle API: create transaction, subscription management, webhook handling.
-- [ ] **7.3** Research Paddle API via `mcp__web_reader__webReader` — read https://developer.paddle.com/api-reference endpoint specs.
-- [ ] **7.4** Create `POST /billing/v1/webhook/paddle` — verify Paddle webhook signature, dispatch events.
+- [x] **7.1** Add `paddle` optional dep or use reqwest. Create feature `billing-paddle = ["billing"]`.
+- [x] **7.2** Create `src/services/billing/paddle_provider.rs`: implements billing trait. Paddle API: create transaction, subscription management, webhook handling.
+- [x] **7.3** Research Paddle API via `mcp__web_reader__webReader` — read https://developer.paddle.com/api-reference endpoint specs.
+- [x] **7.4** Create `POST /billing/v1/webhook/paddle` — verify Paddle webhook signature, dispatch events.
 - [x] **7.5** Unified in billing_v1 checkout endpoint.
-- [x] **7.6** Add env vars to `.env.*` — pending.
+- [x] **7.6** Add env vars to `.env.*` files.
 - [ ] **7.7** Write tests with mocked Paddle responses.
 
 ### Phase 8 — Crypto Payments
@@ -153,7 +153,7 @@ Feature-gated monetization. Each payment provider is a separate Cargo feature.
 - [x] **8.4** Configurable blockchain API (NowNodes/BlockCypher/self-hosted) via `CRYPTO_API_URL` env var.
 - [x] **8.5** Direct wallet payment via `CryptoProvider` with configurable wallet address, currency, and API endpoint.
 - [x] **8.6-8.8** Unified in billing_v1 checkout/webhook endpoints.
-- [ ] **8.9** Add env vars to `.env.*` files.
+- [x] **8.9** Add env vars to `.env.*` files.
 - [ ] **8.10** Write tests for crypto payment creation, status polling, callback handling.
 
 ### Phase 9 — Admin Billing UI
@@ -161,12 +161,12 @@ Feature-gated monetization. Each payment provider is a separate Cargo feature.
 - [x] **9.1** Create admin feature flag `billing` in `admin-dioxus/Cargo.toml`.
 - [x] **9.2** Create `PlansListScreen` (`/billing/plans`): table with plan name, price, interval, active status. CRUD actions.
 - [x] **9.3** Create `PlanAddScreen` (`/billing/plans/add`): form with name, slug, description, price, currency, interval, trial days, active toggle.
-- [ ] **9.4** Create `PlanEditScreen` (`/billing/plans/:id/edit`): same form, pre-filled.
+- [x] **9.4** Create `PlanEditScreen` (`/billing/plans/:id/edit`): same form, pre-filled.
 - [x] **9.5** Create `SubscriptionsListScreen` (`/billing/subscriptions`): table with user, plan, provider, status, cancel action.
 - [x] **9.6** Create `PaymentsListScreen` (`/billing/payments`): table with user, amount, currency, status, provider, date.
-- [ ] **9.7** Create `InvoicesListScreen` (`/billing/invoices`): table with invoice number, user, amount, status, date.
-- [ ] **9.8** Create `PaymentMethodsScreen` (`/billing/methods`): admin view of all payment methods, filter by provider.
-- [ ] **9.9** Create `RefundsListScreen` (`/billing/refunds`): table with payment ref, amount, reason, status, date.
+- [x] **9.7** Create `InvoicesListScreen` (`/billing/invoices`): table with invoice number, user, amount, status, date.
+- [x] **9.8** Create `PaymentMethodsScreen` (`/billing/methods`): admin view of all payment methods, filter by provider.
+- [x] **9.9** Create `RefundsListScreen` (`/billing/refunds`): table with payment ref, amount, reason, status, date.
 - [ ] **9.10** Create `BillingSettingsScreen` (`/settings/billing`): toggle active providers (Stripe/Polar/LemonSqueezy/Paddle/Crypto), configure webhook endpoints, test webhook button.
 - [x] **9.11** Add billing screens to admin sidebar navigation (conditional on `billing` feature).
 - [x] **9.12** Create `ruxlog-shared` billing stores: `plans`, `subscriptions`, `payments`, `invoices` stores with API actions.
@@ -179,10 +179,10 @@ Feature-gated monetization. Each payment provider is a separate Cargo feature.
 - [x] **10.3** Create `POST /billing/v1/subscribe` (consumer) — subscribe to a plan, redirect to provider checkout.
 - [x] **10.4** Create `GET /billing/v1/subscription` (consumer) — get current user's active subscription.
 - [x] **10.5** Create `POST /billing/v1/cancel` (consumer) — cancel subscription at period end.
-- [ ] **10.6** Create consumer `PricingScreen` (`/pricing`): plan comparison table, subscribe button, current plan indicator.
-- [ ] **10.7** Create consumer `BillingScreen` (`/billing`): current plan, payment history, cancel button, update payment method.
-- [ ] **10.8** Add paywall to `PostViewScreen`: if post access is `paid` or `subscriber_only`, check user subscription. Show paywall overlay if not subscribed.
-- [ ] **10.9** Add paid post indicator on `PostCard` component: show lock icon or "Premium" badge for paid posts.
+- [x] **10.6** Create consumer `PricingScreen` (`/pricing`): plan comparison table, subscribe button, current plan indicator.
+- [x] **10.7** Create consumer `BillingScreen` (`/billing`): current plan, payment history, cancel button, update payment method.
+- [x] **10.8** Add paywall to `PostViewScreen`: if post access is `paid` or `subscriber_only`, check user subscription. Show paywall overlay if not subscribed.
+- [x] **10.9** Add paid post indicator on `PostCard` component: show lock icon or "Premium" badge for paid posts.
 - [x] **10.10** Create consumer billing stores in `ruxlog-shared`: `billing` store.
 - [ ] **10.11** Browser-agent E2E: create a paid post in admin, view in consumer as anonymous (see paywall), subscribe via test Stripe checkout, view paid post (see content).
 
@@ -210,10 +210,10 @@ Fill placeholder screens and add missing features.
 - [x] **12.2** `ContactScreen` — contact form with name, email, message. Sidebar with email, location, response time.
 - [x] **12.3** `AdvertiseScreen` — pricing tiers (Starter/Growth/Premium), stats section, why advertise cards, contact CTA.
 - [x] **12.4** Search page: `SearchScreen` (`/search`) with search input, results list, pagination. Wired to `/search/v1/search` API endpoint.
-- [ ] **12.5** Add search bar to consumer navbar with autocomplete dropdown.
+- [x] **12.5** Add search bar to consumer navbar with autocomplete dropdown.
 - [x] **12.6** Reading progress bar on `PostViewScreen` — CSS-based scroll indicator.
 - [x] **12.7** Table of contents on `PostViewScreen` — auto-generated from Editor.js headers block.
-- [ ] **12.8** Related posts section on `PostViewScreen` — show posts with overlapping tags.
+- [x] **12.8** Related posts section on `PostViewScreen` — show posts with overlapping tags.
 - [ ] **12.9** Series navigation on `PostViewScreen` — if post is part of a series, show series card with all posts.
 - [x] **12.10** Cookie consent banner — GDPR compliance. Show on first visit, store preference in localStorage.
 - [ ] **12.11** Browser-agent E2E for every consumer screen: home, post detail, tags list, tag detail, categories list, category detail, about, contact, advertise, search, pricing, billing. Verify dynamic data loads, forms submit, navigation works.

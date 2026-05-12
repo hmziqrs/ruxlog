@@ -41,8 +41,9 @@ use crate::screens::{UsersAddScreen, UsersEditScreen, UsersListScreen};
 
 #[cfg(feature = "billing")]
 use crate::screens::{
-    BillingPaymentsListScreen, BillingPlanAddScreen, BillingPlansListScreen,
-    BillingSubscriptionsListScreen,
+    BillingInvoicesListScreen, BillingPaymentsListScreen, BillingPlanAddScreen,
+    BillingPlanEditScreen, BillingPlansListScreen, BillingSubscriptionsListScreen,
+    PaymentMethodsScreen, RefundsListScreen,
 };
 
 #[derive(Debug, Clone, Routable, PartialEq)]
@@ -142,6 +143,22 @@ pub enum Route {
     #[cfg(feature = "billing")]
     #[route("/billing/payments")]
     BillingPaymentsListScreen {},
+
+    #[cfg(feature = "billing")]
+    #[route("/billing/plans/:id/edit")]
+    BillingPlanEditScreen { id: i32 },
+
+    #[cfg(feature = "billing")]
+    #[route("/billing/invoices")]
+    BillingInvoicesListScreen {},
+
+    #[cfg(feature = "billing")]
+    #[route("/billing/methods")]
+    PaymentMethodsScreen {},
+
+    #[cfg(feature = "billing")]
+    #[route("/billing/refunds")]
+    RefundsListScreen {},
 
     #[route("/demo/sonner")]
     SonnerDemoScreen {},
