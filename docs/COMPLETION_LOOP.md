@@ -174,7 +174,7 @@ Feature-gated monetization. Each payment provider is a separate Cargo feature.
 
 ### Phase 10 — Consumer Billing and Paywall
 
-- [ ] **10.1** Create consumer feature flag `billing` in `consumer-dioxus/Cargo.toml`.
+- [x] **10.1** Create consumer feature flag `billing` in `consumer-dioxus/Cargo.toml`.
 - [x] **10.2** Create migration: `post_access` table (id, post_id, access_type free/paid/subscriber_only, price_cents nullable, created_at).
 - [x] **10.3** Create `POST /billing/v1/subscribe` (consumer) — subscribe to a plan, redirect to provider checkout.
 - [x] **10.4** Create `GET /billing/v1/subscription` (consumer) — get current user's active subscription.
@@ -238,7 +238,7 @@ Fill gaps in admin screens.
 - [x] **14.4** Twitter Card meta tags: verify twitter:card, twitter:title, twitter:description, twitter:image.
 - [x] **14.5** Structured data: verify JSON-LD for BlogPosting, WebSite, BreadcrumbList on all relevant pages.
 - [x] **14.6** Canonical URLs: ensure every page sets a canonical URL matching the CONSUMER_SITE_URL.
-- [ ] **14.7** RSS/Atom feed: verify `/feed/v1/rss` and `/feed/v1/atom` produce valid feed XML. Add `<link rel="alternate">` to consumer HTML head.
+- [x] **14.7** RSS/Atom feed: verify `/feed/v1/rss` and `/feed/v1/atom` produce valid feed XML. Add `<link rel="alternate">` to consumer HTML head.
 - [ ] **14.8** Performance: audit WASM bundle size, add code splitting hints where possible. Ensure Tailwind CSS is pruned (already done per git log).
 - [ ] **14.9** Lighthouse audit: use browser agent to run Lighthouse on consumer homepage, post page, category page. Target: Performance > 80, Accessibility > 90, SEO > 90.
 - [ ] **14.10** Browser-agent verification: for each SEO item, navigate to page, view page source, verify meta tags present and correct.

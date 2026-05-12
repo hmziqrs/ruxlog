@@ -1,4 +1,10 @@
-use axum::{extract::State, http::{header, StatusCode}, middleware, routing::get, Json, Router};
+use axum::{
+    extract::State,
+    http::{header, StatusCode},
+    middleware,
+    routing::get,
+    Json, Router,
+};
 use tower_http::{
     trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer},
     LatencyUnit,
@@ -6,7 +12,9 @@ use tower_http::{
 use tracing::Level;
 
 use crate::middlewares::{http_metrics, rate_limit, request_id_middleware, security_headers};
-use crate::modules::{auth_v1, category_v1, feed_v1, media_v1, post_v1, search_v1, tag_v1, user_v1};
+use crate::modules::{
+    auth_v1, category_v1, feed_v1, media_v1, post_v1, search_v1, tag_v1, user_v1,
+};
 
 #[cfg(feature = "auth-oauth")]
 use crate::modules::google_auth_v1;
@@ -41,14 +49,10 @@ pub fn router(state: AppState) -> Router<AppState> {
     let mut router = Router::new()
         .route("/healthz", get(health_check))
         .route("/robots.txt", get(robots_txt))
-        .route(
-            "/sitemap.xml",
-            get(sitemap_xml),
-        )
+        .route("/sitemap.xml", get(sitemap_xml))
         .nest(
             "/auth/v1",
-            auth_v1::routes()
-                .layer(rate_limit::RateLimitLayer::new(state.clone(), 5, 60)),
+            auth_v1::routes().layer(rate_limit::RateLimitLayer::new(state.clone(), 5, 60)),
         );
 
     #[cfg(feature = "auth-oauth")]
@@ -67,15 +71,13 @@ pub fn router(state: AppState) -> Router<AppState> {
             .nest("/forgot_password/v1", forgot_password_v1::routes());
     }
 
-    router = router
-        .nest("/post/v1", post_v1::routes());
+    router = router.nest("/post/v1", post_v1::routes());
 
     #[cfg(feature = "comments")]
     {
         router = router.nest(
             "/post/comment/v1",
-            post_comment_v1::routes()
-                .layer(rate_limit::RateLimitLayer::new(state.clone(), 10, 60)), // 10 req/min
+            post_comment_v1::routes().layer(rate_limit::RateLimitLayer::new(state.clone(), 10, 60)), // 10 req/min
         );
     }
 
@@ -90,8 +92,7 @@ pub fn router(state: AppState) -> Router<AppState> {
     {
         router = router.nest(
             "/newsletter/v1",
-            newsletter_v1::routes()
-                .layer(rate_limit::RateLimitLayer::new(state.clone(), 5, 60)), // 5 req/min
+            newsletter_v1::routes().layer(rate_limit::RateLimitLayer::new(state.clone(), 5, 60)), // 5 req/min
         );
     }
 
@@ -149,7 +150,11 @@ async fn health_check(State(state): State<AppState>) -> (StatusCode, Json<serde_
     let redis_status = "ok";
 
     let healthy = db_status == "ok";
-    let status = if healthy { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE };
+    let status = if healthy {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
 
     (
         status,
@@ -163,7 +168,11 @@ async fn health_check(State(state): State<AppState>) -> (StatusCode, Json<serde_
     )
 }
 
-async fn robots_txt() -> (StatusCode, [(axum::http::HeaderName, &'static str); 1], &'static str) {
+async fn robots_txt() -> (
+    StatusCode,
+    [(axum::http::HeaderName, &'static str); 1],
+    &'static str,
+) {
     (
         StatusCode::OK,
         [(header::CONTENT_TYPE, "text/plain")],
@@ -171,17 +180,30 @@ async fn robots_txt() -> (StatusCode, [(axum::http::HeaderName, &'static str); 1
     )
 }
 
-async fn sitemap_xml(State(state): State<AppState>) -> Result<(StatusCode, [(axum::http::HeaderName, &'static str); 1], String), StatusCode> {
+async fn sitemap_xml(
+    State(state): State<AppState>,
+) -> Result<
+    (
+        StatusCode,
+        [(axum::http::HeaderName, &'static str); 1],
+        String,
+    ),
+    StatusCode,
+> {
     use crate::db::sea_models::post;
 
     let posts = post::Entity::sitemap(&state.sea_db)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let base_url = std::env::var("CONSUMER_SITE_URL").unwrap_or_else(|_| "https://ruxlog.com".to_string());
+    let base_url =
+        std::env::var("CONSUMER_SITE_URL").unwrap_or_else(|_| "https://ruxlog.com".to_string());
 
     let mut urls = String::from("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
-    urls.push_str(&format!("  <url><loc>{}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>\n", base_url));
+    urls.push_str(&format!(
+        "  <url><loc>{}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>\n",
+        base_url
+    ));
 
     for p in &posts {
         let lastmod = p.updated_at.to_rfc3339();
@@ -193,5 +215,9 @@ async fn sitemap_xml(State(state): State<AppState>) -> Result<(StatusCode, [(axu
 
     urls.push_str("</urlset>");
 
-    Ok((StatusCode::OK, [(header::CONTENT_TYPE, "application/xml")], urls))
+    Ok((
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "application/xml")],
+        urls,
+    ))
 }
