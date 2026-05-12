@@ -18,14 +18,22 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(DiscountCodes::Code).string_len(50).not_null())
+                    .col(
+                        ColumnDef::new(DiscountCodes::Code)
+                            .string_len(50)
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(DiscountCodes::Description).text())
                     .col(
                         ColumnDef::new(DiscountCodes::DiscountType)
                             .string_len(20)
                             .not_null(),
                     )
-                    .col(ColumnDef::new(DiscountCodes::DiscountValue).integer().not_null())
+                    .col(
+                        ColumnDef::new(DiscountCodes::DiscountValue)
+                            .integer()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(DiscountCodes::Currency)
                             .string_len(3)
@@ -38,9 +46,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(0),
                     )
-                    .col(
-                        ColumnDef::new(DiscountCodes::ValidFrom).timestamp_with_time_zone(),
-                    )
+                    .col(ColumnDef::new(DiscountCodes::ValidFrom).timestamp_with_time_zone())
                     .col(ColumnDef::new(DiscountCodes::ValidUntil).timestamp_with_time_zone())
                     .col(ColumnDef::new(DiscountCodes::PlanId).integer())
                     .col(

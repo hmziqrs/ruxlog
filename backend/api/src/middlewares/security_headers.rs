@@ -8,10 +8,10 @@
 //! - X-XSS-Protection: 0 (deprecated but some scanners expect it)
 
 use axum::{
-    http::{HeaderValue, header},
+    extract::Request,
+    http::{header, HeaderValue},
     middleware::Next,
     response::Response,
-    extract::Request,
 };
 
 const NOSNIFF: &str = "nosniff";
@@ -28,10 +28,7 @@ pub async fn security_headers(request: Request, next: Next) -> Response {
         header::X_CONTENT_TYPE_OPTIONS,
         HeaderValue::from_static(NOSNIFF),
     );
-    headers.insert(
-        header::X_FRAME_OPTIONS,
-        HeaderValue::from_static(DENY),
-    );
+    headers.insert(header::X_FRAME_OPTIONS, HeaderValue::from_static(DENY));
     headers.insert(
         header::REFERRER_POLICY,
         HeaderValue::from_static(REFERRER_POLICY),
@@ -41,10 +38,7 @@ pub async fn security_headers(request: Request, next: Next) -> Response {
         HeaderValue::from_static(PERMISSIONS_POLICY),
     );
     // X-XSS-Protection is deprecated but some security scanners still flag its absence
-    headers.insert(
-        "x-xss-protection",
-        HeaderValue::from_static(XSS_PROTECTION),
-    );
+    headers.insert("x-xss-protection", HeaderValue::from_static(XSS_PROTECTION));
 
     response
 }

@@ -28,7 +28,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     // Allow both `--theme foo` and bare `foo` positional.
     let theme_name = args
-        .theme_positional.first()
+        .theme_positional
+        .first()
         .map(String::as_str)
         .unwrap_or(&args.theme);
     let theme = ThemeKind::from_str(theme_name).unwrap_or(ThemeKind::Dracula);

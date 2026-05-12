@@ -57,9 +57,10 @@ pub fn SearchScreen() -> Element {
             error_msg.set(None);
             searched.set(true);
 
-            let response = oxcore::http::post("/search/v1/search", &serde_json::json!({ "q": q_clone }))
-                .send()
-                .await;
+            let response =
+                oxcore::http::post("/search/v1/search", &serde_json::json!({ "q": q_clone }))
+                    .send()
+                    .await;
 
             match response {
                 Ok(resp) => {

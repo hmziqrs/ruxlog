@@ -1,4 +1,7 @@
-use crate::components::{estimate_reading_time, format_date, ActionBar, BannerPlaceholder, PaywallOverlay, ReadingProgressBar, RelatedPosts, SeriesNavigation, TableOfContents};
+use crate::components::{
+    estimate_reading_time, format_date, ActionBar, BannerPlaceholder, PaywallOverlay,
+    ReadingProgressBar, RelatedPosts, SeriesNavigation, TableOfContents,
+};
 use crate::seo::{
     article_schema, breadcrumb_schema, ArticleMetadata, SeoHead, SeoImage, SeoMetadataBuilder,
     StructuredData,

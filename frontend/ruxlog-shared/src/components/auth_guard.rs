@@ -36,7 +36,7 @@ pub struct AuthGuardLoaderProps {
 }
 
 /// Loading spinner component for auth guard
-/// 
+///
 /// Shows a full-screen or overlay loading state with customizable messages.
 /// Handles fade in/out animations automatically.
 #[component]
@@ -95,7 +95,7 @@ pub fn AuthGuardLoader(props: AuthGuardLoaderProps) -> Element {
 }
 
 /// Error display component for auth guard
-/// 
+///
 /// Shows when auth initialization fails with a retry button.
 #[component]
 pub fn AuthGuardError(on_retry: EventHandler<()>) -> Element {

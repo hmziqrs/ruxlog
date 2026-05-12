@@ -176,6 +176,10 @@ pub fn PageHeader(props: PageHeaderProps) -> Element {
             vec![("settings".to_string(), None), ("notifications".to_string(), None)]
         }
 
+        Route::ImportExportScreen {} => {
+            vec![("import/export".to_string(), None)]
+        }
+
         Route::HomeScreen {} | Route::LoginScreen {} => vec![],
     };
 

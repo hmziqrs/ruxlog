@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use hmziq_dioxus_free_icons::icons::ld_icons::{LdBell, LdMenu, LdMoon, LdSun};
+use hmziq_dioxus_free_icons::icons::ld_icons::{LdBell, LdMenu, LdMoon, LdSearch, LdSun};
 use hmziq_dioxus_free_icons::Icon;
 
 use crate::components::sidebar::Sidebar;
@@ -14,6 +14,8 @@ pub fn NavBarContainer() -> Element {
     let auth_user = auth_store.user.read();
     let mut sidebar_open = use_signal(|| false);
     let mut dark_theme = use_context_provider(|| Signal::new(DarkMode(true)));
+    let mut search_query = use_signal(|| String::new());
+    let nav = use_navigator();
 
     use_effect(move || {
         spawn(async move {
@@ -64,6 +66,29 @@ pub fn NavBarContainer() -> Element {
                         onclick: toggle_sidebar,
                         div { class: "w-4 h-4",
                             Icon { icon: LdMenu }
+                        }
+                    }
+                }
+
+                // Global search bar
+                form {
+                    class: "hidden flex-1 max-w-md mx-4 md:flex",
+                    onsubmit: move |e| {
+                        e.prevent_default();
+                        nav.push(Route::PostsListScreen {});
+                    },
+                    div { class: "relative w-full",
+                        label { class: "sr-only", r#for: "global-search", "Search" }
+                        div { class: "pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground",
+                            Icon { icon: LdSearch {} }
+                        }
+                        input {
+                            id: "global-search",
+                            r#type: "text",
+                            class: "h-9 w-full rounded-md border border-input bg-transparent px-9 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                            placeholder: "Search posts, categories, tags...",
+                            value: "{search_query}",
+                            oninput: move |e| search_query.set(e.value()),
                         }
                     }
                 }

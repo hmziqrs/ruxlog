@@ -73,10 +73,7 @@ impl BillingProvider for PaddleProvider {
             .map_err(|e| BillingError::ProviderApi(e.to_string()))?;
 
         Ok(CheckoutSession {
-            session_id: data["data"]["id"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string(),
+            session_id: data["data"]["id"].as_str().unwrap_or_default().to_string(),
             checkout_url: data["data"]["checkout"]["url"]
                 .as_str()
                 .unwrap_or_default()
@@ -149,9 +146,7 @@ impl BillingProvider for PaddleProvider {
         Ok(SubscriptionInfo {
             provider_subscription_id: d["id"].as_str().unwrap_or_default().to_string(),
             status: d["status"].as_str().unwrap_or_default().to_string(),
-            current_period_end: d["next_billed_at"]
-                .as_str()
-                .and_then(|s| s.parse().ok()),
+            current_period_end: d["next_billed_at"].as_str().and_then(|s| s.parse().ok()),
             cancel_at_period_end: d["scheduled_change"]["action"]
                 .as_str()
                 .map(|a| a == "cancel")
@@ -159,10 +154,7 @@ impl BillingProvider for PaddleProvider {
         })
     }
 
-    async fn verify_webhook(
-        &self,
-        event: WebhookEvent,
-    ) -> Result<ParsedWebhook, BillingError> {
+    async fn verify_webhook(&self, event: WebhookEvent) -> Result<ParsedWebhook, BillingError> {
         // Verify Paddle webhook signature using HMAC-SHA256
         if let Some(signature) = event.headers.get("paddle-signature") {
             use hmac::{Hmac, Mac};
@@ -194,14 +186,8 @@ impl BillingProvider for PaddleProvider {
         let obj = &data["data"];
 
         Ok(ParsedWebhook {
-            event_type: data["event_type"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string(),
-            customer_id: obj["customer_id"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string(),
+            event_type: data["event_type"].as_str().unwrap_or_default().to_string(),
+            customer_id: obj["customer_id"].as_str().unwrap_or_default().to_string(),
             subscription_id: obj["id"].as_str().map(String::from),
             payment_id: obj["transaction_id"].as_str().map(String::from),
             data,
@@ -225,7 +211,9 @@ fn constant_time_eq_str(a: &str, b: &str) -> bool {
     }
     let a_bytes = a.as_bytes();
     let b_bytes = b.as_bytes();
-    a_bytes.iter().zip(b_bytes.iter()).fold(0, |acc, (x, y)| {
-        acc | (x ^ y)
-    }) == 0
+    a_bytes
+        .iter()
+        .zip(b_bytes.iter())
+        .fold(0, |acc, (x, y)| acc | (x ^ y))
+        == 0
 }

@@ -49,10 +49,7 @@ impl BillingProvider for StripeProvider {
 
         let resp = client
             .post("https://api.stripe.com/v1/checkout/sessions")
-            .header(
-                "Authorization",
-                format!("Bearer {}", self.secret_key),
-            )
+            .header("Authorization", format!("Bearer {}", self.secret_key))
             .form(&params)
             .send()
             .await
@@ -88,19 +85,13 @@ impl BillingProvider for StripeProvider {
         let resp = if immediately {
             client
                 .delete(&url)
-                .header(
-                    "Authorization",
-                    format!("Bearer {}", self.secret_key),
-                )
+                .header("Authorization", format!("Bearer {}", self.secret_key))
                 .send()
                 .await
         } else {
             client
                 .post(&url)
-                .header(
-                    "Authorization",
-                    format!("Bearer {}", self.secret_key),
-                )
+                .header("Authorization", format!("Bearer {}", self.secret_key))
                 .form(&[("cancel_at_period_end", "true")])
                 .send()
                 .await
@@ -127,10 +118,7 @@ impl BillingProvider for StripeProvider {
 
         let resp = client
             .get(&url)
-            .header(
-                "Authorization",
-                format!("Bearer {}", self.secret_key),
-            )
+            .header("Authorization", format!("Bearer {}", self.secret_key))
             .send()
             .await
             .map_err(|e| BillingError::ProviderApi(e.to_string()))?;
@@ -156,10 +144,7 @@ impl BillingProvider for StripeProvider {
         })
     }
 
-    async fn verify_webhook(
-        &self,
-        event: WebhookEvent,
-    ) -> Result<ParsedWebhook, BillingError> {
+    async fn verify_webhook(&self, event: WebhookEvent) -> Result<ParsedWebhook, BillingError> {
         // Stripe webhook verification uses HMAC-SHA256
         let payload_str = String::from_utf8(event.payload.clone())
             .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
@@ -184,10 +169,7 @@ impl BillingProvider for StripeProvider {
         let data: serde_json::Value = serde_json::from_str(&payload_str)
             .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
 
-        let event_type = data["type"]
-            .as_str()
-            .unwrap_or_default()
-            .to_string();
+        let event_type = data["type"].as_str().unwrap_or_default().to_string();
 
         let obj = &data["data"]["object"];
 
@@ -213,10 +195,7 @@ impl BillingProvider for StripeProvider {
 
         let resp = client
             .post("https://api.stripe.com/v1/billing_portal/sessions")
-            .header(
-                "Authorization",
-                format!("Bearer {}", self.secret_key),
-            )
+            .header("Authorization", format!("Bearer {}", self.secret_key))
             .form(&params)
             .send()
             .await

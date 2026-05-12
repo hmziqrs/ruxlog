@@ -194,7 +194,7 @@ Features missing from the backend that a production blog needs.
 - [ ] **11.2** Email template system: create `backend/api/src/services/mail/templates/` with Tera templates for verification, forgot-password, newsletter, welcome, payment-receipt, subscription-confirmation. Replace inline HTML.
 - [x] **11.3** Full-text search: created `POST /search/v1/search` endpoint. Searches published posts by title, excerpt, and slug with pagination.
 - [ ] **11.4** Create migration: add `search_vector` tsvector column to posts table. Create GIN index. Create trigger to auto-update on insert/update. (Current search uses LIKE-based filtering; tsvector upgrade deferred.)
-- [ ] **11.5** Scheduled post publisher: create a background task (tokio interval) that queries `scheduled_posts` table for due publications and updates status to Published. Feature gate: `scheduler`.
+- [x] **11.5** Scheduled post publisher: create a background task (tokio interval) that queries `scheduled_posts` table for due publications and updates status to Published. Feature gate: `scheduler`.
 - [x] **11.6** Audit log system: created migration `m20260512_000044_create_audit_logs_table` with indexes on user_id, resource_type+resource_id, action, created_at. SeaORM model at `src/db/sea_models/audit_log/`.
 - [x] **11.7** Rate limiting middleware: per-route configurable rate limits using Redis. Apply to auth endpoints (5/min), comment creation (10/min), newsletter subscribe (5/min). Redis-based fixed-window counter with X-RateLimit headers.
 - [x] **11.8** Health check enhancement: `/healthz` now returns structured JSON with database connectivity status. Added `GET /robots.txt` endpoint.
@@ -222,9 +222,9 @@ Fill placeholder screens and add missing features.
 
 Fill gaps in admin screens.
 
-- [ ] **13.1** Admin search: add global search bar in admin navbar. Search across posts, categories, tags, users, media.
+- [x] **13.1** Admin search: add global search bar in admin navbar. Search across posts, categories, tags, users, media.
 - [x] **13.2** Admin dashboard enhancements: add recent comments widget, recent subscribers widget, quick draft button.
-- [ ] **13.3** Bulk import/export: CSV import for posts, categories, tags. CSV export for users, subscribers, payments.
+- [x] **13.3** Bulk import/export: CSV import for posts, categories, tags. CSV export for users, subscribers, payments.
 - [x] **13.4** Notification settings screen: configure email notification preferences per event type (new comment, new subscriber, payment received, etc.).
 - [x] **13.5** System health screen: show Postgres stats, Redis stats, RustFS storage usage, API uptime, recent errors.
 - [x] **13.6** Audit log viewer screen: paginated table of audit events with filters (user, action type, date range).
@@ -239,7 +239,7 @@ Fill gaps in admin screens.
 - [x] **14.5** Structured data: verify JSON-LD for BlogPosting, WebSite, BreadcrumbList on all relevant pages.
 - [x] **14.6** Canonical URLs: ensure every page sets a canonical URL matching the CONSUMER_SITE_URL.
 - [x] **14.7** RSS/Atom feed: verify `/feed/v1/rss` and `/feed/v1/atom` produce valid feed XML. Add `<link rel="alternate">` to consumer HTML head.
-- [ ] **14.8** Performance: audit WASM bundle size, add code splitting hints where possible. Ensure Tailwind CSS is pruned (already done per git log).
+- [x] **14.8** Performance: audit WASM bundle size, add code splitting hints where possible. Ensure Tailwind CSS is pruned (already done per git log).
 - [ ] **14.9** Lighthouse audit: use browser agent to run Lighthouse on consumer homepage, post page, category page. Target: Performance > 80, Accessibility > 90, SEO > 90.
 - [ ] **14.10** Browser-agent verification: for each SEO item, navigate to page, view page source, verify meta tags present and correct.
 

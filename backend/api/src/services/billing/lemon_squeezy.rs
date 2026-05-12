@@ -30,18 +30,12 @@ impl LemonSqueezyProvider {
     /// - `LEMONSQUEEZY_WEBHOOK_SECRET`
     /// - `LEMONSQUEEZY_STORE_ID`
     pub fn from_env() -> Result<Self, BillingError> {
-        let api_key =
-            std::env::var("LEMONSQUEEZY_API_KEY").map_err(|_| {
-                BillingError::Config("LEMONSQUEEZY_API_KEY not set".to_string())
-            })?;
-        let webhook_secret =
-            std::env::var("LEMONSQUEEZY_WEBHOOK_SECRET").map_err(|_| {
-                BillingError::Config("LEMONSQUEEZY_WEBHOOK_SECRET not set".to_string())
-            })?;
-        let store_id =
-            std::env::var("LEMONSQUEEZY_STORE_ID").map_err(|_| {
-                BillingError::Config("LEMONSQUEEZY_STORE_ID not set".to_string())
-            })?;
+        let api_key = std::env::var("LEMONSQUEEZY_API_KEY")
+            .map_err(|_| BillingError::Config("LEMONSQUEEZY_API_KEY not set".to_string()))?;
+        let webhook_secret = std::env::var("LEMONSQUEEZY_WEBHOOK_SECRET")
+            .map_err(|_| BillingError::Config("LEMONSQUEEZY_WEBHOOK_SECRET not set".to_string()))?;
+        let store_id = std::env::var("LEMONSQUEEZY_STORE_ID")
+            .map_err(|_| BillingError::Config("LEMONSQUEEZY_STORE_ID not set".to_string()))?;
         Ok(Self {
             api_key,
             webhook_secret,
@@ -180,24 +174,14 @@ impl BillingProvider for LemonSqueezyProvider {
 
         let attrs = &data["data"]["attributes"];
         Ok(SubscriptionInfo {
-            provider_subscription_id: data["data"]["id"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string(),
+            provider_subscription_id: data["data"]["id"].as_str().unwrap_or_default().to_string(),
             status: attrs["status"].as_str().unwrap_or_default().to_string(),
-            current_period_end: attrs["renews_at"]
-                .as_str()
-                .and_then(|s| s.parse().ok()),
-            cancel_at_period_end: attrs["cancelled"]
-                .as_bool()
-                .unwrap_or(false),
+            current_period_end: attrs["renews_at"].as_str().and_then(|s| s.parse().ok()),
+            cancel_at_period_end: attrs["cancelled"].as_bool().unwrap_or(false),
         })
     }
 
-    async fn verify_webhook(
-        &self,
-        event: WebhookEvent,
-    ) -> Result<ParsedWebhook, BillingError> {
+    async fn verify_webhook(&self, event: WebhookEvent) -> Result<ParsedWebhook, BillingError> {
         let payload_str = String::from_utf8(event.payload.clone())
             .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
 
@@ -206,9 +190,8 @@ impl BillingProvider for LemonSqueezyProvider {
         let expected = {
             use hmac::{Hmac, Mac};
             use sha2::Sha256;
-            let mut mac =
-                Hmac::<Sha256>::new_from_slice(self.webhook_secret.as_bytes())
-                    .expect("HMAC accepts any key length");
+            let mut mac = Hmac::<Sha256>::new_from_slice(self.webhook_secret.as_bytes())
+                .expect("HMAC accepts any key length");
             mac.update(event.payload.as_slice());
             let result = mac.finalize().into_bytes();
             hex::encode(result)
@@ -230,10 +213,7 @@ impl BillingProvider for LemonSqueezyProvider {
                 .as_str()
                 .unwrap_or_default()
                 .to_string(),
-            customer_id: obj["customer_id"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string(),
+            customer_id: obj["customer_id"].as_str().unwrap_or_default().to_string(),
             subscription_id: data["data"]["id"].as_str().map(String::from),
             payment_id: obj["order_id"].as_str().map(String::from),
             data,

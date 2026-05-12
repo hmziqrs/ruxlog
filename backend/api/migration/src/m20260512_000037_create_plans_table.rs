@@ -37,7 +37,12 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(true),
                     )
-                    .col(ColumnDef::new(Plans::SortOrder).integer().not_null().default(0))
+                    .col(
+                        ColumnDef::new(Plans::SortOrder)
+                            .integer()
+                            .not_null()
+                            .default(0),
+                    )
                     .col(
                         ColumnDef::new(Plans::CreatedAt)
                             .timestamp_with_time_zone()

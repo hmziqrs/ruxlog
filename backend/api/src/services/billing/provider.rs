@@ -90,10 +90,7 @@ pub trait BillingProvider: Send + Sync {
     ) -> Result<SubscriptionInfo, BillingError>;
 
     /// Verify and parse an incoming webhook.
-    async fn verify_webhook(
-        &self,
-        event: WebhookEvent,
-    ) -> Result<ParsedWebhook, BillingError>;
+    async fn verify_webhook(&self, event: WebhookEvent) -> Result<ParsedWebhook, BillingError>;
 
     /// Create a billing portal session for the customer to manage their subscription.
     async fn create_portal_session(

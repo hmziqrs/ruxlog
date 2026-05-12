@@ -22,12 +22,7 @@ pub struct CryptoProvider {
 }
 
 impl CryptoProvider {
-    pub fn new(
-        wallet_address: String,
-        api_url: String,
-        api_key: String,
-        currency: String,
-    ) -> Self {
+    pub fn new(wallet_address: String, api_url: String, api_key: String, currency: String) -> Self {
         Self {
             wallet_address,
             api_url,
@@ -90,10 +85,7 @@ impl BillingProvider for CryptoProvider {
         })
     }
 
-    async fn verify_webhook(
-        &self,
-        event: WebhookEvent,
-    ) -> Result<ParsedWebhook, BillingError> {
+    async fn verify_webhook(&self, event: WebhookEvent) -> Result<ParsedWebhook, BillingError> {
         // Crypto webhooks come from the blockchain monitoring service
         let payload_str = String::from_utf8(event.payload.clone())
             .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;

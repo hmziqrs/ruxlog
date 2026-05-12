@@ -2,7 +2,7 @@ use crate::config::BRAND;
 use crate::router::Route;
 use crate::seo::{breadcrumb_schema, SeoHead, SeoMetadataBuilder, StructuredData};
 use dioxus::prelude::*;
-use hmziq_dioxus_free_icons::icons::ld_icons::{LdCheck, LdCreditCard, LdCalendar};
+use hmziq_dioxus_free_icons::icons::ld_icons::{LdCalendar, LdCheck, LdCreditCard};
 use hmziq_dioxus_free_icons::Icon;
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -67,7 +67,10 @@ pub fn BillingScreen() -> Element {
         });
     });
 
-    let active_sub = subscriptions().iter().find(|s| s.status == "active").cloned();
+    let active_sub = subscriptions()
+        .iter()
+        .find(|s| s.status == "active")
+        .cloned();
 
     rsx! {
         SeoHead { metadata: seo_metadata }

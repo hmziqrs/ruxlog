@@ -31,18 +31,15 @@ fn security_headers_router() -> Router {
 async fn security_headers_present_on_response() {
     let app = security_headers_router();
     let response = app
-        .oneshot(
-            Request::builder()
-                .uri("/test")
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(Request::builder().uri("/test").body(Body::empty()).unwrap())
         .await
         .unwrap();
 
     let headers = response.headers();
     assert_eq!(
-        headers.get("x-content-type-options").map(|v| v.to_str().unwrap()),
+        headers
+            .get("x-content-type-options")
+            .map(|v| v.to_str().unwrap()),
         Some("nosniff")
     );
     assert_eq!(
@@ -54,7 +51,9 @@ async fn security_headers_present_on_response() {
         Some("strict-origin-when-cross-origin")
     );
     assert_eq!(
-        headers.get("permissions-policy").map(|v| v.to_str().unwrap()),
+        headers
+            .get("permissions-policy")
+            .map(|v| v.to_str().unwrap()),
         Some("camera=(), microphone=(), geolocation=()")
     );
     assert_eq!(
@@ -204,7 +203,7 @@ fn wrong_length_totp_code_rejected() {
     let secret = twofa::generate_secret_base32(20);
     assert!(!twofa::verify_totp_code_at(
         &secret,
-        "12345",  // 5 digits instead of 6
+        "12345", // 5 digits instead of 6
         chrono::Utc::now().fixed_offset(),
         twofa::DEFAULT_TOTP_STEP,
         twofa::DEFAULT_TOTP_DIGITS,
@@ -231,18 +230,35 @@ fn error_codes_distinct_status_for_auth_vs_db() {
     use ruxlog::error::codes::ErrorCode;
 
     // Auth errors should be 401/403, not 500
-    let auth_401 = vec![ErrorCode::InvalidCredentials, ErrorCode::SessionExpired, ErrorCode::InvalidToken];
+    let auth_401 = vec![
+        ErrorCode::InvalidCredentials,
+        ErrorCode::SessionExpired,
+        ErrorCode::InvalidToken,
+    ];
     for code in &auth_401 {
         assert_eq!(code.status_code(), axum::http::StatusCode::UNAUTHORIZED);
     }
 
-    let auth_403 = vec![ErrorCode::Unauthorized, ErrorCode::AccountLocked, ErrorCode::EmailVerificationRequired];
+    let auth_403 = vec![
+        ErrorCode::Unauthorized,
+        ErrorCode::AccountLocked,
+        ErrorCode::EmailVerificationRequired,
+    ];
     for code in &auth_403 {
         assert_eq!(code.status_code(), axum::http::StatusCode::FORBIDDEN);
     }
 
     // DB errors should be 404/409/500, never 401
-    assert_eq!(ErrorCode::RecordNotFound.status_code(), axum::http::StatusCode::NOT_FOUND);
-    assert_eq!(ErrorCode::DuplicateEntry.status_code(), axum::http::StatusCode::CONFLICT);
-    assert_eq!(ErrorCode::DatabaseConnectionError.status_code(), axum::http::StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(
+        ErrorCode::RecordNotFound.status_code(),
+        axum::http::StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        ErrorCode::DuplicateEntry.status_code(),
+        axum::http::StatusCode::CONFLICT
+    );
+    assert_eq!(
+        ErrorCode::DatabaseConnectionError.status_code(),
+        axum::http::StatusCode::INTERNAL_SERVER_ERROR
+    );
 }

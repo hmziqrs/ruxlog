@@ -169,22 +169,19 @@ mod tests {
 
     #[test]
     fn with_message_overrides_default() {
-        let err = ErrorResponse::new(ErrorCode::InvalidCredentials)
-            .with_message("Custom message");
+        let err = ErrorResponse::new(ErrorCode::InvalidCredentials).with_message("Custom message");
         assert_eq!(err.message, "Custom message");
     }
 
     #[test]
     fn with_retry_after_sets_field() {
-        let err = ErrorResponse::new(ErrorCode::RateLimited)
-            .with_retry_after(60);
+        let err = ErrorResponse::new(ErrorCode::RateLimited).with_retry_after(60);
         assert_eq!(err.retry_after, Some(60));
     }
 
     #[test]
     fn with_request_id_sets_field() {
-        let err = ErrorResponse::new(ErrorCode::InternalServerError)
-            .with_request_id("req-123");
+        let err = ErrorResponse::new(ErrorCode::InternalServerError).with_request_id("req-123");
         assert_eq!(err.request_id, Some("req-123".to_string()));
     }
 
@@ -210,8 +207,7 @@ mod tests {
 
     #[test]
     fn display_format() {
-        let err = ErrorResponse::new(ErrorCode::RecordNotFound)
-            .with_message("Post not found");
+        let err = ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Post not found");
         let s = format!("{}", err);
         assert!(s.contains("DB_002"));
         assert!(s.contains("Post not found"));

@@ -317,22 +317,53 @@ mod tests {
             ErrorCode::TagNotFound,
         ];
         for code in &codes {
-            assert!(!code.default_message().is_empty(), "{:?} has empty message", code);
+            assert!(
+                !code.default_message().is_empty(),
+                "{:?} has empty message",
+                code
+            );
         }
     }
 
     #[test]
     fn status_code_mappings() {
-        assert_eq!(ErrorCode::InvalidCredentials.status_code(), StatusCode::UNAUTHORIZED);
+        assert_eq!(
+            ErrorCode::InvalidCredentials.status_code(),
+            StatusCode::UNAUTHORIZED
+        );
         assert_eq!(ErrorCode::Unauthorized.status_code(), StatusCode::FORBIDDEN);
-        assert_eq!(ErrorCode::TooManyAttempts.status_code(), StatusCode::TOO_MANY_REQUESTS);
-        assert_eq!(ErrorCode::RecordNotFound.status_code(), StatusCode::NOT_FOUND);
-        assert_eq!(ErrorCode::DuplicateEntry.status_code(), StatusCode::CONFLICT);
-        assert_eq!(ErrorCode::InternalServerError.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
-        assert_eq!(ErrorCode::FileTooLarge.status_code(), StatusCode::PAYLOAD_TOO_LARGE);
-        assert_eq!(ErrorCode::ServiceUnavailable.status_code(), StatusCode::SERVICE_UNAVAILABLE);
-        assert_eq!(ErrorCode::Timeout.status_code(), StatusCode::GATEWAY_TIMEOUT);
-        assert_eq!(ErrorCode::BusinessRuleViolation.status_code(), StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(
+            ErrorCode::TooManyAttempts.status_code(),
+            StatusCode::TOO_MANY_REQUESTS
+        );
+        assert_eq!(
+            ErrorCode::RecordNotFound.status_code(),
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(
+            ErrorCode::DuplicateEntry.status_code(),
+            StatusCode::CONFLICT
+        );
+        assert_eq!(
+            ErrorCode::InternalServerError.status_code(),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
+        assert_eq!(
+            ErrorCode::FileTooLarge.status_code(),
+            StatusCode::PAYLOAD_TOO_LARGE
+        );
+        assert_eq!(
+            ErrorCode::ServiceUnavailable.status_code(),
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+        assert_eq!(
+            ErrorCode::Timeout.status_code(),
+            StatusCode::GATEWAY_TIMEOUT
+        );
+        assert_eq!(
+            ErrorCode::BusinessRuleViolation.status_code(),
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
     }
 
     #[test]

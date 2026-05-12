@@ -19,11 +19,7 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(AuditLogs::UserId).integer())
-                    .col(
-                        ColumnDef::new(AuditLogs::Action)
-                            .string_len(100)
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(AuditLogs::Action).string_len(100).not_null())
                     .col(
                         ColumnDef::new(AuditLogs::ResourceType)
                             .string_len(50)

@@ -71,9 +71,7 @@ impl LikeState {
 
     /// Get likes count for a post (from cache)
     pub fn likes_count(&self, post_id: i32) -> i32 {
-        self.get_status(post_id)
-            .map(|s| s.likes_count)
-            .unwrap_or(0)
+        self.get_status(post_id).map(|s| s.likes_count).unwrap_or(0)
     }
 
     /// Check if an action is in progress for a post

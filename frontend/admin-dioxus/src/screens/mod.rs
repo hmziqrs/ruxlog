@@ -21,6 +21,7 @@ mod comments;
 mod newsletter;
 
 mod audit;
+mod import_export;
 mod notification_settings;
 mod system_health;
 
@@ -50,6 +51,7 @@ pub use comments::*;
 pub use newsletter::*;
 
 pub use audit::*;
+pub use import_export::*;
 pub use notification_settings::*;
 pub use system_health::*;
 

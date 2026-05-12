@@ -132,10 +132,7 @@ impl BillingProvider for PolarProvider {
         })
     }
 
-    async fn verify_webhook(
-        &self,
-        event: WebhookEvent,
-    ) -> Result<ParsedWebhook, BillingError> {
+    async fn verify_webhook(&self, event: WebhookEvent) -> Result<ParsedWebhook, BillingError> {
         let payload_str = String::from_utf8(event.payload.clone())
             .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
 
@@ -148,9 +145,7 @@ impl BillingProvider for PolarProvider {
                 .as_str()
                 .unwrap_or_default()
                 .to_string(),
-            subscription_id: data["data"]["subscription_id"]
-                .as_str()
-                .map(String::from),
+            subscription_id: data["data"]["subscription_id"].as_str().map(String::from),
             payment_id: data["data"]["order_id"].as_str().map(String::from),
             data,
         })

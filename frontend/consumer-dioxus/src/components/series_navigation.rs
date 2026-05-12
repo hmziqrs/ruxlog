@@ -6,10 +6,7 @@ use dioxus::prelude::*;
 /// It is designed to be expanded later when the backend includes series metadata
 /// in the post response.
 #[component]
-pub fn SeriesNavigation(
-    series_id: Option<i32>,
-    series_title: Option<String>,
-) -> Element {
+pub fn SeriesNavigation(series_id: Option<i32>, series_title: Option<String>) -> Element {
     match (series_id, series_title) {
         (Some(_id), Some(title)) => {
             rsx! {

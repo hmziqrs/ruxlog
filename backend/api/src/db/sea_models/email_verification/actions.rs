@@ -45,10 +45,8 @@ impl Entity {
 
         match query.one(conn).await {
             Ok(Some(result)) => Ok(result),
-            Ok(None) => {
-                Err(ErrorResponse::new(ErrorCode::InvalidInput)
-                    .with_message("The provided verification code is invalid"))
-            }
+            Ok(None) => Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                .with_message("The provided verification code is invalid")),
             Err(err) => Err(err.into()),
         }
     }
