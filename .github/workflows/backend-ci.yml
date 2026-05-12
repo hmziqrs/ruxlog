@@ -57,5 +57,9 @@ jobs:
         working-directory: backend/api
 
       - name: Run tests
-        run: cargo test
+        run: cargo test --features full
+        working-directory: backend/api
+
+      - name: Run security tests
+        run: cargo test --test security_tests
         working-directory: backend/api
