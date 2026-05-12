@@ -59,7 +59,7 @@ pub enum AppRoute {
     SeedUndoConfirm,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TagsState {
     pub tags: Vec<tag::Model>,
     pub selected_index: usize,
@@ -67,34 +67,12 @@ pub struct TagsState {
     pub error: Option<String>,
 }
 
-impl Default for TagsState {
-    fn default() -> Self {
-        Self {
-            tags: Vec::new(),
-            selected_index: 0,
-            is_loading: false,
-            error: None,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct UsersState {
     pub users: Vec<user::Model>,
     pub selected_index: usize,
     pub is_loading: bool,
     pub error: Option<String>,
-}
-
-impl Default for UsersState {
-    fn default() -> Self {
-        Self {
-            users: Vec::new(),
-            selected_index: 0,
-            is_loading: false,
-            error: None,
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -112,24 +90,14 @@ pub enum SeedFlowError {
     Failed(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SeedSummaryState {
     pub is_loading: bool,
     pub outcome: Option<SeedOutcome>,
     pub error: Option<String>,
 }
 
-impl Default for SeedSummaryState {
-    fn default() -> Self {
-        Self {
-            is_loading: false,
-            outcome: None,
-            error: None,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SeedHistoryState {
     pub is_loading: bool,
     pub runs: Vec<SeedOutcomeRow>,
@@ -137,34 +105,12 @@ pub struct SeedHistoryState {
     pub error: Option<String>,
 }
 
-impl Default for SeedHistoryState {
-    fn default() -> Self {
-        Self {
-            is_loading: false,
-            runs: Vec::new(),
-            selected_index: 0,
-            error: None,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SeedUndoState {
     pub is_loading: bool,
     pub selected_run: Option<SeedOutcomeRow>,
     pub outcome: Option<UndoOutcome>,
     pub error: Option<String>,
-}
-
-impl Default for SeedUndoState {
-    fn default() -> Self {
-        Self {
-            is_loading: false,
-            selected_run: None,
-            outcome: None,
-            error: None,
-        }
-    }
 }
 
 #[derive(Debug)]

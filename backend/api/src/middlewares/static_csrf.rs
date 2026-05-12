@@ -5,8 +5,7 @@ use axum::{extract::Request, middleware::Next, response::Response};
 use tracing::{debug, instrument, warn};
 
 pub fn get_static_csrf_key() -> String {
-    let key = env::var("CSRF_KEY").unwrap_or_else(|_| "ultra-instinct-goku".to_string());
-    return key;
+    env::var("CSRF_KEY").unwrap_or_else(|_| "ultra-instinct-goku".to_string())
 }
 
 #[instrument(skip(req, next), fields(token_present, decode_status, result, path))]

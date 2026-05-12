@@ -394,7 +394,7 @@ pub async fn create(
             } else {
                 Some(variant.extension.clone())
             },
-            quality: variant.quality.map(|q| i32::from(q)),
+            quality: variant.quality.map(i32::from),
             variant_type: label_to_variant_type(&variant.label),
         });
 

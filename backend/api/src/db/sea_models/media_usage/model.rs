@@ -24,6 +24,7 @@ impl EntityType {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(value: &str) -> Result<Self, String> {
         match value.to_lowercase().as_str() {
             "category" => Ok(EntityType::Category),

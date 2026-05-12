@@ -21,7 +21,7 @@ pub struct NewCommentFlag {
 }
 
 /// Query parameters for listing comment flags
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct CommentFlagQuery {
     pub page_no: Option<u64>,
     pub comment_id: Option<i32>,
@@ -32,19 +32,6 @@ pub struct CommentFlagQuery {
     pub sort_by: Option<Vec<String>>,
     /// "asc" or "desc"
     pub sort_order: Option<String>,
-}
-
-impl Default for CommentFlagQuery {
-    fn default() -> Self {
-        Self {
-            page_no: None,
-            comment_id: None,
-            user_id: None,
-            search_term: None,
-            sort_by: None,
-            sort_order: None,
-        }
-    }
 }
 
 /// Single flag row joined with reporting user fields from query

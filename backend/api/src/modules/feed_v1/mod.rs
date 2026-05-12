@@ -93,6 +93,7 @@ pub mod controller {
         out.chars().take(max_len).collect()
     }
 
+    #[allow(clippy::result_large_err)]
     fn build_xml_response(
         content_type: &'static str,
         xml: String,

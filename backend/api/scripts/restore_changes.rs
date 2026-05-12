@@ -67,7 +67,7 @@ fn list_zip_contents(zip_path: &Path) -> Result<Vec<String>, Box<dyn std::error:
         }
 
         if in_file_list && !line.trim().is_empty() {
-            let parts: Vec<&str> = line.trim().split_whitespace().collect();
+            let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 4 {
                 let filename = parts[3..].join(" ");
                 if !filename.is_empty() && !filename.ends_with('/') {

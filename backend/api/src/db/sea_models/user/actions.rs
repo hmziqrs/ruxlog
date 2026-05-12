@@ -224,7 +224,7 @@ impl Entity {
         match Self::find_by_id(user_id).one(conn).await {
             Ok(Some(model)) => Ok(model),
             Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                .with_message(&format!("User with ID {} not found", user_id))),
+                .with_message(format!("User with ID {} not found", user_id))),
             Err(err) => Err(err.into()),
         }
     }
@@ -527,7 +527,7 @@ impl Entity {
         match row {
             Some(r) => Ok(r.into_relation()),
             None => Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                .with_message(&format!("User with ID {} not found", user_id))),
+                .with_message(format!("User with ID {} not found", user_id))),
         }
     }
 

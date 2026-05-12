@@ -45,7 +45,7 @@ pub async fn create(
         }
         Err(err) => {
             error!(user_id = user.id, "Failed to create comment: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -79,7 +79,7 @@ pub async fn update(
                 user_id = user.id,
                 comment_id, "Failed to update comment: {}", err
             );
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -120,7 +120,7 @@ pub async fn delete(
                 user_id = user.id,
                 comment_id, "Failed to delete comment: {}", err
             );
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -149,7 +149,7 @@ pub async fn find_all_by_post(
         }
         Err(err) => {
             error!(post_id, "Failed to retrieve comments: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -185,7 +185,7 @@ pub async fn find_with_query(
         }
         Err(err) => {
             error!("Failed to list comments: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -213,7 +213,7 @@ pub async fn admin_hide(
         }
         Err(err) => {
             error!(comment_id, "Failed to hide comment: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -241,7 +241,7 @@ pub async fn admin_unhide(
         }
         Err(err) => {
             error!(comment_id, "Failed to unhide comment: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -269,7 +269,7 @@ pub async fn admin_delete(
         }
         Err(err) => {
             error!(comment_id, "Failed to admin delete comment: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -293,7 +293,7 @@ pub async fn admin_flags_clear(
         }
         Err(err) => {
             error!(comment_id, "Failed to clear flags: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -335,7 +335,7 @@ pub async fn flag(
                 user_id = user.id,
                 comment_id, "Failed to flag comment: {}", err
             );
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -371,7 +371,7 @@ pub async fn admin_flags_list(
         }
         Err(err) => {
             error!("Failed to list comment flags: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -390,7 +390,7 @@ pub async fn admin_flags_summary(
         }
         Err(err) => {
             error!(comment_id, "Failed to get flags summary: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -418,7 +418,7 @@ pub async fn admin_flags_details(
         }
         Err(err) => {
             error!(comment_id, "Failed to get flags details: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }

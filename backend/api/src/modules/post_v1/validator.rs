@@ -203,12 +203,7 @@ impl Validate for EditorJsDocument {
                             row.as_array()
                                 .filter(|cells| !cells.is_empty())
                                 .map(|cells| {
-                                    cells.iter().all(|cell| match cell {
-                                        Value::String(_) => true,
-                                        Value::Number(_) => true,
-                                        Value::Bool(_) => true,
-                                        _ => false,
-                                    })
+                                    cells.iter().all(|cell| matches!(cell, Value::String(_) | Value::Number(_) | Value::Bool(_)))
                                 })
                                 .unwrap_or(false)
                         });
@@ -282,7 +277,7 @@ impl V1CreatePostPayload {
         NewPost {
             title: self.title,
             content: self.content.into_json(),
-            author_id: author_id,
+            author_id,
             published_at: self.published_at,
             status: if self.is_published {
                 PostStatus::Published

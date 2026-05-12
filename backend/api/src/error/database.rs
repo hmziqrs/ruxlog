@@ -140,6 +140,7 @@ impl From<DbErr> for ErrorResponse {
 pub type DbResult<T> = Result<T, ErrorResponse>;
 
 /// Database-specific error handling utilities
+#[allow(clippy::result_large_err)]
 pub trait DbResultExt<T> {
     /// Convert a Result<T, DbErr> to a Result<T, ErrorResponse>
     fn map_err_to_response(self) -> DbResult<T>;

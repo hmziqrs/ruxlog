@@ -205,7 +205,6 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
             let tags_amount = rng.random_range(1..10);
             let tag_ids: Vec<i32> = tags
                 .choose_multiple(&mut rng, tags_amount)
-                .cloned()
                 .map(|t| t.id)
                 .collect();
             let post_excerpt = l::Words(EN, 1..8).fake::<Vec<String>>().join(" ");
@@ -342,7 +341,6 @@ pub async fn seed_post_comments(
 
         let post_ids: Vec<i32> = posts
             .choose_multiple(&mut rng, posts_amount)
-            .cloned()
             .map(|t| t.id)
             .collect();
 
@@ -361,13 +359,13 @@ pub async fn seed_post_comments(
         }
     }
 
-    return (
+    (
         StatusCode::OK,
         Json(json!({
             "message": "Post comments seeded successfully",
         })),
     )
-        .into_response();
+        .into_response()
 }
 
 // Authentication related seeds
@@ -389,13 +387,13 @@ pub async fn seed_user_sessions(
         }
     };
 
-    let devices = vec![
+    let devices = [
         "MacOS · Chrome 126",
         "Windows · Edge 125",
         "iPhone · Safari 17",
         "Android · Chrome 125",
     ];
-    let ip_addresses = vec!["192.168.1.100", "10.0.0.50", "172.16.0.25", "203.0.113.1"];
+    let ip_addresses = ["192.168.1.100", "10.0.0.50", "172.16.0.25", "203.0.113.1"];
     let mut rng = StdRng::seed_from_u64(999);
 
     for user in users {
@@ -616,7 +614,7 @@ pub async fn seed_post_series(
     _auth: AuthSession,
 ) -> impl IntoResponse {
     let mut series_list: Vec<post_series::Model> = vec![];
-    let series_names = vec![
+    let series_names = [
         "Getting Started with Rust",
         "Web Development Best Practices",
         "Database Design Patterns",
@@ -624,7 +622,7 @@ pub async fn seed_post_series(
         "Frontend Frameworks Comparison",
     ];
 
-    for (_i, name) in series_names.iter().enumerate() {
+    for name in series_names.iter() {
         let new_series = post_series::Model {
             id: 0, // Auto-increment
             name: name.to_string(),
@@ -691,7 +689,7 @@ pub async fn seed_post_views(
     };
 
     let mut rng = StdRng::seed_from_u64(7890);
-    let ip_addresses = vec!["192.168.1.100", "10.0.0.50", "172.16.0.25", "203.0.113.1"];
+    let ip_addresses = ["192.168.1.100", "10.0.0.50", "172.16.0.25", "203.0.113.1"];
 
     for post in posts {
         let view_count = rng.random_range(50..500);
@@ -807,7 +805,7 @@ pub async fn seed_media(State(state): State<AppState>, _auth: AuthSession) -> im
     };
 
     let mut media_list: Vec<media::Model> = vec![];
-    let fake_files = vec![
+    let fake_files = [
         (
             "blog-image-1.jpg",
             "image/jpeg",
@@ -850,17 +848,16 @@ pub async fn seed_media(State(state): State<AppState>, _auth: AuthSession) -> im
             width: *width,
             height: *height,
             size: *size,
-            extension: Some(filename.split('.').last().unwrap().to_string()),
+            extension: Some(filename.split('.').next_back().unwrap().to_string()),
             uploader_id: Some(users.choose(&mut rng).map(|u| u.id).unwrap()),
             reference_type: Some(
-                [
+                *[
                     media::MediaReference::Post,
                     media::MediaReference::User,
                     media::MediaReference::Category,
                 ]
                 .choose(&mut rng)
-                .unwrap()
-                .clone(),
+                .unwrap(),
             ),
             content_hash: Some(format!("hash_{}", i)),
             is_optimized: rng.random_bool(0.6),
@@ -926,16 +923,16 @@ pub async fn seed_media_variants(
     };
 
     let mut rng = StdRng::seed_from_u64(8888);
-    let variant_types = vec!["thumbnail", "medium", "large", "webp"];
+    let variant_types = ["thumbnail", "medium", "large", "webp"];
 
     for media_item in media_files {
         if media_item.mime_type.starts_with("image/") {
             for variant_type in variant_types.iter().take(rng.random_range(1..4)) {
-                let (width, height) = match variant_type {
-                    &"thumbnail" => (150, 150),
-                    &"medium" => (800, 600),
-                    &"large" => (1200, 900),
-                    &"webp" => (
+                let (width, height) = match *variant_type {
+                    "thumbnail" => (150, 150),
+                    "medium" => (800, 600),
+                    "large" => (1200, 900),
+                    "webp" => (
                         media_item.width.unwrap_or(800),
                         media_item.height.unwrap_or(600),
                     ),
@@ -1140,7 +1137,7 @@ pub async fn seed_comment_flags(
     };
 
     let mut rng = StdRng::seed_from_u64(1111);
-    let flag_reasons = vec!["spam", "inappropriate", "off-topic", "harassment"];
+    let flag_reasons = ["spam", "inappropriate", "off-topic", "harassment"];
 
     for comment in comments.into_iter().take(10) {
         if rng.random_bool(0.3) {

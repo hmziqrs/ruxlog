@@ -38,7 +38,7 @@ pub async fn generate(
         Ok(_) => (),
         Err(err) => {
             warn!("Abuse limiter blocked forgot password request");
-            return Err(err.into());
+            return Err(err);
         }
     }
 
@@ -53,7 +53,7 @@ pub async fn generate(
         }
         Err(err) => {
             error!("Database error finding user: {}", err);
-            return Err(err.into());
+            return Err(err);
         }
     };
     let user_id = user.id;
@@ -70,7 +70,7 @@ pub async fn generate(
         Err(err) => {
             if err.code != ErrorCode::InvalidInput {
                 error!(user_id, "Error checking forgot password delay: {}", err);
-                return Err(err.into());
+                return Err(err);
             }
         }
     }
@@ -117,7 +117,7 @@ pub async fn verify(
         }
         Err(err) => {
             warn!(email = %payload.email, "Invalid forgot password code");
-            return Err(err.into());
+            return Err(err);
         }
     }
 
@@ -161,7 +161,7 @@ pub async fn reset(
         }
         Err(err) => {
             warn!(email = %payload.email, "Invalid code during reset");
-            return Err(err.to_owned().into());
+            return Err(err.to_owned());
         }
     };
     let user_id = verification.user_id;
@@ -180,7 +180,7 @@ pub async fn reset(
         }
         Err(err) => {
             error!(user_id, "Failed to reset password: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }

@@ -58,7 +58,7 @@ pub async fn update_profile(
         }
         Err(err) => {
             error!(user_id = user.id, "Failed to update profile: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -137,7 +137,7 @@ pub async fn admin_update(
         }
         Err(err) => {
             error!(user_id, "Admin failed to update user: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }

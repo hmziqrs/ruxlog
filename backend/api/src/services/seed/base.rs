@@ -278,7 +278,6 @@ pub async fn seed_all_with_progress(
                 let tags_amount = rng.random_range(1..4);
                 let tag_ids: Vec<i32> = tags
                     .choose_multiple(&mut rng, tags_amount)
-                    .cloned()
                     .map(|t| t.id)
                     .collect();
                 let post_title: String = l::Sentence(EN, 1..2).fake();
@@ -653,13 +652,13 @@ pub async fn seed_all_with_progress(
 
 async fn seed_user_sessions(db: &DatabaseConnection) -> SeedResult<()> {
     let users = user::Entity::find().all(db).await?;
-    let devices = vec![
+    let devices = [
         "MacOS · Chrome 126",
         "Windows · Edge 125",
         "iPhone · Safari 17",
         "Android · Chrome 125",
     ];
-    let ip_addresses = vec!["192.168.1.100", "10.0.0.50", "172.16.0.25", "203.0.113.1"];
+    let ip_addresses = ["192.168.1.100", "10.0.0.50", "172.16.0.25", "203.0.113.1"];
     let mut rng = seeded_rng(None);
 
     for user in users {
@@ -823,13 +822,13 @@ async fn seed_post_views(db: &DatabaseConnection) -> SeedResult<()> {
     let posts = post::Entity::find().all(db).await?;
     let users = user::Entity::find().all(db).await?;
     let mut rng = seeded_rng(None);
-    let user_agents = vec![
+    let user_agents = [
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
         "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
         "Mozilla/5.0 (Linux; Android 14)",
     ];
-    let ips = vec!["203.0.113.10", "198.51.100.42", "10.0.0.24", "172.16.1.15"];
+    let ips = ["203.0.113.10", "198.51.100.42", "10.0.0.24", "172.16.1.15"];
 
     for post in posts.into_iter().take(100) {
         let view_count = rng.random_range(1..20);
@@ -894,8 +893,8 @@ async fn seed_scheduled_posts(db: &DatabaseConnection) -> SeedResult<()> {
 
 async fn seed_media(db: &DatabaseConnection) -> SeedResult<()> {
     let mut rng = seeded_rng(None);
-    let media_types = vec!["image/png", "image/jpeg", "image/webp"];
-    let sizes = vec![1024, 2048, 4096, 8192];
+    let media_types = ["image/png", "image/jpeg", "image/webp"];
+    let sizes = [1024, 2048, 4096, 8192];
 
     for i in 0..50 {
         let mime = media_types.choose(&mut rng).unwrap().to_string();
@@ -1050,7 +1049,7 @@ async fn seed_comment_flags(db: &DatabaseConnection) -> SeedResult<()> {
     let users = user::Entity::find().all(db).await?;
 
     let mut rng = seeded_rng(None);
-    let flag_reasons = vec!["spam", "inappropriate", "off-topic", "harassment"];
+    let flag_reasons = ["spam", "inappropriate", "off-topic", "harassment"];
 
     for comment in comments.into_iter().take(10) {
         if rng.random_bool(0.3) {

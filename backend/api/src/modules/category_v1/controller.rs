@@ -42,7 +42,7 @@ pub async fn create(
         }
         Err(err) => {
             error!("Failed to create category: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -77,7 +77,7 @@ pub async fn update(
         }
         Err(err) => {
             error!(category_id, "Failed to update category: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -112,7 +112,7 @@ pub async fn delete(
         }
         Err(err) => {
             error!(category_id, "Failed to delete category: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -153,7 +153,7 @@ pub async fn find_by_id_or_slug(
         }
         Err(err) => {
             error!("Failed to find category: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -169,7 +169,7 @@ pub async fn find_all(State(state): State<AppState>) -> Result<impl IntoResponse
         }
         Err(err) => {
             error!("Failed to retrieve all categories: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }
@@ -205,7 +205,7 @@ pub async fn find_with_query(
         }
         Err(err) => {
             error!("Failed to query categories: {}", err);
-            Err(err.into())
+            Err(err)
         }
     }
 }

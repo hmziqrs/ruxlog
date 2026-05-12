@@ -56,7 +56,7 @@ pub struct UpdateComment {
     pub updated_at: DateTimeWithTimeZone,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct CommentQuery {
     pub page_no: Option<u64>,
     pub post_id: Option<i32>,
@@ -71,25 +71,6 @@ pub struct CommentQuery {
     pub created_at_lt: Option<DateTimeWithTimeZone>,
     pub updated_at_gt: Option<DateTimeWithTimeZone>,
     pub updated_at_lt: Option<DateTimeWithTimeZone>,
-}
-
-impl Default for CommentQuery {
-    fn default() -> Self {
-        Self {
-            page_no: None,
-            post_id: None,
-            user_id: None,
-            search_term: None,
-            hidden_filter: None,
-            flag_filter: None,
-            min_flags: None,
-            sorts: None,
-            created_at_gt: None,
-            created_at_lt: None,
-            updated_at_gt: None,
-            updated_at_lt: None,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, FromQueryResult)]

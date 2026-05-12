@@ -41,6 +41,7 @@ impl Entity {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn upsert_value(
         db: &DatabaseConnection,
         key: &str,

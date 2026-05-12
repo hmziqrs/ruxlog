@@ -23,7 +23,7 @@ impl Page {
         let total_pages = if page_size == 0 {
             0 // Or perhaps 1 if total_items > 0, depending on desired behavior
         } else {
-            (total_items + page_size - 1) / page_size
+            total_items.div_ceil(page_size)
         };
 
         // Ensure page_number is at least 1 for calculations
