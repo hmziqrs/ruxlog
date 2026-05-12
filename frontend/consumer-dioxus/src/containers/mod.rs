@@ -1,3 +1,4 @@
+use crate::components::CookieConsent;
 use crate::config::{DarkMode, BRAND};
 use crate::router::Route;
 use crate::utils::persist;
@@ -245,6 +246,8 @@ pub fn NavBarContainer() -> Element {
                     }
                 }
             }
+
+            CookieConsent {}
         }
     }
 }

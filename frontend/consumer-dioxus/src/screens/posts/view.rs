@@ -1,4 +1,4 @@
-use crate::components::{estimate_reading_time, format_date, ActionBar, BannerPlaceholder};
+use crate::components::{estimate_reading_time, format_date, ActionBar, BannerPlaceholder, ReadingProgressBar, TableOfContents};
 use crate::seo::{
     article_schema, breadcrumb_schema, ArticleMetadata, SeoHead, SeoImage, SeoMetadataBuilder,
     StructuredData,
@@ -239,6 +239,7 @@ pub fn PostViewScreen(slug: String) -> Element {
                 StructuredData { json_ld: article_schema(&post) }
 
                 div { class: "min-h-screen",
+                    ReadingProgressBar {}
                     BannerPlaceholder {}
 
                     div { class: "container mx-auto px-4 py-6 max-w-6xl",
@@ -291,6 +292,9 @@ pub fn PostViewScreen(slug: String) -> Element {
                                 }
                             }
                         }
+
+                        // Table of contents
+                        TableOfContents { post: post.clone() }
 
                         // Content
                         article { class: "prose prose-neutral dark:prose-invert max-w-none",
