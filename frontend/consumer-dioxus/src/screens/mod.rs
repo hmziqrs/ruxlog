@@ -1,5 +1,6 @@
 mod about;
 mod advertise;
+mod billing;
 mod categories;
 mod contact;
 mod home;
@@ -18,6 +19,7 @@ mod profile;
 
 pub use about::*;
 pub use advertise::*;
+pub use billing::*;
 pub use categories::*;
 pub use contact::*;
 pub use home::*;

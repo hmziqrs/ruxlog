@@ -143,6 +143,25 @@ pub fn PageHeader(props: PageHeaderProps) -> Element {
         Route::BillingPaymentsListScreen {} => {
             vec![("billing".to_string(), None), ("payments".to_string(), None)]
         }
+        #[cfg(feature = "billing")]
+        Route::BillingPlanEditScreen { id } => vec![
+            ("billing".to_string(), None),
+            ("plans".to_string(), Some(Route::BillingPlansListScreen {})),
+            (id.to_string(), None),
+            ("edit".to_string(), None),
+        ],
+        #[cfg(feature = "billing")]
+        Route::BillingInvoicesListScreen {} => {
+            vec![("billing".to_string(), None), ("invoices".to_string(), None)]
+        }
+        #[cfg(feature = "billing")]
+        Route::PaymentMethodsScreen {} => {
+            vec![("billing".to_string(), None), ("methods".to_string(), None)]
+        }
+        #[cfg(feature = "billing")]
+        Route::RefundsListScreen {} => {
+            vec![("billing".to_string(), None), ("refunds".to_string(), None)]
+        }
 
         Route::HomeScreen {} | Route::LoginScreen {} => vec![],
     };

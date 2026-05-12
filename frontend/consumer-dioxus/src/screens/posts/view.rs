@@ -1,4 +1,4 @@
-use crate::components::{estimate_reading_time, format_date, ActionBar, BannerPlaceholder, ReadingProgressBar, TableOfContents};
+use crate::components::{estimate_reading_time, format_date, ActionBar, BannerPlaceholder, PaywallOverlay, ReadingProgressBar, RelatedPosts, TableOfContents};
 use crate::seo::{
     article_schema, breadcrumb_schema, ArticleMetadata, SeoHead, SeoImage, SeoMetadataBuilder,
     StructuredData,
@@ -61,6 +61,34 @@ pub fn PostViewScreen(slug: String) -> Element {
     })?;
 
     let post_state = post_result();
+
+    // Check post access (paywall)
+    let mut access_type = use_signal(|| String::new());
+    let mut access_checked = use_signal(|| false);
+
+    if let Some(Ok(Some(post))) = &post_state {
+        if !access_checked() {
+            let post_id = post.id;
+            spawn(async move {
+                let client = oxcore::http::get(&format!("/billing/v1/access/{}", post_id));
+                match client.send().await {
+                    Ok(resp) if (200..300).contains(&resp.status()) => {
+                        if let Ok(data) = resp.json::<serde_json::Value>().await {
+                            if let Some(at) = data.get("access_type").and_then(|v| v.as_str()) {
+                                if at != "free" {
+                                    access_type.set(at.to_string());
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+                access_checked.set(true);
+            });
+        }
+    }
+
+    let show_paywall = !access_type().is_empty();
 
     // Only use likes and auth when engagement feature is enabled
     #[cfg(feature = "engagement")]
@@ -294,11 +322,18 @@ pub fn PostViewScreen(slug: String) -> Element {
                         }
 
                         // Table of contents
-                        TableOfContents { post: post.clone() }
+                        if !show_paywall {
+                            TableOfContents { post: post.clone() }
+                        }
 
-                        // Content
-                        article { class: "prose prose-neutral dark:prose-invert max-w-none",
-                            {render_editorjs_content(&post.content)}
+                        // Content with optional paywall overlay
+                        div { class: "relative",
+                            if show_paywall {
+                                PaywallOverlay { access_type: access_type() }
+                            }
+                            article { class: "prose prose-neutral dark:prose-invert max-w-none",
+                                {render_editorjs_content(&post.content)}
+                            }
                         }
 
                         {engagement_bar}
@@ -311,6 +346,12 @@ pub fn PostViewScreen(slug: String) -> Element {
                             post_id: post.id.to_string(),
                             title: post.title.clone(),
                             url: post_url,
+                        }
+
+                        // Related posts
+                        RelatedPosts {
+                            category_id: post.category.id,
+                            current_post_id: post.id,
                         }
 
                         div { class: "flex justify-center pt-8",

@@ -19,6 +19,14 @@ impl PaddleProvider {
             webhook_secret,
         }
     }
+
+    pub fn from_env() -> Result<Self, BillingError> {
+        let client_token = std::env::var("PADDLE_CLIENT_TOKEN")
+            .map_err(|_| BillingError::Config("PADDLE_CLIENT_TOKEN not set".into()))?;
+        let webhook_secret = std::env::var("PADDLE_WEBHOOK_SECRET")
+            .map_err(|_| BillingError::Config("PADDLE_WEBHOOK_SECRET not set".into()))?;
+        Ok(Self::new(client_token, webhook_secret))
+    }
 }
 
 #[async_trait]
@@ -155,6 +163,28 @@ impl BillingProvider for PaddleProvider {
         &self,
         event: WebhookEvent,
     ) -> Result<ParsedWebhook, BillingError> {
+        // Verify Paddle webhook signature using HMAC-SHA256
+        if let Some(signature) = event.headers.get("paddle-signature") {
+            use hmac::{Hmac, Mac};
+            use sha2::Sha256;
+
+            type HmacSha256 = Hmac<Sha256>;
+
+            let payload_str = String::from_utf8(event.payload.clone())
+                .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
+
+            let mut mac = HmacSha256::new_from_slice(self.webhook_secret.as_bytes())
+                .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
+            mac.update(payload_str.as_bytes());
+            let expected = hex::encode(mac.finalize().into_bytes());
+
+            if !constant_time_eq_str(&expected, signature) {
+                return Err(BillingError::WebhookVerification(
+                    "Invalid Paddle webhook signature".into(),
+                ));
+            }
+        }
+
         let payload_str = String::from_utf8(event.payload.clone())
             .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
 
@@ -187,4 +217,15 @@ impl BillingProvider for PaddleProvider {
             "Paddle uses its own customer portal".to_string(),
         ))
     }
+}
+
+fn constant_time_eq_str(a: &str, b: &str) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let a_bytes = a.as_bytes();
+    let b_bytes = b.as_bytes();
+    a_bytes.iter().zip(b_bytes.iter()).fold(0, |acc, (x, y)| {
+        acc | (x ^ y)
+    }) == 0
 }
