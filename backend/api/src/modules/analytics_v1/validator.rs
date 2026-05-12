@@ -10,7 +10,7 @@ pub const DEFAULT_PER_PAGE: u64 = 30;
 pub const MAX_PER_PAGE: u64 = 200;
 
 /// Shared request envelope for analytics endpoints.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct AnalyticsEnvelope {
     #[serde(
         default,
@@ -490,7 +490,7 @@ pub struct MediaUploadPoint {
     pub avg_size_mb: f64,
 }
 
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DashboardPeriod {
     #[serde(rename = "7d")]
     SevenDays,
@@ -668,4 +668,689 @@ fn parse_date(value: &str) -> Result<NaiveDate, chrono::ParseError> {
     }
 
     DateTime::parse_from_rfc3339(value).map(|dt| dt.date_naive())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Timelike;
+
+    // ── AnalyticsEnvelope validation ─────────────────────────────────────
+
+    #[test]
+    fn valid_envelope_with_all_fields_passes() {
+        let env = AnalyticsEnvelope {
+            date_from: Some(NaiveDate::from_ymd_opt(2025, 1, 1).unwrap()),
+            date_to: Some(NaiveDate::from_ymd_opt(2025, 3, 31).unwrap()),
+            page: Some(1),
+            per_page: Some(50),
+            sort_by: Some("created_at".into()),
+            sort_order: Some("asc".into()),
+        };
+        assert!(env.validate().is_ok());
+    }
+
+    #[test]
+    fn valid_envelope_with_no_fields_passes() {
+        let env = AnalyticsEnvelope {
+            date_from: None,
+            date_to: None,
+            page: None,
+            per_page: None,
+            sort_by: None,
+            sort_order: None,
+        };
+        assert!(env.validate().is_ok());
+    }
+
+    #[test]
+    fn page_zero_fails_validation() {
+        let env = AnalyticsEnvelope {
+            page: Some(0),
+            ..Default::default()
+        };
+        let err = env.validate().unwrap_err();
+        assert!(err.field_errors().contains_key("page"));
+    }
+
+    #[test]
+    fn per_page_zero_fails_validation() {
+        let env = AnalyticsEnvelope {
+            per_page: Some(0),
+            ..Default::default()
+        };
+        let err = env.validate().unwrap_err();
+        assert!(err.field_errors().contains_key("per_page"));
+    }
+
+    #[test]
+    fn per_page_exceeding_max_fails_validation() {
+        let env = AnalyticsEnvelope {
+            per_page: Some(MAX_PER_PAGE + 1),
+            ..Default::default()
+        };
+        let err = env.validate().unwrap_err();
+        assert!(err.field_errors().contains_key("per_page"));
+    }
+
+    #[test]
+    fn per_page_at_max_boundary_passes() {
+        let env = AnalyticsEnvelope {
+            per_page: Some(MAX_PER_PAGE),
+            ..Default::default()
+        };
+        assert!(env.validate().is_ok());
+    }
+
+    #[test]
+    fn per_page_at_min_boundary_passes() {
+        let env = AnalyticsEnvelope {
+            per_page: Some(1),
+            ..Default::default()
+        };
+        assert!(env.validate().is_ok());
+    }
+
+    #[test]
+    fn invalid_sort_order_fails_validation() {
+        let env = AnalyticsEnvelope {
+            sort_order: Some("invalid".into()),
+            ..Default::default()
+        };
+        let err = env.validate().unwrap_err();
+        assert!(err.field_errors().contains_key("sort_order"));
+    }
+
+    #[test]
+    fn date_from_after_date_to_fails_validation() {
+        let env = AnalyticsEnvelope {
+            date_from: Some(NaiveDate::from_ymd_opt(2025, 6, 1).unwrap()),
+            date_to: Some(NaiveDate::from_ymd_opt(2025, 1, 1).unwrap()),
+            ..Default::default()
+        };
+        let err = env.validate().unwrap_err();
+        assert!(err.field_errors().contains_key("date_from"));
+    }
+
+    #[test]
+    fn equal_date_from_and_date_to_passes() {
+        let d = NaiveDate::from_ymd_opt(2025, 6, 1).unwrap();
+        let env = AnalyticsEnvelope {
+            date_from: Some(d),
+            date_to: Some(d),
+            ..Default::default()
+        };
+        assert!(env.validate().is_ok());
+    }
+
+    #[test]
+    fn multiple_errors_reported_simultaneously() {
+        let env = AnalyticsEnvelope {
+            page: Some(0),
+            per_page: Some(0),
+            sort_order: Some("random".into()),
+            date_from: Some(NaiveDate::from_ymd_opt(2025, 12, 1).unwrap()),
+            date_to: Some(NaiveDate::from_ymd_opt(2025, 1, 1).unwrap()),
+            ..Default::default()
+        };
+        let err = env.validate().unwrap_err();
+        let fields = err.field_errors();
+        assert!(fields.contains_key("page"));
+        assert!(fields.contains_key("per_page"));
+        assert!(fields.contains_key("sort_order"));
+        assert!(fields.contains_key("date_from"));
+    }
+
+    #[test]
+    fn sort_order_case_insensitive_passes() {
+        for order in ["asc", "desc", "ASC", "DESC", "Asc", "Desc"] {
+            let env = AnalyticsEnvelope {
+                sort_order: Some(order.into()),
+                ..Default::default()
+            };
+            assert!(env.validate().is_ok(), "sort_order '{order}' should be valid");
+        }
+    }
+
+    // ── AnalyticsEnvelope::resolve() ─────────────────────────────────────
+
+    #[test]
+    fn resolve_defaults_to_30_day_window() {
+        let env = AnalyticsEnvelope {
+            date_from: None,
+            date_to: None,
+            page: None,
+            per_page: None,
+            sort_by: None,
+            sort_order: None,
+        };
+        let resolved = env.resolve();
+
+        let expected_duration = resolved.date_to - resolved.date_from;
+        // 30 full days = 30 * 86400 seconds; end_of_day adds 23:59:59
+        assert!(
+            expected_duration.num_days() >= 29 && expected_duration.num_days() <= 30,
+            "expected ~30 day window, got {} days",
+            expected_duration.num_days()
+        );
+        assert_eq!(resolved.page, 1);
+        assert_eq!(resolved.per_page, DEFAULT_PER_PAGE);
+        assert_eq!(resolved.sort_order, SortOrder::Desc);
+        assert!(resolved.sort_by.is_none());
+    }
+
+    #[test]
+    fn resolve_clamps_per_page_to_max() {
+        let env = AnalyticsEnvelope {
+            per_page: Some(9999),
+            ..Default::default()
+        };
+        let resolved = env.resolve();
+        assert_eq!(resolved.per_page, MAX_PER_PAGE);
+    }
+
+    #[test]
+    fn resolve_clamps_per_page_to_min() {
+        let env = AnalyticsEnvelope {
+            per_page: Some(0),
+            ..Default::default()
+        };
+        let resolved = env.resolve();
+        assert_eq!(resolved.per_page, 1);
+    }
+
+    #[test]
+    fn resolve_clamps_page_to_min() {
+        let env = AnalyticsEnvelope {
+            page: Some(0),
+            ..Default::default()
+        };
+        let resolved = env.resolve();
+        assert_eq!(resolved.page, 1);
+    }
+
+    #[test]
+    fn resolve_preserves_custom_dates() {
+        let from = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
+        let to = NaiveDate::from_ymd_opt(2025, 6, 15).unwrap();
+        let env = AnalyticsEnvelope {
+            date_from: Some(from),
+            date_to: Some(to),
+            page: None,
+            per_page: None,
+            sort_by: None,
+            sort_order: None,
+        };
+        let resolved = env.resolve();
+        assert_eq!(resolved.date_from.date_naive(), from);
+        assert_eq!(resolved.date_to.date_naive(), to);
+    }
+
+    #[test]
+    fn resolve_date_from_defaults_relative_to_date_to() {
+        let to = NaiveDate::from_ymd_opt(2025, 6, 15).unwrap();
+        let env = AnalyticsEnvelope {
+            date_from: None,
+            date_to: Some(to),
+            page: None,
+            per_page: None,
+            sort_by: None,
+            sort_order: None,
+        };
+        let resolved = env.resolve();
+        let expected_from = to - Duration::days(30);
+        assert_eq!(resolved.date_from.date_naive(), expected_from);
+        assert_eq!(resolved.date_to.date_naive(), to);
+    }
+
+    #[test]
+    fn resolve_sets_start_and_end_of_day() {
+        let d = NaiveDate::from_ymd_opt(2025, 3, 15).unwrap();
+        let env = AnalyticsEnvelope {
+            date_from: Some(d),
+            date_to: Some(d),
+            page: None,
+            per_page: None,
+            sort_by: None,
+            sort_order: None,
+        };
+        let resolved = env.resolve();
+
+        // start_of_day: 00:00:00
+        assert_eq!(resolved.date_from.time().hour(), 0);
+        assert_eq!(resolved.date_from.time().minute(), 0);
+        assert_eq!(resolved.date_from.time().second(), 0);
+
+        // end_of_day: 23:59:59
+        assert_eq!(resolved.date_to.time().hour(), 23);
+        assert_eq!(resolved.date_to.time().minute(), 59);
+        assert_eq!(resolved.date_to.time().second(), 59);
+    }
+
+    #[test]
+    fn resolve_normalizes_sort_by() {
+        let env = AnalyticsEnvelope {
+            sort_by: Some("  Created_At  ".into()),
+            sort_order: Some("ASC".into()),
+            ..Default::default()
+        };
+        let resolved = env.resolve();
+        assert_eq!(resolved.sort_by.as_deref(), Some("created_at"));
+        assert_eq!(resolved.sort_order, SortOrder::Asc);
+    }
+
+    // ── SortOrder::from_option ───────────────────────────────────────────
+
+    #[test]
+    fn sort_order_from_option_asc() {
+        assert_eq!(SortOrder::from_option(Some("asc")), SortOrder::Asc);
+        assert_eq!(SortOrder::from_option(Some("ASC")), SortOrder::Asc);
+        assert_eq!(SortOrder::from_option(Some("Asc")), SortOrder::Asc);
+    }
+
+    #[test]
+    fn sort_order_from_option_desc() {
+        assert_eq!(SortOrder::from_option(Some("desc")), SortOrder::Desc);
+        assert_eq!(SortOrder::from_option(Some("DESC")), SortOrder::Desc);
+    }
+
+    #[test]
+    fn sort_order_from_option_none_defaults_to_desc() {
+        assert_eq!(SortOrder::from_option(None), SortOrder::Desc);
+    }
+
+    #[test]
+    fn sort_order_from_option_invalid_defaults_to_desc() {
+        assert_eq!(SortOrder::from_option(Some("random")), SortOrder::Desc);
+        assert_eq!(SortOrder::from_option(Some("")), SortOrder::Desc);
+    }
+
+    #[test]
+    fn sort_order_as_sql() {
+        assert_eq!(SortOrder::Asc.as_sql(), "ASC");
+        assert_eq!(SortOrder::Desc.as_sql(), "DESC");
+    }
+
+    // ── AnalyticsInterval::to_bucket_expr ────────────────────────────────
+
+    #[test]
+    fn interval_hour_bucket_expr() {
+        let expr = AnalyticsInterval::Hour.to_bucket_expr("created_at");
+        assert_eq!(
+            expr,
+            "to_char(date_trunc('hour', created_at), 'YYYY-MM-DD HH24:00')"
+        );
+    }
+
+    #[test]
+    fn interval_day_bucket_expr() {
+        let expr = AnalyticsInterval::Day.to_bucket_expr("created_at");
+        assert_eq!(
+            expr,
+            "to_char(date_trunc('day', created_at), 'YYYY-MM-DD')"
+        );
+    }
+
+    #[test]
+    fn interval_week_bucket_expr() {
+        let expr = AnalyticsInterval::Week.to_bucket_expr("created_at");
+        assert_eq!(
+            expr,
+            "to_char(date_trunc('week', created_at), 'IYYY-\"W\"IW')"
+        );
+    }
+
+    #[test]
+    fn interval_month_bucket_expr() {
+        let expr = AnalyticsInterval::Month.to_bucket_expr("created_at");
+        assert_eq!(
+            expr,
+            "to_char(date_trunc('month', created_at), 'YYYY-MM')"
+        );
+    }
+
+    #[test]
+    fn interval_uses_custom_column_name() {
+        let expr = AnalyticsInterval::Day.to_bucket_expr("published_at");
+        assert!(expr.contains("published_at"));
+    }
+
+    #[test]
+    fn interval_as_str() {
+        assert_eq!(AnalyticsInterval::Hour.as_str(), "hour");
+        assert_eq!(AnalyticsInterval::Day.as_str(), "day");
+        assert_eq!(AnalyticsInterval::Week.as_str(), "week");
+        assert_eq!(AnalyticsInterval::Month.as_str(), "month");
+    }
+
+    #[test]
+    fn interval_default_is_day() {
+        assert_eq!(AnalyticsInterval::default(), AnalyticsInterval::Day);
+    }
+
+    // ── DashboardPeriod ──────────────────────────────────────────────────
+
+    #[test]
+    fn dashboard_period_as_str() {
+        assert_eq!(DashboardPeriod::SevenDays.as_str(), "7d");
+        assert_eq!(DashboardPeriod::ThirtyDays.as_str(), "30d");
+        assert_eq!(DashboardPeriod::NinetyDays.as_str(), "90d");
+    }
+
+    #[test]
+    fn dashboard_period_as_duration() {
+        assert_eq!(DashboardPeriod::SevenDays.as_duration(), Duration::days(7));
+        assert_eq!(DashboardPeriod::ThirtyDays.as_duration(), Duration::days(30));
+        assert_eq!(DashboardPeriod::NinetyDays.as_duration(), Duration::days(90));
+    }
+
+    #[test]
+    fn dashboard_period_default_is_thirty_days() {
+        assert_eq!(DashboardPeriod::default(), DashboardPeriod::ThirtyDays);
+    }
+
+    // ── AnalyticsMeta builder ────────────────────────────────────────────
+
+    #[test]
+    fn meta_new_sets_required_fields() {
+        let meta = AnalyticsMeta::new(100, 2, 25);
+        assert_eq!(meta.total, 100);
+        assert_eq!(meta.page, 2);
+        assert_eq!(meta.per_page, 25);
+        assert!(meta.interval.is_none());
+        assert!(meta.sorted_by.is_none());
+        assert!(meta.filters_applied.is_none());
+        assert!(meta.notes.is_none());
+    }
+
+    #[test]
+    fn meta_with_interval() {
+        let meta = AnalyticsMeta::new(100, 1, 30).with_interval("day");
+        assert_eq!(meta.interval.as_deref(), Some("day"));
+    }
+
+    #[test]
+    fn meta_with_sorted_by() {
+        let meta = AnalyticsMeta::new(100, 1, 30).with_sorted_by("created_at");
+        assert_eq!(meta.sorted_by.as_deref(), Some("created_at"));
+    }
+
+    #[test]
+    fn meta_with_filters() {
+        let filters = serde_json::json!({"status": "published"});
+        let meta = AnalyticsMeta::new(100, 1, 30).with_filters(filters.clone());
+        assert_eq!(meta.filters_applied, Some(filters));
+    }
+
+    #[test]
+    fn meta_fluent_chain() {
+        let meta = AnalyticsMeta::new(500, 3, 50)
+            .with_interval("week")
+            .with_sorted_by("views")
+            .with_filters(serde_json::json!({"author_id": 42}));
+
+        assert_eq!(meta.total, 500);
+        assert_eq!(meta.page, 3);
+        assert_eq!(meta.per_page, 50);
+        assert_eq!(meta.interval.as_deref(), Some("week"));
+        assert_eq!(meta.sorted_by.as_deref(), Some("views"));
+        assert!(meta.filters_applied.is_some());
+    }
+
+    // ── ResolvedAnalyticsEnvelope::offset() ──────────────────────────────
+
+    #[test]
+    fn offset_page_one() {
+        let env = AnalyticsEnvelope {
+            per_page: Some(25),
+            ..Default::default()
+        };
+        let resolved = env.resolve();
+        assert_eq!(resolved.offset(), 0);
+    }
+
+    #[test]
+    fn offset_page_two() {
+        let env = AnalyticsEnvelope {
+            page: Some(2),
+            per_page: Some(25),
+            ..Default::default()
+        };
+        let resolved = env.resolve();
+        assert_eq!(resolved.offset(), 25);
+    }
+
+    #[test]
+    fn offset_page_five() {
+        let env = AnalyticsEnvelope {
+            page: Some(5),
+            per_page: Some(10),
+            ..Default::default()
+        };
+        let resolved = env.resolve();
+        assert_eq!(resolved.offset(), 40);
+    }
+
+    // ── ResolvedAnalyticsEnvelope::bounds() ──────────────────────────────
+
+    #[test]
+    fn bounds_returns_included_both_ends() {
+        let from = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
+        let to = NaiveDate::from_ymd_opt(2025, 6, 1).unwrap();
+        let env = AnalyticsEnvelope {
+            date_from: Some(from),
+            date_to: Some(to),
+            ..Default::default()
+        };
+        let resolved = env.resolve();
+        let (lo, hi) = resolved.bounds();
+
+        match (lo, hi) {
+            (Bound::Included(lo_dt), Bound::Included(hi_dt)) => {
+                assert_eq!(lo_dt.date_naive(), from);
+                assert_eq!(hi_dt.date_naive(), to);
+            }
+            _ => panic!("expected Bound::Included for both bounds"),
+        }
+    }
+
+    // ── Filter defaults ──────────────────────────────────────────────────
+
+    #[test]
+    fn registration_trends_filters_default() {
+        let filters = RegistrationTrendsFilters::default();
+        assert_eq!(filters.group_by, AnalyticsInterval::Day);
+        assert!(filters.validate().is_ok());
+    }
+
+    #[test]
+    fn verification_rates_filters_default() {
+        let filters = VerificationRatesFilters::default();
+        assert_eq!(filters.group_by, AnalyticsInterval::Day);
+        assert!(filters.validate().is_ok());
+    }
+
+    #[test]
+    fn publishing_trends_filters_default() {
+        let filters = PublishingTrendsFilters::default();
+        assert_eq!(filters.group_by, AnalyticsInterval::Week);
+        assert!(filters.status.is_none());
+        assert!(filters.validate().is_ok());
+    }
+
+    #[test]
+    fn page_views_filters_default() {
+        let filters = PageViewsFilters::default();
+        assert_eq!(filters.group_by, AnalyticsInterval::Day);
+        assert!(filters.post_id.is_none());
+        assert!(filters.author_id.is_none());
+        assert!(!filters.only_unique);
+        assert!(filters.validate().is_ok());
+    }
+
+    #[test]
+    fn page_views_filters_invalid_post_id() {
+        let filters = PageViewsFilters {
+            post_id: Some(0),
+            ..Default::default()
+        };
+        assert!(filters.validate().is_err());
+    }
+
+    #[test]
+    fn page_views_filters_valid_post_id() {
+        let filters = PageViewsFilters {
+            post_id: Some(42),
+            ..Default::default()
+        };
+        assert!(filters.validate().is_ok());
+    }
+
+    #[test]
+    fn comment_rate_filters_default() {
+        let filters = CommentRateFilters::default();
+        assert_eq!(filters.min_views, 100);
+        assert_eq!(filters.sort_by, CommentRateSort::CommentRate);
+        assert!(filters.validate().is_ok());
+    }
+
+    #[test]
+    fn comment_rate_sort_default() {
+        assert_eq!(CommentRateSort::default(), CommentRateSort::CommentRate);
+    }
+
+    #[test]
+    fn newsletter_growth_filters_default() {
+        let filters = NewsletterGrowthFilters::default();
+        assert_eq!(filters.group_by, AnalyticsInterval::Week);
+        assert!(filters.validate().is_ok());
+    }
+
+    #[test]
+    fn media_upload_filters_default() {
+        let filters = MediaUploadFilters::default();
+        assert_eq!(filters.group_by, AnalyticsInterval::Day);
+        assert!(filters.validate().is_ok());
+    }
+
+    #[test]
+    fn dashboard_summary_filters_default() {
+        let filters = DashboardSummaryFilters::default();
+        assert_eq!(filters.period, DashboardPeriod::ThirtyDays);
+        assert!(filters.validate().is_ok());
+    }
+
+    // ── Request validation delegates to envelope ─────────────────────────
+
+    #[test]
+    fn registration_trends_request_invalid_envelope_fails() {
+        let req = RegistrationTrendsRequest {
+            envelope: AnalyticsEnvelope {
+                page: Some(0),
+                ..Default::default()
+            },
+            filters: Default::default(),
+        };
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn verification_rates_request_valid() {
+        let req = VerificationRatesRequest {
+            envelope: AnalyticsEnvelope {
+                date_from: Some(NaiveDate::from_ymd_opt(2025, 1, 1).unwrap()),
+                date_to: Some(NaiveDate::from_ymd_opt(2025, 3, 1).unwrap()),
+                page: Some(1),
+                per_page: Some(10),
+                sort_by: None,
+                sort_order: None,
+            },
+            filters: Default::default(),
+        };
+        assert!(req.validate().is_ok());
+    }
+
+    #[test]
+    fn dashboard_summary_request_with_none_envelope_passes() {
+        let req = DashboardSummaryRequest {
+            envelope: None,
+            filters: Default::default(),
+        };
+        assert!(req.validate().is_ok());
+    }
+
+    #[test]
+    fn dashboard_summary_request_with_invalid_envelope_fails() {
+        let req = DashboardSummaryRequest {
+            envelope: Some(AnalyticsEnvelope {
+                per_page: Some(999),
+                ..Default::default()
+            }),
+            filters: Default::default(),
+        };
+        assert!(req.validate().is_err());
+    }
+
+    // ── parse_date ───────────────────────────────────────────────────────
+
+    #[test]
+    fn parse_date_yyyy_mm_dd() {
+        let date = parse_date("2025-06-15").unwrap();
+        assert_eq!(
+            date,
+            NaiveDate::from_ymd_opt(2025, 6, 15).unwrap()
+        );
+    }
+
+    #[test]
+    fn parse_date_rfc3339() {
+        let date = parse_date("2025-06-15T12:30:00Z").unwrap();
+        assert_eq!(
+            date,
+            NaiveDate::from_ymd_opt(2025, 6, 15).unwrap()
+        );
+    }
+
+    #[test]
+    fn parse_date_rfc3339_with_offset() {
+        let date = parse_date("2025-06-15T12:30:00+05:30").unwrap();
+        assert_eq!(
+            date,
+            NaiveDate::from_ymd_opt(2025, 6, 15).unwrap()
+        );
+    }
+
+    #[test]
+    fn parse_date_invalid_format() {
+        assert!(parse_date("not-a-date").is_err());
+    }
+
+    #[test]
+    fn parse_date_empty_string() {
+        assert!(parse_date("").is_err());
+    }
+
+    #[test]
+    fn parse_date_partial_yyyy_mm() {
+        assert!(parse_date("2025-06").is_err());
+    }
+
+    #[test]
+    fn parse_date_yyyy_mm_dd_preferred_over_rfc3339() {
+        // Both formats could parse "2025-06-15" but the YYYY-MM-DD path runs first
+        let date = parse_date("2025-06-15").unwrap();
+        assert_eq!(
+            date,
+            NaiveDate::from_ymd_opt(2025, 6, 15).unwrap()
+        );
+    }
+
+    // ── Constants ────────────────────────────────────────────────────────
+
+    #[test]
+    fn constants_are_sensible() {
+        assert_eq!(DEFAULT_PER_PAGE, 30);
+        assert_eq!(MAX_PER_PAGE, 200);
+        assert!(MAX_PER_PAGE > DEFAULT_PER_PAGE);
+    }
 }

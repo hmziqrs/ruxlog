@@ -154,3 +154,73 @@ pub trait IntoErrorResponse {
     /// Convert this error into a standard ErrorResponse
     fn into_error_response(self) -> ErrorResponse;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::codes::ErrorCode;
+
+    #[test]
+    fn new_has_code_and_status() {
+        let err = ErrorResponse::new(ErrorCode::RecordNotFound);
+        assert_eq!(err.code, ErrorCode::RecordNotFound);
+        assert_eq!(err.status, 404);
+    }
+
+    #[test]
+    fn with_message_overrides_default() {
+        let err = ErrorResponse::new(ErrorCode::InvalidCredentials)
+            .with_message("Custom message");
+        assert_eq!(err.message, "Custom message");
+    }
+
+    #[test]
+    fn with_retry_after_sets_field() {
+        let err = ErrorResponse::new(ErrorCode::RateLimited)
+            .with_retry_after(60);
+        assert_eq!(err.retry_after, Some(60));
+    }
+
+    #[test]
+    fn with_request_id_sets_field() {
+        let err = ErrorResponse::new(ErrorCode::InternalServerError)
+            .with_request_id("req-123");
+        assert_eq!(err.request_id, Some("req-123".to_string()));
+    }
+
+    #[test]
+    fn with_context_sets_json_value() {
+        let err = ErrorResponse::new(ErrorCode::ValidationError)
+            .with_context(serde_json::json!({"field": "email"}));
+        assert!(err.context.is_some());
+        assert_eq!(err.context.unwrap()["field"], "email");
+    }
+
+    #[test]
+    fn builder_chaining() {
+        let err = ErrorResponse::new(ErrorCode::RateLimited)
+            .with_message("Slow down")
+            .with_retry_after(30)
+            .with_request_id("abc");
+
+        assert_eq!(err.message, "Slow down");
+        assert_eq!(err.retry_after, Some(30));
+        assert_eq!(err.request_id, Some("abc".to_string()));
+    }
+
+    #[test]
+    fn display_format() {
+        let err = ErrorResponse::new(ErrorCode::RecordNotFound)
+            .with_message("Post not found");
+        let s = format!("{}", err);
+        assert!(s.contains("DB_002"));
+        assert!(s.contains("Post not found"));
+    }
+
+    #[test]
+    fn into_response_derives_status_from_code() {
+        let err = ErrorResponse::new(ErrorCode::DuplicateEntry);
+        let response = err.into_response();
+        assert_eq!(response.status(), axum::http::StatusCode::CONFLICT);
+    }
+}

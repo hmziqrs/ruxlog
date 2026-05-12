@@ -411,3 +411,356 @@ pub struct V1SeriesListQuery {
     pub page: Option<u64>,
     pub search: Option<String>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_doc(blocks: Vec<(&str, Value)>) -> EditorJsDocument {
+        EditorJsDocument {
+            time: Some(1234567890),
+            blocks: blocks
+                .into_iter()
+                .map(|(kind, data)| EditorJsBlock {
+                    kind: kind.to_string(),
+                    data,
+                })
+                .collect(),
+            version: Some("2.30.7".to_string()),
+        }
+    }
+
+    // --- EditorJsDocument validation ---
+
+    #[test]
+    fn empty_blocks_rejected() {
+        let doc = EditorJsDocument {
+            time: None,
+            blocks: vec![],
+            version: None,
+        };
+        assert!(doc.validate().is_err());
+    }
+
+    #[test]
+    fn valid_paragraph_accepted() {
+        let doc = make_doc(vec![("paragraph", serde_json::json!({"text": "Hello"}) )]);
+        assert!(doc.validate().is_ok());
+    }
+
+    #[test]
+    fn paragraph_empty_text_rejected() {
+        let doc = make_doc(vec![("paragraph", serde_json::json!({"text": "  "}))]);
+        assert!(doc.validate().is_err());
+    }
+
+    #[test]
+    fn paragraph_missing_text_rejected() {
+        let doc = make_doc(vec![("paragraph", serde_json::json!({}))]);
+        assert!(doc.validate().is_err());
+    }
+
+    #[test]
+    fn valid_header_accepted() {
+        let doc = make_doc(vec![("header", serde_json::json!({"text": "Title", "level": 1}))]);
+        assert!(doc.validate().is_ok());
+    }
+
+    #[test]
+    fn header_missing_level_rejected() {
+        let doc = make_doc(vec![("header", serde_json::json!({"text": "Title"}))]);
+        assert!(doc.validate().is_err());
+    }
+
+    #[test]
+    fn header_level_out_of_range_rejected() {
+        let doc = make_doc(vec![("header", serde_json::json!({"text": "Title", "level": 7}))]);
+        assert!(doc.validate().is_err());
+    }
+
+    #[test]
+    fn header_empty_text_rejected() {
+        let doc = make_doc(vec![("header", serde_json::json!({"text": "", "level": 2}))]);
+        assert!(doc.validate().is_err());
+    }
+
+    #[test]
+    fn valid_alert_accepted() {
+        for alert_type in &["info", "warning", "success", "error"] {
+            let doc = make_doc(vec![(
+                "alert",
+                serde_json::json!({"message": "msg", "type": alert_type}),
+            )]);
+            assert!(doc.validate().is_ok(), "alert type '{}' should be valid", alert_type);
+        }
+    }
+
+    #[test]
+    fn alert_invalid_type_rejected() {
+        let doc = make_doc(vec![("alert", serde_json::json!({"message": "msg", "type": "custom"}))]);
+        assert!(doc.validate().is_err());
+    }
+
+    #[test]
+    fn valid_quote_accepted() {
+        let doc = make_doc(vec![("quote", serde_json::json!({"text": "words"}))]);
+        assert!(doc.validate().is_ok());
+    }
+
+    #[test]
+    fn quote_empty_text_rejected() {
+        let doc = make_doc(vec![("quote", serde_json::json!({"text": ""}))]);
+        assert!(doc.validate().is_err());
+    }
+
+    #[test]
+    fn valid_checklist_accepted() {
+        let doc = make_doc(vec![(
+            "checklist",
+            serde_json::json!({"items": [{"text": "item 1"}, {"text": "item 2"}]}),
+        )]);
+        assert!(doc.validate().is_ok());
+    }
+
+    #[test]
+    fn checklist_empty_items_rejected() {
+        let doc = make_doc(vec![("checklist", serde_json::json!({"items": []}))]);
+        assert!(doc.validate().is_err());
+    }
+
+    #[test]
+    fn checklist_item_empty_text_rejected() {
+        let doc = make_doc(vec![(
+            "checklist",
+            serde_json::json!({"items": [{"text": "ok"}, {"text": "  "}]}),
+        )]);
+        assert!(doc.validate().is_err());
+    }
+
+    #[test]
+    fn valid_code_accepted() {
+        let doc = make_doc(vec![("code", serde_json::json!({"code": "fn main() {}"}))]);
+        assert!(doc.validate().is_ok());
+    }
+
+    #[test]
+    fn code_empty_rejected() {
+        let doc = make_doc(vec![("code", serde_json::json!({"code": ""}))]);
+        assert!(doc.validate().is_err());
+    }
+
+    #[test]
+    fn valid_list_accepted() {
+        let doc = make_doc(vec![("list", serde_json::json!({"items": ["a", "b"]}))]);
+        assert!(doc.validate().is_ok());
+    }
+
+    #[test]
+    fn list_empty_items_rejected() {
+        let doc = make_doc(vec![("list", serde_json::json!({"items": []}))]);
+        assert!(doc.validate().is_err());
+    }
+
+    #[test]
+    fn list_whitespace_item_rejected() {
+        let doc = make_doc(vec![("list", serde_json::json!({"items": ["a", "  "]}))]);
+        assert!(doc.validate().is_err());
+    }
+
+    #[test]
+    fn delimiter_always_accepted() {
+        let doc = make_doc(vec![("delimiter", serde_json::json!({}))]);
+        assert!(doc.validate().is_ok());
+    }
+
+    #[test]
+    fn valid_image_accepted() {
+        let doc = make_doc(vec![(
+            "image",
+            serde_json::json!({"file": {"url": "http://x/img.png", "media_id": 1}}),
+        )]);
+        assert!(doc.validate().is_ok());
+    }
+
+    #[test]
+    fn image_missing_url_rejected() {
+        let doc = make_doc(vec![(
+            "image",
+            serde_json::json!({"file": {"media_id": 1}}),
+        )]);
+        assert!(doc.validate().is_err());
+    }
+
+    #[test]
+    fn image_missing_media_id_rejected() {
+        let doc = make_doc(vec![(
+            "image",
+            serde_json::json!({"file": {"url": "http://x/img.png"}}),
+        )]);
+        assert!(doc.validate().is_err());
+    }
+
+    #[test]
+    fn valid_embed_accepted() {
+        let doc = make_doc(vec![(
+            "embed",
+            serde_json::json!({"service": "youtube", "source": "http://youtu.be/x"}),
+        )]);
+        assert!(doc.validate().is_ok());
+    }
+
+    #[test]
+    fn embed_missing_source_rejected() {
+        let doc = make_doc(vec![("embed", serde_json::json!({"service": "youtube"}))]);
+        assert!(doc.validate().is_err());
+    }
+
+    #[test]
+    fn valid_linktool_accepted() {
+        let doc = make_doc(vec![("linktool", serde_json::json!({"link": "http://x"}))]);
+        assert!(doc.validate().is_ok());
+    }
+
+    #[test]
+    fn valid_attaches_accepted() {
+        let doc = make_doc(vec![(
+            "attaches",
+            serde_json::json!({"file": {"url": "http://x/file.pdf"}}),
+        )]);
+        assert!(doc.validate().is_ok());
+    }
+
+    #[test]
+    fn valid_raw_accepted() {
+        let doc = make_doc(vec![("raw", serde_json::json!({"html": "<b>bold</b>"}))]);
+        assert!(doc.validate().is_ok());
+    }
+
+    #[test]
+    fn valid_table_accepted() {
+        let doc = make_doc(vec![(
+            "table",
+            serde_json::json!({"content": [["A", "B"], ["1", "2"]]}),
+        )]);
+        assert!(doc.validate().is_ok());
+    }
+
+    #[test]
+    fn table_empty_rejected() {
+        let doc = make_doc(vec![("table", serde_json::json!({"content": []}))]);
+        assert!(doc.validate().is_err());
+    }
+
+    #[test]
+    fn valid_warning_accepted() {
+        let doc = make_doc(vec![(
+            "warning",
+            serde_json::json!({"title": "Note", "message": "Read this"}),
+        )]);
+        assert!(doc.validate().is_ok());
+    }
+
+    #[test]
+    fn warning_missing_message_rejected() {
+        let doc = make_doc(vec![("warning", serde_json::json!({"title": "Note"}))]);
+        assert!(doc.validate().is_err());
+    }
+
+    #[test]
+    fn valid_button_accepted() {
+        let doc = make_doc(vec![(
+            "button",
+            serde_json::json!({"text": "Click", "link": "http://x"}),
+        )]);
+        assert!(doc.validate().is_ok());
+    }
+
+    #[test]
+    fn button_alt_field_names_accepted() {
+        let doc = make_doc(vec![(
+            "button",
+            serde_json::json!({"buttonText": "Click", "buttonLink": "http://x"}),
+        )]);
+        assert!(doc.validate().is_ok());
+    }
+
+    #[test]
+    fn unsupported_block_type_rejected() {
+        let doc = make_doc(vec![("custom_block", serde_json::json!({}))]);
+        assert!(doc.validate().is_err());
+    }
+
+    #[test]
+    fn multi_block_doc_validates() {
+        let doc = make_doc(vec![
+            ("header", serde_json::json!({"text": "Title", "level": 1})),
+            ("paragraph", serde_json::json!({"text": "Intro"})),
+            ("delimiter", serde_json::json!({})),
+            ("paragraph", serde_json::json!({"text": "Body"})),
+        ]);
+        assert!(doc.validate().is_ok());
+    }
+
+    // --- EditorJsDocument::into_json ---
+
+    #[test]
+    fn into_json_roundtrip() {
+        let doc = make_doc(vec![("paragraph", serde_json::json!({"text": "hi"}))]);
+        let json = doc.into_json();
+        assert!(json.get("blocks").unwrap().as_array().unwrap().len() == 1);
+    }
+
+    // --- V1SeriesCreatePayload validation ---
+
+    #[test]
+    fn valid_series_create() {
+        let payload = V1SeriesCreatePayload {
+            name: "Rust Basics".to_string(),
+            slug: "rust-basics".to_string(),
+            description: Some("Learn Rust".to_string()),
+        };
+        assert!(payload.validate().is_ok());
+    }
+
+    #[test]
+    fn series_create_short_name_rejected() {
+        let payload = V1SeriesCreatePayload {
+            name: "ab".to_string(),
+            slug: "valid-slug".to_string(),
+            description: None,
+        };
+        assert!(payload.validate().is_err());
+    }
+
+    #[test]
+    fn series_create_long_name_rejected() {
+        let payload = V1SeriesCreatePayload {
+            name: "x".repeat(256),
+            slug: "valid-slug".to_string(),
+            description: None,
+        };
+        assert!(payload.validate().is_err());
+    }
+
+    // --- V1SeriesUpdatePayload validation ---
+
+    #[test]
+    fn valid_series_update() {
+        let payload = V1SeriesUpdatePayload {
+            name: Some("Updated".to_string()),
+            slug: Some("updated".to_string()),
+            description: None,
+        };
+        assert!(payload.validate().is_ok());
+    }
+
+    #[test]
+    fn series_update_short_slug_rejected() {
+        let payload = V1SeriesUpdatePayload {
+            name: None,
+            slug: Some("ab".to_string()),
+            description: None,
+        };
+        assert!(payload.validate().is_err());
+    }
+}
