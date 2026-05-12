@@ -127,8 +127,7 @@ pub fn router(state: AppState) -> Router<AppState> {
         use utoipa_swagger_ui::SwaggerUi;
 
         router = router.merge(
-            SwaggerUi::new("/api/docs")
-                .url("/api/docs.json", crate::docs::ApiDoc::openapi()),
+            SwaggerUi::new("/api/docs").url("/api/docs.json", crate::docs::ApiDoc::openapi()),
         );
     }
 

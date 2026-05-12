@@ -63,7 +63,7 @@ pub fn CommentsSection(props: CommentsSectionProps) -> Element {
             div { class: "flex items-center gap-3 mb-6",
                 Icon { icon: LdMessageCircle, class: "w-5 h-5" }
                 h2 { class: "text-xl font-semibold", "Comments" }
-                if let Some(data) = comments_frame.data {
+                if let Some(data) = comments_frame.data.clone() {
                     span { "({data.data.len()})" }
                 }
             }
@@ -151,7 +151,7 @@ pub fn CommentsSection(props: CommentsSectionProps) -> Element {
                         variant: ErrorDetailsVariant::Collapsed,
                     }
                 }
-            } else if let Some(data) = comments_frame.data {
+            } else if let Some(data) = comments_frame.data.clone() {
                 if data.data.is_empty() {
                     div { class: "text-center py-12",
                         Icon { icon: LdMessageCircle, class: "w-8 h-8 mx-auto mb-4" }
