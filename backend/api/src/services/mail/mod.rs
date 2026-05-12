@@ -6,6 +6,7 @@ use crate::utils::telemetry;
 
 mod html_templates;
 pub mod smtp;
+pub mod templates;
 
 const DOMAIN: &str = "domain.tld";
 

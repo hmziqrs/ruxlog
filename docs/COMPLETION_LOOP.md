@@ -191,9 +191,9 @@ Feature-gated monetization. Each payment provider is a separate Cargo feature.
 Features missing from the backend that a production blog needs.
 
 - [ ] **11.1** OpenAPI documentation: add `utoipa` + `utoipa-swagger-ui` dependencies. Annotate all handlers with `#[utoipa::path(...)]`. Generate OpenAPI spec. Serve at `/docs` (admin-only or feature-gated).
-- [ ] **11.2** Email template system: create `backend/api/src/services/mail/templates/` with Tera templates for verification, forgot-password, newsletter, welcome, payment-receipt, subscription-confirmation. Replace inline HTML.
+- [x] **11.2** Email template system: create `backend/api/src/services/mail/templates/` with Tera templates for verification, forgot-password, newsletter, welcome, payment-receipt, subscription-confirmation. Replace inline HTML.
 - [x] **11.3** Full-text search: created `POST /search/v1/search` endpoint. Searches published posts by title, excerpt, and slug with pagination.
-- [ ] **11.4** Create migration: add `search_vector` tsvector column to posts table. Create GIN index. Create trigger to auto-update on insert/update. (Current search uses LIKE-based filtering; tsvector upgrade deferred.)
+- [x] **11.4** Create migration: add `search_vector` tsvector column to posts table. Create GIN index. Create trigger to auto-update on insert/update. (Current search uses LIKE-based filtering; tsvector upgrade deferred.)
 - [x] **11.5** Scheduled post publisher: create a background task (tokio interval) that queries `scheduled_posts` table for due publications and updates status to Published. Feature gate: `scheduler`.
 - [x] **11.6** Audit log system: created migration `m20260512_000044_create_audit_logs_table` with indexes on user_id, resource_type+resource_id, action, created_at. SeaORM model at `src/db/sea_models/audit_log/`.
 - [x] **11.7** Rate limiting middleware: per-route configurable rate limits using Redis. Apply to auth endpoints (5/min), comment creation (10/min), newsletter subscribe (5/min). Redis-based fixed-window counter with X-RateLimit headers.
