@@ -3,6 +3,8 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
+use crate::db::sea_models::post_access::model::PostAccessType;
+
 use crate::db::sea_models::plan::model::PlanInterval;
 
 // --- Plan CRUD payloads ---
@@ -169,4 +171,13 @@ pub struct InvoiceResponse {
     pub paid_at: Option<chrono::DateTime<chrono::FixedOffset>>,
     pub pdf_url: Option<String>,
     pub created_at: chrono::DateTime<chrono::FixedOffset>,
+}
+
+// --- Post access / paywall ---
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct SetPostAccessPayload {
+    pub access_type: PostAccessType,
+    pub price_cents: Option<i32>,
+    pub currency: Option<String>,
 }

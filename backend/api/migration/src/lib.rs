@@ -47,6 +47,7 @@ mod m20260512_000041_create_payout_accounts_table;
 mod m20260512_000042_create_payout_ledger_table;
 mod m20260512_000043_create_discount_codes_table;
 mod m20260512_000044_create_audit_logs_table;
+mod m20260512_000045_create_post_access_table;
 
 pub struct Migrator;
 
@@ -101,6 +102,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260512_000042_create_payout_ledger_table::Migration),
             Box::new(m20260512_000043_create_discount_codes_table::Migration),
             Box::new(m20260512_000044_create_audit_logs_table::Migration),
+            Box::new(m20260512_000045_create_post_access_table::Migration),
         ]
     }
 }

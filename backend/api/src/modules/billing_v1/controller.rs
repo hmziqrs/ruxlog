@@ -14,6 +14,7 @@ use serde_json::json;
 use crate::error::response::ErrorResponse;
 use crate::error::codes::ErrorCode;
 use crate::db::sea_models::plan;
+use crate::db::sea_models::post_access;
 use crate::db::sea_models::subscription;
 use crate::db::sea_models::payment;
 use crate::db::sea_models::invoice;
@@ -392,4 +393,62 @@ pub async fn webhook_receiver(
         "received": true,
         "provider": provider
     })))
+}
+
+// ── Paywall: Check post access ────────────────────────────────────────
+
+pub async fn check_post_access(
+    State(state): State<AppState>,
+    Path(post_id): Path<i32>,
+) -> Result<Json<serde_json::Value>, ErrorResponse> {
+    let access = post_access::Entity::find()
+        .filter(post_access::Column::PostId.eq(post_id))
+        .one(&state.sea_db)
+        .await
+        .map_err(|_| ErrorResponse::new(ErrorCode::QueryError))?;
+
+    match access {
+        Some(a) => Ok(Json(json!({
+            "post_id": post_id,
+            "access_type": a.access_type,
+            "price_cents": a.price_cents,
+            "currency": a.currency,
+            "requires_subscription": true,
+        }))),
+        None => Ok(Json(json!({
+            "post_id": post_id,
+            "access_type": "free",
+            "requires_subscription": false,
+        }))),
+    }
+}
+
+// ── Admin: Set post access ────────────────────────────────────────────
+
+pub async fn admin_set_post_access(
+    State(state): State<AppState>,
+    Path(post_id): Path<i32>,
+    Json(payload): Json<SetPostAccessPayload>,
+) -> Result<Json<serde_json::Value>, ErrorResponse> {
+    // Upsert: delete existing access rule, insert new one
+    post_access::Entity::delete_many()
+        .filter(post_access::Column::PostId.eq(post_id))
+        .exec(&state.sea_db)
+        .await
+        .map_err(|_| ErrorResponse::new(ErrorCode::QueryError))?;
+
+    let active_model = post_access::model::ActiveModel {
+        post_id: Set(post_id),
+        access_type: Set(payload.access_type),
+        price_cents: Set(payload.price_cents),
+        currency: Set(payload.currency),
+        ..Default::default()
+    };
+
+    active_model
+        .insert(&state.sea_db)
+        .await
+        .map_err(|_| ErrorResponse::new(ErrorCode::QueryError))?;
+
+    Ok(Json(json!({ "message": "Post access updated" })))
 }

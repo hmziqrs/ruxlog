@@ -32,6 +32,11 @@ pub fn routes() -> Router<AppState> {
             "/discount/delete/{code_id}",
             post(controller::admin_delete_discount_code),
         )
+        // Paywall: set post access
+        .route(
+            "/post/access/{post_id}",
+            post(controller::admin_set_post_access),
+        )
         .route_layer(middleware::from_fn(
             auth_guard::verified_with_role::<{ auth_guard::ROLE_ADMIN }>,
         ));
@@ -48,6 +53,8 @@ pub fn routes() -> Router<AppState> {
     let public = Router::<AppState>::new()
         // Public active plans listing
         .route("/plans", get(controller::public_list_plans))
+        // Paywall check (no auth required — tells client if access is needed)
+        .route("/access/{post_id}", get(controller::check_post_access))
         // Webhook receiver (per-provider path)
         .route("/webhook/{provider}", post(controller::webhook_receiver));
 

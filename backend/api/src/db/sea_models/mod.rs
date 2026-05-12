@@ -31,5 +31,6 @@ pub mod user;
 pub mod audit_log;
 pub mod user_ban;
 pub mod user_session;
+pub mod post_access;
 
 pub use crate::utils::color as color_utils;
