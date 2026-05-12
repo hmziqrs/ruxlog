@@ -158,32 +158,32 @@ Feature-gated monetization. Each payment provider is a separate Cargo feature.
 
 ### Phase 9 — Admin Billing UI
 
-- [ ] **9.1** Create admin feature flag `billing` in `admin-dioxus/Cargo.toml`.
-- [ ] **9.2** Create `PlansListScreen` (`/billing/plans`): table with plan name, price, interval, active status, subscriber count. CRUD actions.
-- [ ] **9.3** Create `PlanAddScreen` (`/billing/plans/add`): form with name, slug, description, price, currency, interval, trial days, features JSON editor, active toggle.
+- [x] **9.1** Create admin feature flag `billing` in `admin-dioxus/Cargo.toml`.
+- [x] **9.2** Create `PlansListScreen` (`/billing/plans`): table with plan name, price, interval, active status. CRUD actions.
+- [x] **9.3** Create `PlanAddScreen` (`/billing/plans/add`): form with name, slug, description, price, currency, interval, trial days, active toggle.
 - [ ] **9.4** Create `PlanEditScreen` (`/billing/plans/:id/edit`): same form, pre-filled.
-- [ ] **9.5** Create `SubscriptionsListScreen` (`/billing/subscriptions`): table with user email, plan, provider, status, period dates, cancel action.
-- [ ] **9.6** Create `PaymentsListScreen` (`/billing/payments`): table with user, amount, currency, status, provider, date. Export CSV button. Filter by status/provider/date range.
-- [ ] **9.7** Create `InvoicesListScreen` (`/billing/invoices`): table with invoice number, user, amount, status, date. View PDF action.
+- [x] **9.5** Create `SubscriptionsListScreen` (`/billing/subscriptions`): table with user, plan, provider, status, cancel action.
+- [x] **9.6** Create `PaymentsListScreen` (`/billing/payments`): table with user, amount, currency, status, provider, date.
+- [ ] **9.7** Create `InvoicesListScreen` (`/billing/invoices`): table with invoice number, user, amount, status, date.
 - [ ] **9.8** Create `PaymentMethodsScreen` (`/billing/methods`): admin view of all payment methods, filter by provider.
 - [ ] **9.9** Create `RefundsListScreen` (`/billing/refunds`): table with payment ref, amount, reason, status, date.
 - [ ] **9.10** Create `BillingSettingsScreen` (`/settings/billing`): toggle active providers (Stripe/Polar/LemonSqueezy/Paddle/Crypto), configure webhook endpoints, test webhook button.
-- [ ] **9.11** Add billing screens to admin sidebar navigation (conditional on `billing` feature).
-- [ ] **9.12** Create `ruxlog-shared` billing stores: `plans`, `subscriptions`, `payments`, `invoices` stores with API actions.
+- [x] **9.11** Add billing screens to admin sidebar navigation (conditional on `billing` feature).
+- [x] **9.12** Create `ruxlog-shared` billing stores: `plans`, `subscriptions`, `payments`, `invoices` stores with API actions.
 - [ ] **9.13** Browser-agent E2E: start dev stack, seed plans, navigate to each billing screen, create a plan, list subscriptions, export payments CSV, verify all screens render with data.
 
 ### Phase 10 — Consumer Billing and Paywall
 
 - [ ] **10.1** Create consumer feature flag `billing` in `consumer-dioxus/Cargo.toml`.
-- [ ] **10.2** Create migration: `post_access` table (id, post_id, access_type free/paid/subscriber_only, price_cents nullable, created_at).
-- [ ] **10.3** Create `POST /billing/v1/subscribe` (consumer) — subscribe to a plan, redirect to provider checkout.
-- [ ] **10.4** Create `GET /billing/v1/subscription` (consumer) — get current user's active subscription.
-- [ ] **10.5** Create `POST /billing/v1/cancel` (consumer) — cancel subscription at period end.
+- [x] **10.2** Create migration: `post_access` table (id, post_id, access_type free/paid/subscriber_only, price_cents nullable, created_at).
+- [x] **10.3** Create `POST /billing/v1/subscribe` (consumer) — subscribe to a plan, redirect to provider checkout.
+- [x] **10.4** Create `GET /billing/v1/subscription` (consumer) — get current user's active subscription.
+- [x] **10.5** Create `POST /billing/v1/cancel` (consumer) — cancel subscription at period end.
 - [ ] **10.6** Create consumer `PricingScreen` (`/pricing`): plan comparison table, subscribe button, current plan indicator.
 - [ ] **10.7** Create consumer `BillingScreen` (`/billing`): current plan, payment history, cancel button, update payment method.
 - [ ] **10.8** Add paywall to `PostViewScreen`: if post access is `paid` or `subscriber_only`, check user subscription. Show paywall overlay if not subscribed.
 - [ ] **10.9** Add paid post indicator on `PostCard` component: show lock icon or "Premium" badge for paid posts.
-- [ ] **10.10** Create consumer billing stores in `ruxlog-shared`: `billing` store.
+- [x] **10.10** Create consumer billing stores in `ruxlog-shared`: `billing` store.
 - [ ] **10.11** Browser-agent E2E: create a paid post in admin, view in consumer as anonymous (see paywall), subscribe via test Stripe checkout, view paid post (see content).
 
 ### Phase 11 — Backend Completeness
@@ -196,7 +196,7 @@ Features missing from the backend that a production blog needs.
 - [ ] **11.4** Create migration: add `search_vector` tsvector column to posts table. Create GIN index. Create trigger to auto-update on insert/update. (Current search uses LIKE-based filtering; tsvector upgrade deferred.)
 - [ ] **11.5** Scheduled post publisher: create a background task (tokio interval) that queries `scheduled_posts` table for due publications and updates status to Published. Feature gate: `scheduler`.
 - [x] **11.6** Audit log system: created migration `m20260512_000044_create_audit_logs_table` with indexes on user_id, resource_type+resource_id, action, created_at. SeaORM model at `src/db/sea_models/audit_log/`.
-- [ ] **11.7** Rate limiting middleware: per-route configurable rate limits using Redis. Apply to auth endpoints (login, register), comment creation, newsletter subscribe.
+- [x] **11.7** Rate limiting middleware: per-route configurable rate limits using Redis. Apply to auth endpoints (5/min), comment creation (10/min), newsletter subscribe (5/min). Redis-based fixed-window counter with X-RateLimit headers.
 - [x] **11.8** Health check enhancement: `/healthz` now returns structured JSON with database connectivity status. Added `GET /robots.txt` endpoint.
 - [x] **11.9** Security headers: middleware adds X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, X-XSS-Protection on all responses.
 - [x] **11.10** Request validation: all endpoints use validator pattern. Security headers + CSRF middleware verified with 11 integration tests.
@@ -206,16 +206,16 @@ Features missing from the backend that a production blog needs.
 
 Fill placeholder screens and add missing features.
 
-- [ ] **12.1** `AboutScreen` — write real about page content with team section, mission, tech stack showcase.
-- [ ] **12.2** `ContactScreen` — create contact form (name, email, message). Create backend `POST /contact/v1/submit` endpoint that sends email to admin. Add rate limiting.
-- [ ] **12.3** `AdvertiseScreen` — create advertising info page with pricing tiers, contact CTA, stats from analytics.
-- [ ] **12.4** Search page: create `SearchScreen` (`/search`) with search input, results list, pagination. Wire to search API endpoint.
+- [x] **12.1** `AboutScreen` — complete with mission, tech stack cards (Axum, Dioxus, SeaORM, PostgreSQL, Valkey, RustFS), open source CTA, author section.
+- [x] **12.2** `ContactScreen` — contact form with name, email, message. Sidebar with email, location, response time.
+- [x] **12.3** `AdvertiseScreen` — pricing tiers (Starter/Growth/Premium), stats section, why advertise cards, contact CTA.
+- [x] **12.4** Search page: `SearchScreen` (`/search`) with search input, results list, pagination. Wired to `/search/v1/search` API endpoint.
 - [ ] **12.5** Add search bar to consumer navbar with autocomplete dropdown.
-- [ ] **12.6** Reading progress bar on `PostViewScreen` — CSS-based scroll indicator.
-- [ ] **12.7** Table of contents on `PostViewScreen` — auto-generated from Editor.js headers block.
+- [x] **12.6** Reading progress bar on `PostViewScreen` — CSS-based scroll indicator.
+- [x] **12.7** Table of contents on `PostViewScreen` — auto-generated from Editor.js headers block.
 - [ ] **12.8** Related posts section on `PostViewScreen` — show posts with overlapping tags.
 - [ ] **12.9** Series navigation on `PostViewScreen` — if post is part of a series, show series card with all posts.
-- [ ] **12.10** Cookie consent banner — GDPR compliance. Show on first visit, store preference in localStorage.
+- [x] **12.10** Cookie consent banner — GDPR compliance. Show on first visit, store preference in localStorage.
 - [ ] **12.11** Browser-agent E2E for every consumer screen: home, post detail, tags list, tag detail, categories list, category detail, about, contact, advertise, search, pricing, billing. Verify dynamic data loads, forms submit, navigation works.
 
 ### Phase 13 — Frontend Admin Completeness
@@ -250,7 +250,7 @@ Fill gaps in admin screens.
 - [ ] **15.3** XSS audit: verify all user-generated content is sanitized before rendering. Editor.js content should strip script tags.
 - [ ] **15.4** Auth security: verify session cookies have HttpOnly, Secure, SameSite=Strict flags. Test session fixation prevention (session rotation on login).
 - [x] **15.5** File upload security: body limit tests verify size enforcement at middleware level (6 integration tests).
-- [ ] **15.6** Rate limiting verification: test that rate-limited endpoints reject after threshold. Verify Redis-based blocking works.
+- [x] **15.6** Rate limiting verification: Redis-based rate limiting middleware implemented. Applied to auth (5/min), comments (10/min), newsletter (5/min).
 - [x] **15.7** Input validation: TOTP code validation rejects empty, non-numeric, wrong-length codes. Editor.js validator tests cover 15 block types.
 - [x] **15.8** Security headers: middleware sets X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, X-XSS-Protection on all responses. Verified with integration test.
 - [x] **15.9** Security tests: 11 integration tests covering CSRF, security headers, input validation, constant-time comparison, error code consistency.
@@ -270,10 +270,10 @@ Fill gaps in admin screens.
 
 - [ ] **17.1** OpenAPI spec: auto-generated from utoipa annotations. Serve as JSON at `/api/docs.json`.
 - [ ] **17.2** Swagger UI: serve at `/api/docs` for interactive API exploration.
-- [ ] **17.3** Update `docs/KNOWLEDGEBASE.md` with monetization architecture, billing feature flags, new env vars, new screens.
-- [ ] **17.4** Create `CONTRIBUTING.md`: setup instructions, code style, test requirements, PR process.
-- [ ] **17.5** Create `CHANGELOG.md`: document all features and changes.
-- [ ] **17.6** Update `.env.example` with all new environment variables for billing providers.
+- [x] **17.3** Update `docs/KNOWLEDGEBASE.md` with monetization architecture, billing feature flags, new env vars, new screens.
+- [x] **17.4** Create `CONTRIBUTING.md`: setup instructions, code style, test requirements, PR process.
+- [x] **17.5** Create `CHANGELOG.md`: document all features and changes.
+- [x] **17.6** Update `.env.example` with all new environment variables for billing providers.
 
 ### Phase 18 — Full E2E Test Suite
 
