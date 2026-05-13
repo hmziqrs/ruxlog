@@ -679,3 +679,204 @@ fn significant_reduction(original: usize, candidate: usize, threshold: f32) -> b
     let reduction = 1.0 - (candidate as f32 / original as f32);
     reduction >= threshold
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── normalize_extension ──
+
+    #[test]
+    fn test_normalize_extension_basic() {
+        assert_eq!(normalize_extension("jpg"), Some("jpg".to_string()));
+        assert_eq!(normalize_extension("PNG"), Some("png".to_string()));
+        assert_eq!(normalize_extension("WebP"), Some("webp".to_string()));
+    }
+
+    #[test]
+    fn test_normalize_extension_strips_dots() {
+        assert_eq!(normalize_extension(".jpg"), Some("jpg".to_string()));
+        assert_eq!(normalize_extension(".png"), Some("png".to_string()));
+        assert_eq!(normalize_extension("..webp"), Some("webp".to_string()));
+    }
+
+    #[test]
+    fn test_normalize_extension_trims_whitespace() {
+        assert_eq!(normalize_extension("  jpg  "), Some("jpg".to_string()));
+        assert_eq!(normalize_extension(" .png "), Some("png".to_string()));
+    }
+
+    #[test]
+    fn test_normalize_extension_empty() {
+        assert_eq!(normalize_extension(""), None);
+        assert_eq!(normalize_extension("."), None);
+        assert_eq!(normalize_extension("  "), None);
+    }
+
+    // ── format_extensions ──
+
+    #[test]
+    fn test_format_extensions_known_formats() {
+        assert_eq!(format_extensions(&ImageFormat::Png), "png");
+        assert_eq!(format_extensions(&ImageFormat::Jpeg), "jpg");
+        assert_eq!(format_extensions(&ImageFormat::WebP), "webp");
+        assert_eq!(format_extensions(&ImageFormat::Gif), "gif");
+        assert_eq!(format_extensions(&ImageFormat::Bmp), "bmp");
+        assert_eq!(format_extensions(&ImageFormat::Tiff), "tif");
+        assert_eq!(format_extensions(&ImageFormat::Avif), "avif");
+        assert_eq!(format_extensions(&ImageFormat::Tga), "tga");
+        assert_eq!(format_extensions(&ImageFormat::Dds), "dds");
+        assert_eq!(format_extensions(&ImageFormat::Pnm), "pnm");
+        assert_eq!(format_extensions(&ImageFormat::Ico), "ico");
+        assert_eq!(format_extensions(&ImageFormat::Hdr), "hdr");
+        assert_eq!(format_extensions(&ImageFormat::OpenExr), "exr");
+    }
+
+    // ── format_mime ──
+
+    #[test]
+    fn test_format_mime_known_formats() {
+        assert_eq!(format_mime(&ImageFormat::Png), "image/png");
+        assert_eq!(format_mime(&ImageFormat::Jpeg), "image/jpeg");
+        assert_eq!(format_mime(&ImageFormat::WebP), "image/webp");
+        assert_eq!(format_mime(&ImageFormat::Gif), "image/gif");
+        assert_eq!(format_mime(&ImageFormat::Bmp), "image/bmp");
+        assert_eq!(format_mime(&ImageFormat::Tiff), "image/tiff");
+        assert_eq!(format_mime(&ImageFormat::Avif), "image/avif");
+        assert_eq!(format_mime(&ImageFormat::Tga), "image/x-tga");
+        assert_eq!(format_mime(&ImageFormat::Dds), "image/vnd.ms-dds");
+        assert_eq!(format_mime(&ImageFormat::Pnm), "image/x-portable-anymap");
+        assert_eq!(format_mime(&ImageFormat::Ico), "image/x-icon");
+        assert_eq!(format_mime(&ImageFormat::Hdr), "image/vnd.radiance");
+        assert_eq!(format_mime(&ImageFormat::OpenExr), "image/x-exr");
+    }
+
+    // ── should_skip_for_quality ──
+
+    fn make_probed(format: ImageFormat, bpp: f32) -> ProbedImage {
+        ProbedImage {
+            width: 100,
+            height: 100,
+            pixel_count: 10_000,
+            format,
+            mime: std::borrow::Cow::Borrowed("image/png"),
+            extension: std::borrow::Cow::Borrowed("png"),
+            bytes_per_pixel: bpp,
+        }
+    }
+
+    #[test]
+    fn test_should_skip_png_already_optimized() {
+        // PNG with bpp <= 3.0 should be skipped
+        assert!(should_skip_for_quality(&make_probed(ImageFormat::Png, 2.0)));
+        assert!(should_skip_for_quality(&make_probed(ImageFormat::Png, 3.0)));
+    }
+
+    #[test]
+    fn test_should_skip_png_needs_optimization() {
+        // PNG with bpp > 3.0 should NOT be skipped
+        assert!(!should_skip_for_quality(&make_probed(ImageFormat::Png, 3.5)));
+    }
+
+    #[test]
+    fn test_should_skip_jpeg_already_optimized() {
+        // JPEG with bpp <= 1.5 should be skipped
+        assert!(should_skip_for_quality(&make_probed(ImageFormat::Jpeg, 1.0)));
+        assert!(should_skip_for_quality(&make_probed(ImageFormat::Jpeg, 1.5)));
+    }
+
+    #[test]
+    fn test_should_skip_jpeg_needs_optimization() {
+        // JPEG with bpp > 1.5 should NOT be skipped
+        assert!(!should_skip_for_quality(&make_probed(ImageFormat::Jpeg, 2.0)));
+    }
+
+    #[test]
+    fn test_should_skip_webp_already_optimized() {
+        // WebP with bpp <= 1.5 should be skipped
+        assert!(should_skip_for_quality(&make_probed(ImageFormat::WebP, 1.0)));
+        assert!(should_skip_for_quality(&make_probed(ImageFormat::WebP, 1.5)));
+    }
+
+    #[test]
+    fn test_should_skip_webp_needs_optimization() {
+        assert!(!should_skip_for_quality(&make_probed(ImageFormat::WebP, 2.0)));
+    }
+
+    #[test]
+    fn test_should_skip_unknown_format_never_skipped() {
+        assert!(!should_skip_for_quality(&make_probed(ImageFormat::Gif, 0.1)));
+        assert!(!should_skip_for_quality(&make_probed(ImageFormat::Bmp, 0.1)));
+    }
+
+    // ── significant_reduction ──
+
+    #[test]
+    fn test_significant_reduction_candidate_larger() {
+        // candidate >= original -> false
+        assert!(!significant_reduction(100, 120, 0.1));
+        assert!(!significant_reduction(100, 100, 0.1));
+    }
+
+    #[test]
+    fn test_significant_reduction_meets_threshold() {
+        // 10% reduction with 0.05 threshold -> true
+        assert!(significant_reduction(100, 90, 0.05));
+        // 5% reduction with 0.05 threshold -> true (boundary)
+        assert!(significant_reduction(100, 95, 0.05));
+    }
+
+    #[test]
+    fn test_significant_reduction_below_threshold() {
+        // 4% reduction with 0.05 threshold -> false
+        assert!(!significant_reduction(100, 96, 0.05));
+        // 1% reduction with 0.05 threshold -> false
+        assert!(!significant_reduction(1000, 990, 0.05));
+    }
+
+    #[test]
+    fn test_significant_reduction_50_percent() {
+        assert!(significant_reduction(1000, 500, 0.1));
+    }
+
+    // ── analyze_image ──
+
+    #[test]
+    fn test_analyze_image_aspect_ratio_landscape() {
+        let img = DynamicImage::ImageRgb8(image::RgbImage::new(200, 100));
+        let chars = analyze_image(&img);
+        assert!((chars.aspect_ratio - 2.0).abs() < 0.01);
+        assert!(!chars.has_alpha);
+        assert_eq!(chars.min_dimension, 100);
+    }
+
+    #[test]
+    fn test_analyze_image_aspect_ratio_portrait() {
+        let img = DynamicImage::ImageRgb8(image::RgbImage::new(100, 200));
+        let chars = analyze_image(&img);
+        assert!((chars.aspect_ratio - 0.5).abs() < 0.01);
+        assert_eq!(chars.min_dimension, 100);
+    }
+
+    #[test]
+    fn test_analyze_image_aspect_ratio_square() {
+        let img = DynamicImage::ImageRgb8(image::RgbImage::new(100, 100));
+        let chars = analyze_image(&img);
+        assert!((chars.aspect_ratio - 1.0).abs() < 0.01);
+        assert_eq!(chars.min_dimension, 100);
+    }
+
+    #[test]
+    fn test_analyze_image_alpha_detection() {
+        let img = DynamicImage::ImageRgba8(image::RgbaImage::new(50, 50));
+        let chars = analyze_image(&img);
+        assert!(chars.has_alpha);
+    }
+
+    #[test]
+    fn test_analyze_image_no_alpha_rgb() {
+        let img = DynamicImage::ImageRgb8(image::RgbImage::new(50, 50));
+        let chars = analyze_image(&img);
+        assert!(!chars.has_alpha);
+    }
+}

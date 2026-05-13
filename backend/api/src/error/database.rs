@@ -164,3 +164,145 @@ impl<T> DbResultExt<T> for Result<T, DbErr> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_classify_duplicate_key_23505() {
+        assert_eq!(
+            classify_db_error("ERROR: duplicate key value violates unique constraint \"idx_email\" (SQLSTATE 23505)"),
+            ErrorCode::DuplicateEntry
+        );
+    }
+
+    #[test]
+    fn test_classify_duplicate_key_lowercase_message() {
+        assert_eq!(
+            classify_db_error("duplicate key value violates unique constraint"),
+            ErrorCode::DuplicateEntry
+        );
+    }
+
+    #[test]
+    fn test_classify_unique_constraint() {
+        assert_eq!(
+            classify_db_error("unique constraint violation for column slug"),
+            ErrorCode::DuplicateEntry
+        );
+    }
+
+    #[test]
+    fn test_classify_foreign_key_23503() {
+        assert_eq!(
+            classify_db_error("ERROR: insert or update on table \"posts\" violates foreign key constraint \"fk_author\" (SQLSTATE 23503)"),
+            ErrorCode::IntegrityError
+        );
+    }
+
+    #[test]
+    fn test_classify_foreign_key_lowercase() {
+        assert_eq!(
+            classify_db_error("violates foreign key constraint"),
+            ErrorCode::IntegrityError
+        );
+    }
+
+    #[test]
+    fn test_classify_not_null_23502() {
+        assert_eq!(
+            classify_db_error("ERROR: null value in column \"title\" violates not-null constraint (SQLSTATE 23502)"),
+            ErrorCode::IntegrityError
+        );
+    }
+
+    #[test]
+    fn test_classify_not_null_lowercase() {
+        assert_eq!(
+            classify_db_error("not-null constraint violation"),
+            ErrorCode::IntegrityError
+        );
+        assert_eq!(
+            classify_db_error("null value in column \"email\""),
+            ErrorCode::IntegrityError
+        );
+    }
+
+    #[test]
+    fn test_classify_check_constraint_23514() {
+        assert_eq!(
+            classify_db_error("ERROR: new row for relation \"users\" violates check constraint \"ck_email_format\" (SQLSTATE 23514)"),
+            ErrorCode::IntegrityError
+        );
+    }
+
+    #[test]
+    fn test_classify_check_constraint_lowercase() {
+        assert_eq!(
+            classify_db_error("check constraint \"ck_positive\" violated"),
+            ErrorCode::IntegrityError
+        );
+    }
+
+    #[test]
+    fn test_classify_exclusion_constraint_23p01() {
+        assert_eq!(
+            classify_db_error("ERROR: conflicting key value violates exclusion constraint (23P01)"),
+            ErrorCode::IntegrityError
+        );
+    }
+
+    #[test]
+    fn test_classify_exclusion_constraint_lowercase() {
+        assert_eq!(
+            classify_db_error("exclusion constraint violation detected"),
+            ErrorCode::IntegrityError
+        );
+    }
+
+    #[test]
+    fn test_classify_deadlock_40p01() {
+        assert_eq!(
+            classify_db_error("ERROR: deadlock detected (SQLSTATE 40P01)"),
+            ErrorCode::TransactionError
+        );
+    }
+
+    #[test]
+    fn test_classify_deadlock_lowercase() {
+        assert_eq!(
+            classify_db_error("deadlock detected while waiting for lock"),
+            ErrorCode::TransactionError
+        );
+    }
+
+    #[test]
+    fn test_classify_serialization_failure_40001() {
+        assert_eq!(
+            classify_db_error("ERROR: could not serialize access due to concurrent update (SQLSTATE 40001)"),
+            ErrorCode::TransactionError
+        );
+    }
+
+    #[test]
+    fn test_classify_serialization_failure_lowercase() {
+        assert_eq!(
+            classify_db_error("serialization failure"),
+            ErrorCode::TransactionError
+        );
+    }
+
+    #[test]
+    fn test_classify_unknown_error() {
+        assert_eq!(
+            classify_db_error("some random database error"),
+            ErrorCode::QueryError
+        );
+    }
+
+    #[test]
+    fn test_classify_empty_message() {
+        assert_eq!(classify_db_error(""), ErrorCode::QueryError);
+    }
+}

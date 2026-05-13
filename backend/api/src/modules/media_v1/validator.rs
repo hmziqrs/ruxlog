@@ -92,3 +92,125 @@ pub struct V1MediaUsageQuery {
     #[validate(length(min = 1, message = "media_ids must contain at least one id"))]
     pub media_ids: Vec<i32>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── MediaUploadMetadata::apply_field ──────────────────────────────────
+
+    #[test]
+    fn apply_field_reference_type_valid() {
+        let mut meta = MediaUploadMetadata::default();
+        assert!(meta.reference_type.is_none());
+
+        meta.apply_field("reference_type", "category").unwrap();
+        assert_eq!(meta.reference_type, Some(MediaReference::Category));
+
+        meta.apply_field("reference_type", "user").unwrap();
+        assert_eq!(meta.reference_type, Some(MediaReference::User));
+
+        meta.apply_field("reference_type", "post").unwrap();
+        assert_eq!(meta.reference_type, Some(MediaReference::Post));
+    }
+
+    #[test]
+    fn apply_field_reference_type_empty_clears() {
+        let mut meta = MediaUploadMetadata::default();
+        meta.reference_type = Some(MediaReference::Category);
+
+        meta.apply_field("reference_type", "  ").unwrap();
+        assert!(meta.reference_type.is_none());
+
+        meta.apply_field("reference_type", "").unwrap();
+        assert!(meta.reference_type.is_none());
+    }
+
+    #[test]
+    fn apply_field_reference_type_invalid() {
+        let mut meta = MediaUploadMetadata::default();
+        let result = meta.apply_field("reference_type", "invalid_type");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Invalid media reference type"));
+    }
+
+    #[test]
+    fn apply_field_width_valid() {
+        let mut meta = MediaUploadMetadata::default();
+        assert!(meta.width.is_none());
+
+        meta.apply_field("width", "1920").unwrap();
+        assert_eq!(meta.width, Some(1920));
+
+        meta.apply_field("width", "0").unwrap();
+        assert_eq!(meta.width, Some(0));
+
+        meta.apply_field("width", "-100").unwrap();
+        assert_eq!(meta.width, Some(-100));
+    }
+
+    #[test]
+    fn apply_field_width_empty_clears() {
+        let mut meta = MediaUploadMetadata::default();
+        meta.width = Some(800);
+
+        meta.apply_field("width", "").unwrap();
+        assert!(meta.width.is_none());
+    }
+
+    #[test]
+    fn apply_field_width_invalid() {
+        let mut meta = MediaUploadMetadata::default();
+        let result = meta.apply_field("width", "abc");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Invalid width"));
+    }
+
+    #[test]
+    fn apply_field_height_valid() {
+        let mut meta = MediaUploadMetadata::default();
+        assert!(meta.height.is_none());
+
+        meta.apply_field("height", "1080").unwrap();
+        assert_eq!(meta.height, Some(1080));
+    }
+
+    #[test]
+    fn apply_field_height_empty_clears() {
+        let mut meta = MediaUploadMetadata::default();
+        meta.height = Some(600);
+
+        meta.apply_field("height", "  ").unwrap();
+        assert!(meta.height.is_none());
+    }
+
+    #[test]
+    fn apply_field_height_invalid() {
+        let mut meta = MediaUploadMetadata::default();
+        let result = meta.apply_field("height", "not_a_number");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Invalid height"));
+    }
+
+    #[test]
+    fn apply_field_unknown_field_ignored() {
+        let mut meta = MediaUploadMetadata::default();
+        // Unknown fields are silently ignored -- no error
+        let result = meta.apply_field("unknown_field", "some_value");
+        assert!(result.is_ok());
+        assert!(meta.reference_type.is_none());
+        assert!(meta.width.is_none());
+        assert!(meta.height.is_none());
+    }
+
+    #[test]
+    fn apply_field_whitespace_trimmed() {
+        let mut meta = MediaUploadMetadata::default();
+
+        meta.apply_field("width", "  500  ").unwrap();
+        assert_eq!(meta.width, Some(500));
+
+        meta.apply_field("reference_type", "  category  ").unwrap();
+        assert_eq!(meta.reference_type, Some(MediaReference::Category));
+    }
+}

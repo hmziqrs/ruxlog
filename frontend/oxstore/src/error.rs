@@ -149,3 +149,273 @@ pub fn classify_transport_error<E: std::fmt::Debug>(e: &E) -> (TransportErrorKin
     // Default to unknown error for generic implementations
     (TransportErrorKind::Unknown, format!("{:?}", e))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── TransportErrorKind::label ──
+
+    #[test]
+    fn label_offline() {
+        assert_eq!(TransportErrorKind::Offline.label(), "Offline");
+    }
+
+    #[test]
+    fn label_network() {
+        assert_eq!(TransportErrorKind::Network.label(), "Network");
+    }
+
+    #[test]
+    fn label_timeout() {
+        assert_eq!(TransportErrorKind::Timeout.label(), "Timeout");
+    }
+
+    #[test]
+    fn label_canceled() {
+        assert_eq!(TransportErrorKind::Canceled.label(), "Canceled");
+    }
+
+    #[test]
+    fn label_unknown() {
+        assert_eq!(TransportErrorKind::Unknown.label(), "Unknown");
+    }
+
+    // ── TransportErrorKind::hint ──
+
+    #[test]
+    fn hint_offline() {
+        assert_eq!(
+            TransportErrorKind::Offline.hint(),
+            Some("Reconnect to the internet and try again.")
+        );
+    }
+
+    #[test]
+    fn hint_network() {
+        assert_eq!(
+            TransportErrorKind::Network.hint(),
+            Some("Ensure the API server is running and proxy/CORS settings allow access.")
+        );
+    }
+
+    #[test]
+    fn hint_timeout() {
+        assert_eq!(
+            TransportErrorKind::Timeout.hint(),
+            Some("The request timed out. Retry or inspect backend latency.")
+        );
+    }
+
+    #[test]
+    fn hint_canceled() {
+        assert_eq!(
+            TransportErrorKind::Canceled.hint(),
+            Some("The browser canceled this request.")
+        );
+    }
+
+    #[test]
+    fn hint_unknown_is_none() {
+        assert_eq!(TransportErrorKind::Unknown.hint(), None);
+    }
+
+    // ── ApiError::message ──
+
+    #[test]
+    fn api_error_message_with_both_type_and_message() {
+        let err = ApiError {
+            r#type: Some("Validation".into()),
+            message: Some("Name is required".into()),
+            status: 422,
+            details: None,
+            context: None,
+            retry_after: None,
+            request_id: None,
+        };
+        assert_eq!(err.message(), "Name is required");
+    }
+
+    #[test]
+    fn api_error_message_only() {
+        let err = ApiError {
+            r#type: None,
+            message: Some("Something broke".into()),
+            status: 500,
+            details: None,
+            context: None,
+            retry_after: None,
+            request_id: None,
+        };
+        assert_eq!(err.message(), "Something broke");
+    }
+
+    #[test]
+    fn api_error_type_only() {
+        let err = ApiError {
+            r#type: Some("NotFound".into()),
+            message: None,
+            status: 404,
+            details: None,
+            context: None,
+            retry_after: None,
+            request_id: None,
+        };
+        assert_eq!(err.message(), "Request failed with type NotFound (status 404)");
+    }
+
+    #[test]
+    fn api_error_no_type_no_message() {
+        let err = ApiError {
+            r#type: None,
+            message: None,
+            status: 503,
+            details: None,
+            context: None,
+            retry_after: None,
+            request_id: None,
+        };
+        assert_eq!(err.message(), "Request failed (status 503)");
+    }
+
+    #[test]
+    fn api_error_empty_type_no_message() {
+        let err = ApiError {
+            r#type: Some(String::new()),
+            message: None,
+            status: 500,
+            details: None,
+            context: None,
+            retry_after: None,
+            request_id: None,
+        };
+        assert_eq!(err.message(), "Request failed (status 500)");
+    }
+
+    // ── AppError::message ──
+
+    #[test]
+    fn app_error_api() {
+        let api = ApiError {
+            r#type: Some("Auth".into()),
+            message: Some("Bad token".into()),
+            status: 401,
+            details: None,
+            context: None,
+            retry_after: None,
+            request_id: None,
+        };
+        let app = AppError::Api(api);
+        assert_eq!(app.message(), "Bad token");
+    }
+
+    #[test]
+    fn app_error_transport_offline() {
+        let app = AppError::Transport(TransportErrorInfo {
+            kind: TransportErrorKind::Offline,
+            message: None,
+        });
+        assert_eq!(app.message(), "You appear to be offline");
+    }
+
+    #[test]
+    fn app_error_transport_network() {
+        let app = AppError::Transport(TransportErrorInfo {
+            kind: TransportErrorKind::Network,
+            message: Some("connection refused".into()),
+        });
+        assert_eq!(app.message(), "connection refused");
+    }
+
+    #[test]
+    fn app_error_transport_network_default_message() {
+        let app = AppError::Transport(TransportErrorInfo {
+            kind: TransportErrorKind::Network,
+            message: None,
+        });
+        assert_eq!(app.message(), "API server is unreachable");
+    }
+
+    #[test]
+    fn app_error_transport_timeout_with_message() {
+        let app = AppError::Transport(TransportErrorInfo {
+            kind: TransportErrorKind::Timeout,
+            message: Some("took 30s".into()),
+        });
+        assert_eq!(app.message(), "took 30s");
+    }
+
+    #[test]
+    fn app_error_transport_timeout_default_message() {
+        let app = AppError::Transport(TransportErrorInfo {
+            kind: TransportErrorKind::Timeout,
+            message: None,
+        });
+        assert_eq!(app.message(), "Request timed out");
+    }
+
+    #[test]
+    fn app_error_transport_canceled() {
+        let app = AppError::Transport(TransportErrorInfo {
+            kind: TransportErrorKind::Canceled,
+            message: None,
+        });
+        assert_eq!(app.message(), "Request canceled");
+    }
+
+    #[test]
+    fn app_error_transport_unknown() {
+        let app = AppError::Transport(TransportErrorInfo {
+            kind: TransportErrorKind::Unknown,
+            message: Some("weird error".into()),
+        });
+        assert_eq!(app.message(), "weird error");
+    }
+
+    #[test]
+    fn app_error_transport_unknown_default() {
+        let app = AppError::Transport(TransportErrorInfo {
+            kind: TransportErrorKind::Unknown,
+            message: None,
+        });
+        assert_eq!(app.message(), "Network error");
+    }
+
+    #[test]
+    fn app_error_decode() {
+        let app = AppError::Decode {
+            label: "user_list".into(),
+            error: "missing field `id`".into(),
+            raw: None,
+        };
+        assert_eq!(
+            app.message(),
+            "Unexpected response format for 'user_list': missing field `id`"
+        );
+    }
+
+    #[test]
+    fn app_error_other() {
+        let app = AppError::Other {
+            message: "generic issue".into(),
+        };
+        assert_eq!(app.message(), "generic issue");
+    }
+
+    // ── classify_transport_error ──
+
+    #[test]
+    fn classify_transport_error_non_wasm() {
+        let err = std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "refused");
+        let (kind, msg) = classify_transport_error(&err);
+        assert_eq!(kind, TransportErrorKind::Unknown);
+        assert!(msg.contains("refused"));
+    }
+
+    // ── is_offline on non-wasm ──
+
+    #[test]
+    fn is_offline_non_wasm_is_false() {
+        assert!(!is_offline());
+    }
+}

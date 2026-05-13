@@ -166,7 +166,7 @@ pub struct ActionBarProps {
 #[component]
 pub fn ActionBar(props: ActionBarProps) -> Element {
     let mut show_bookmark_hint = use_signal(|| false);
-    let feedback_message = use_signal(String::new);
+    let mut feedback_message = use_signal(String::new);
     let mut show_share_modal = use_signal(|| false);
 
     // Store props in signals for use in closures
