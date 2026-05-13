@@ -15,7 +15,7 @@ use crate::analytics::tracker;
 pub fn ShareBox(show: Signal<bool>, post_id: String, title: String, url: String) -> Element {
     let mut search_query = use_signal(String::new);
     let mut show_more = use_signal(|| false);
-    let mut copy_success = use_signal(|| false);
+    let copy_success = use_signal(|| false);
 
     // Define all platforms
     let platforms = vec![
@@ -149,18 +149,18 @@ pub fn ShareBox(show: Signal<bool>, post_id: String, title: String, url: String)
     let has_results = use_memo(move || !visible_platforms().is_empty());
 
     // Handle copy link
-    let url_clone = url.clone();
-    let post_id_clone2 = post_id.clone();
-    let title_clone2 = title.clone();
+    let _url_clone = url.clone();
+    let _post_id_clone2 = post_id.clone();
+    let _title_clone2 = title.clone();
     let handle_copy_link = move |_| {
         #[cfg(target_arch = "wasm32")]
         {
             if let Some(window) = web_sys::window() {
                 let navigator = window.navigator();
                 let clipboard = navigator.clipboard();
-                let url_for_clipboard = url_clone.clone();
-                let post_id_for_async = post_id_clone2.clone();
-                let title_for_async = title_clone2.clone();
+                let url_for_clipboard = _url_clone.clone();
+                let post_id_for_async = _post_id_clone2.clone();
+                let title_for_async = _title_clone2.clone();
                 let promise = clipboard.write_text(&url_for_clipboard);
                 wasm_bindgen_futures::spawn_local(async move {
                     let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
@@ -234,7 +234,7 @@ pub fn ShareBox(show: Signal<bool>, post_id: String, title: String, url: String)
                         div { class: "grid grid-cols-3 gap-3 mb-4",
                             for platform in visible_platforms() {
                                 {
-                                    let share_url = build_share_url(platform.url_template, &title, &url);
+                                    let _share_url = build_share_url(platform.url_template, &title, &url);
                                     let _platform_name = platform.name.to_string();
                                     let _post_id_clone = post_id.clone();
                                     let _title_clone = title.clone();
@@ -253,7 +253,7 @@ pub fn ShareBox(show: Signal<bool>, post_id: String, title: String, url: String)
                                                 #[cfg(target_arch = "wasm32")]
                                                 {
                                                     if let Some(window) = web_sys::window() {
-                                                        let _ = window.open_with_url_and_target(&share_url, "_blank");
+                                                        let _ = window.open_with_url_and_target(&_share_url, "_blank");
                                                     }
                                                 }
                                             },
