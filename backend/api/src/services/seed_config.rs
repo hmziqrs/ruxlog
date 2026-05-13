@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Seed mode for controlling data generation randomness
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum SeedMode {
     /// Random seed based on current timestamp - unique data each run

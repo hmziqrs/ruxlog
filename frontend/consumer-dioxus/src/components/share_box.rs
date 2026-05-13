@@ -15,7 +15,7 @@ use crate::analytics::tracker;
 pub fn ShareBox(show: Signal<bool>, post_id: String, title: String, url: String) -> Element {
     let mut search_query = use_signal(String::new);
     let mut show_more = use_signal(|| false);
-    let copy_success = use_signal(|| false);
+    let mut copy_success = use_signal(|| false);
 
     // Define all platforms
     let platforms = vec![
@@ -159,8 +159,8 @@ pub fn ShareBox(show: Signal<bool>, post_id: String, title: String, url: String)
                 let navigator = window.navigator();
                 let clipboard = navigator.clipboard();
                 let url_for_clipboard = _url_clone.clone();
-                let post_id_for_async = _post_id_clone2.clone();
-                let title_for_async = _title_clone2.clone();
+                let _post_id_for_async = _post_id_clone2.clone();
+                let _title_for_async = _title_clone2.clone();
                 let promise = clipboard.write_text(&url_for_clipboard);
                 wasm_bindgen_futures::spawn_local(async move {
                     let _ = wasm_bindgen_futures::JsFuture::from(promise).await;

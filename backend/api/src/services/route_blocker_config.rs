@@ -91,3 +91,131 @@ pub fn calculate_next_sync() -> DateTime<Utc> {
     let interval = get_sync_interval_secs();
     Utc::now() + chrono::Duration::seconds(interval as i64)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::{Duration, Utc};
+
+    #[test]
+    fn test_default_sync_interval() {
+        // Reset to known state
+        set_sync_interval_secs(30 * 60);
+        assert_eq!(get_sync_interval_secs(), 30 * 60);
+    }
+
+    #[test]
+    fn test_set_sync_interval_clamps_minimum() {
+        set_sync_interval_secs(10);
+        assert_eq!(get_sync_interval_secs(), 60);
+    }
+
+    #[test]
+    fn test_set_sync_interval_clamps_maximum() {
+        set_sync_interval_secs(200_000);
+        assert_eq!(get_sync_interval_secs(), 86_400);
+    }
+
+    #[test]
+    fn test_set_sync_interval_exact_bounds() {
+        set_sync_interval_secs(60);
+        assert_eq!(get_sync_interval_secs(), 60);
+
+        set_sync_interval_secs(86_400);
+        assert_eq!(get_sync_interval_secs(), 86_400);
+    }
+
+    #[test]
+    fn test_pause_and_resume_sync() {
+        // Ensure we start unpaused
+        resume_sync();
+
+        assert!(!is_paused());
+        pause_sync();
+        assert!(is_paused());
+        pause_sync();
+        assert!(is_paused());
+        resume_sync();
+        assert!(!is_paused());
+    }
+
+    #[test]
+    fn test_resume_sync_sets_force_flag() {
+        // Clear force flag first, then ensure paused state
+        take_force_sync_flag();
+        pause_sync();
+        assert!(is_paused());
+        resume_sync();
+        assert!(!is_paused());
+        // After resume from paused state, force flag should be set
+        assert!(take_force_sync_flag());
+        // Taking it again should return false (atomic swap)
+        assert!(!take_force_sync_flag());
+    }
+
+    #[test]
+    fn test_request_immediate_sync_and_take() {
+        take_force_sync_flag();
+        assert!(!take_force_sync_flag());
+
+        request_immediate_sync();
+        assert!(take_force_sync_flag());
+        assert!(!take_force_sync_flag());
+    }
+
+    #[test]
+    fn test_force_sync_is_atomic_swap() {
+        request_immediate_sync();
+        request_immediate_sync();
+        // Even if called twice, one take clears it
+        assert!(take_force_sync_flag());
+        assert!(!take_force_sync_flag());
+    }
+
+    #[test]
+    fn test_set_and_get_last_sync_at() {
+        let ts = Utc::now();
+        set_last_sync_at(ts);
+        let retrieved = get_last_sync_at().expect("should have timestamp");
+        assert_eq!(retrieved, ts);
+    }
+
+    #[test]
+    fn test_last_sync_at_overwrites() {
+        let ts1 = Utc::now() - Duration::days(1);
+        let ts2 = Utc::now();
+        set_last_sync_at(ts1);
+        assert_eq!(get_last_sync_at().unwrap(), ts1);
+        set_last_sync_at(ts2);
+        assert_eq!(get_last_sync_at().unwrap(), ts2);
+    }
+
+    #[test]
+    fn test_set_and_get_next_sync_at() {
+        let ts = Utc::now() + Duration::hours(1);
+        set_next_sync_at(ts);
+        let retrieved = get_next_sync_at().expect("should have timestamp");
+        assert_eq!(retrieved, ts);
+    }
+
+    #[test]
+    fn test_sync_running_flag() {
+        set_sync_running(false);
+        assert!(!is_sync_running());
+
+        set_sync_running(true);
+        assert!(is_sync_running());
+
+        set_sync_running(false);
+        assert!(!is_sync_running());
+    }
+
+    // Restore defaults after tests
+    #[test]
+    fn test_restore_defaults() {
+        set_sync_interval_secs(30 * 60);
+        resume_sync();
+        take_force_sync_flag();
+        set_sync_running(false);
+    }
+}

@@ -203,3 +203,254 @@ impl<D: Clone, Q: Clone> StateFrame<D, Q> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Constructors ──
+
+    #[test]
+    fn new_is_init() {
+        let frame: StateFrame<String> = StateFrame::new();
+        assert_eq!(frame.status, StateFrameStatus::Init);
+        assert!(frame.data.is_none());
+        assert!(frame.meta.is_none());
+        assert!(frame.error.is_none());
+    }
+
+    #[test]
+    fn new_with_loading() {
+        let frame: StateFrame<String> = StateFrame::new_with_loading();
+        assert_eq!(frame.status, StateFrameStatus::Loading);
+        assert!(frame.data.is_none());
+        assert!(frame.error.is_none());
+    }
+
+    #[test]
+    fn new_with_data_some() {
+        let frame: StateFrame<String> = StateFrame::new_with_data(Some("hello".to_string()));
+        assert_eq!(frame.status, StateFrameStatus::Success);
+        assert_eq!(frame.data, Some("hello".to_string()));
+        assert!(frame.error.is_none());
+    }
+
+    #[test]
+    fn new_with_data_none() {
+        let frame: StateFrame<Option<String>> = StateFrame::new_with_data(None);
+        assert_eq!(frame.status, StateFrameStatus::Success);
+        assert!(frame.data.is_none());
+    }
+
+    // ── Status checks ──
+
+    #[test]
+    fn is_init_on_new() {
+        let frame: StateFrame<()> = StateFrame::new();
+        assert!(frame.is_init());
+        assert!(!frame.is_loading());
+        assert!(!frame.is_success());
+        assert!(!frame.is_failed());
+    }
+
+    #[test]
+    fn is_loading() {
+        let frame: StateFrame<()> = StateFrame::new_with_loading();
+        assert!(frame.is_loading());
+        assert!(!frame.is_init());
+    }
+
+    #[test]
+    fn is_success() {
+        let frame: StateFrame<i32> = StateFrame::new_with_data(Some(42));
+        assert!(frame.is_success());
+        assert!(!frame.is_loading());
+    }
+
+    #[test]
+    fn is_failed() {
+        let mut frame: StateFrame<()> = StateFrame::new();
+        frame.set_failed("oops".into());
+        assert!(frame.is_failed());
+        assert!(!frame.is_success());
+    }
+
+    // ── State transitions ──
+
+    #[test]
+    fn set_loading_clears_error() {
+        let mut frame: StateFrame<()> = StateFrame::new();
+        frame.set_failed("bad".into());
+        assert!(frame.is_failed());
+
+        frame.set_loading();
+        assert!(frame.is_loading());
+        assert!(frame.error.is_none());
+    }
+
+    #[test]
+    fn set_success_clears_error() {
+        let mut frame: StateFrame<i32> = StateFrame::new();
+        frame.set_failed("bad".into());
+        frame.set_success(Some(10));
+        assert!(frame.is_success());
+        assert_eq!(frame.data, Some(10));
+        assert!(frame.error.is_none());
+    }
+
+    #[test]
+    fn set_failed() {
+        let mut frame: StateFrame<()> = StateFrame::new();
+        frame.set_failed("something went wrong".into());
+        assert!(frame.is_failed());
+        assert_eq!(
+            frame.error_message(),
+            Some("something went wrong".to_string())
+        );
+    }
+
+    // ── set_api_error with valid JSON ──
+
+    #[test]
+    fn set_api_error_valid_json_with_message() {
+        let mut frame: StateFrame<()> = StateFrame::new();
+        let body = r#"{"type":"Validation","message":"Name is required","status":422}"#;
+        frame.set_api_error(422, body.to_string());
+        assert!(frame.is_failed());
+        assert_eq!(
+            frame.error_message(),
+            Some("Name is required".to_string())
+        );
+        assert_eq!(frame.error_type(), Some("Validation"));
+        assert_eq!(frame.error_status(), Some(422));
+    }
+
+    #[test]
+    fn set_api_error_valid_json_without_message() {
+        let mut frame: StateFrame<()> = StateFrame::new();
+        let body = r#"{"type":"NotFound","status":404}"#;
+        frame.set_api_error(404, body.to_string());
+        assert!(frame.is_failed());
+        assert_eq!(
+            frame.error_message(),
+            Some("Request failed with type NotFound (status 404)".to_string())
+        );
+        assert_eq!(frame.error_type(), Some("NotFound"));
+    }
+
+    #[test]
+    fn set_api_error_valid_json_no_type_no_message() {
+        let mut frame: StateFrame<()> = StateFrame::new();
+        let body = r#"{"status":500}"#;
+        frame.set_api_error(500, body.to_string());
+        assert!(frame.is_failed());
+        assert_eq!(
+            frame.error_message(),
+            Some("Request failed (status 500)".to_string())
+        );
+        assert_eq!(frame.error_type(), None);
+    }
+
+    // ── set_api_error with invalid JSON (decode fallback) ──
+
+    #[test]
+    fn set_api_error_invalid_json_falls_back_to_decode() {
+        let mut frame: StateFrame<()> = StateFrame::new();
+        let body = "this is not json";
+        frame.set_api_error(502, body.to_string());
+        assert!(frame.is_failed());
+        let msg = frame.error_message().unwrap();
+        assert!(msg.contains("api_error"));
+        assert!(msg.contains("Failed to parse API error"));
+        // Decode error: no type, no status accessor
+        assert_eq!(frame.error_type(), None);
+        assert_eq!(frame.error_status(), None);
+    }
+
+    #[test]
+    fn set_api_error_empty_body_falls_back_to_decode() {
+        let mut frame: StateFrame<()> = StateFrame::new();
+        frame.set_api_error(503, String::new());
+        assert!(frame.is_failed());
+        let msg = frame.error_message().unwrap();
+        assert!(msg.contains("api_error"));
+    }
+
+    // ── Error accessors ──
+
+    #[test]
+    fn error_message_none_on_init() {
+        let frame: StateFrame<()> = StateFrame::new();
+        assert!(frame.error_message().is_none());
+    }
+
+    #[test]
+    fn error_type_none_on_non_api_error() {
+        let mut frame: StateFrame<()> = StateFrame::new();
+        frame.set_failed("oops".into());
+        assert_eq!(frame.error_type(), None);
+    }
+
+    #[test]
+    fn error_status_none_on_non_api_error() {
+        let mut frame: StateFrame<()> = StateFrame::new();
+        frame.set_failed("oops".into());
+        assert_eq!(frame.error_status(), None);
+    }
+
+    #[test]
+    fn error_type_and_status_on_api_error() {
+        let mut frame: StateFrame<()> = StateFrame::new();
+        let body = r#"{"type":"Auth","message":"Bad token","status":401}"#;
+        frame.set_api_error(401, body.to_string());
+        assert_eq!(frame.error_type(), Some("Auth"));
+        assert_eq!(frame.error_status(), Some(401));
+    }
+
+    // ── Transport error helpers ──
+
+    #[test]
+    fn set_transport_error() {
+        let mut frame: StateFrame<()> = StateFrame::new();
+        frame.set_transport_error(TransportErrorKind::Offline, None);
+        assert!(frame.is_failed());
+        assert_eq!(frame.transport_error_kind(), Some(TransportErrorKind::Offline));
+        assert!(frame.is_offline());
+    }
+
+    #[test]
+    fn is_offline_false_on_api_error() {
+        let mut frame: StateFrame<()> = StateFrame::new();
+        frame.set_api_error(500, r#"{"status":500}"#.to_string());
+        assert!(!frame.is_offline());
+    }
+
+    // ── set_decode_error ──
+
+    #[test]
+    fn set_decode_error() {
+        let mut frame: StateFrame<()> = StateFrame::new();
+        frame.set_decode_error("user_list", "missing field `id`", Some("raw data".into()));
+        assert!(frame.is_failed());
+        let msg = frame.error_message().unwrap();
+        assert!(msg.contains("user_list"));
+        assert!(msg.contains("missing field `id`"));
+    }
+
+    // ── Meta operations ──
+
+    #[test]
+    fn set_loading_meta() {
+        let mut frame: StateFrame<i32, String> = StateFrame::new();
+        frame.set_loading_meta(Some("searching".into()));
+        assert!(frame.is_loading());
+        assert_eq!(frame.meta, Some("searching".into()));
+    }
+
+    #[test]
+    fn set_meta() {
+        let mut frame: StateFrame<i32, u64> = StateFrame::new();
+        frame.set_meta(Some(42));
+        assert_eq!(frame.meta, Some(42));
+    }
+}

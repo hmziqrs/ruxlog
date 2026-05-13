@@ -60,3 +60,128 @@ pub struct V1TwoFADisablePayload {
 pub struct V1TerminateSessionPath {
     pub id: i32,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── validate_email ────────────────────────────────────────────────────
+
+    #[test]
+    fn validate_email_valid_addresses() {
+        assert!(validate_email("user@example.com").is_ok());
+        assert!(validate_email("test.user@domain.org").is_ok());
+        assert!(validate_email("a+b@c.co").is_ok());
+        assert!(validate_email("name@sub.domain.com").is_ok());
+        assert!(validate_email("X@Y.Z").is_ok());
+    }
+
+    #[test]
+    fn validate_email_invalid_no_at() {
+        assert!(validate_email("userexample.com").is_err());
+    }
+
+    #[test]
+    fn validate_email_invalid_no_domain() {
+        assert!(validate_email("user@").is_err());
+    }
+
+    #[test]
+    fn validate_email_invalid_no_tld() {
+        assert!(validate_email("user@domain").is_err());
+    }
+
+    #[test]
+    fn validate_email_invalid_empty() {
+        assert!(validate_email("").is_err());
+    }
+
+    #[test]
+    fn validate_email_invalid_double_at() {
+        assert!(validate_email("user@@domain.com").is_err());
+    }
+
+    #[test]
+    fn validate_email_invalid_spaces() {
+        assert!(validate_email("user @domain.com").is_err());
+        assert!(validate_email("user@ domain.com").is_err());
+    }
+
+    // ── V1RegisterPayload::into_new_user ──────────────────────────────────
+
+    #[test]
+    fn into_new_user_maps_fields() {
+        let payload = V1RegisterPayload {
+            name: "Alice".to_string(),
+            email: "alice@example.com".to_string(),
+            password: "s3cret".to_string(),
+        };
+        let new_user = payload.into_new_user();
+        assert_eq!(new_user.name, "Alice");
+        assert_eq!(new_user.email, "alice@example.com");
+        assert_eq!(new_user.password, "s3cret");
+        assert_eq!(new_user.role, UserRole::User);
+    }
+
+    // ── V1RegisterPayload validation ──────────────────────────────────────
+
+    #[test]
+    fn register_payload_valid() {
+        let payload = V1RegisterPayload {
+            name: "Bob".to_string(),
+            email: "bob@test.com".to_string(),
+            password: "password123".to_string(),
+        };
+        assert!(payload.validate().is_ok());
+    }
+
+    #[test]
+    fn register_payload_empty_name_fails() {
+        let payload = V1RegisterPayload {
+            name: "".to_string(),
+            email: "bob@test.com".to_string(),
+            password: "password123".to_string(),
+        };
+        assert!(payload.validate().is_err());
+    }
+
+    #[test]
+    fn register_payload_empty_password_fails() {
+        let payload = V1RegisterPayload {
+            name: "Bob".to_string(),
+            email: "bob@test.com".to_string(),
+            password: "".to_string(),
+        };
+        assert!(payload.validate().is_err());
+    }
+
+    #[test]
+    fn register_payload_invalid_email_fails() {
+        let payload = V1RegisterPayload {
+            name: "Bob".to_string(),
+            email: "not-an-email".to_string(),
+            password: "password123".to_string(),
+        };
+        assert!(payload.validate().is_err());
+    }
+
+    // ── V1LoginPayload validation ─────────────────────────────────────────
+
+    #[test]
+    fn login_payload_valid() {
+        let payload = V1LoginPayload {
+            email: "user@host.com".to_string(),
+            password: "pass".to_string(),
+        };
+        assert!(payload.validate().is_ok());
+    }
+
+    #[test]
+    fn login_payload_empty_password_fails() {
+        let payload = V1LoginPayload {
+            email: "user@host.com".to_string(),
+            password: "".to_string(),
+        };
+        assert!(payload.validate().is_err());
+    }
+}

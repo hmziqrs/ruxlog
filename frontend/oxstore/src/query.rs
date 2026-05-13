@@ -142,3 +142,127 @@ impl ListQuery for BaseListQuery {
         self.sorts = sorts;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Order serde (default enum variant names) ──
+
+    #[test]
+    fn order_serialize_uses_variant_name() {
+        assert_eq!(serde_json::to_string(&Order::Asc).unwrap(), "\"Asc\"");
+        assert_eq!(serde_json::to_string(&Order::Desc).unwrap(), "\"Desc\"");
+    }
+
+    #[test]
+    fn order_deserialize_uses_variant_name() {
+        let asc: Order = serde_json::from_str("\"Asc\"").unwrap();
+        assert_eq!(asc, Order::Asc);
+        let desc: Order = serde_json::from_str("\"Desc\"").unwrap();
+        assert_eq!(desc, Order::Desc);
+    }
+
+    #[test]
+    fn order_deserialize_invalid_errors() {
+        let result: Result<Order, _> = serde_json::from_str("\"random\"");
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("unknown variant"));
+    }
+
+    // ── Order serde in SortParam uses custom serializer (lowercase) ──
+
+    #[test]
+    fn sort_param_order_serializes_lowercase() {
+        let sp = SortParam {
+            field: "created_at".into(),
+            order: Order::Asc,
+        };
+        let json = serde_json::to_string(&sp).unwrap();
+        assert!(json.contains("\"asc\""));
+        assert!(!json.contains("\"Asc\""));
+    }
+
+    #[test]
+    fn sort_param_order_deserializes_case_insensitive() {
+        // lowercase
+        let sp: SortParam =
+            serde_json::from_str(r#"{"field":"name","order":"asc"}"#).unwrap();
+        assert_eq!(sp.order, Order::Asc);
+        // uppercase
+        let sp: SortParam =
+            serde_json::from_str(r#"{"field":"name","order":"ASC"}"#).unwrap();
+        assert_eq!(sp.order, Order::Asc);
+        // mixed
+        let sp: SortParam =
+            serde_json::from_str(r#"{"field":"name","order":"Desc"}"#).unwrap();
+        assert_eq!(sp.order, Order::Desc);
+    }
+
+    #[test]
+    fn sort_param_order_invalid_errors() {
+        let result: Result<SortParam, _> =
+            serde_json::from_str(r#"{"field":"name","order":"random"}"#);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("invalid order"));
+    }
+
+    // ── SortParam defaults ──
+
+    #[test]
+    fn sort_param_default() {
+        let sp = SortParam::default();
+        assert_eq!(sp.field, "");
+        assert_eq!(sp.order, Order::Desc);
+    }
+
+    #[test]
+    fn sort_param_serialize_roundtrip() {
+        let sp = SortParam {
+            field: "created_at".into(),
+            order: Order::Asc,
+        };
+        let json = serde_json::to_string(&sp).unwrap();
+        let parsed: SortParam = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.field, "created_at");
+        assert_eq!(parsed.order, Order::Asc);
+    }
+
+    // ── BaseListQuery defaults ──
+
+    #[test]
+    fn base_list_query_default_page_is_one() {
+        let q = BaseListQuery::default();
+        assert_eq!(q.page, 1);
+    }
+
+    #[test]
+    fn base_list_query_new_matches_default() {
+        let q = BaseListQuery::new();
+        assert_eq!(q.page, 1);
+        assert!(q.search.is_none());
+        assert!(q.sorts.is_none());
+    }
+
+    #[test]
+    fn base_list_query_list_query_trait_impl() {
+        let mut q = BaseListQuery::new();
+        assert_eq!(q.page(), 1);
+
+        q.set_page(3);
+        assert_eq!(q.page(), 3);
+
+        assert!(q.search().is_none());
+        q.set_search(Some("hello".into()));
+        assert_eq!(q.search(), Some("hello".into()));
+
+        assert!(q.sorts().is_none());
+        q.set_sorts(Some(vec![SortParam {
+            field: "name".into(),
+            order: Order::Asc,
+        }]));
+        assert!(q.sorts().is_some());
+    }
+}

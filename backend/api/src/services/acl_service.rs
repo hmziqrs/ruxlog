@@ -261,3 +261,85 @@ impl AclService {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── AclService::guess_sensitive ───────────────────────────────────────
+
+    #[test]
+    fn guess_sensitive_password() {
+        assert!(AclService::guess_sensitive("DB_PASSWORD"));
+        assert!(AclService::guess_sensitive("my-password-123"));
+        assert!(AclService::guess_sensitive("userPassword"));
+    }
+
+    #[test]
+    fn guess_sensitive_secret() {
+        assert!(AclService::guess_sensitive("API_SECRET"));
+        assert!(AclService::guess_sensitive("jwt-secret"));
+        assert!(AclService::guess_sensitive("mySecretKey"));
+    }
+
+    #[test]
+    fn guess_sensitive_token() {
+        assert!(AclService::guess_sensitive("AUTH_TOKEN"));
+        assert!(AclService::guess_sensitive("access-token"));
+        assert!(AclService::guess_sensitive("refreshToken"));
+    }
+
+    #[test]
+    fn guess_sensitive_key() {
+        assert!(AclService::guess_sensitive("API_KEY"));
+        assert!(AclService::guess_sensitive("encryption-key"));
+        assert!(AclService::guess_sensitive("privateKey"));
+    }
+
+    #[test]
+    fn guess_sensitive_access() {
+        assert!(AclService::guess_sensitive("ACCESS_ID"));
+        assert!(AclService::guess_sensitive("access_level"));
+        assert!(AclService::guess_sensitive("rootAccess"));
+    }
+
+    #[test]
+    fn guess_sensitive_normal_keys() {
+        assert!(!AclService::guess_sensitive("DATABASE_URL"));
+        assert!(!AclService::guess_sensitive("APP_NAME"));
+        assert!(!AclService::guess_sensitive("PORT"));
+        assert!(!AclService::guess_sensitive("HOST"));
+        assert!(!AclService::guess_sensitive("DEBUG"));
+        assert!(!AclService::guess_sensitive("LOG_LEVEL"));
+    }
+
+    #[test]
+    fn guess_sensitive_case_insensitive() {
+        // All these should be detected regardless of case
+        assert!(AclService::guess_sensitive("Password"));
+        assert!(AclService::guess_sensitive("SECRET"));
+        assert!(AclService::guess_sensitive("Token"));
+        assert!(AclService::guess_sensitive("KeY"));
+        assert!(AclService::guess_sensitive("ACCESS"));
+    }
+
+    #[test]
+    fn guess_sensitive_substring_match() {
+        // "key" appears inside "monkey" -- should still match
+        assert!(AclService::guess_sensitive("monkey"));
+        // "access" appears inside "inaccessibility" -- should still match
+        assert!(AclService::guess_sensitive("inaccessibility"));
+    }
+
+    #[test]
+    fn guess_sensitive_empty_string() {
+        assert!(!AclService::guess_sensitive(""));
+    }
+
+    #[test]
+    fn guess_sensitive_value_containing_keyword() {
+        // Values containing sensitive words should also be detected
+        assert!(AclService::guess_sensitive("my_password_123"));
+        assert!(AclService::guess_sensitive("bearer_token_value"));
+    }
+}
