@@ -14,8 +14,8 @@ set -euo pipefail
 # Config
 # -----------------------------
 BASE_URL="${BASE_URL:-http://127.0.0.1:8888}"
-EMAIL="${EMAIL:-adolph_nesciunt@yahoo.com}"
-PASSWORD="${PASSWORD:-adolph_nesciunt@yahoo.com}"  # per provided creds
+EMAIL="${EMAIL:-laurie40@yahoo.com}"
+PASSWORD="${PASSWORD:-laurie40@yahoo.com}"
 CSRF_KEY="${CSRF_KEY:-ultra-instinct-goku}"        # must match server's middleware default if unset
 CSRF_TOKEN="$(printf %s "$CSRF_KEY" | base64)"
 COOKIES_FILE="${COOKIES_FILE:-$(dirname "$0")/cookies.txt}"
@@ -264,15 +264,29 @@ echo
 echo "==> Create post"
 slug="smoke-$(date +%s)"
 title="Smoke Test $(date -u +%Y-%m-%dT%H:%M:%S)"
-content="Initial content body"
 
 create_payload="$(jq -nc \
   --arg title "$title" \
-  --arg content "$content" \
   --arg slug "$slug" \
   --argjson tag_ids "$tag_ids" \
   --argjson category_id "$category_id" \
-  '{ title:$title, content:$content, slug:$slug, is_published:false, excerpt:"Smoke test excerpt", featured_image:null, category_id:$category_id, tag_ids:$tag_ids }')"
+  '{
+    title: $title,
+    slug: $slug,
+    is_published: false,
+    excerpt: "Smoke test excerpt",
+    featured_image_id: null,
+    category_id: $category_id,
+    tag_ids: $tag_ids,
+    content: {
+      time: 1715689200,
+      version: "2.30.7",
+      blocks: [
+        { type: "header", data: { text: "Smoke Test Header", level: 2 } },
+        { type: "paragraph", data: { text: "This is a smoke test post created by the API test suite." } }
+      ]
+    }
+  }')"
 
 post_file="$(post_json "/post/v1/create" "$create_payload" 201)"
 post_id="$(jq -r '.id' "$post_file")"
@@ -285,9 +299,18 @@ echo
 echo "==> Autosave"
 autosave_payload="$(jq -nc \
   --argjson post_id "$post_id" \
-  --arg content "Autosave updated content $(date -u +%s)" \
   --arg updated_at "$(now_rfc3339)" \
-  '{ post_id:$post_id, content:$content, updated_at:$updated_at }')"
+  '{
+    post_id: $post_id,
+    updated_at: $updated_at,
+    content: {
+      time: 1715689201,
+      version: "2.30.7",
+      blocks: [
+        { type: "paragraph", data: { text: "Autosave updated content." } }
+      ]
+    }
+  }')"
 
 auto_file="$(post_json "/post/v1/autosave" "$autosave_payload" 200)"
 revision_id_created="$(jq -r '.id' "$auto_file")"

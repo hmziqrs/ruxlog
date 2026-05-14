@@ -52,7 +52,7 @@ pub fn router(state: AppState) -> Router<AppState> {
         .route("/sitemap.xml", get(sitemap_xml))
         .nest(
             "/auth/v1",
-            auth_v1::routes().layer(rate_limit::RateLimitLayer::new(state.clone(), 5, 60)),
+            auth_v1::routes().layer(rate_limit::RateLimitLayer::new(state.clone(), 100, 60)),
         );
 
     #[cfg(feature = "auth-oauth")]
@@ -77,7 +77,7 @@ pub fn router(state: AppState) -> Router<AppState> {
     {
         router = router.nest(
             "/post/comment/v1",
-            post_comment_v1::routes().layer(rate_limit::RateLimitLayer::new(state.clone(), 10, 60)), // 10 req/min
+            post_comment_v1::routes().layer(rate_limit::RateLimitLayer::new(state.clone(), 100, 60)), // 100 req/min
         );
     }
 
@@ -92,7 +92,7 @@ pub fn router(state: AppState) -> Router<AppState> {
     {
         router = router.nest(
             "/newsletter/v1",
-            newsletter_v1::routes().layer(rate_limit::RateLimitLayer::new(state.clone(), 5, 60)), // 5 req/min
+            newsletter_v1::routes().layer(rate_limit::RateLimitLayer::new(state.clone(), 100, 60)), // 100 req/min
         );
     }
 

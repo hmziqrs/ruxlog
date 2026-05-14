@@ -31,8 +31,8 @@ set -euo pipefail
 # Config
 # -----------------------------
 BASE_URL="${BASE_URL:-http://127.0.0.1:8888}"
-EMAIL="${EMAIL:-adolph_nesciunt@yahoo.com}"
-PASSWORD="${PASSWORD:-adolph_nesciunt@yahoo.com}"
+EMAIL="${EMAIL:-laurie40@yahoo.com}"
+PASSWORD="${PASSWORD:-laurie40@yahoo.com}"
 CSRF_KEY="${CSRF_KEY:-ultra-instinct-goku}"
 CSRF_TOKEN="$(printf %s "$CSRF_KEY" | base64)"
 COOKIES_FILE="${COOKIES_FILE:-$(dirname "$0")/cookies.txt}"
@@ -264,11 +264,25 @@ echo "==> Create a post for comments"
 slug="cmtest-$(date +%s)"
 create_post_payload="$(jq -nc \
   --arg title "Comment Test $(date -u +%H:%M:%S)" \
-  --arg content "Base content" \
   --arg slug "$slug" \
   --argjson category_id "$category_id" \
   --argjson tag_ids "$tag_ids" \
-  '{ title:$title, content:$content, slug:$slug, is_published:true, excerpt:"E", featured_image:null, category_id:$category_id, tag_ids:$tag_ids }')"
+  '{
+    title: $title,
+    slug: $slug,
+    is_published: true,
+    excerpt: "E",
+    featured_image_id: null,
+    category_id: $category_id,
+    tag_ids: $tag_ids,
+    content: {
+      time: 1715689200,
+      version: "2.30.7",
+      blocks: [
+        { type: "paragraph", data: { text: "Base content for comment testing." } }
+      ]
+    }
+  }')"
 post_file="$(post_json "/post/v1/create" "$create_post_payload" 201)"
 post_id="$(jq -r '.id' "$post_file")"
 echo "Post created id=$post_id slug=$slug"
@@ -325,7 +339,7 @@ echo
 # Admin list (all comments) - NEW ROUTE STRUCTURE
 # -----------------------------
 echo "==> Admin list comments (new route)"
-admin_list_payload="$(jq -nc '{page:1, hidden_filter:\"all\"}')"
+admin_list_payload="$(jq -nc --arg hf "all" '{page:1, hidden_filter:$hf}')"
 post_json "/post/comment/v1/admin/list" "$admin_list_payload" 200
 echo
 
@@ -347,10 +361,10 @@ echo "==> List without hidden_filter (comment1 should be absent)"
 post_json "/post/comment/v1/admin/list" "$(jq -nc '{page:1}')" 200
 
 echo "==> List with hidden_filter=all (comment1 should appear as hidden)"
-post_json "/post/comment/v1/admin/list" "$(jq -nc '{page:1, hidden_filter:\"all\"}')" 200
+post_json "/post/comment/v1/admin/list" "$(jq -nc --arg hf "all" '{page:1, hidden_filter:$hf}')" 200
 
 echo "==> List with hidden_filter=hidden (only hidden comments should appear)"
-post_json "/post/comment/v1/admin/list" "$(jq -nc '{page:1, hidden_filter:\"hidden\"}')" 200
+post_json "/post/comment/v1/admin/list" "$(jq -nc --arg hf "hidden" '{page:1, hidden_filter:$hf}')" 200
 echo
 
 # -----------------------------
