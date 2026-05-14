@@ -1,6 +1,5 @@
 use dioxus::prelude::*;
 
-use crate::router::Route;
 use crate::utils::dates::format_short_date_dt;
 use hmziq_dioxus_free_icons::{icons::ld_icons::LdX, Icon};
 use oxui::custom::portal::AppPortal;
@@ -27,17 +26,19 @@ pub fn UserDetailsDialog(mut props: UserDetailsDialogProps) -> Element {
         None => return rsx! {},
     };
 
-    let nav = use_navigator();
-    let user_id = user.id;
-
     let handle_close = move |_| {
         props.is_open.set(false);
     };
 
     #[cfg(feature = "user-management")]
+    let nav = use_navigator();
+    #[cfg(feature = "user-management")]
+    let user_id = user.id;
+
+    #[cfg(feature = "user-management")]
     let handle_edit = move |_| {
         props.is_open.set(false);
-        nav.push(Route::UsersEditScreen { id: user_id });
+        nav.push(crate::router::Route::UsersEditScreen { id: user_id });
     };
 
     let edit_button: Option<Element> = {

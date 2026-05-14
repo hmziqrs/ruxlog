@@ -127,7 +127,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         endpoint,
     };
 
-    println!("Object Storage Config: {:?}", object_storage);
+    tracing::debug!("Object Storage Config: {:?}", object_storage);
 
     let s3_config = aws_config::from_env()
         .endpoint_url(&object_storage.endpoint)
@@ -277,7 +277,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_expiry(Expiry::OnInactivity(time::Duration::hours(24 * 14)))
         .with_same_site(SameSite::Lax)
         .with_secure(false)
-        .with_http_only(false)
+        .with_http_only(true)
         .with_private(cookie_key);
 
     let compression = CompressionLayer::new();
