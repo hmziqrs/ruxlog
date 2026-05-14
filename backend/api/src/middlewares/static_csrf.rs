@@ -71,7 +71,3 @@ pub async fn csrf_guard(req: Request, next: Next) -> Result<Response, CsrfError>
         Err(CsrfError::MissingToken)
     }
 }
-
-pub async fn test(req: Request, next: Next) -> Response {
-    next.run(req).await
-}

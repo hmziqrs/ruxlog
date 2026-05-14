@@ -2,8 +2,6 @@ use super::config::{get_base_url, get_csrf_token};
 use gloo_net::http::{Request as GlooRequest, RequestBuilder as GlooRequestBuilder};
 use serde::de::Error as _;
 use serde::{de::DeserializeOwned, Serialize};
-use std::future::Future;
-use std::pin::Pin;
 use web_sys::{FormData, RequestCredentials};
 
 pub struct Request(GlooRequest);

@@ -6,32 +6,43 @@ use dioxus::prelude::*;
 pub fn ReadingProgressBar() -> Element {
     let mut progress = use_signal(|| 0u8);
 
+    #[cfg(target_arch = "wasm32")]
     use_drop(move || {
-        // Cleanup is handled by the effect ending
+        // Cleanup handled by scope end
     });
 
-    // Use a scroll event listener approach
     #[cfg(target_arch = "wasm32")]
     {
         use_effect(move || {
-            if let Some(window) = web_sys::window() {
-                if let Some(document) = window.document() {
-                    if let Some(body) = document.body() {
-                        let scroll_height = body.scroll_height() as f64;
-                        let client_height = window
-                            .inner_height()
-                            .unwrap_or(0.0.into())
-                            .as_f64()
-                            .unwrap_or(0.0);
-                        let scrollable = scroll_height - client_height;
-                        if scrollable > 0.0 {
-                            let scroll_top = window.scroll_y().unwrap_or(0.0);
-                            let pct = ((scroll_top / scrollable) * 100.0) as u8;
-                            progress.set(pct);
+            let window = web_sys::window()?;
+            let document = window.document()?;
+            let body = document.body()?;
+            let el = body.into();
+
+            let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move || {
+                if let Some(window) = web_sys::window() {
+                    if let Some(document) = window.document() {
+                        if let Some(body) = document.body() {
+                            let scroll_height = body.scroll_height() as f64;
+                            let client_height = window
+                                .inner_height()
+                                .ok()
+                                .and_then(|v| v.as_f64())
+                                .unwrap_or(0.0);
+                            let scrollable = scroll_height - client_height;
+                            if scrollable > 0.0 {
+                                let scroll_top = window.scroll_y().unwrap_or(0.0);
+                                let pct = ((scroll_top / scrollable) * 100.0) as u8;
+                                progress.set(pct);
+                            }
                         }
                     }
                 }
-            }
+            }) as Box<dyn Fn()>);
+
+            let _ = el.add_event_listener_with_callback("scroll", closure.as_ref().unchecked_ref());
+            let _ = closure.forget();
+            Some(())
         });
     }
 

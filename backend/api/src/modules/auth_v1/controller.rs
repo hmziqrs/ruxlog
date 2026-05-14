@@ -355,15 +355,16 @@ pub async fn sessions_list(
 #[debug_handler]
 pub async fn sessions_terminate(
     State(state): State<AppState>,
-    _auth: AuthSession,
+    auth: AuthSession,
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    match user_session::Entity::revoke(&state.sea_db, id).await {
-        Ok(Some(_session)) => Ok((
-            StatusCode::OK,
-            Json(json!({ "message": "Session terminated" })),
-        )),
-        Ok(None) => Err(ErrorResponse::new(ErrorCode::RecordNotFound)),
-        Err(err) => Err(err),
+    let user_id = auth.user.map(|u| u.id).unwrap_or(0);
+    let result = user_session::Entity::revoke(&state.sea_db, id).await?;
+    match result {
+        Some(session) if session.user_id == user_id => {
+            Ok((StatusCode::OK, Json(json!({ "message": "Session terminated" }))))
+        }
+        Some(_) => Err(ErrorResponse::new(ErrorCode::Unauthorized)),
+        None => Err(ErrorResponse::new(ErrorCode::RecordNotFound)),
     }
 }

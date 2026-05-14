@@ -34,6 +34,7 @@ pub use login::*;
 pub use media::*;
 pub use posts::*;
 pub use profile::*;
+#[cfg(any(feature = "admin-acl", feature = "admin-routes"))]
 pub use settings::*;
 pub use sonner_demo::*;
 pub use tags::*;
