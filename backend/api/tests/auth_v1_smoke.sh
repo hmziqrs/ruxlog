@@ -13,8 +13,8 @@ set -euo pipefail
 # Config
 # -----------------------------
 BASE_URL="${BASE_URL:-http://127.0.0.1:8888}"
-EMAIL="${EMAIL:-adolph_nesciunt@yahoo.com}"
-PASSWORD="${PASSWORD:-adolph_nesciunt@yahoo.com}"
+EMAIL="${EMAIL:-laurie40@yahoo.com}"
+PASSWORD="${PASSWORD:-laurie40@yahoo.com}"
 CSRF_KEY="${CSRF_KEY:-ultra-instinct-goku}"
 CSRF_TOKEN="$(printf %s "$CSRF_KEY" | base64)"
 COOKIES_FILE="${COOKIES_FILE:-$(dirname "$0")/cookies.txt}"
