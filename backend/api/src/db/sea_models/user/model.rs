@@ -1,76 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "user_role")]
-#[serde(rename_all = "kebab-case")]
-pub enum UserRole {
-    #[sea_orm(string_value = "super-admin")]
-    SuperAdmin,
-    #[sea_orm(string_value = "admin")]
-    Admin,
-    #[sea_orm(string_value = "moderator")]
-    Moderator,
-    #[sea_orm(string_value = "author")]
-    Author,
-    #[sea_orm(string_value = "user")]
-    User,
-}
-
-impl UserRole {
-    pub fn to_i32(&self) -> i32 {
-        match self {
-            UserRole::SuperAdmin => 4,
-            UserRole::Admin => 3,
-            UserRole::Moderator => 2,
-            UserRole::Author => 1,
-            UserRole::User => 0,
-        }
-    }
-
-    #[allow(clippy::inherent_to_string)]
-    pub fn to_string(&self) -> String {
-        match self {
-            UserRole::SuperAdmin => "super-admin".to_string(),
-            UserRole::Admin => "admin".to_string(),
-            UserRole::Moderator => "moderator".to_string(),
-            UserRole::Author => "author".to_string(),
-            UserRole::User => "user".to_string(),
-        }
-    }
-
-    #[allow(clippy::should_implement_trait)]
-    pub fn from_str(s: &str) -> Result<Self, String> {
-        match s.to_lowercase().as_str() {
-            "super-admin" => Ok(UserRole::SuperAdmin),
-            "admin" => Ok(UserRole::Admin),
-            "moderator" => Ok(UserRole::Moderator),
-            "author" => Ok(UserRole::Author),
-            "user" => Ok(UserRole::User),
-            _ => Err(format!("Invalid role: {}", s)),
-        }
-    }
-}
-
-impl From<&str> for UserRole {
-    fn from(s: &str) -> Self {
-        UserRole::from_str(s).unwrap_or(UserRole::User)
-    }
-}
-
-impl std::str::FromStr for UserRole {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        UserRole::from_str(s)
-    }
-}
-
-impl From<UserRole> for i32 {
-    fn from(role: UserRole) -> Self {
-        role.to_i32()
-    }
-}
+pub use ruxlog_types::enums::UserRole;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "users")]

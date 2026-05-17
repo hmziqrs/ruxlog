@@ -10,6 +10,7 @@ use super::provider::{
 pub struct PolarProvider {
     pub access_token: String,
     pub webhook_secret: String,
+    pub base_url: String,
 }
 
 impl PolarProvider {
@@ -17,7 +18,13 @@ impl PolarProvider {
         Self {
             access_token,
             webhook_secret,
+            base_url: "https://api.polar.sh".to_string(),
         }
+    }
+
+    pub fn with_base_url(mut self, url: String) -> Self {
+        self.base_url = url;
+        self
     }
 }
 
@@ -45,7 +52,7 @@ impl BillingProvider for PolarProvider {
         });
 
         let resp = client
-            .post("https://api.polar.sh/v1/checkouts/")
+            .post(format!("{}/v1/checkouts/", self.base_url))
             .header("Authorization", format!("Bearer {}", self.access_token))
             .json(&body)
             .send()
@@ -75,8 +82,8 @@ impl BillingProvider for PolarProvider {
     ) -> Result<(), BillingError> {
         let client = reqwest::Client::new();
         let url = format!(
-            "https://api.polar.sh/v1/subscriptions/{}/cancel",
-            provider_subscription_id
+            "{}/v1/subscriptions/{}/cancel",
+            self.base_url, provider_subscription_id
         );
 
         let resp = client
@@ -100,8 +107,8 @@ impl BillingProvider for PolarProvider {
     ) -> Result<SubscriptionInfo, BillingError> {
         let client = reqwest::Client::new();
         let url = format!(
-            "https://api.polar.sh/v1/subscriptions/{}",
-            provider_subscription_id
+            "{}/v1/subscriptions/{}",
+            self.base_url, provider_subscription_id
         );
 
         let resp = client

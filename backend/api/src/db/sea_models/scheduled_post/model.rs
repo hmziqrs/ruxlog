@@ -1,35 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::fmt;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(
-    rs_type = "String",
-    db_type = "Enum",
-    enum_name = "scheduled_post_status"
-)]
-pub enum ScheduledPostStatus {
-    #[sea_orm(string_value = "pending")]
-    Pending,
-    #[sea_orm(string_value = "published")]
-    Published,
-    #[sea_orm(string_value = "canceled")]
-    Canceled,
-    #[sea_orm(string_value = "failed")]
-    Failed,
-}
-
-impl fmt::Display for ScheduledPostStatus {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Self::Pending => "pending",
-            Self::Published => "published",
-            Self::Canceled => "canceled",
-            Self::Failed => "failed",
-        };
-        write!(f, "{}", s)
-    }
-}
+pub use ruxlog_types::enums::ScheduledPostStatus;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "scheduled_posts")]

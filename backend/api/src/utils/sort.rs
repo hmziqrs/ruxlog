@@ -53,34 +53,41 @@ mod tests {
 
     #[test]
     fn test_deserialize_order_lowercase() {
-        let val: SortParam = serde_json::from_str(r#"{"field": "created_at", "order": "asc"}"#).unwrap();
+        let val: SortParam =
+            serde_json::from_str(r#"{"field": "created_at", "order": "asc"}"#).unwrap();
         assert_eq!(val.order, Order::Asc);
 
-        let val: SortParam = serde_json::from_str(r#"{"field": "created_at", "order": "desc"}"#).unwrap();
+        let val: SortParam =
+            serde_json::from_str(r#"{"field": "created_at", "order": "desc"}"#).unwrap();
         assert_eq!(val.order, Order::Desc);
     }
 
     #[test]
     fn test_deserialize_order_uppercase() {
-        let val: SortParam = serde_json::from_str(r#"{"field": "created_at", "order": "ASC"}"#).unwrap();
+        let val: SortParam =
+            serde_json::from_str(r#"{"field": "created_at", "order": "ASC"}"#).unwrap();
         assert_eq!(val.order, Order::Asc);
 
-        let val: SortParam = serde_json::from_str(r#"{"field": "created_at", "order": "DESC"}"#).unwrap();
+        let val: SortParam =
+            serde_json::from_str(r#"{"field": "created_at", "order": "DESC"}"#).unwrap();
         assert_eq!(val.order, Order::Desc);
     }
 
     #[test]
     fn test_deserialize_order_mixed_case() {
-        let val: SortParam = serde_json::from_str(r#"{"field": "created_at", "order": "Asc"}"#).unwrap();
+        let val: SortParam =
+            serde_json::from_str(r#"{"field": "created_at", "order": "Asc"}"#).unwrap();
         assert_eq!(val.order, Order::Asc);
 
-        let val: SortParam = serde_json::from_str(r#"{"field": "created_at", "order": "Desc"}"#).unwrap();
+        let val: SortParam =
+            serde_json::from_str(r#"{"field": "created_at", "order": "Desc"}"#).unwrap();
         assert_eq!(val.order, Order::Desc);
     }
 
     #[test]
     fn test_deserialize_order_invalid() {
-        let result: Result<SortParam, _> = serde_json::from_str(r#"{"field": "created_at", "order": "invalid"}"#);
+        let result: Result<SortParam, _> =
+            serde_json::from_str(r#"{"field": "created_at", "order": "invalid"}"#);
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("invalid order"));

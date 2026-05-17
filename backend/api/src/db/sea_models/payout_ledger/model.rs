@@ -1,17 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "ledger_entry_type")]
-#[serde(rename_all = "snake_case")]
-pub enum LedgerEntryType {
-    #[sea_orm(string_value = "credit")]
-    Credit,
-    #[sea_orm(string_value = "debit")]
-    Debit,
-    #[sea_orm(string_value = "payout")]
-    Payout,
-}
+pub use ruxlog_types::enums::LedgerEntryType;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "payout_ledgers")]

@@ -1,15 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "plan_interval")]
-#[serde(rename_all = "lowercase")]
-pub enum PlanInterval {
-    #[sea_orm(string_value = "monthly")]
-    Monthly,
-    #[sea_orm(string_value = "yearly")]
-    Yearly,
-}
+pub use ruxlog_types::enums::PlanInterval;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "plans")]

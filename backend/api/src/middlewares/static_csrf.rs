@@ -15,9 +15,22 @@ pub async fn csrf_guard(req: Request, next: Next) -> Result<Response, CsrfError>
     let path = req.uri().path();
     tracing::Span::current().record("path", path);
 
-    if path.starts_with("/auth/google/v1/callback") || path.starts_with("/auth/google/v1/login") {
-        debug!("Skipping CSRF check for OAuth route: {}", path);
-        tracing::Span::current().record("result", "oauth_exempted");
+    // Skip CSRF for safe (read-only) HTTP methods
+    if matches!(
+        *req.method(),
+        axum::http::Method::GET | axum::http::Method::HEAD | axum::http::Method::OPTIONS
+    ) {
+        debug!("Skipping CSRF check for safe method: {}", req.method());
+        tracing::Span::current().record("result", "safe_method_exempted");
+        return Ok(next.run(req).await);
+    }
+
+    if path.starts_with("/auth/google/v1/callback")
+        || path.starts_with("/auth/google/v1/login")
+        || path.starts_with("/billing/v1/webhook/")
+    {
+        debug!("Skipping CSRF check for exempted route: {}", path);
+        tracing::Span::current().record("result", "exempted");
         return Ok(next.run(req).await);
     }
 

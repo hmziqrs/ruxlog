@@ -2,9 +2,9 @@ use crate::store::media::Media;
 use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use oxstore::{ListQuery, PaginatedList, SortParam, StateFrame};
+pub use ruxlog_types::enums::PostStatus;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt;
 
 // ============================================================================
 // Core Post Types
@@ -36,31 +36,6 @@ pub struct PostTag {
     pub name: String,
     pub slug: String,
     pub color: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "PascalCase")]
-pub enum PostStatus {
-    Draft,
-    Published,
-    Archived,
-}
-
-impl fmt::Display for PostStatus {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let label = match self {
-            PostStatus::Draft => "Draft",
-            PostStatus::Published => "Published",
-            PostStatus::Archived => "Archived",
-        };
-        f.write_str(label)
-    }
-}
-
-impl Default for PostStatus {
-    fn default() -> Self {
-        PostStatus::Draft
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]

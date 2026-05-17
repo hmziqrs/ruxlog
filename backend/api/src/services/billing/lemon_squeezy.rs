@@ -11,6 +11,7 @@ pub struct LemonSqueezyProvider {
     pub api_key: String,
     pub webhook_secret: String,
     pub store_id: String,
+    pub base_url: String,
 }
 
 impl LemonSqueezyProvider {
@@ -20,15 +21,16 @@ impl LemonSqueezyProvider {
             api_key,
             webhook_secret,
             store_id,
+            base_url: "https://api.lemonsqueezy.com".to_string(),
         }
     }
 
+    pub fn with_base_url(mut self, url: String) -> Self {
+        self.base_url = url;
+        self
+    }
+
     /// Create a new provider from environment variables.
-    ///
-    /// Reads:
-    /// - `LEMONSQUEEZY_API_KEY`
-    /// - `LEMONSQUEEZY_WEBHOOK_SECRET`
-    /// - `LEMONSQUEEZY_STORE_ID`
     pub fn from_env() -> Result<Self, BillingError> {
         let api_key = std::env::var("LEMONSQUEEZY_API_KEY")
             .map_err(|_| BillingError::Config("LEMONSQUEEZY_API_KEY not set".to_string()))?;
@@ -36,11 +38,7 @@ impl LemonSqueezyProvider {
             .map_err(|_| BillingError::Config("LEMONSQUEEZY_WEBHOOK_SECRET not set".to_string()))?;
         let store_id = std::env::var("LEMONSQUEEZY_STORE_ID")
             .map_err(|_| BillingError::Config("LEMONSQUEEZY_STORE_ID not set".to_string()))?;
-        Ok(Self {
-            api_key,
-            webhook_secret,
-            store_id,
-        })
+        Ok(Self::new(api_key, webhook_secret, store_id))
     }
 }
 
@@ -81,7 +79,7 @@ impl BillingProvider for LemonSqueezyProvider {
         });
 
         let resp = client
-            .post("https://api.lemonsqueezy.com/v1/checkouts")
+            .post(format!("{}/v1/checkouts", self.base_url))
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Accept", "application/vnd.api+json")
             .header("Content-Type", "application/vnd.api+json")
@@ -114,8 +112,8 @@ impl BillingProvider for LemonSqueezyProvider {
     ) -> Result<(), BillingError> {
         let client = reqwest::Client::new();
         let url = format!(
-            "https://api.lemonsqueezy.com/v1/subscriptions/{}",
-            provider_subscription_id
+            "{}/v1/subscriptions/{}",
+            self.base_url, provider_subscription_id
         );
         let body = serde_json::json!({
             "data": {
@@ -149,8 +147,8 @@ impl BillingProvider for LemonSqueezyProvider {
     ) -> Result<SubscriptionInfo, BillingError> {
         let client = reqwest::Client::new();
         let url = format!(
-            "https://api.lemonsqueezy.com/v1/subscriptions/{}",
-            provider_subscription_id
+            "{}/v1/subscriptions/{}",
+            self.base_url, provider_subscription_id
         );
 
         let resp = client

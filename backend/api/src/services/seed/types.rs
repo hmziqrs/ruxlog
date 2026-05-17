@@ -187,8 +187,12 @@ mod tests {
             errors: vec![],
             warnings: vec![],
         };
-        outcome.ranges.insert("users".to_string(), TableRange { from: 1, to: 10 });
-        outcome.ranges.insert("posts".to_string(), TableRange { from: 1, to: 50 });
+        outcome
+            .ranges
+            .insert("users".to_string(), TableRange { from: 1, to: 10 });
+        outcome
+            .ranges
+            .insert("posts".to_string(), TableRange { from: 1, to: 50 });
 
         let counts = outcome.counts();
         assert_eq!(counts.get("users"), Some(&10));
@@ -203,7 +207,9 @@ mod tests {
             errors: vec![],
             warnings: vec![],
         };
-        outcome.ranges.insert("tags".to_string(), TableRange { from: 0, to: 0 });
+        outcome
+            .ranges
+            .insert("tags".to_string(), TableRange { from: 0, to: 0 });
 
         let counts = outcome.counts();
         assert_eq!(counts.get("tags"), Some(&0));
@@ -218,7 +224,9 @@ mod tests {
             warnings: vec![],
         };
         // from > to: should yield 0
-        outcome.ranges.insert("bad".to_string(), TableRange { from: 10, to: 5 });
+        outcome
+            .ranges
+            .insert("bad".to_string(), TableRange { from: 10, to: 5 });
 
         let counts = outcome.counts();
         assert_eq!(counts.get("bad"), Some(&0));
@@ -246,7 +254,9 @@ mod tests {
             errors: vec![],
             warnings: vec![],
         };
-        outcome.ranges.insert("users".to_string(), TableRange { from: 1, to: 25 });
+        outcome
+            .ranges
+            .insert("users".to_string(), TableRange { from: 1, to: 25 });
 
         let json = outcome.ranges_json();
         let obj = json.as_object().expect("should be a JSON object");

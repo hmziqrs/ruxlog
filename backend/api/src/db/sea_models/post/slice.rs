@@ -4,6 +4,8 @@ use sea_orm::prelude::{DateTimeWithTimeZone, Json};
 use sea_orm::FromQueryResult;
 use serde::{Deserialize, Serialize};
 
+pub use ruxlog_types::enums::PostSortBy;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthorMedia {
     pub id: i32,
@@ -147,16 +149,6 @@ pub struct PostSitemap {
     pub updated_at: DateTimeWithTimeZone,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub published_at: Option<DateTimeWithTimeZone>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum PostSortBy {
-    Title,
-    UpdatedAt,
-    PublishedAt,
-    ViewCount,
-    LikesCount,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, FromQueryResult)]

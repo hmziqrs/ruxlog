@@ -3,37 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use super::super::media;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "entity_type")]
-#[serde(rename_all = "lowercase")]
-pub enum EntityType {
-    #[sea_orm(string_value = "category")]
-    Category,
-    #[sea_orm(string_value = "user")]
-    User,
-    #[sea_orm(string_value = "post")]
-    Post,
-}
-
-impl EntityType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            EntityType::Category => "category",
-            EntityType::User => "user",
-            EntityType::Post => "post",
-        }
-    }
-
-    #[allow(clippy::should_implement_trait)]
-    pub fn from_str(value: &str) -> Result<Self, String> {
-        match value.to_lowercase().as_str() {
-            "category" => Ok(EntityType::Category),
-            "user" => Ok(EntityType::User),
-            "post" => Ok(EntityType::Post),
-            other => Err(format!("Invalid entity type: {}", other)),
-        }
-    }
-}
+pub use ruxlog_types::enums::EntityType;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "media_usage")]

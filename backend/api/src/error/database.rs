@@ -280,7 +280,9 @@ mod tests {
     #[test]
     fn test_classify_serialization_failure_40001() {
         assert_eq!(
-            classify_db_error("ERROR: could not serialize access due to concurrent update (SQLSTATE 40001)"),
+            classify_db_error(
+                "ERROR: could not serialize access due to concurrent update (SQLSTATE 40001)"
+            ),
             ErrorCode::TransactionError
         );
     }

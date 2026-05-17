@@ -65,7 +65,11 @@ async fn get_api(client: &Client, path: &str) -> reqwest::Response {
 async fn healthz_returns_ok() {
     let client = client();
     skip_if_no_server!(client);
-    let resp = client.get(format!("{BASE_URL}/healthz")).send().await.unwrap();
+    let resp = client
+        .get(format!("{BASE_URL}/healthz"))
+        .send()
+        .await
+        .unwrap();
     assert!(resp.status().is_success());
 }
 
@@ -160,7 +164,12 @@ async fn rss_feed_returns_ok() {
     skip_if_no_server!(client);
     let resp = get_api(&client, "/feed/v1/rss").await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let content_type = resp.headers().get("content-type").unwrap().to_str().unwrap();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .unwrap()
+        .to_str()
+        .unwrap();
     assert!(
         content_type.contains("xml") || content_type.contains("rss"),
         "RSS feed should return XML content type, got: {content_type}"
@@ -173,7 +182,12 @@ async fn atom_feed_returns_ok() {
     skip_if_no_server!(client);
     let resp = get_api(&client, "/feed/v1/atom").await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let content_type = resp.headers().get("content-type").unwrap().to_str().unwrap();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .unwrap()
+        .to_str()
+        .unwrap();
     assert!(
         content_type.contains("xml") || content_type.contains("atom"),
         "Atom feed should return XML content type, got: {content_type}"

@@ -6,6 +6,9 @@ use tower_sessions_redis_store::fred::prelude::Pool as RedisPool;
 
 use crate::services::auth::AuthBackend;
 
+#[cfg(feature = "billing")]
+use crate::services::billing::BillingRouter;
+
 #[derive(Clone, Debug)]
 pub struct ObjectStorageConfig {
     // S3-compatible storage (Cloudflare R2, Garage, AWS S3, etc.)
@@ -37,6 +40,8 @@ pub struct AppState {
     #[cfg(feature = "image-optimization")]
     pub optimizer: OptimizerConfig,
     pub meter: Meter,
+    #[cfg(feature = "billing")]
+    pub billing_router: std::sync::Arc<BillingRouter>,
 }
 
 impl FromRef<AppState> for AuthBackend {

@@ -10,6 +10,7 @@ use super::provider::{
 pub struct StripeProvider {
     pub secret_key: String,
     pub webhook_secret: String,
+    pub base_url: String,
 }
 
 impl StripeProvider {
@@ -17,7 +18,13 @@ impl StripeProvider {
         Self {
             secret_key,
             webhook_secret,
+            base_url: "https://api.stripe.com".to_string(),
         }
+    }
+
+    pub fn with_base_url(mut self, url: String) -> Self {
+        self.base_url = url;
+        self
     }
 }
 
@@ -48,7 +55,7 @@ impl BillingProvider for StripeProvider {
         ];
 
         let resp = client
-            .post("https://api.stripe.com/v1/checkout/sessions")
+            .post(format!("{}/v1/checkout/sessions", self.base_url))
             .header("Authorization", format!("Bearer {}", self.secret_key))
             .form(&params)
             .send()
@@ -78,8 +85,8 @@ impl BillingProvider for StripeProvider {
     ) -> Result<(), BillingError> {
         let client = reqwest::Client::new();
         let url = format!(
-            "https://api.stripe.com/v1/subscriptions/{}",
-            provider_subscription_id
+            "{}/v1/subscriptions/{}",
+            self.base_url, provider_subscription_id
         );
 
         let resp = if immediately {
@@ -112,8 +119,8 @@ impl BillingProvider for StripeProvider {
     ) -> Result<SubscriptionInfo, BillingError> {
         let client = reqwest::Client::new();
         let url = format!(
-            "https://api.stripe.com/v1/subscriptions/{}",
-            provider_subscription_id
+            "{}/v1/subscriptions/{}",
+            self.base_url, provider_subscription_id
         );
 
         let resp = client
@@ -194,7 +201,7 @@ impl BillingProvider for StripeProvider {
         ];
 
         let resp = client
-            .post("https://api.stripe.com/v1/billing_portal/sessions")
+            .post(format!("{}/v1/billing_portal/sessions", self.base_url))
             .header("Authorization", format!("Bearer {}", self.secret_key))
             .form(&params)
             .send()
@@ -237,6 +244,7 @@ mod tests {
     fn test_stripe_provider_name() {
         let provider = StripeProvider::new("sk_test_key".into(), "whsec_secret".into());
         assert_eq!(provider.provider_name(), "stripe");
+        assert_eq!(provider.base_url, "https://api.stripe.com");
     }
 
     #[test]
@@ -244,6 +252,14 @@ mod tests {
         let provider = StripeProvider::new("sk_live_abc123".into(), "whsec_def456".into());
         assert_eq!(provider.secret_key, "sk_live_abc123");
         assert_eq!(provider.webhook_secret, "whsec_def456");
+        assert_eq!(provider.base_url, "https://api.stripe.com");
+    }
+
+    #[test]
+    fn test_stripe_custom_base_url() {
+        let provider = StripeProvider::new("sk_test".into(), "whsec".into())
+            .with_base_url("http://localhost:9999".into());
+        assert_eq!(provider.base_url, "http://localhost:9999");
     }
 
     #[test]

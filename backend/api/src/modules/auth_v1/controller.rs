@@ -361,9 +361,10 @@ pub async fn sessions_terminate(
     let user_id = auth.user.map(|u| u.id).unwrap_or(0);
     let result = user_session::Entity::revoke(&state.sea_db, id).await?;
     match result {
-        Some(session) if session.user_id == user_id => {
-            Ok((StatusCode::OK, Json(json!({ "message": "Session terminated" }))))
-        }
+        Some(session) if session.user_id == user_id => Ok((
+            StatusCode::OK,
+            Json(json!({ "message": "Session terminated" })),
+        )),
         Some(_) => Err(ErrorResponse::new(ErrorCode::Unauthorized)),
         None => Err(ErrorResponse::new(ErrorCode::RecordNotFound)),
     }
