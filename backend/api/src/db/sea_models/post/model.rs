@@ -1,27 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::fmt;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "post_status")]
-pub enum PostStatus {
-    #[sea_orm(string_value = "draft")]
-    Draft,
-    #[sea_orm(string_value = "published")]
-    Published,
-    #[sea_orm(string_value = "archived")]
-    Archived,
-}
-
-impl fmt::Display for PostStatus {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Draft => write!(f, "draft"),
-            Self::Published => write!(f, "published"),
-            Self::Archived => write!(f, "archived"),
-        }
-    }
-}
+pub use ruxlog_types::enums::PostStatus;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "posts")]

@@ -1,19 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "payment_status")]
-#[serde(rename_all = "snake_case")]
-pub enum PaymentStatus {
-    #[sea_orm(string_value = "pending")]
-    Pending,
-    #[sea_orm(string_value = "completed")]
-    Completed,
-    #[sea_orm(string_value = "failed")]
-    Failed,
-    #[sea_orm(string_value = "refunded")]
-    Refunded,
-}
+pub use ruxlog_types::enums::PaymentStatus;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "payments")]

@@ -10,6 +10,7 @@ use super::provider::{
 pub struct PaddleProvider {
     pub client_token: String,
     pub webhook_secret: String,
+    pub base_url: String,
 }
 
 impl PaddleProvider {
@@ -17,7 +18,13 @@ impl PaddleProvider {
         Self {
             client_token,
             webhook_secret,
+            base_url: "https://api.paddle.com".to_string(),
         }
+    }
+
+    pub fn with_base_url(mut self, url: String) -> Self {
+        self.base_url = url;
+        self
     }
 
     pub fn from_env() -> Result<Self, BillingError> {
@@ -55,7 +62,7 @@ impl BillingProvider for PaddleProvider {
         });
 
         let resp = client
-            .post("https://api.paddle.com/transactions")
+            .post(format!("{}/transactions", self.base_url))
             .header("Authorization", format!("Bearer {}", self.client_token))
             .json(&body)
             .send()
@@ -88,8 +95,8 @@ impl BillingProvider for PaddleProvider {
     ) -> Result<(), BillingError> {
         let client = reqwest::Client::new();
         let url = format!(
-            "https://api.paddle.com/subscriptions/{}",
-            provider_subscription_id
+            "{}/subscriptions/{}",
+            self.base_url, provider_subscription_id
         );
 
         let body = if immediately {
@@ -120,8 +127,8 @@ impl BillingProvider for PaddleProvider {
     ) -> Result<SubscriptionInfo, BillingError> {
         let client = reqwest::Client::new();
         let url = format!(
-            "https://api.paddle.com/subscriptions/{}",
-            provider_subscription_id
+            "{}/subscriptions/{}",
+            self.base_url, provider_subscription_id
         );
 
         let resp = client

@@ -1,15 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "discount_type")]
-#[serde(rename_all = "snake_case")]
-pub enum DiscountType {
-    #[sea_orm(string_value = "percentage")]
-    Percentage,
-    #[sea_orm(string_value = "fixed_amount")]
-    FixedAmount,
-}
+pub use ruxlog_types::enums::DiscountType;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "discount_codes")]

@@ -775,38 +775,65 @@ mod tests {
     #[test]
     fn test_should_skip_png_needs_optimization() {
         // PNG with bpp > 3.0 should NOT be skipped
-        assert!(!should_skip_for_quality(&make_probed(ImageFormat::Png, 3.5)));
+        assert!(!should_skip_for_quality(&make_probed(
+            ImageFormat::Png,
+            3.5
+        )));
     }
 
     #[test]
     fn test_should_skip_jpeg_already_optimized() {
         // JPEG with bpp <= 1.5 should be skipped
-        assert!(should_skip_for_quality(&make_probed(ImageFormat::Jpeg, 1.0)));
-        assert!(should_skip_for_quality(&make_probed(ImageFormat::Jpeg, 1.5)));
+        assert!(should_skip_for_quality(&make_probed(
+            ImageFormat::Jpeg,
+            1.0
+        )));
+        assert!(should_skip_for_quality(&make_probed(
+            ImageFormat::Jpeg,
+            1.5
+        )));
     }
 
     #[test]
     fn test_should_skip_jpeg_needs_optimization() {
         // JPEG with bpp > 1.5 should NOT be skipped
-        assert!(!should_skip_for_quality(&make_probed(ImageFormat::Jpeg, 2.0)));
+        assert!(!should_skip_for_quality(&make_probed(
+            ImageFormat::Jpeg,
+            2.0
+        )));
     }
 
     #[test]
     fn test_should_skip_webp_already_optimized() {
         // WebP with bpp <= 1.5 should be skipped
-        assert!(should_skip_for_quality(&make_probed(ImageFormat::WebP, 1.0)));
-        assert!(should_skip_for_quality(&make_probed(ImageFormat::WebP, 1.5)));
+        assert!(should_skip_for_quality(&make_probed(
+            ImageFormat::WebP,
+            1.0
+        )));
+        assert!(should_skip_for_quality(&make_probed(
+            ImageFormat::WebP,
+            1.5
+        )));
     }
 
     #[test]
     fn test_should_skip_webp_needs_optimization() {
-        assert!(!should_skip_for_quality(&make_probed(ImageFormat::WebP, 2.0)));
+        assert!(!should_skip_for_quality(&make_probed(
+            ImageFormat::WebP,
+            2.0
+        )));
     }
 
     #[test]
     fn test_should_skip_unknown_format_never_skipped() {
-        assert!(!should_skip_for_quality(&make_probed(ImageFormat::Gif, 0.1)));
-        assert!(!should_skip_for_quality(&make_probed(ImageFormat::Bmp, 0.1)));
+        assert!(!should_skip_for_quality(&make_probed(
+            ImageFormat::Gif,
+            0.1
+        )));
+        assert!(!should_skip_for_quality(&make_probed(
+            ImageFormat::Bmp,
+            0.1
+        )));
     }
 
     // ── significant_reduction ──

@@ -5,9 +5,12 @@
 //! Public webhook endpoint for provider callbacks.
 
 use axum::{
+    body::Bytes,
     extract::{Path, State},
-    Extension, Json,
+    http::HeaderMap,
+    Json,
 };
+use axum_client_ip::ClientIp;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, Set,
 };
@@ -21,7 +24,11 @@ use crate::db::sea_models::post_access;
 use crate::db::sea_models::subscription;
 use crate::error::codes::ErrorCode;
 use crate::error::response::ErrorResponse;
+use crate::services::auth::AuthSession;
 use crate::AppState;
+
+#[cfg(feature = "billing")]
+use crate::services::billing::provider::{BillingProvider, ParsedWebhook, WebhookEvent};
 
 use super::validator::*;
 
@@ -184,7 +191,7 @@ pub async fn admin_list_subscriptions(
 pub async fn admin_cancel_subscription(
     State(state): State<AppState>,
     Path(subscription_id): Path<i32>,
-    Json(_payload): Json<CancelSubscriptionPayload>,
+    Json(payload): Json<CancelSubscriptionPayload>,
 ) -> Result<Json<serde_json::Value>, ErrorResponse> {
     let sub = subscription::Entity::find_by_id(subscription_id)
         .one(&state.sea_db)
@@ -193,6 +200,20 @@ pub async fn admin_cancel_subscription(
         .ok_or_else(|| {
             ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Subscription not found")
         })?;
+
+    // Also cancel at the provider
+    #[cfg(feature = "billing")]
+    if let Some(provider_sub_id) = &sub.provider_subscription_id {
+        let immediately = payload.immediately.unwrap_or(false);
+        let provider_name = sub.provider.clone();
+        if let Err(e) = state
+            .billing_router
+            .cancel_subscription_for_provider(&provider_name, provider_sub_id, immediately)
+            .await
+        {
+            tracing::warn!(error = %e, provider = %provider_name, "Failed to cancel subscription at provider");
+        }
+    }
 
     // Update status in DB
     let mut active: subscription::ActiveModel = sub.into();
@@ -315,10 +336,15 @@ pub async fn public_list_plans(
 
 pub async fn create_checkout(
     State(state): State<AppState>,
-    Extension(_user_id): Extension<i32>,
-    Extension(_user_email): Extension<String>,
+    auth: AuthSession,
+    ClientIp(client_ip): ClientIp,
     Json(payload): Json<CreateCheckoutPayload>,
 ) -> Result<Json<serde_json::Value>, ErrorResponse> {
+    let user = auth.user.ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
+    })?;
+    let user_id = user.id;
+    let user_email = user.email.clone();
     // Look up the plan
     let plan = plan::Entity::find()
         .filter(plan::Column::Slug.eq(&payload.plan_slug))
@@ -330,33 +356,57 @@ pub async fn create_checkout(
             ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Plan not found")
         })?;
 
-    let _success_url = payload
+    let success_url = payload
         .success_url
         .unwrap_or_else(|| "/billing/success".to_string());
-    let _cancel_url = payload
+    let cancel_url = payload
         .cancel_url
         .unwrap_or_else(|| "/billing/cancel".to_string());
 
-    // TODO: Route to the configured provider based on plan metadata
-    // For now return a placeholder
-    Ok(Json(json!({
-        "data": {
-            "plan_id": plan.id,
-            "plan_name": plan.name,
-            "price_cents": plan.price_cents,
-            "currency": plan.currency,
-            "provider": "stripe",
-            "message": "Provider checkout not yet configured — set STRIPE_SECRET_KEY"
-        }
-    })))
+    #[cfg(feature = "billing")]
+    {
+        let session = state
+            .billing_router
+            .create_checkout_for_ip(
+                client_ip,
+                &plan.slug,
+                &user_email,
+                user_id,
+                &success_url,
+                &cancel_url,
+            )
+            .await
+            .map_err(|e| {
+                ErrorResponse::new(ErrorCode::ExternalServiceError)
+                    .with_message(format!("Checkout failed: {}", e))
+            })?;
+
+        return Ok(Json(json!({
+            "data": {
+                "session_id": session.session_id,
+                "checkout_url": session.checkout_url,
+            }
+        })));
+    }
+
+    #[cfg(not(feature = "billing"))]
+    {
+        let _ = (user_id, user_email, success_url, cancel_url);
+        return Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
+            .with_message("Billing is not enabled on this server"));
+    }
 }
 
 // ── Consumer: My subscriptions ────────────────────────────────────────
 
 pub async fn my_subscriptions(
     State(state): State<AppState>,
-    Extension(user_id): Extension<i32>,
+    auth: AuthSession,
 ) -> Result<Json<serde_json::Value>, ErrorResponse> {
+    let user = auth.user.ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
+    })?;
+    let user_id = user.id;
     let subs: Vec<subscription::model::Model> = subscription::Entity::find()
         .filter(subscription::Column::UserId.eq(user_id))
         .order_by_desc(subscription::Column::CreatedAt)
@@ -371,8 +421,12 @@ pub async fn my_subscriptions(
 
 pub async fn my_payments(
     State(state): State<AppState>,
-    Extension(user_id): Extension<i32>,
+    auth: AuthSession,
 ) -> Result<Json<serde_json::Value>, ErrorResponse> {
+    let user = auth.user.ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
+    })?;
+    let user_id = user.id;
     let payments_list: Vec<payment::model::Model> = payment::Entity::find()
         .filter(payment::Column::UserId.eq(user_id))
         .order_by_desc(payment::Column::CreatedAt)
@@ -386,16 +440,267 @@ pub async fn my_payments(
 // ── Webhook receiver ──────────────────────────────────────────────────
 
 pub async fn webhook_receiver(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(provider): Path<String>,
-    Json(_payload): Json<WebhookPayload>,
+    headers: HeaderMap,
+    body: Bytes,
 ) -> Result<Json<serde_json::Value>, ErrorResponse> {
-    // TODO: Route to the appropriate BillingProvider::verify_webhook()
-    // and process the event (create/update subscription, record payment, etc.)
-    Ok(Json(json!({
-        "received": true,
-        "provider": provider
-    })))
+    #[cfg(feature = "billing")]
+    {
+        let signature = extract_signature(&headers, &provider);
+
+        let webhook_event = WebhookEvent {
+            provider: provider.clone(),
+            payload: body.to_vec(),
+            signature,
+        };
+
+        let parsed = state
+            .billing_router
+            .verify_webhook(webhook_event)
+            .await
+            .map_err(|e| {
+                ErrorResponse::new(ErrorCode::ExternalServiceError)
+                    .with_message(format!("Webhook verification failed: {}", e))
+            })?;
+
+        process_webhook_event(&state, &parsed, &provider).await?;
+
+        Ok(Json(json!({ "received": true })))
+    }
+
+    #[cfg(not(feature = "billing"))]
+    {
+        let _ = (state, provider, headers, body);
+        Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
+            .with_message("Billing is not enabled on this server"))
+    }
+}
+
+fn extract_signature(headers: &HeaderMap, provider: &str) -> String {
+    match provider {
+        "stripe" => headers
+            .get("Stripe-Signature")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_string(),
+        _ => headers
+            .get("X-Signature")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_string(),
+    }
+}
+
+#[cfg(feature = "billing")]
+async fn process_webhook_event(
+    state: &AppState,
+    event: &ParsedWebhook,
+    provider_name: &str,
+) -> Result<(), ErrorResponse> {
+    match event.event_type.as_str() {
+        "checkout.session.completed" => {
+            let user_id: i32 = event.data["data"]["object"]["metadata"]["user_id"]
+                .as_str()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0);
+
+            if user_id == 0 {
+                tracing::warn!("checkout.session.completed without user_id in metadata");
+                return Ok(());
+            }
+
+            let subscription_id = event.subscription_id.clone().unwrap_or_default();
+            let customer_id = event.customer_id.clone();
+
+            // Check if subscription already exists (idempotency)
+            let existing = if !subscription_id.is_empty() {
+                subscription::Entity::find()
+                    .filter(subscription::Column::ProviderSubscriptionId.eq(&subscription_id))
+                    .one(&state.sea_db)
+                    .await
+                    .map_err(|_| ErrorResponse::new(ErrorCode::QueryError))?
+            } else {
+                None
+            };
+
+            if existing.is_some() {
+                tracing::info!(
+                    subscription_id = %subscription_id,
+                    "Subscription already exists, skipping"
+                );
+                return Ok(());
+            }
+
+            // Default to first active plan if no plan specified
+            let plan_id = plan::Entity::find()
+                .filter(plan::Column::IsActive.eq(true))
+                .one(&state.sea_db)
+                .await
+                .ok()
+                .flatten()
+                .map(|p| p.id)
+                .unwrap_or(1);
+
+            let active_model = subscription::ActiveModel {
+                user_id: Set(user_id),
+                plan_id: Set(plan_id),
+                provider: Set(provider_name.to_string()),
+                provider_customer_id: Set(if customer_id.is_empty() {
+                    None
+                } else {
+                    Some(customer_id)
+                }),
+                provider_subscription_id: Set(if subscription_id.is_empty() {
+                    None
+                } else {
+                    Some(subscription_id)
+                }),
+                status: Set(subscription::model::SubscriptionStatus::Active),
+                current_period_start: Set(Some(chrono::Utc::now().fixed_offset())),
+                current_period_end: Set(None),
+                cancel_at_period_end: Set(false),
+                trial_ends_at: Set(None),
+                metadata: Set(Some(event.data.clone())),
+                ..Default::default()
+            };
+            active_model
+                .insert(&state.sea_db)
+                .await
+                .map_err(|_| ErrorResponse::new(ErrorCode::QueryError))?;
+
+            tracing::info!(user_id, "Subscription created from checkout");
+        }
+        "customer.subscription.updated" | "customer.subscription.deleted" => {
+            if let Some(provider_sub_id) = &event.subscription_id {
+                let sub = subscription::Entity::find()
+                    .filter(subscription::Column::ProviderSubscriptionId.eq(provider_sub_id))
+                    .one(&state.sea_db)
+                    .await
+                    .map_err(|_| ErrorResponse::new(ErrorCode::QueryError))?;
+
+                if let Some(existing) = sub {
+                    let mut active: subscription::ActiveModel = existing.into();
+                    let new_status = if event.event_type == "customer.subscription.deleted" {
+                        subscription::model::SubscriptionStatus::Canceled
+                    } else {
+                        let stripe_status = event.data["data"]["object"]["status"]
+                            .as_str()
+                            .unwrap_or("active");
+                        match stripe_status {
+                            "active" => subscription::model::SubscriptionStatus::Active,
+                            "past_due" => subscription::model::SubscriptionStatus::PastDue,
+                            "canceled" => subscription::model::SubscriptionStatus::Canceled,
+                            "trialing" => subscription::model::SubscriptionStatus::Trialing,
+                            "expired" => subscription::model::SubscriptionStatus::Expired,
+                            _ => subscription::model::SubscriptionStatus::Active,
+                        }
+                    };
+                    active.status = Set(new_status);
+                    active.updated_at = Set(chrono::Utc::now().fixed_offset());
+                    active
+                        .update(&state.sea_db)
+                        .await
+                        .map_err(|_| ErrorResponse::new(ErrorCode::QueryError))?;
+
+                    tracing::info!(
+                        subscription_id = %provider_sub_id,
+                        status = ?new_status,
+                        "Subscription updated from webhook"
+                    );
+                }
+            }
+        }
+        "invoice.payment_succeeded" => {
+            let user_id: i32 = event.data["data"]["object"]["metadata"]["user_id"]
+                .as_str()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0);
+
+            let amount = event.data["data"]["object"]["amount_paid"]
+                .as_i64()
+                .unwrap_or(0) as i32;
+            let currency = event.data["data"]["object"]["currency"]
+                .as_str()
+                .unwrap_or("usd")
+                .to_string();
+
+            let active_model = payment::ActiveModel {
+                user_id: Set(user_id),
+                subscription_id: Set(None),
+                plan_id: Set(None),
+                provider: Set(provider_name.to_string()),
+                provider_payment_id: Set(event.payment_id.clone()),
+                amount_cents: Set(amount),
+                currency: Set(currency),
+                status: Set(payment::model::PaymentStatus::Completed),
+                description: Set(Some(format!("Invoice payment: {}", event.event_type))),
+                metadata: Set(Some(event.data.clone())),
+                ..Default::default()
+            };
+            active_model
+                .insert(&state.sea_db)
+                .await
+                .map_err(|_| ErrorResponse::new(ErrorCode::QueryError))?;
+
+            tracing::info!(user_id, amount, "Payment recorded from invoice webhook");
+        }
+        "payment.confirmed" | "payment.pending" => {
+            // Crypto payments — extract user_id from memo (rux-{user_id}-{uuid})
+            let memo = event.data["memo"].as_str().unwrap_or("");
+            let user_id: i32 = memo
+                .strip_prefix("rux-")
+                .and_then(|rest| rest.split('-').next())
+                .and_then(|id| id.parse().ok())
+                .unwrap_or(0);
+
+            let amount_crypto = event.data["amount"].as_f64().unwrap_or(0.0);
+            let currency = event.data["currency"].as_str().unwrap_or("BTC");
+
+            let status = if event.event_type == "payment.confirmed" {
+                payment::model::PaymentStatus::Completed
+            } else {
+                payment::model::PaymentStatus::Pending
+            };
+
+            // Store crypto amount as cents (amount * 100 as rough conversion)
+            // In production you'd convert to fiat at current rate
+            let amount_cents = (amount_crypto * 100.0) as i32;
+
+            let active_model = payment::ActiveModel {
+                user_id: Set(user_id),
+                subscription_id: Set(None),
+                plan_id: Set(None),
+                provider: Set("crypto".to_string()),
+                provider_payment_id: Set(event.payment_id.clone()),
+                amount_cents: Set(amount_cents),
+                currency: Set(currency.to_string()),
+                status: Set(status),
+                description: Set(Some(format!(
+                    "Crypto payment: {} {}",
+                    amount_crypto, currency
+                ))),
+                metadata: Set(Some(event.data.clone())),
+                ..Default::default()
+            };
+            active_model
+                .insert(&state.sea_db)
+                .await
+                .map_err(|_| ErrorResponse::new(ErrorCode::QueryError))?;
+
+            tracing::info!(
+                user_id,
+                amount = amount_crypto,
+                currency,
+                status = %event.event_type,
+                "Crypto payment recorded from webhook"
+            );
+        }
+        _ => {
+            tracing::info!(event_type = %event.event_type, "Unhandled billing webhook event");
+        }
+    }
+    Ok(())
 }
 
 // ── Paywall: Check post access ────────────────────────────────────────

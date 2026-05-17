@@ -27,6 +27,12 @@ use ruxlog::services::{route_blocker_config, route_blocker_service::RouteBlocker
 #[cfg(feature = "image-optimization")]
 use ruxlog::state::OptimizerConfig;
 
+#[cfg(feature = "billing")]
+use ruxlog::services::billing::BillingProvider;
+
+#[cfg(feature = "billing")]
+use ruxlog::services::billing::router::{BillingRouter, GeoRouter, GeoRulesConfig};
+
 fn hex_to_512bit_key(hex: &str) -> [u8; 64] {
     use sha2::{Digest, Sha512};
     let bytes = hex::decode(hex).expect("Invalid hex string");
@@ -170,6 +176,178 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         default_webp_quality: env_u8("OPTIMIZER_WEBP_QUALITY_DEFAULT", 80),
     };
 
+    #[cfg(feature = "billing")]
+    let billing_router: std::sync::Arc<BillingRouter> = {
+        use ruxlog::services::billing::{
+            airwallex::AirwallexProvider, crypto::CryptoProvider,
+            lemon_squeezy::LemonSqueezyProvider, mercado_pago::MercadoPagoProvider,
+            paddle::PaddleProvider, paypal::PayPalProvider, polar::PolarProvider,
+            razorpay::RazorpayProvider, revolut::RevolutProvider, stripe::StripeProvider,
+        };
+
+        fn try_init<F>(name: &str, init: F) -> Option<(String, std::sync::Arc<dyn BillingProvider>)>
+        where
+            F: FnOnce() -> Option<std::sync::Arc<dyn BillingProvider>>,
+        {
+            match init() {
+                Some(p) => {
+                    tracing::info!(provider = name, "Billing provider initialized");
+                    Some((name.to_string(), p))
+                }
+                None => {
+                    tracing::info!(
+                        provider = name,
+                        "Billing provider skipped (missing env vars)"
+                    );
+                    None
+                }
+            }
+        }
+
+        let mut providers: std::collections::HashMap<String, std::sync::Arc<dyn BillingProvider>> =
+            std::collections::HashMap::new();
+
+        // Stripe
+        if let Some((k, v)) = try_init("stripe", || {
+            let secret = env::var("STRIPE_SECRET_KEY").ok()?;
+            let wh = env::var("STRIPE_WEBHOOK_SECRET").ok()?;
+            Some(std::sync::Arc::new(StripeProvider::new(secret, wh))
+                as std::sync::Arc<dyn BillingProvider>)
+        }) {
+            providers.insert(k, v);
+        }
+
+        // Polar.sh
+        if let Some((k, v)) = try_init("polar", || {
+            let token = env::var("POLAR_ACCESS_TOKEN").ok()?;
+            let wh = env::var("POLAR_WEBHOOK_SECRET").ok()?;
+            Some(std::sync::Arc::new(PolarProvider::new(token, wh))
+                as std::sync::Arc<dyn BillingProvider>)
+        }) {
+            providers.insert(k, v);
+        }
+
+        // LemonSqueezy
+        if let Some((k, v)) = try_init("lemonsqueezy", || {
+            let api_key = env::var("LEMONSQUEEZY_API_KEY").ok()?;
+            let wh = env::var("LEMONSQUEEZY_WEBHOOK_SECRET").ok()?;
+            let store_id = env::var("LEMONSQUEEZY_STORE_ID").ok()?;
+            Some(
+                std::sync::Arc::new(LemonSqueezyProvider::new(api_key, wh, store_id))
+                    as std::sync::Arc<dyn BillingProvider>,
+            )
+        }) {
+            providers.insert(k, v);
+        }
+
+        // Paddle
+        if let Some((k, v)) = try_init("paddle", || {
+            let client_token = env::var("PADDLE_CLIENT_TOKEN").ok()?;
+            let wh = env::var("PADDLE_WEBHOOK_SECRET").ok()?;
+            Some(std::sync::Arc::new(PaddleProvider::new(client_token, wh))
+                as std::sync::Arc<dyn BillingProvider>)
+        }) {
+            providers.insert(k, v);
+        }
+
+        // Crypto (single chain)
+        if let Some((k, v)) = try_init("crypto", || {
+            let wallet = env::var("CRYPTO_WALLET_ADDRESS").ok()?;
+            let api_url = env::var("CRYPTO_API_URL")
+                .unwrap_or_else(|_| "https://api.blockcypher.com/v1".to_string());
+            let api_key = env::var("CRYPTO_API_KEY").unwrap_or_else(|_| String::new());
+            let currency = env::var("CRYPTO_CURRENCY").unwrap_or_else(|_| "BTC".to_string());
+            Some(
+                std::sync::Arc::new(CryptoProvider::new(wallet, api_url, api_key, currency))
+                    as std::sync::Arc<dyn BillingProvider>,
+            )
+        }) {
+            providers.insert(k, v);
+        }
+
+        // Crypto (multi-chain)
+        if let Some((k, v)) = try_init("crypto_multi", || {
+            let provider =
+                ruxlog::services::billing::crypto::MultiChainCryptoProvider::from_env().ok()?;
+            Some(std::sync::Arc::new(provider) as std::sync::Arc<dyn BillingProvider>)
+        }) {
+            providers.insert(k, v);
+        }
+
+        // Razorpay
+        if let Some((k, v)) = try_init("razorpay", || {
+            let key_id = env::var("RAZORPAY_KEY_ID").ok()?;
+            let key_secret = env::var("RAZORPAY_KEY_SECRET").ok()?;
+            let wh = env::var("RAZORPAY_WEBHOOK_SECRET").ok()?;
+            Some(
+                std::sync::Arc::new(RazorpayProvider::new(key_id, key_secret, wh))
+                    as std::sync::Arc<dyn BillingProvider>,
+            )
+        }) {
+            providers.insert(k, v);
+        }
+
+        // Mercado Pago
+        if let Some((k, v)) = try_init("mercado_pago", || {
+            let access_token = env::var("MERCADO_PAGO_ACCESS_TOKEN").ok()?;
+            let wh = env::var("MERCADO_PAGO_WEBHOOK_SECRET").ok()?;
+            Some(
+                std::sync::Arc::new(MercadoPagoProvider::new(access_token, wh))
+                    as std::sync::Arc<dyn BillingProvider>,
+            )
+        }) {
+            providers.insert(k, v);
+        }
+
+        // Airwallex
+        if let Some((k, v)) = try_init("airwallex", || {
+            let client_id = env::var("AIRWALLEX_CLIENT_ID").ok()?;
+            let api_key = env::var("AIRWALLEX_API_KEY").ok()?;
+            let wh = env::var("AIRWALLEX_WEBHOOK_SECRET").ok()?;
+            Some(
+                std::sync::Arc::new(AirwallexProvider::new(client_id, api_key, wh))
+                    as std::sync::Arc<dyn BillingProvider>,
+            )
+        }) {
+            providers.insert(k, v);
+        }
+
+        // Revolut
+        if let Some((k, v)) = try_init("revolut", || {
+            let api_key = env::var("REVOLUT_API_KEY").ok()?;
+            let wh = env::var("REVOLUT_WEBHOOK_SECRET").ok()?;
+            Some(std::sync::Arc::new(RevolutProvider::new(api_key, wh))
+                as std::sync::Arc<dyn BillingProvider>)
+        }) {
+            providers.insert(k, v);
+        }
+
+        // PayPal
+        if let Some((k, v)) = try_init("paypal", || {
+            let client_id = env::var("PAYPAL_CLIENT_ID").ok()?;
+            let client_secret = env::var("PAYPAL_CLIENT_SECRET").ok()?;
+            let wh = env::var("PAYPAL_WEBHOOK_SECRET").ok()?;
+            Some(
+                std::sync::Arc::new(PayPalProvider::new(client_id, client_secret, wh))
+                    as std::sync::Arc<dyn BillingProvider>,
+            )
+        }) {
+            providers.insert(k, v);
+        }
+
+        if providers.is_empty() {
+            tracing::warn!("No billing providers initialized (missing env vars). Billing endpoints will return errors.");
+        }
+
+        let names: Vec<_> = providers.keys().collect();
+        tracing::info!(providers = ?names, "Billing providers available");
+
+        let geo_config = GeoRulesConfig::from_env();
+        let geo_router = GeoRouter::new(geo_config);
+
+        std::sync::Arc::new(BillingRouter::new(providers, geo_router))
+    };
+
     let state = AppState {
         sea_db,
         redis_pool: redis_pool.clone(),
@@ -179,6 +357,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         #[cfg(feature = "image-optimization")]
         optimizer,
         meter: telemetry::global_meter(),
+        #[cfg(feature = "billing")]
+        billing_router,
     };
 
     // Bootstrap application constants from environment (only fills missing keys) and warm Redis.

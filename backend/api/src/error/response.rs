@@ -3,7 +3,7 @@
 //! This module defines the standard error response format for the API.
 
 use super::codes::ErrorCode;
-use axum::{response::IntoResponse, Json};
+use axum::{http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -60,7 +60,7 @@ impl ErrorResponse {
         Self {
             message: code.default_message().to_string(),
             code,
-            status: status.as_u16(),
+            status,
             #[cfg(debug_assertions)]
             details: None,
             context: None,
@@ -112,7 +112,8 @@ impl ErrorResponse {
 impl IntoResponse for ErrorResponse {
     fn into_response(self) -> axum::response::Response {
         // Always derive the HTTP status from the error code mapping
-        let status = self.code.status_code();
+        let status_u16 = self.code.status_code();
+        let status = StatusCode::from_u16(status_u16).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
 
         if status.is_server_error() {
             eprintln!("Server error {}: {}", self.code, self.message);
@@ -127,7 +128,7 @@ impl IntoResponse for ErrorResponse {
 
         // Ensure the JSON body's status field matches the derived HTTP status
         let mut body = self;
-        body.status = status.as_u16();
+        body.status = status_u16;
 
         let mut response = (status, Json(body)).into_response();
 
@@ -164,7 +165,7 @@ mod tests {
     fn new_has_code_and_status() {
         let err = ErrorResponse::new(ErrorCode::RecordNotFound);
         assert_eq!(err.code, ErrorCode::RecordNotFound);
-        assert_eq!(err.status, 404);
+        assert_eq!(err.status, 404u16);
     }
 
     #[test]

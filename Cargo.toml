@@ -1,0 +1,39 @@
+[workspace]
+members = [
+    "crates/ruxlog-types",
+    "backend/api",
+    "backend/api/crates/rux-auth",
+    "backend/api/migration",
+    "frontend/oxcore",
+    "frontend/oxstore",
+    "frontend/oxform",
+    "frontend/oxui",
+    "frontend/ruxlog-shared",
+    "frontend/consumer-dioxus",
+    "frontend/admin-dioxus",
+]
+resolver = "2"
+exclude = [
+    "frontend/dioxus_pkgs",
+]
+
+[workspace.package]
+edition = "2021"
+
+[workspace.dependencies]
+dioxus = "0.7.3"
+futures = "0.3"
+tokio = { version = "1", features = ["full"] }
+
+[patch.crates-io]
+dioxus-time = { path = "frontend/dioxus_pkgs/sdk/packages/time", version = "0.7.3" }
+
+[profile.wasm-dev]
+inherits = "dev"
+opt-level = 1
+
+[profile.server-dev]
+inherits = "dev"
+
+[profile.android-dev]
+inherits = "dev"

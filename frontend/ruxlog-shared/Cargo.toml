@@ -34,6 +34,7 @@ futures-channel = { version = "0.3", optional = true }
 oxcore = { path = "../oxcore" }
 oxstore = { path = "../oxstore" }
 oxui = { path = "../oxui" }
+ruxlog-types = { path = "../../crates/ruxlog-types" }
 urlencoding = "2.1.3"
 
 [features]
@@ -46,10 +47,3 @@ admin-routes-store = []
 newsletter-store = []
 users-store = []
 billing-store = []
-
-[profile.wasm-dev]
-inherits = "dev"
-opt-level = 1
-
-[patch.crates-io]
-dioxus-time = { path = "../dioxus_pkgs/sdk/packages/time", version = "0.7.3" }

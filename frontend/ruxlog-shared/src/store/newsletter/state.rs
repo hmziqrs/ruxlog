@@ -1,17 +1,10 @@
 use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use oxstore::{ListQuery, ListStore, PaginatedList, SortParam, StateFrame};
+pub use ruxlog_types::enums::SubscriberStatus;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::OnceLock;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub enum SubscriberStatus {
-    Pending,
-    Confirmed,
-    Unsubscribed,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct NewsletterSubscriber {

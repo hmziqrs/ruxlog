@@ -1,17 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "post_access_type")]
-pub enum PostAccessType {
-    #[sea_orm(string_value = "free")]
-    Free,
-    #[sea_orm(string_value = "paid")]
-    Paid,
-    #[sea_orm(string_value = "subscriber_only")]
-    SubscriberOnly,
-}
+pub use ruxlog_types::enums::PostAccessType;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "post_access")]

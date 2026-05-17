@@ -1,25 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(
-    rs_type = "String",
-    db_type = "Enum",
-    enum_name = "subscription_status"
-)]
-#[serde(rename_all = "snake_case")]
-pub enum SubscriptionStatus {
-    #[sea_orm(string_value = "active")]
-    Active,
-    #[sea_orm(string_value = "past_due")]
-    PastDue,
-    #[sea_orm(string_value = "canceled")]
-    Canceled,
-    #[sea_orm(string_value = "expired")]
-    Expired,
-    #[sea_orm(string_value = "trialing")]
-    Trialing,
-}
+pub use ruxlog_types::enums::SubscriptionStatus;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "subscriptions")]

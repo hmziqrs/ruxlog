@@ -83,10 +83,6 @@ oxui = { path = "../oxui" }
 ruxlog-shared = { path = "../ruxlog-shared", features = ["image-editor", "admin-stores"] }
 # dioxus-primitives = { git = "https://github.com/DioxusLabs/components", branch = "main" }
 
-[patch.crates-io]
-# dioxus-time = { git = "https://github.com/DioxusLabs/sdk", branch = "main", version = "0.1.0-alpha.1" }
-dioxus-time = { path = "../dioxus_pkgs/sdk/packages/time", version = "0.7.3" }
-
 [features]
 default = ["web", "basic"]
 web = ["dioxus/web"]
@@ -104,18 +100,6 @@ user-management = []
 admin-acl = []
 admin-routes = []
 billing = []
-
-[profile]
-
-[profile.wasm-dev]
-inherits = "dev"
-opt-level = 1
-
-[profile.server-dev]
-inherits = "dev"
-
-[profile.android-dev]
-inherits = "dev"
 
 [build-dependencies]
 dotenvy = "0.15.7"

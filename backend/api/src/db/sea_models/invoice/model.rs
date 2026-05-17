@@ -1,19 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "invoice_status")]
-#[serde(rename_all = "snake_case")]
-pub enum InvoiceStatus {
-    #[sea_orm(string_value = "draft")]
-    Draft,
-    #[sea_orm(string_value = "sent")]
-    Sent,
-    #[sea_orm(string_value = "paid")]
-    Paid,
-    #[sea_orm(string_value = "void")]
-    Void,
-}
+pub use ruxlog_types::enums::InvoiceStatus;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "invoices")]

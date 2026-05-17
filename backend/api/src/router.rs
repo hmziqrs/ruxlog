@@ -12,10 +12,10 @@ use tower_http::{
 use tracing::Level;
 
 use crate::middlewares::{http_metrics, rate_limit, request_id_middleware, security_headers};
-use fred::interfaces::ClientLike;
 use crate::modules::{
     auth_v1, category_v1, feed_v1, media_v1, post_v1, search_v1, tag_v1, user_v1,
 };
+use fred::interfaces::ClientLike;
 
 #[cfg(feature = "auth-oauth")]
 use crate::modules::google_auth_v1;
@@ -78,7 +78,11 @@ pub fn router(state: AppState) -> Router<AppState> {
     {
         router = router.nest(
             "/post/comment/v1",
-            post_comment_v1::routes().layer(rate_limit::RateLimitLayer::new(state.clone(), 100, 60)), // 100 req/min
+            post_comment_v1::routes().layer(rate_limit::RateLimitLayer::new(
+                state.clone(),
+                100,
+                60,
+            )), // 100 req/min
         );
     }
 

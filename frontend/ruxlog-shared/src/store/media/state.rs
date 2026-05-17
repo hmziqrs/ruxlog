@@ -1,29 +1,10 @@
 use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use oxstore::{ListQuery, ListStore, PaginatedList, SortParam, StateFrame};
+pub use ruxlog_types::enums::MediaReference;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt;
 use web_sys::File;
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum MediaReference {
-    Post,
-    Category,
-    User,
-}
-
-impl fmt::Display for MediaReference {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let label = match self {
-            MediaReference::Post => "Post",
-            MediaReference::Category => "Category",
-            MediaReference::User => "User",
-        };
-        f.write_str(label)
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum UploadStatus {

@@ -1,49 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(
-    rs_type = "String",
-    db_type = "Enum",
-    enum_name = "media_reference_type"
-)]
-#[serde(rename_all = "kebab-case")]
-pub enum MediaReference {
-    #[sea_orm(string_value = "category")]
-    Category,
-    #[sea_orm(string_value = "user")]
-    User,
-    #[sea_orm(string_value = "post")]
-    Post,
-}
-
-impl MediaReference {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            MediaReference::Category => "category",
-            MediaReference::User => "user",
-            MediaReference::Post => "post",
-        }
-    }
-
-    #[allow(clippy::should_implement_trait)]
-    pub fn from_str(value: &str) -> Result<Self, String> {
-        match value.to_lowercase().as_str() {
-            "category" => Ok(MediaReference::Category),
-            "user" => Ok(MediaReference::User),
-            "post" => Ok(MediaReference::Post),
-            other => Err(format!("Invalid media reference type: {}", other)),
-        }
-    }
-}
-
-impl std::str::FromStr for MediaReference {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        MediaReference::from_str(s)
-    }
-}
+pub use ruxlog_types::enums::MediaReference;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "media")]
