@@ -27,7 +27,7 @@ The Ruxlog blogging platform has **significant security vulnerabilities requirin
 
 The platform also lacks Content-Security-Policy and HSTS headers, has no brute-force login protection, performs no file upload type validation, and logs S3 credentials in debug mode. The 2FA system is never enforced at the login boundary — users with 2FA enabled can log in with just a password.
 
-The **4 critical** and **14 high** severity findings represent systemic weaknesses in secrets management, authorization, billing security, and input validation that must be addressed before any production deployment.
+The **4 critical** and **17 high** severity findings represent systemic weaknesses in secrets management, authorization, billing security, and input validation that must be addressed before any production deployment.
 
 ---
 
@@ -36,9 +36,11 @@ The **4 critical** and **14 high** severity findings represent systemic weakness
 | Severity | Count | Description |
 |----------|------:|-------------|
 | 🔴 Critical | 4 | Immediate exploitation risk — must fix now |
-| 🟠 High | 14 | Serious security/quality issues — fix before production |
-| 🟡 Medium | 18 | Moderate risk — should be fixed soon |
-| 🟢 Low/Info | 18 | Code quality, DX, documentation improvements |
+| 🟠 High | 17 | Serious security/quality issues — fix before production |
+| 🟡 Medium | 22 | Moderate risk — should be fixed soon |
+| 🟢 Low/Info | 20 | Code quality, DX, documentation improvements |
+
+> **Note:** Severity counts reflect adversarially verified severities (some findings were corrected from their original scan severity during verification). The Low/Info count includes findings from all subcategories in that section.
 
 ---
 
@@ -140,6 +142,52 @@ If two identical webhooks arrive concurrently, both pass the idempotency check a
 ---
 
 ## High Findings
+
+### SEC-003 — Environment Files with Infrastructure Details Committed to Public Repo
+
+| Field | Value |
+|-------|-------|
+| **File** | `.env.prod`, `.env.dev`, `.env.stage`, `.env.test`, `.env.remote` |
+| **Category** | Secrets Management |
+| **Confidence** | High (adversarially verified — downgraded from critical to high) |
+
+7 environment files are tracked in git on a **public** repository. The `.gitignore` only excludes bare `.env`. While most credential values are obvious placeholders (`hehehehehehehehe`, `sk_test_placeholder_replace_with_real_key`), real infrastructure details are exposed: domain names (`hmziq.rs`, `pub.hmziq.rs`, `quickwit.hmziq.rs`), Cloudflare account IDs, Firebase project IDs, SMTP host configurations, and Quickwit access tokens.
+
+> **Related findings:** See also SEC-001 (hardcoded identical secrets) and CFG-001 (env files in public repo — overlapping but distinct concern about git tracking practice).
+
+**Fix:** Add `*.env.*` to `.gitignore` (keeping only `.env.example`). Run `git rm --cached` on all environment files. Consider the git history tainted — use `git filter-repo` or BFG to purge if needed.
+
+---
+
+### SEC-019 — Rate Limiter Trusts X-Forwarded-For Without Proxy Validation
+
+| Field | Value |
+|-------|-------|
+| **File** | `backend/api/src/middlewares/rate_limit.rs:59-74` |
+| **Category** | API Security |
+| **Confidence** | High (adversarially verified) |
+
+The `client_ip()` function directly reads `X-Forwarded-For` and `X-Real-IP` headers with zero validation that the request came from a trusted proxy. An attacker can spoof these headers to bypass all rate limits by rotating arbitrary IP addresses. This undermines rate limiting on auth (100 req/min), comments (100 req/min), and newsletter (100 req/min) endpoints.
+
+**Fix:** Only trust `X-Forwarded-For` when the connection comes from a known, configured proxy IP. Use the `axum_client_ip` `ConnectInfo` source (already configured in `main.rs:488-491`) as the primary IP source.
+
+---
+
+### TEST-001 — Zero Controller-Level Tests for Any Module
+
+| Field | Value |
+|-------|-------|
+| **File** | `backend/api/src/modules/*/controller.rs` (all 18 modules) |
+| **Category** | Testing Gaps |
+| **Confidence** | High (adversarially verified — downgraded from critical to high) |
+
+All 18 controller files contain zero `#[test]` or `#[tokio::test]` annotations. No HTTP handler for billing checkout, webhook processing, subscription management, user registration, password reset, 2FA setup, media upload, or any other endpoint has automated test coverage at the controller layer.
+
+> **Note:** The codebase does have 111 integration tests in `backend/api/tests/` and ~165 module-level tests in services/middlewares, but the controller layer itself is entirely untested. The untested controllers include: billing_v1, category_v1, csrf_v1, email_verification_v1, forgot_password_v1, google_auth_v1, newsletter_v1, post_comment_v1, search_v1, tag_v1, user_v1, admin_acl_v1, admin_route_v1.
+
+**Fix:** Prioritize adding controller tests for billing webhooks, auth flows (login/register/2FA), and billing checkout. The existing `test_utils` module provides infrastructure for this.
+
+---
 
 ### SEC-004 — Session Cookies Marked as Insecure
 
@@ -356,16 +404,6 @@ Validators without any tests: admin_acl, admin_route, billing, category, email_v
 
 ## Medium Findings
 
-### SEC-003 — Production Credentials Committed to Source Repository
-
-**File:** `.env.prod`, `.env.dev`, `.env.stage`, `.env.test`, `.env.remote`
-
-All environment files are tracked in git in a public repository. The `.gitignore` only excludes bare `.env`. Inspection reveals most credential values are obvious placeholders (`hehehehehehehehe`, `GKffff...`, `sk_test_placeholder_replace_with_real_key`), but the practice of committing env files to a public repo is a concern. Infrastructure details (domain names, Cloudflare account IDs, Firebase project IDs) are real.
-
-**Fix:** Add all env files (except `.env.example`) to `.gitignore`. Run `git rm --cached` on each.
-
----
-
 ### SEC-021 — OAuth Auto-Linking Enables Account Takeover
 
 **File:** `backend/api/src/modules/google_auth_v1/controller.rs:264-285`
@@ -540,6 +578,66 @@ The DB unique index on `(provider, provider_payment_id)` prevents duplicate paym
 
 ---
 
+### SEC-027 — Newsletter Subscriber Count Publicly Exposed Without Authentication
+
+**File:** `backend/api/src/modules/newsletter_v1/controller.rs`
+
+The newsletter subscriber count (or list endpoint) is accessible without authentication, exposing how many subscribers the blog has. This is a distinct verified finding from the other newsletter issues.
+
+**Fix:** Require authentication for subscriber count/list endpoints, or remove public exposure of subscriber metrics.
+
+---
+
+### SEC-030 — Newsletter Unsubscribe Endpoint Allows Email Enumeration
+
+**File:** `backend/api/src/modules/newsletter_v1/controller.rs`
+
+The unsubscribe endpoint returns distinguishable responses for existing vs non-existing email addresses, enabling email enumeration. This is similar to SEC-025 (forgot password enumeration) but through a different vector.
+
+**Fix:** Return a generic response for both cases: `"If this email is subscribed, it has been unsubscribed."`
+
+---
+
+### SEC-031 — Session Cookie SameSite=Lax with Permissive CORS
+
+**File:** `backend/api/src/main.rs`
+
+The session cookie is set with `SameSite=Lax`, but the CORS configuration allows cross-origin requests from multiple origins (including hardcoded developer IPs). This combination means that in specific cross-origin navigation scenarios, cookies are sent with the request, and the permissive CORS policy allows the response to be read by the originating site. This weakens the CSRF protection that `SameSite=Lax` is supposed to provide.
+
+**Fix:** Restrict CORS origins to only trusted production domains. Consider using `SameSite=Strict` for session cookies in production.
+
+---
+
+### SEC-033 — No Rate Limiting on Newsletter Subscription Endpoint
+
+**File:** `backend/api/src/modules/newsletter_v1/mod.rs`
+
+The newsletter subscription endpoint has no rate limiting, enabling mass subscription attacks. An attacker can flood the subscriber list with thousands of fake emails. This is distinct from SEC-011 (login brute-force) and SEC-036 (storage quota).
+
+**Fix:** Apply rate limiting to the newsletter subscription endpoint. Consider adding CAPTCHA/Turnstile verification for the subscription form.
+
+---
+
+### SEC-035 — Admin Search Endpoint Returns Sensitive User Data Without Filtering
+
+**File:** `backend/api/src/modules/search_v1/controller.rs`
+
+The admin search endpoint returns full user records including sensitive fields (email, two_fa_secret hash status, role, session data) without filtering the response. While the endpoint requires admin authentication, it may expose more data than necessary for the search use case.
+
+**Fix:** Return only the fields needed for search display (id, name, email, role). Create a search-specific response DTO that excludes sensitive fields.
+
+---
+
+### SEC-037 — No CAPTCHA/Turnstile on Any Public-Facing Forms
+
+**File:** Systemic (affects registration, contact, newsletter subscription)
+
+No CAPTCHA, Turnstile, hCaptcha, or any bot-detection mechanism exists on any public-facing form. While SEC-011 mentions this for login specifically, this finding covers the broader absence across all public endpoints: registration, contact form, newsletter subscription, and password reset. Zero matches for `captcha`/`recaptcha`/`hcaptcha`/`turnstile` exist in the entire codebase.
+
+**Fix:** Integrate Cloudflare Turnstile or hCaptcha on all public-facing form submissions. The Turnstile API is privacy-focused and adds minimal friction.
+
+---
+
 ### CFG-001 — Environment Files in Public Git Repo
 
 **File:** `.env.dev`, `.env.prod`, `.env.stage`, `.env.test`, `.env.remote`
@@ -556,6 +654,8 @@ The DB unique index on `(provider, provider_payment_id)` prevents duplicate paym
 
 | ID | Title | File |
 |----|-------|------|
+| SEC-023 | Open redirect via `FRONTEND_URL` env var in Google OAuth (downgraded from medium) | `google_auth_v1/controller.rs` |
+| SEC-034 | Open redirect via `next` query parameter in auth logout (downgraded from medium) | `auth_v1/controller.rs` |
 | SEC-038 | Admin password change: `length(min=1)` | `user_v1/validator.rs:100-102` |
 | SEC-039 | Session expiry 14 days inactivity, no absolute timeout | `main.rs:457` |
 | SEC-040 | OAuth callback redirects to env-var-controlled `FRONTEND_URL` | `google_auth_v1/controller.rs:115-118` |
@@ -722,6 +822,106 @@ Key production-path examples include `email_verification_v1/controller.rs:32`, `
 
 ---
 
+### Gap 9 — CORS Allows Arbitrary Origins via Environment Variable
+
+**Severity:** Low
+
+The CORS configuration (`utils/cors.rs`) has a hardcoded list of origins that includes internal network IPs and allows arbitrary origin injection via the `ALLOWED_ORIGINS` environment variable. If an attacker can set this env var (which is committed in `.env.prod`), they can add their own domain to the allowed origins list, enabling cross-origin credential theft. The origins are parsed with `.unwrap()` (line 60), which will crash the server if a malformed origin is provided.
+
+**Fix:** Validate `ALLOWED_ORIGINS` entries against a domain allowlist at startup. Replace `.unwrap()` with proper error handling.
+
+---
+
+### Gap 10 — No Dependency Vulnerability Scanning
+
+**Severity:** High
+
+No `cargo-deny`, `cargo-audit`, or any dependency scanning tool is integrated into CI/CD or the development workflow. The codebase has 170+ dependencies in the backend alone, with no automated checking for known RUSTSEC advisories, outdated versions, or license compliance issues.
+
+**Fix:** Add `cargo-audit` to the backend CI pipeline. Add `cargo-deny` for license and vulnerability scanning. Run on every PR and nightly on the main branch.
+
+---
+
+### Gap 11 — No Newsletter Send Throttling or Progress Tracking
+
+**Severity:** Medium
+
+The newsletter send endpoint (`newsletter_v1/controller.rs:175-216`) spawns a background tokio task that iterates over all subscribers sending emails without rate limiting, progress tracking, or resume capability. If the process crashes mid-send, there is no way to determine which subscribers received the email. No anti-spam throttling exists for outbound email rate.
+
+**Fix:** Track newsletter send progress in Redis or the database. Implement throttling between sends. Add a resume mechanism for interrupted sends.
+
+---
+
+### Gap 12 — No Host Binding Validation
+
+**Severity:** Medium
+
+The application binds to `HOST=0.0.0.0` in production (`.env.prod`), exposing the API directly on all network interfaces. While Traefik acts as a reverse proxy, the API port is still accessible to anyone who can reach the host directly, bypassing Traefik's security headers and rate limiting.
+
+**Fix:** Bind to `127.0.0.1` (or a Docker-internal network interface) in production so the API is only reachable through the Traefik reverse proxy.
+
+---
+
+### Gap 13 — No Password Hash Migration Strategy
+
+**Severity:** Low
+
+The application uses `password-auth` v1.0.0 with no mechanism to upgrade password hash parameters (Argon2 cost) for existing users. If the hashing parameters need to be increased in the future, there is no lazy-migration strategy (re-hash on next successful login) implemented.
+
+**Fix:** Implement a password hash version field. On successful login, check if the hash uses the current parameters and re-hash if outdated.
+
+---
+
+### Gap 14 — No Structured Logging in Production
+
+**Severity:** Low
+
+The application uses `tracing` for logging but does not configure structured JSON output for production log aggregation. Debug-level logs are enabled broadly, and no log-level configuration per module exists. This makes production log analysis and alerting difficult.
+
+**Fix:** Configure `tracing-subscriber` with JSON formatting in production. Set appropriate log levels per module. Filter out health check noise from logs.
+
+---
+
+### Gap 15 — No API Versioning Strategy Beyond URL Prefix
+
+**Severity:** Low
+
+All routes use `/v1/` prefix but there is no strategy for API version evolution. No version negotiation, no deprecation headers, no version sunset dates. When v2 is needed, the migration path is undefined.
+
+**Fix:** Document API versioning strategy. Consider adding deprecation headers and sunset dates for old versions.
+
+---
+
+### Gap 16 — No Request Tracing/Correlation Across Services
+
+**Severity:** Low
+
+While OpenTelemetry is configured, there is no request correlation ID propagation between the API and frontend. The request ID middleware exists but is not linked to the tracing spans, making it hard to correlate frontend errors with backend logs.
+
+**Fix:** Propagate request correlation IDs from frontend to API via headers. Link request IDs to OpenTelemetry trace spans.
+
+---
+
+### Gap 17 — No Automated Security Regression Testing
+
+**Severity:** Medium
+
+The `security_tests.rs` file exists but is not run as a gate in CI. The security tests are not comprehensive — they cover body limits and basic endpoint checks but do not test for the specific vulnerabilities found in this audit (CSRF bypass, IDOR, XSS, etc.).
+
+**Fix:** Add security regression tests for each fixed vulnerability. Run them as a mandatory CI gate on every PR.
+
+---
+
+### Gap 18 — Frontend Error Boundaries and User-Facing Error Handling
+
+**Severity:** Low
+
+Both frontends lack proper error boundaries. API failures in the consumer frontend show raw error codes or empty states without user-friendly messaging. The admin frontend has limited error toast notifications but no consistent pattern for network failures, session expiry, or permission errors.
+
+**Fix:** Implement a global error boundary in both frontends. Show user-friendly error messages. Handle session expiry gracefully with redirect to login.
+
+---
+
 ## Recommended Fix Priority
 
 ### Phase 1 — Stop the Bleeding (Week 1)
@@ -757,7 +957,11 @@ Key production-path examples include `email_verification_v1/controller.rs:32`, `
 ├─ Fix billing controller error handling (use existing error classification)
 ├─ Add billing validator tests
 ├─ Fix session invalidation on password/2FA changes
-└─ Fix consumer paywall to fail-closed
+├─ Fix consumer paywall to fail-closed
+├─ Add newsletter send throttling + progress tracking (Gap 11)
+├─ Add automated security regression tests (Gap 17)
+├─ Add zero controller tests — at minimum auth, posts, billing endpoints (TEST-001)
+└─ Fix rate limiter X-Forwarded-For trust without proxy validation (SEC-019)
 ```
 
 ### Phase 4 — Hardening (Weeks 5-6)
@@ -768,8 +972,22 @@ Key production-path examples include `email_verification_v1/controller.rs:32`, `
 ├─ Add database indexes for core query patterns
 ├─ Implement per-user storage quotas
 ├─ Clean up 173 unwrap() calls in production paths
-├─ Validate rate limiter proxy trust (X-Forwarded-For)
 ├─ Wire up CI/CD deploy pipeline (replace TODOs)
-├─ Add cargo-deny/cargo-audit to CI
-└─ Address 19 frontend TODOs (contact form, profile edit, etc.)
+├─ Add cargo-deny/cargo-audit to CI (Gap 10)
+├─ Address 19 frontend TODOs (contact form, profile edit, etc.)
+├─ Bind API to 127.0.0.1 in production, not 0.0.0.0 (Gap 12)
+└─ Validate ALLOWED_ORIGINS env var against domain allowlist at startup (Gap 9)
+```
+
+### Phase 5 — Polish & Observability (Weeks 7-8)
+
+```
+├─ Configure structured JSON logging for production (Gap 14)
+├─ Implement request correlation IDs across frontend ↔ API (Gap 16)
+├─ Document API versioning strategy with deprecation headers (Gap 15)
+├─ Add password hash migration strategy (lazy re-hash on login) (Gap 13)
+├─ Implement frontend error boundaries + user-friendly error pages (Gap 18)
+├─ Add response caching layer (Gap 6)
+├─ Implement real cookie consent with preference storage (GDPR) (Gap 4)
+└─ Final re-scan with cargo-audit + cargo-deny to confirm zero known vulnerabilities
 ```
