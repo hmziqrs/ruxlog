@@ -15,6 +15,56 @@ pub struct MercadoPagoProvider {
     pub base_url: String,
 }
 
+/// Extract a parameter from a raw URL query string, returning the first match.
+/// Handles `+`-encoded spaces and percent-decoding (V-CRIT-2). Returns the raw
+/// (decoded) value without lowercasing — the caller decides casing.
+fn extract_query_param(query: &str, name: &str) -> Option<String> {
+    for pair in query.split('&') {
+        let mut kv = pair.splitn(2, '=');
+        if kv.next()? == name {
+            let val = kv.next()?;
+            return Some(url_decode(val));
+        }
+    }
+    None
+}
+
+/// Minimal percent-decode + `+`-to-space (form-encoded) using only std, so we
+/// don't pull in a new direct dependency for a single webhook param. (V-CRIT-2)
+fn url_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'+' => out.push(b' '),
+            b'%' if i + 2 < bytes.len() => {
+                if let Some(b) = hex_nibble(bytes[i + 1]).and_then(|hi| {
+                    hex_nibble(bytes[i + 2]).map(|lo| (hi << 4) | lo)
+                }) {
+                    out.push(b);
+                    i += 2;
+                } else {
+                    // Malformed escape — preserve literally (lenient).
+                    out.push(b'%');
+                }
+            }
+            b => out.push(b),
+        }
+        i += 1;
+    }
+    String::from_utf8(out).unwrap_or_else(|_| s.to_string())
+}
+
+fn hex_nibble(b: u8) -> Option<u8> {
+    match b {
+        b'0'..=b'9' => Some(b - b'0'),
+        b'a'..=b'f' => Some(b - b'a' + 10),
+        b'A'..=b'F' => Some(b - b'A' + 10),
+        _ => None,
+    }
+}
+
 impl MercadoPagoProvider {
     pub fn new(access_token: String, webhook_secret: String) -> Self {
         Self {
@@ -158,8 +208,10 @@ impl BillingProvider for MercadoPagoProvider {
     }
 
     async fn verify_webhook(&self, event: WebhookEvent) -> Result<ParsedWebhook, BillingError> {
-        // Mercado Pago signs with x-signature: "ts=<ms>,v1=<hmac-sha256>".
-        // The tag is HMAC-SHA256(secret, "{ts}{raw_body}"). ts is in ms.
+        // Mercado Pago signs with x-signature: "ts=<ms>,v1=<hmac-sha256>". The
+        // tag is HMAC-SHA256(secret, "id:{data.id};request-id:{x-request-id};ts:{ts};")
+        // (V-CRIT-2), built from the URL query data.id + x-request-id header +
+        // the ts= parsed below. ts is in ms.
         let sig_header = super::webhook_util::header_str(&event.headers, "x-signature")
             .ok_or_else(|| {
                 BillingError::WebhookVerification("Missing x-signature header".into())
@@ -196,13 +248,37 @@ impl BillingProvider for MercadoPagoProvider {
         let payload_str = std::str::from_utf8(&event.payload)
             .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
 
-        // Verify HMAC over "{ts}{raw_body}" in constant time.
-        let mut manifest = Vec::with_capacity(ts.len() + event.payload.len());
-        manifest.extend_from_slice(ts.as_bytes());
-        manifest.extend_from_slice(&event.payload);
+        // Official Mercado Pago signature scheme (V-CRIT-2): the tag is
+        // HMAC-SHA256(secret, "id:{data.id};request-id:{x-request-id};ts:{ts};"),
+        // where {data.id} comes from the webhook URL's `data.id` query param,
+        // {x-request-id} from the request header, and {ts} from the `ts=` value
+        // already parsed out of `x-signature`. The previous code HMAC'd
+        // `ts ‖ raw_body`, which is structurally wrong and would never match a
+        // genuine Mercado Pago signature.
+        let query = event.query.as_deref().ok_or_else(|| {
+            BillingError::WebhookVerification(
+                "Mercado Pago webhook missing URL query string (data.id)".into(),
+            )
+        })?;
+        let data_id = extract_query_param(query, "data.id").ok_or_else(|| {
+            BillingError::WebhookVerification(
+                "Mercado Pago webhook query missing data.id".into(),
+            )
+        })?;
+        // The official scheme lowercases data.id when it is alphanumeric.
+        let data_id = if data_id.chars().all(|c| c.is_ascii_alphanumeric()) {
+            data_id.to_ascii_lowercase()
+        } else {
+            data_id
+        };
+        let x_request_id = super::webhook_util::header_str(&event.headers, "x-request-id")
+            .ok_or_else(|| {
+                BillingError::WebhookVerification("Missing x-request-id header".into())
+            })?;
+        let manifest = format!("id:{};request-id:{};ts:{};", data_id, x_request_id, ts);
         if !super::webhook_util::verify_hmac_sha256_hex(
             self.webhook_secret.as_bytes(),
-            &manifest,
+            manifest.as_bytes(),
             v1,
         ) {
             return Err(BillingError::WebhookVerification(
@@ -310,23 +386,35 @@ mod tests {
 
     use crate::services::billing::webhook_util;
 
-    /// Sign a Mercado Pago webhook: `x-signature: ts={ms},v1={hmac_hex}`,
-    /// where the tag is HMAC-SHA256(secret, "{ts}{body}") and ts is in ms.
-    fn signed_mp(payload: &[u8], ts_ms: i64, secret: &str) -> WebhookEvent {
+    /// Fixed values for the spec-correct Mercado Pago manifest (V-CRIT-2).
+    /// The official scheme is:
+    ///   HMAC-SHA256(secret, "id:{data.id};request-id:{x-request-id};ts:{ts};")
+    /// where {data.id} is the URL query `data.id`, {x-request-id} is the
+    /// request header, and {ts} is the `ts=` from `x-signature`.
+    const TEST_DATA_ID: &str = "1234567890";
+    const TEST_REQUEST_ID: &str = "abc-123";
+
+    /// Sign a Mercado Pago webhook with the CORRECT manifest and return a
+    /// `WebhookEvent` carrying the matching query string + x-request-id header.
+    /// `ts` is in milliseconds (matches the freshness-window parse). (V-CRIT-2)
+    fn signed_mp(payload: &[u8], ts_ms: i64, secret: &str, data_id: &str) -> WebhookEvent {
         let ts_str = ts_ms.to_string();
-        let mut msg = Vec::with_capacity(ts_str.len() + payload.len());
-        msg.extend_from_slice(ts_str.as_bytes());
-        msg.extend_from_slice(payload);
-        let v1 = webhook_util::hmac_sha256_hex(secret.as_bytes(), &msg);
+        let manifest = format!("id:{data_id};request-id:{TEST_REQUEST_ID};ts:{ts_str};");
+        let v1 = webhook_util::hmac_sha256_hex(secret.as_bytes(), manifest.as_bytes());
         let mut headers = axum::http::HeaderMap::new();
         headers.insert(
             "x-signature",
             format!("ts={ts_str},v1={v1}").parse().unwrap(),
         );
+        headers.insert(
+            "x-request-id",
+            TEST_REQUEST_ID.parse().unwrap(),
+        );
         WebhookEvent {
             provider: "mercado_pago".into(),
             payload: payload.to_vec(),
             headers,
+            query: Some(format!("data.id={data_id}")),
         }
     }
 
@@ -353,7 +441,9 @@ mod tests {
             (r#"{"type":"merchant_order","data":{"id":"mo_1"}}"#, "merchant_order"),
         ];
         for (body, expected) in cases {
-            let evt = signed_mp(body.as_bytes(), now_ms, "whsec");
+            // The URL query data.id is the canonical manifest source (V-CRIT-2);
+            // it is independent of the body's resource id.
+            let evt = signed_mp(body.as_bytes(), now_ms, "whsec", TEST_DATA_ID);
             let parsed = provider.verify_webhook(evt).await.expect("must verify");
             assert_eq!(parsed.event_type, *expected, "body={body}");
         }
@@ -363,6 +453,7 @@ mod tests {
             br#"{"type":"preapproval","data":{"id":"preap_1","status":"authorized","preapproval_id":"preap_1","next_payment_date":"2026-12-31T00:00:00Z","external_reference":"42","transaction_amount":99.9,"currency_id":"BRL"}}"#,
             now_ms,
             "whsec",
+            TEST_DATA_ID,
         );
         let parsed = provider.verify_webhook(evt).await.unwrap();
         assert_eq!(parsed.subscription_id.as_deref(), Some("preap_1"));
@@ -371,5 +462,90 @@ mod tests {
         assert_eq!(parsed.user_id, Some(42));
         assert_eq!(parsed.amount_cents, Some(9990));
         assert_eq!(parsed.currency.as_deref(), Some("BRL"));
+    }
+
+    /// V-CRIT-2: the verifier MUST authenticate the official Mercado Pago
+    /// manifest `id:{data.id};request-id:{x-request-id};ts:{ts};` (built from
+    /// the URL query data.id + x-request-id header + x-signature ts), NOT the
+    /// legacy `ts ‖ body`. These cases pin fixed values so the test asserts the
+    /// spec, not self-consistency with the old wrong format.
+    #[tokio::test]
+    async fn verify_webhook_uses_official_manifest() {
+        let provider = MercadoPagoProvider::new("token".into(), "whsec".into());
+        let now_ms = chrono::Utc::now().timestamp_millis();
+        let body = br#"{"type":"payment","data":{"id":"1234567890"}}"#;
+
+        // Positive: manifest signed exactly as the spec dictates verifies.
+        let evt = signed_mp(body, now_ms, "whsec", TEST_DATA_ID);
+        provider
+            .verify_webhook(evt)
+            .await
+            .expect("spec-correct manifest must verify");
+
+        // Negative: a tag computed over the LEGACY `ts ‖ body` (old wrong
+        // scheme) must NOT verify — proves we are not silently still using it.
+        let ts_str = now_ms.to_string();
+        let mut legacy = Vec::with_capacity(ts_str.len() + body.len());
+        legacy.extend_from_slice(ts_str.as_bytes());
+        legacy.extend_from_slice(body);
+        let legacy_v1 = webhook_util::hmac_sha256_hex(b"whsec", &legacy);
+        let mut h = axum::http::HeaderMap::new();
+        h.insert(
+            "x-signature",
+            format!("ts={ts_str},v1={legacy_v1}").parse().unwrap(),
+        );
+        h.insert("x-request-id", TEST_REQUEST_ID.parse().unwrap());
+        let evt = WebhookEvent {
+            provider: "mercado_pago".into(),
+            payload: body.to_vec(),
+            headers: h,
+            query: Some(format!("data.id={TEST_DATA_ID}")),
+        };
+        let err = provider.verify_webhook(evt).await.expect_err("legacy manifest must be rejected");
+        assert!(err.to_string().to_lowercase().contains("mismatch"));
+
+        // Negative: missing query string → fail closed.
+        let mut evt = signed_mp(body, now_ms, "whsec", TEST_DATA_ID);
+        evt.query = None;
+        provider
+            .verify_webhook(evt)
+            .await
+            .expect_err("missing query must fail closed");
+
+        // Negative: missing x-request-id header → fail closed.
+        let mut evt = signed_mp(body, now_ms, "whsec", TEST_DATA_ID);
+        evt.headers.remove("x-request-id");
+        provider
+            .verify_webhook(evt)
+            .await
+            .expect_err("missing x-request-id must fail closed");
+
+        // Negative: query data.id differs from signed manifest → fail closed.
+        let mut evt = signed_mp(body, now_ms, "whsec", TEST_DATA_ID);
+        evt.query = Some("data.id=0000000000".into());
+        provider
+            .verify_webhook(evt)
+            .await
+            .expect_err("data.id mismatch must fail closed");
+    }
+
+    /// `extract_query_param` parses `data.id` out of a realistic MP query
+    /// string, including URL-encoded values (V-CRIT-2).
+    #[test]
+    fn extract_query_param_finds_data_id() {
+        assert_eq!(
+            extract_query_param("data.id=1234567890&type=payment", "data.id").as_deref(),
+            Some("1234567890")
+        );
+        // Leading `?` from a full query string should be tolerated (the pair
+        // starting with `?data.id` won't match `data.id` — the caller strips
+        // any leading `?`; here we just confirm a plain match works).
+        assert_eq!(extract_query_param("data.id=abc", "data.id").as_deref(), Some("abc"));
+        // Percent-decoded + space-unescaped value.
+        assert_eq!(
+            extract_query_param("data.id=foo%20bar%2Bbaz&type=payment", "data.id").as_deref(),
+            Some("foo bar+baz")
+        );
+        assert!(extract_query_param("type=payment", "data.id").is_none());
     }
 }

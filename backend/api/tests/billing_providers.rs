@@ -54,6 +54,8 @@ mod billing_mock_tests {
         let mut headers = axum::http::HeaderMap::new();
         let now = now_secs();
         let body_hex = sign_payload(secret, payload);
+        // Mercado Pago's data.id arrives via the URL query string (V-CRIT-2).
+        let mut query: Option<String> = None;
         match provider {
             "stripe" => {
                 // Stripe-Signature: t=<ts>,v1=<HMAC(secret, "{ts}.{body}")>
@@ -78,40 +80,44 @@ mod billing_mock_tests {
                 headers.insert("X-Polar-Signature", body_hex.parse().unwrap());
             }
             "mercado_pago" => {
-                // x-signature: ts=<ms>,v1=<HMAC(secret, "{ts_ms}{body}")>
+                // Official scheme (V-CRIT-2): x-signature: ts=<ms>,v1=<HMAC(
+                // secret, "id:{data.id};request-id:{x-request-id};ts:{ts};")>.
+                // data.id arrives via the URL query string, x-request-id via a
+                // request header, ts from x-signature's ts= field.
+                const DATA_ID: &str = "1234567890";
+                const REQUEST_ID: &str = "test-request-id";
                 let ts_ms = (now * 1000).to_string();
-                let mut msg = Vec::with_capacity(ts_ms.len() + payload.len());
-                msg.extend_from_slice(ts_ms.as_bytes());
-                msg.extend_from_slice(payload);
-                let v1 = sign_payload(secret, &msg);
+                let manifest = format!("id:{DATA_ID};request-id:{REQUEST_ID};ts:{ts_ms};");
+                let v1 = sign_payload(secret, manifest.as_bytes());
+                headers.insert("x-request-id", REQUEST_ID.parse().unwrap());
                 headers.insert(
                     "x-signature",
                     format!("ts={ts_ms},v1={v1}").parse().unwrap(),
                 );
+                query = Some(format!("data.id={DATA_ID}"));
             }
             "airwallex" => {
-                // x-www-airwallex-signature: <ts>.<HMAC(secret, "{ts}{body}")>
+                // #133: two headers x-timestamp + x-signature;
+                // HMAC over (x-timestamp string + raw body), no separator.
                 let ts = now.to_string();
                 let mut msg = Vec::with_capacity(ts.len() + payload.len());
                 msg.extend_from_slice(ts.as_bytes());
                 msg.extend_from_slice(payload);
                 let mac = sign_payload(secret, &msg);
-                headers.insert(
-                    "x-www-airwallex-signature",
-                    format!("{ts}.{mac}").parse().unwrap(),
-                );
+                headers.insert("x-timestamp", ts.parse().unwrap());
+                headers.insert("x-signature", mac.parse().unwrap());
             }
             "revolut" => {
-                // X-Revolut-Signature: <ts>.<HMAC(secret, "{ts}{body}")>
+                // #132: Revolut-Signature: v1=<hex> + Revolut-Request-Timestamp;
+                // signed message "<ts>.<body>".
                 let ts = now.to_string();
-                let mut msg = Vec::with_capacity(ts.len() + payload.len());
+                let mut msg = Vec::with_capacity(ts.len() + 1 + payload.len());
                 msg.extend_from_slice(ts.as_bytes());
+                msg.push(b'.');
                 msg.extend_from_slice(payload);
-                let mac = sign_payload(secret, &msg);
-                headers.insert(
-                    "X-Revolut-Signature",
-                    format!("{ts}.{mac}").parse().unwrap(),
-                );
+                let v1 = sign_payload(secret, &msg);
+                headers.insert("Revolut-Request-Timestamp", ts.parse().unwrap());
+                headers.insert("Revolut-Signature", format!("v1={v1}").parse().unwrap());
             }
             other => panic!("signed_event: no signing scheme for provider '{other}'"),
         }
@@ -119,6 +125,7 @@ mod billing_mock_tests {
             provider: provider.into(),
             payload: payload.to_vec(),
             headers,
+            query,
         }
     }
 
@@ -128,6 +135,7 @@ mod billing_mock_tests {
             provider: provider.into(),
             payload: payload.to_vec(),
             headers: axum::http::HeaderMap::new(),
+            query: None,
         }
     }
 
@@ -745,6 +753,7 @@ mod billing_mock_tests {
                 provider: "paddle".into(),
                 payload: payload_bytes,
                 headers,
+                query: None,
             };
 
             let parsed = provider.verify_webhook(event).await.expect("should verify");
@@ -1243,20 +1252,25 @@ mod billing_mock_tests {
         async fn verify_webhook_valid_signature() {
             let secret = "rev_secret_123";
             let provider = RevolutProvider::new("k".into(), secret.into());
+            // Revolut webhooks are FLAT ({event, order_id}) per the #132
+            // rewrite; the grant recovers user_id/amount from the server-bound
+            // checkout intent, never from webhook JSON.
             let payload = json!({
-                "event": "order.completed",
-                "order": { "id": "ord_rev_w", "customer_id": "cus_rev" },
-                "subscription": { "id": "sub_rev_w" }
+                "event": "ORDER_COMPLETED",
+                "order_id": "ord_rev_w",
+                "merchant_order_ext_ref": "Test #rev"
             });
             let bytes = serde_json::to_vec(&payload).unwrap();
             let parsed = provider
                 .verify_webhook(signed_event("revolut", &bytes, secret))
                 .await
                 .expect("should verify");
-            assert_eq!(parsed.event_type, "order.completed");
-            assert_eq!(parsed.customer_id, "cus_rev");
-            assert_eq!(parsed.subscription_id, Some("sub_rev_w".to_string()));
+            assert_eq!(parsed.event_type, "checkout.session.completed");
             assert_eq!(parsed.payment_id, Some("ord_rev_w".to_string()));
+            assert_eq!(parsed.checkout_session_id.as_deref(), Some("ord_rev_w"));
+            // The flat webhook carries no customer/subscription fields.
+            assert_eq!(parsed.customer_id, "");
+            assert_eq!(parsed.subscription_id, None);
         }
 
         #[tokio::test]
@@ -1436,6 +1450,7 @@ mod billing_mock_tests {
                     provider: "paypal".into(),
                     payload: bytes,
                     headers,
+                    query: None,
                 })
                 .await
                 .expect("should verify");

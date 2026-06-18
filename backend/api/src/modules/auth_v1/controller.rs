@@ -358,6 +358,14 @@ pub async fn twofa_disable(
     let user = auth.user.unwrap();
     let payload = payload.0;
 
+    // Throttle brute-force attempts on the 2FA code (audit V-MED-4): without
+    // this, an attacker holding the password could mount unbounded online TOTP
+    // guessing against `twofa_disable` to turn off a victim's 2FA. Shares the
+    // `totp:{user.id}` budget with `twofa_verify` so attempts across both
+    // endpoints count against one limit. Fail-closed on Redis outage.
+    let key_prefix = format!("totp:{}", user.id);
+    abuse_limiter::limiter(&state.redis_pool, &key_prefix, ABUSE_LIMITER_CONFIG).await?;
+
     let existing = user::Entity::find_by_id_with_404(&state.sea_db, user.id).await?;
 
     // If 2FA is enabled and a code is provided, verify it; allow disable with valid code or backup code

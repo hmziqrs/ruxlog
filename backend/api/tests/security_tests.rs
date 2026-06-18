@@ -69,8 +69,19 @@ async fn security_headers_present_on_response() {
 // layer so the Session is available to the guard, plus the `/csrf/v1/generate`
 // bootstrap route so a real per-session token can be obtained.
 
+/// The CSRF signing key is HKDF-derived from `COOKIE_KEY` and is fail-closed if
+/// unset (audit V-HIGH-6). Integration tests bypass `main.rs`'s startup guard,
+/// so set a fixed, compliant-length test key before the guard's lazy init runs.
+fn ensure_test_cookie_key() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        std::env::set_var("COOKIE_KEY", "test-cookie-key-not-for-production-use-32+");
+    });
+}
+
 fn csrf_router() -> Router {
     use tower_sessions::{MemoryStore, SessionManagerLayer};
+    ensure_test_cookie_key();
     let store = MemoryStore::default();
     Router::new()
         .route("/protected", post(ok_handler))

@@ -65,15 +65,20 @@ fn hkdf_sha256(ikm: &[u8], info: &[u8]) -> [u8; 32] {
 /// No separate secret must be managed. Cached for the process lifetime.
 fn csrf_signing_key() -> &'static [u8] {
     CSRF_SIGNING_KEY.get_or_init(|| {
-        // Production sets COOKIE_KEY. Without it we fall back to a fixed dev
-        // value rather than panicking, but tokens are then insecure and not
-        // rotated until restart.
+        // Fail-closed: a CSRF signing key must never be derived from a baked
+        // constant, since that would silently issue forgeable tokens to every
+        // client. In production COOKIE_KEY must be set (>= 32 bytes); otherwise
+        // we panic rather than degrade to an insecure default. Tests do not
+        // configure the environment, so they get a fixed deterministic key.
         let ikm = match std::env::var("COOKIE_KEY") {
             Ok(k) if !k.is_empty() => k.into_bytes(),
-            _ => {
-                warn!("COOKIE_KEY unset — CSRF signing key using insecure dev default");
-                b"ruxlog-dev-csrf-key-change-me".to_vec()
-            }
+            #[cfg(not(test))]
+            _ => panic!(
+                "COOKIE_KEY must be set (>= 32 bytes) to derive the CSRF signing key; \
+                 see CRYPTO_AUDIT.md Part V V-HIGH-6"
+            ),
+            #[cfg(test)]
+            _ => b"ruxlog-test-csrf-key-deterministic".to_vec(),
         };
         hkdf_sha256(&ikm, b"ruxlog-csrf-v1").to_vec()
     })

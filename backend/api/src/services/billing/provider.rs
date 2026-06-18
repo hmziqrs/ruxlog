@@ -50,6 +50,11 @@ pub struct WebhookEvent {
     pub payload: Vec<u8>,
     /// All request headers; each provider reads the ones it needs.
     pub headers: axum::http::HeaderMap,
+    /// The raw URL query string of the incoming webhook request.
+    /// Mercado Pago's signature scheme signs over `data.id` taken from the
+    /// webhook URL's query string (not the body), so the receiver must forward
+    /// it. `None` for providers/tests that don't use it. (V-CRIT-2)
+    pub query: Option<String>,
 }
 
 /// Canonical webhook event vocabulary.

@@ -572,6 +572,7 @@ mod tests {
             provider: "crypto".into(),
             payload: serde_json::to_vec(&payload).unwrap(),
             headers: axum::http::HeaderMap::new(),
+            query: None,
         };
 
         let err = p
@@ -643,6 +644,7 @@ mod tests {
             provider: "crypto".into(),
             payload: serde_json::to_vec(&payload).unwrap(),
             headers: axum::http::HeaderMap::new(),
+            query: None,
         };
 
         let err = p

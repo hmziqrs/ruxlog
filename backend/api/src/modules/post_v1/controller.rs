@@ -364,15 +364,22 @@ pub async fn query(
     )
     .await
     {
-        Ok((posts, total)) => Ok((
-            StatusCode::OK,
-            Json(json!({
-                "data": posts,
-                "total": total,
-                "per_page": post::Entity::PER_PAGE,
-                "page": page,
-            })),
-        )),
+        Ok((mut posts, total)) => {
+            // Enforce the server-side paywall on the search results too (audit
+            // V-MED-1): without this, moderators/admins/super-admins receive the
+            // full `content` of Paid / SubscriberOnly posts. Mirrors the
+            // /list/published path's call to `apply_paywall_list`.
+            apply_paywall_list(&state, &mut posts, Some(&user)).await?;
+            Ok((
+                StatusCode::OK,
+                Json(json!({
+                    "data": posts,
+                    "total": total,
+                    "per_page": post::Entity::PER_PAGE,
+                    "page": page,
+                })),
+            ))
+        }
         Err(err) => Err(err),
     }
 }

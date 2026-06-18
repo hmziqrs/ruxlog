@@ -438,6 +438,7 @@ mod tests {
             provider: "paddle".into(),
             payload: payload.to_vec(),
             headers,
+            query: None,
         }
     }
 
@@ -558,6 +559,7 @@ mod tests {
             provider: "paddle".into(),
             payload: b"{}".to_vec(),
             headers,
+            query: None,
         };
         assert!(provider.verify_webhook(event).await.is_err());
     }

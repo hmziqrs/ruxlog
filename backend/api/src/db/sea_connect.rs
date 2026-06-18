@@ -3,7 +3,17 @@ use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use std::{env, time::Duration};
 use tracing::{error, info, instrument};
 
-/// Get the database URL from environment variables
+/// Get the database URL from environment variables.
+///
+/// The connection's TLS mode is governed by `DATABASE_SSL_MODE`
+/// (one of `disable`, `prefer`, `require`, `verify-ca`, `verify-full`;
+/// defaults to `prefer` to preserve the previous cleartext-fallback dev
+/// behavior). It is appended as the `sslmode` query parameter, which
+/// sqlx-postgres parses and maps to its `PgSslMode`. Set
+/// `DATABASE_SSL_MODE=verify-full` in production — note that `verify-ca` /
+/// `verify-full` additionally require a trusted root cert (via `PGSSLROOTCERT`
+/// or the `sslrootcert` query parameter); that is operator/runbook config,
+/// not code.
 #[instrument]
 fn get_db_url() -> Result<String, String> {
     let user = env::var("POSTGRES_USER")
@@ -17,9 +27,15 @@ fn get_db_url() -> Result<String, String> {
     let port = env::var("POSTGRES_PORT")
         .map_err(|_| "POSTGRES_PORT environment variable must be set".to_string())?;
 
+    // Default to `prefer` to preserve the previous sqlx-default dev behavior.
+    // sqlx-postgres validates the value via `PgSslMode::from_str` at connect
+    // time, so an unrecognized value fails loudly rather than silently
+    // downgrading to cleartext.
+    let ssl_mode = env::var("DATABASE_SSL_MODE").unwrap_or_else(|_| "prefer".to_string());
+
     Ok(format!(
-        "postgres://{}:{}@{}:{}/{}",
-        user, password, host, port, db
+        "postgres://{}:{}@{}:{}/{}?sslmode={}",
+        user, password, host, port, db, ssl_mode
     ))
 }
 

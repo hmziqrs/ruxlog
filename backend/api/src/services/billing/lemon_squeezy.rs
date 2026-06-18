@@ -323,6 +323,7 @@ mod tests {
             provider: "lemon_squeezy".into(),
             payload: payload.to_vec(),
             headers,
+            query: None,
         }
     }
 

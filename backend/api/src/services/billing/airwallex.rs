@@ -415,6 +415,7 @@ mod tests {
             provider: "airwallex".into(),
             payload: payload.to_vec(),
             headers,
+            query: None,
         }
     }
 

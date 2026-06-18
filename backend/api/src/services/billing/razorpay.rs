@@ -351,6 +351,7 @@ mod tests {
             provider: "razorpay".into(),
             payload: payload.to_vec(),
             headers,
+            query: None,
         }
     }
 

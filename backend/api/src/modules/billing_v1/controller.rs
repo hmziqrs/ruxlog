@@ -6,7 +6,7 @@
 
 use axum::{
     body::Bytes,
-    extract::{Path, State},
+    extract::{Path, RawQuery, State},
     http::HeaderMap,
     Json,
 };
@@ -659,6 +659,7 @@ pub async fn my_payments(
 pub async fn webhook_receiver(
     State(state): State<AppState>,
     Path(provider): Path<String>,
+    RawQuery(raw_query): RawQuery,
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Json<serde_json::Value>, ErrorResponse> {
@@ -669,10 +670,15 @@ pub async fn webhook_receiver(
         // PayPal's five headers, etc.). The previous single-signature extract
         // dropped everything but one header and could never verify providers
         // that sign over a timestamp. See plan Phase 1a.
+        //
+        // `query` carries the raw URL query string. Mercado Pago's signature
+        // scheme signs over `data.id` taken from this query string, so the
+        // receiver must forward it (V-CRIT-2).
         let webhook_event = WebhookEvent {
             provider: provider.clone(),
             payload: body.to_vec(),
             headers,
+            query: raw_query,
         };
 
         let parsed = state
@@ -691,7 +697,7 @@ pub async fn webhook_receiver(
 
     #[cfg(not(feature = "billing"))]
     {
-        let _ = (state, provider, headers, body);
+        let _ = (state, provider, headers, body, raw_query);
         Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
             .with_message("Billing is not enabled on this server"))
     }
@@ -840,6 +846,7 @@ async fn process_webhook_event(
             let existing = if !subscription_id.is_empty() {
                 subscription::Entity::find()
                     .filter(subscription::Column::ProviderSubscriptionId.eq(&subscription_id))
+                    .filter(subscription::Column::Provider.eq(provider_name))
                     .one(&state.sea_db)
                     .await
                     .map_err(|_| ErrorResponse::new(ErrorCode::QueryError))?
@@ -934,11 +941,16 @@ async fn process_webhook_event(
             if let Some(provider_sub_id) = &event.subscription_id {
                 let sub = subscription::Entity::find()
                     .filter(subscription::Column::ProviderSubscriptionId.eq(provider_sub_id))
+                    .filter(subscription::Column::Provider.eq(provider_name))
                     .one(&state.sea_db)
                     .await
                     .map_err(|_| ErrorResponse::new(ErrorCode::QueryError))?;
 
                 if let Some(existing) = sub {
+                    // Capture the persisted period end BEFORE consuming the Model
+                    // into an ActiveModel, so the forward-only guard below can
+                    // compare against it (V-MED-2).
+                    let existing_period_end = existing.current_period_end.clone();
                     let mut active: subscription::ActiveModel = existing.into();
 
                     // Status from the provider-normalized canonical value (audit
@@ -986,11 +998,23 @@ async fn process_webhook_event(
                     // F#11): renewals send a fresh `current_period_end`, and the
                     // paywall keys off it. Only overwrite when the provider
                     // actually supplied one (cancellation events may not).
+                    //
+                    // Forward-only invariant (V-MED-2): an out-of-order or
+                    // redelivered update must NEVER shorten a valid period. Only
+                    // overwrite when the new value is strictly greater than the
+                    // existing one (or there was no existing one). Mirrors the
+                    // sibling guard in the `invoice.payment_succeeded` arm.
                     if let Some(ts) = event.current_period_end {
-                        active.current_period_end = Set(
-                            chrono::DateTime::<chrono::Utc>::from_timestamp(ts, 0)
-                                .map(|dt| dt.fixed_offset()),
-                        );
+                        let new_end = chrono::DateTime::<chrono::Utc>::from_timestamp(ts, 0)
+                            .map(|dt| dt.fixed_offset());
+                        let extend = match (existing_period_end.as_ref(), new_end) {
+                            (Some(prior), Some(new_dt)) => new_dt > *prior,
+                            (None, Some(_)) => true,
+                            _ => false,
+                        };
+                        if extend {
+                            active.current_period_end = Set(new_end);
+                        }
                     }
                     active.updated_at = Set(chrono::Utc::now().fixed_offset());
                     active
@@ -1018,6 +1042,7 @@ async fn process_webhook_event(
                 if let Some(sid) = event.subscription_id.as_deref().filter(|s| !s.is_empty()) {
                     if let Ok(Some(owner)) = subscription::Entity::find()
                         .filter(subscription::Column::ProviderSubscriptionId.eq(sid))
+                        .filter(subscription::Column::Provider.eq(provider_name))
                         .one(&state.sea_db)
                         .await
                     {
@@ -1090,6 +1115,7 @@ async fn process_webhook_event(
             ) {
                 if let Ok(Some(sub)) = subscription::Entity::find()
                     .filter(subscription::Column::ProviderSubscriptionId.eq(sid))
+                    .filter(subscription::Column::Provider.eq(provider_name))
                     .one(&state.sea_db)
                     .await
                 {

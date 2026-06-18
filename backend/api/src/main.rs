@@ -82,6 +82,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     telemetry::init_pool_metrics();
 
     let cookie_key_str = env::var("COOKIE_KEY").expect("COOKIE_KEY must be set");
+    // Fail fast with a clear message instead of an opaque panic deep inside the
+    // cookie crate's Key::derive_from (which panics on <32-byte master material).
+    // Enforces minimum strength: >=32 bytes of CSPRNG output (e.g. openssl rand
+    // -hex 32 yields 64 hex chars / 32 bytes). See CRYPTO_AUDIT.md V-HIGH-3/V-CRIT-1.
+    assert!(
+        cookie_key_str.len() >= 32,
+        "COOKIE_KEY must be >= 32 bytes of CSPRNG output (got {}). \
+          Generate with: openssl rand -hex 32. \
+          See CRYPTO_AUDIT.md Part V V-HIGH-3/V-CRIT-1.",
+        cookie_key_str.len()
+    );
 
     let sea_db = db::sea_connect::get_sea_connection().await;
 

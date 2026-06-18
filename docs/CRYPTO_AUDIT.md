@@ -750,3 +750,384 @@ deferred 2FA-at-login enforcement (Part III). LemonSqueezy's
 checkout-id↔resource-id correlation stays the accepted fail-closed deferral
 (LS subscription checkouts are refused, never granted-without-intent).*
 
+---
+---
+
+# Part V — Independent Verification (Adversarial Re-Review) · June 2026
+
+> **Goal:** verify that what Parts III–IV *claim* is fixed is actually fixed
+> *correctly* in the live code — and find what the report overclaimed, dropped,
+> or regressed. Every residual below was independently read against the current
+> source by a second skeptic pass; the headline ones were re-confirmed by hand
+> against the cited lines during synthesis.
+
+**Methodology:** 63-agent adversarial workflow — 8 haiku mappers (locate current
+symbols; audit line numbers are stale) → 24 sonnet verify+skeptic pipelines
+across every audit dimension → 4 attacker bypass sketches → 3 critics
+(coverage · regression · report-accuracy). **0.9M tokens, 1130 tool calls.**
+This Part supersedes any contradictory statement in Parts III–IV for the items
+it addresses.
+
+**Scores (critics):** coverage **72/100** · regression-risk **28/100** (low) ·
+**report-accuracy 68/100**.
+
+## Bottom line
+
+The **headline crypto work is real and correctly wired**: all 9 webhook
+verifiers, the server-side paywall, the GETDEL checkout-intent grant gate,
+code-hashing (migration 47), `post_purchases` (migration 48), the unique
+`(provider, provider_subscription_id)` index (migration 49), `#[serde(skip_serializing)]`
+on TOTP fields, seed-route super-admin guard, and the Stripe/Paddle/PayPal/
+Polar/Crypto/Airwallex/Revolut/Razorpay rewrites all check out — confirmed
+against source, not just claimed. The Accepted Deferrals (F#4/F#7/F#16,
+LemonSqueezy) are **accurately described**, honest notes present, related leaks
+closed.
+
+**However, the report overclaims completeness.** Part III's "All six remediation
+phases were implemented" is **false**: Phase 2 (secrets & key lifecycle) is
+substantially undone, a named critical (Mercado Pago) was silently dropped while
+still broken, and one paywall read path (`/post/query`) was missed. There is
+also **one new boot-failure regression** and several live HIGH/MEDIUM gaps the
+F#-list never enumerated. Net posture is **"leaks closed, but secrets still
+committed and a few providers/enforcement points still broken."**
+
+## Confirmed genuinely FIXED (sample, no action)
+
+Stripe `t=.body`+replay+ct_eq · Paddle Ed25519 fail-closed · Polar HMAC ·
+Crypto fail-closed · Airwallex two-header · Revolut `v1=`+timestamp ·
+Razorpay real-subscription checkout · PayPal cert-verify + `I-`/SALE fix ·
+`extract_signature` catch-all replaced by per-provider header reads · F#1
+atomic `GETDEL` intent · F#2/F#10 metadata-not-grant · F#3 plan_id fail-closed ·
+F#5/F#11 paywall fail-closed on missing period_end · F#9 single-use code +
+`reset_token` GETDEL · F#13 session `cycle_id` at login · F#14 HKDF swap ·
+F#18 env-driven base URLs · CRYP2-SEED-001 super-admin guard + `full`-profile
+exclusion · CRYP2-RESET-001 8-char + HMAC-at-rest · TOTP RFC-6238 correctness ·
+backup codes Argon2id + rejection sampling (modulo bias fixed) · TOTP seed no
+longer serialized.
+
+## Bypass-hunt verdicts (attacker sketches, confirmed)
+
+| Target | Exploitable? | Note |
+|--------|:---:|------|
+| Forge a webhook to grant a subscription | ❌ | Per-provider crypto verify **+** server-bound atomic intent = hard gate on every grant (F#1/F#2/F#3). |
+| Read paid content without paying | ⚠️ **/post/query only** | Single/list/RSS/Atom/sitemap all strip content; `/post/query` (search) does **not** — leaks to Moderator/Admin/SuperAdmin. Anonymous `User` → 403. |
+| Brute-force reset code / TOTP | ❌ | IP/ per-user throttle (3/6min, 5/15min→24h) + ~47-bit code / 20-bit TOTP makes online takeover infeasible. Minor replay window on TOTP. |
+| Escalate via `metadata.user_id` / replay webhook | ❌ | metadata is diagnostic-only; grant is intent+`plan_id`-gated; GETDEL + unique indexes dedup replays. |
+
+---
+
+## CRITICAL residuals
+
+### V-CRIT-1 — Secrets still committed; committed `COOKIE_KEY` now panics the server at boot
+**Files:** `.gitignore:4` · `.env.prod:31` (`COOKIE_KEY=302dd40cb75d17b6`) · `main.rs:84,469`
+**CWE-798 / CWE-321 / CWE-1188** · ✅ source-verified
+
+`.gitignore:4` is the literal string `.env` (no `.env.*` glob), so **12 env files
+remain git-tracked**: `.env.dev/.env.prod/.env.remote/.env.stage/.env.test/`.env.example/`
+`backend/.env.docker/` (+ traefik variants). They carry live-looking infra
+credentials **identical across all 6 tiers incl. prod**: `POSTGRES_PASSWORD=root`,
+`REDIS_PASSWORD=red`, a real-format Firebase API key (`AIzaSy…`), S3 access/secret
+keys, `QUICKWIT_ACCESS_TOKEN`, SMTP/Mailgun creds. `git log --all -p` confirms a
+single `COOKIE_KEY` value was ever committed (commit `e0bd9fc`, ironically the
+"security overhaul," is what *added* `.env.*` to tracking) — so history must be
+rewritten and every secret rotated.
+
+Worse, the committed `COOKIE_KEY=302dd40cb75d17b6` is **16 bytes**, and the new
+code path `Key::derive_from(cookie_key_str.as_bytes())` (`main.rs:469`) calls
+`cookie 0.18.1` which **panics** when `master_key.len() < 32` ("bad master key
+length: expected >= 32 bytes, found 16"). So deploying `.env.prod` unmodified
+panic-loops at `SessionManagerLayer` construction. **Either production is broken
+on boot, or `.env.prod` is dead and prod runs an untracked key** — in both cases
+the audit's claim that the 64-bit constant "is GONE" (Part III) is **false**:
+only the code path changed; the constant is still the configured value.
+
+**Fix:** purge `.env.*` from git (`git rm --cached`), rewrite history (BFG /
+`git filter-repo`), add `.env*` / `!/.env.example` to `.gitignore`, **rotate
+every committed secret**, generate per-env `COOKIE_KEY` ≥ 32 bytes (≥64 hex) of
+CSPRNG output, and add an app-level startup guard (see V-HIGH-3).
+
+### V-CRIT-2 — Mercado Pago webhook verification is structurally impossible (CRYP-GAP-003, silently dropped from Part III)
+**Files:** `services/billing/mercado_pago.rs:199-211` · `services/billing/provider.rs:46-53`
+**CWE-347** · ✅ source-verified
+
+`verify_webhook` signs `HMAC(secret, "{ts}{raw_body}")` (`manifest = ts ‖
+payload`). The official Mercado Pago scheme signs `HMAC(secret,
+"id:{data.id};request-id:{x-request-id};ts:{ts};")` — different separators,
+includes `data.id` (from the **URL query string**) and `x-request-id` (a
+**header**). **No legitimate MP webhook can ever verify**, so LATAM payments
+fail-closed (no revenue; no fraudulent grant). Additionally `WebhookEvent`
+({provider, payload, headers}) has **no query-string field** and the controller
+takes no `Query`/`RawQuery` extractor, so even fixing the manifest string is
+insufficient — `data.id` is structurally unreachable. The self-consistent unit
+test (`mercado_pago.rs:315-374`) signs with the *same* wrong manifest, so it
+green-lights the bug. CRYP-GAP-003 appears in Parts I/II and the Phase-1 roadmap
+but is **absent from Part III's F#-list and Accepted-Deferrals**, while Part III
+claims "done for all 9 providers." **Forgeable** if the committed
+`webhook_secret` is used (V-CRIT-1).
+
+**Fix:** extend `WebhookEvent` (or inputs) with the raw query string; read
+`x-request-id`; build `format!("id:{};request-id:{};ts:{};", data_id_lowercased,
+x_request_id, ts)`; replace the self-signed test with a known-answer vector from
+an official SDK.
+
+---
+
+## HIGH residuals
+
+### V-HIGH-1 — OAuth account-takeover: `email_verified` not checked before linking
+**File:** `modules/google_auth_v1/controller.rs:338-355` · **CWE-287 / CWE-290** · ✅ source-verified
+
+On email match, the code unconditionally grafts `google_id`/`oauth_provider`
+onto the existing local account and logs in — with **no gate on
+`user_info.verified_email`** (deserialized but never referenced outside
+struct/test). An attacker who controls a Google account whose profile email
+equals a victim's (unverified at the IdP) takes over the victim's account
+without the password. Compounded by V-MED-oa: an **absent `id_token` is tolerated
+with only a `warn!`** (`controller.rs:194-197`), dropping the signature-verified
+identity cross-check.
+
+**Fix:** require `verified_email == true` (and the `id_token` `email_verified`
+claim) before the email-link branch; require `id_token` (reject on absence).
+
+### V-HIGH-2 — No server-side session revocation (CRYP-SESS-002)
+**Files:** `db/sea_models/user_session/actions.rs:51-70` · `crates/rux-auth/src/session/extractor.rs`
+· **CWE-613** · ✅ source-verified
+
+`user_sessions` is a write-only audit log; `Entity::revoke` only stamps
+`revoked_at`, which **nothing reads**. The extractor authenticates purely from
+the Redis tower-sessions store + `session_auth_hash` (which only changes on
+password/email edit). A stolen cookie stays valid up to 14 days; "Terminate
+session" in the UI returns 200 but does not kill the live session. (Side note:
+`session_auth_hash` derives from password/email only — **not** `two_fa_*` — so a
+session created before 2FA enrollment stays TOTP-exempt afterward, a structural
+consequence of the F#4 deferral.)
+
+**Fix:** consult `user_sessions` (or a Redis allowlist) in the extractor, or
+delete the tower-sessions record on revoke; fold `two_fa_enabled` into
+`session_auth_hash` if/when F#4 is reversed.
+
+### V-HIGH-3 — No startup `COOKIE_KEY` strength validation; HKDF does not strengthen a weak key
+**Files:** `main.rs:84,469` · `middlewares/static_csrf.rs:44-58` · **CWE-321 / CWE-916** · ✅ source-verified
+
+`main.rs:84` is presence-only (`env::var("COOKIE_KEY").expect(...)`) — the audit's
+claimed "≥128 hex / 64-byte fail-fast guard" **does not exist**. And the KDF swap
+does **not** achieve its own stated rationale: `cookie::Key::derive_from` uses
+`Hkdf::from_prk` (skips HKDF-Extract), so a brute-forceable `COOKIE_KEY` still
+yields a brute-forceable AEAD key. (The CSRF path's hand-rolled `hkdf_sha256`
+*does* run Extract+Expand — so the two derivations are asymmetric: the
+security-critical session-cookie AEAD key gets the **weaker** derivation.) With
+the committed 64-bit `COOKIE_KEY`, session-cookie forgery, CSRF-token forgery,
+and offline code-hash computation are all feasible.
+
+**Fix:** reject `COOKIE_KEY` at startup unless ≥ 32 bytes of high-entropy input;
+use a CSPRNG-generated value per env; consider a real extract step for the AEAD
+path.
+
+### V-HIGH-4 — Legacy reset-code path is a direct takeover credential (CWE-640)
+**Files:** `modules/forgot_password_v1/controller.rs:255-302` (legacy else-branch)
+· `forgot_password/actions.rs:63-87` · **CWE-640** · ✅ source-verified
+
+`/request`, `/verify`, `/reset` are **independently reachable** routes, so an
+attacker can skip `/verify` and call `/reset` directly with an **intercepted**
+8-char code (compromised mailbox, or the STARTTLS-only SMTP link — V-LOW-smtp).
+The code row is deleted only *inside* the reset transaction *after* the password
+is changed. The F#9 `reset_token` is therefore bypassable. (~47-bit entropy +
+IP throttle make *online* guessing infeasible; a single intercepted code is
+sufficient.)
+
+**Fix:** retire the legacy code path, or pre-consume (DELETE) the code row on
+the first `/reset` attempt regardless of outcome; key the throttle on the victim
+account, not just IP.
+
+### V-HIGH-5 — DB & Redis transports unencrypted / under-verified
+**Files:** `db/sea_connect.rs:20-23` (no `sslmode=verify-full`) · `services/redis.rs:31`
+(`TlsHostMapping::None`) · **CWE-319** · ✅ source-verified
+
+Postgres URL omits `sslmode`; sqlx defaults to `prefer` (cleartext fallback).
+Redis TLS is opt-in (off by default) and, when on, sets `hostnames:
+TlsHostMapping::None` → **no hostname verification** (any CA-trusted cert
+accepted). Combined with V-CRIT-1's committed `POSTGRES_PASSWORD`/`REDIS_PASSWORD`,
+the DB/Redis wire is the cheapest path to session/credential theft.
+
+**Fix:** `sslmode=verify-full` + root cert; Redis TLS on by default in prod with
+proper hostname mapping.
+
+### V-HIGH-6 — CSRF not fail-closed; original secret persists in tracked `.env.docker`
+**Files:** `middlewares/static_csrf.rs:71-77` · `backend/.env.docker:29` · **CWE-798 / CWE-330** · ✅ source-verified
+
+On unset `COOKIE_KEY`, `csrf_signing_key()` falls back to the baked constant
+`b"ruxlog-dev-csrf-key-change-me"` with only a `warn!` — **not** the fail-closed
+behavior Part III's F#15 implies. The original `CSRF_KEY=ultra-instinct-goku`
+also still lives verbatim in tracked `backend/.env.docker:29`.
+
+**Fix:** fail-closed (panic) when `COOKIE_KEY` unset in non-dev; remove the
+baked fallback; purge `.env.docker`.
+
+---
+
+## MEDIUM residuals
+
+| ID | Finding | File:line | CWE |
+|----|---------|-----------|-----|
+| V-MED-1 | **`/post/query` search leaks full Paid/SubscriberOnly bodies** to Moderator/Admin/SuperAdmin — no `apply_paywall_list` (single/list/feed/sitemap all gated; search missed) | `post_v1/controller.rs:360-378`; `db/sea_models/post/slice.rs:362-365` | CWE-862 |
+| V-MED-2 | **Paywall false-negative (regression):** `customer.subscription.updated` arm overwrites `current_period_end` **unconditionally**, lacking the forward-only guard the sibling `invoice.payment_succeeded` arm has → a verified webhook with an earlier period **shortens** a paying subscriber's entitlement (premature revocation / DoS) | `billing_v1/controller.rs:989-993` vs `:1098-1103` | CWE-130 |
+| V-MED-3 | **Provider-unscoped subscription lookups** (4 sites: `:842,:936,:1020,:1092`) filter only `ProviderSubscriptionId`, omitting `Provider` — inconsistent with the composite unique index `(provider, provider_subscription_id)` and the payment dedup at `:1041`; cross-provider id collision could mutate another provider's row | `billing_v1/controller.rs` | CWE-639 |
+| V-MED-4 | **`twofa_disable` has no rate limiter** (sibling `twofa_verify` does) — unthrottled online TOTP brute-force to disable a victim's 2FA | `auth_v1/controller.rs:353-416` | CWE-307 |
+| V-MED-5 | **OAuth state consume is non-atomic** (`GET` then `DEL` TOCTOU) and **not constant-time** — the `reset_token` path already uses atomic `GETDEL`, so this is an unnecessary weakness | `google_auth_v1/controller.rs:282-291` | CWE-367 / CWE-208 |
+| V-MED-6 | **No used-TOTP tracking** — a code accepted once stays replayable ~90s (exposure is the self-serve `/2fa/verify`+`/2fa/disable`, bounded by F#4) | `utils/twofa.rs:84-120` | CWE-291 |
+| V-MED-7 | **TraceLayer `include_headers(true)` + frontend `APP_CSRF_TOKEN` baked into WASM / `console.log`'d** — claimed fixed in Phase 2/5 but **not re-verified**; if still present, `Cookie`/`csrf-token`/signatures ship to OTLP and the CSRF token is a public value | `router.rs:144-155`; `consumer-dioxus/src/main.rs`; `admin-dioxus/src/main.rs` | CWE-532 / CWE-798 |
+| V-MED-8 | **`ObjectStorageConfig: Debug` logs S3 access_key+secret_key** at debug level | `main.rs:124`; `state.rs:12,18-19` | CWE-532 |
+| V-MED-9 | **Traefik prod:** no TLS min-version/cipher pinning, no `:80`→`:443` redirect, HSTS app-layer only (ssl-strip on first `:80` request) | `backend/traefik/traefik.prod.yml` | CWE-326 / CWE-319 |
+| V-MED-10 | **36× `reqwest::Client::new()`** across all 9 billing providers + Google — no timeouts, no pooling → handler-pool exhaustion DoS | `services/billing/*.rs` | CWE-400 |
+| V-MED-11 | **`payout_accounts.metadata` JSONB plaintext** at rest (no field-level encryption) | `db/sea_models/payout_account/model.rs:15` | CWE-312 |
+| V-MED-12 | **`payment.confirmed` dispatch arm** parses `user_id` from attacker-shapeable `event.data["memo"]` with no intent gate and hardcodes `provider="crypto"` — reachable from any provider whose native event normalizes to `payment.confirmed`; inert for *access* (paywall ignores `payments`) but spoofs payment history + mis-attributes provider | `billing_v1/controller.rs:1121-1191` | CWE-345 |
+
+## LOW / INFO residuals (no detailed writeup; see skeptic transcripts)
+
+No `zeroize`/`secrecy` anywhere (GAP-016) · SMTP STARTTLS-only, no implicit-TLS
+(ENC-008) · bucket names `println!`'d at boot (main.rs:144) · OAuth nonce absent
+(OA-005) · callback redirect not allow-listed (OA-007) · `code_hash` compared via
+SQL equality not constant-time (harmless: fixed-length indexed HMAC) (SC) ·
+user-enumeration oracle on `/forgot_password/request` ("Email doesn't exist")
+(SC-006, compounds V-HIGH-4) · `sessions_terminate` mutates before ownership check
+(IDOR on audit row only) · no password-length upper bound (Argon2id memory DoS) ·
+constant-time helper short-circuits on length (harmless for fixed-length MACs).
+
+## Coverage gaps (findings no dimension re-verified)
+
+~30 named CRYP-*/CRYP2-* IDs (all low/info) were not independently re-checked:
+the side-channel/oracle family (CRYP-SC-006/007/009, GAP-014), the RNG/HASH/PW
+family (CRYP-RNG-005/006, HASH-005, PW-006, GAP-013), session-cookie hardening
+singletons (SESS-006/008, ENC-004), OAuth singletons (OA-010/011), field-level
+encryption fleet (ENC-012/013), and completeness singletons (GAP-012/015/019).
+None is expected to be a new critical; they are un-confirmed, not confirmed-open.
+
+## Report-accuracy corrections (Part V supersedes Parts III–IV here)
+
+| Part III/IV claim | Verdict | Correction |
+|---|---|---|
+| "All six remediation phases were implemented" (605) | ❌ FALSE | Phase 2 (secrets & key lifecycle) is **undone**: `.env.*` still tracked, 16-byte `COOKIE_KEY` unrotated across all tiers, no startup length guard, no keyring/versioning (CRYP-KM-003). |
+| CRYP-GAP-003 (Mercado Pago) — listed in Phase-1 roadmap | ❌ DROPPED | Silently absent from Part III F#-list and Accepted-Deferrals while code still builds the wrong manifest (V-CRIT-2). |
+| "paywall layers are closed" (707, 747) | ⚠️ OVERCLAIM | `/post/query` leaks Paid bodies to staff roles (V-MED-1). |
+| F#15 "static fallback removed" (625) | ❌ FALSE | Renamed, not removed (`ruxlog-dev-csrf-key-change-me`); original `ultra-instinct-goku` still in `.env.docker:29` (V-HIGH-6). |
+| F#14 rationale: KDF "prevents weak-key collapse" | ⚠️ OVERSTATED | `from_prk` skips HKDF-Extract; weak `COOKIE_KEY` still yields weak AEAD key (V-HIGH-3). |
+| Accepted Deferrals F#4/F#7/F#16 + LemonSqueezy | ✅ ACCURATE | Honest notes present at cited locations; related leaks (TOTP serialization, backup-code Argon2id, RNG fail-closed) genuinely closed. |
+
+## Regression findings (introduced by the remediation)
+
+1. **(medium) V-MED-2** — forward-only guard implemented in only one of two
+   `current_period_end` refresh arms. The only regression with user-visible
+   impact (premature subscriber revocation); source must be a signature-valid
+   webhook, so under-grant (DoS), not over-grant.
+2. **(low)** Migration 49 drops the non-unique index before `CREATE UNIQUE` — if
+   pre-existing duplicate rows exist, the migration fails (transactional: rolls
+   back cleanly) and deploy blocks until manual dedup (per the migration comment).
+3. **(low)** Migration 47 zeroes in-flight plaintext codes with no grace period —
+   codes issued seconds before cutover silently die (acknowledged in the comment;
+   users re-request).
+4. **(low)** HKDF-extract asymmetry (V-HIGH-3) — CSRF key runs Extract, AEAD key
+   does not.
+
+*Posture after Part V: the remediation is real where it is explicit, but
+**Phase 2 (secrets & key lifecycle) is the unfinished half** — committed
+secrets + a now-panic-inducing `COOKIE_KEY` (V-CRIT-1) are the single highest
+priority, followed by the dropped Mercado Pago critical (V-CRIT-2) and the OAuth
+takeover gate (V-HIGH-1). The four bypass hunts confirm no forged-webhook /
+metadata-escalation / replay path to a grant; the only content-leak is the
+search endpoint (V-MED-1), and the only regression with impact is the
+forward-only asymmetry (V-MED-2).*
+
+---
+
+## Part V § Remediation Applied (2026-06-18)
+
+All code-level residuals from Part V were implemented by 6 file-disjoint sonnet
+edit agents, then consolidated-verified by the orchestrator (opus):
+**`cargo check --features full` clean; `cargo test --features full -p ruxlog`
+= 519 passed / 0 failed** (lib 408 · api_integration 21 · billing_providers 72 ·
+request_body_limits 6 · security_tests 12).
+
+| ID | Status | Verification |
+|----|--------|--------------|
+| V-CRIT-2 (Mercado Pago manifest) | ✅ Fixed | Rewrote to official `id:{data.id};request-id:{x-request-id};ts:{ts};`; added `WebhookEvent.query` + `RawQuery` extraction; new `verify_webhook_uses_official_manifest` test (rejects legacy manifest, missing query, missing x-request-id, data.id mismatch) passes |
+| V-HIGH-1 (OAuth takeover) | ✅ Fixed | `email_verified` now required before email-linking; absent `id_token` hard-rejected |
+| V-HIGH-3 (startup guard) | ✅ Fixed | `assert!(COOKIE_KEY.len() >= 32)` at `main.rs:84` before `Key::derive_from` |
+| V-HIGH-5 (transports) | ✅ Fixed | Postgres `DATABASE_SSL_MODE` env→`sslmode` (prod `verify-full`); Redis TLS hostname verification made explicit/overridable via `REDIS_TLS_SERVER_NAME`. **Note:** the transports agent re-verified against fred 10.1.0 source that `TlsHostMapping::None` does **not** disable hostname verification (driven by rustls vs `server.host`) — the original Redis code was not vulnerable as V-HIGH-5b framed it; the fix documents + makes verification explicit |
+| V-HIGH-6 (CSRF fail-closed) | ✅ Fixed | Baked fallback removed; panic on unset `COOKIE_KEY` in production; `ultra-instinct-goku` purged from all `.env*` |
+| V-MED-1 (`/post/query` paywall) | ✅ Fixed | `apply_paywall_list` now called on search results |
+| V-MED-2 (forward-only guard, regression) | ✅ Fixed | `subscription.updated` arm now mirrors the `invoice.payment_succeeded` forward-only guard |
+| V-MED-3 (provider scoping) | ✅ Fixed | All 4 subscription lookups now `.filter(Provider.eq(provider_name))` |
+| V-MED-4 (`twofa_disable` rate limit) | ✅ Fixed | Shares `totp:{user_id}` abuse-limiter bucket with `twofa_verify` |
+| V-CRIT-1 (committed secrets / history) | ⏸️ **Operator runbook below** | Code cannot fix git history or rotate live secrets — requires manual action |
+
+### Bonus finding — stale integration-test helper (Part IV debt, now fixed)
+While verifying, the Mercado fix exposed that `tests/billing_providers.rs`'s
+shared `signed_event` helper and one Revolut test case were **stale relative to
+the Part IV #132/#133 verifier rewrites** (airwallex single→two-header, Revolut
+`X-Revolut-Signature`→`Revolut-Signature: v1=` + flat payload) and the Mercado
+manifest. Those 3 `verify_webhook_valid_signature` tests were silently failing
+since Part IV ("Part IV verified clean" missed them — the per-provider in-src
+tests passed, but the shared integration helper was never updated). The helper +
+Revolut case are now aligned to the real schemes; all 72 billing tests pass.
+
+### V-CRIT-1 — Secret rotation & git-history purge runbook (operator)
+
+The committed-placeholder `COOKIE_KEY` in every `.env*` now boots (≥32 bytes) but
+is **not a real secret**. Before any deploy that touches production, perform all
+of:
+
+1. **Generate real per-environment keys** (do NOT reuse across tiers):
+   ```sh
+   openssl rand -hex 32   # -> COOKIE_KEY for prod  (≥32 bytes / 64 hex)
+   openssl rand -hex 32   # -> COOKIE_KEY for stage
+   openssl rand -hex 32   # -> COOKIE_KEY for dev/test
+   ```
+   Set each in the **deployed** environment's secret store (not in git). Prod
+   must be unique.
+2. **Rotate every other committed secret** — DB (`POSTGRES_PASSWORD`), Redis
+   (`REDIS_PASSWORD`), Firebase API key, S3 access/secret, Quickwit, SMTP/Mailgun,
+   and each billing provider's `*_API_KEY` / `*_WEBHOOK_SECRET`. Treat all values
+   currently in `.env.*` as compromised.
+3. **Purge secrets from git history** (they persist in every clone/fork/CI cache):
+   ```sh
+   # back up first
+   git clone --mirror <repo> repo-bare.git && cd repo-bare.git
+   bfg --replace-text <(printf '.env.prod\n.env.dev\n.env.remote\n.env.stage\n.env.test\nbackend/.env.docker\n') repo-bare.git
+   # or: git filter-repo --path .env.prod --path .env.dev ... --invert-paths
+   git reflog expire --expire=now --all && git gc --prune=now --aggressive
+   git push --force --mirror
+   ```
+4. **Remove the tracked `.env.*` from HEAD** (keep only `.env.example`):
+   ```sh
+   git rm --cached .env.dev .env.prod .env.remote .env.stage .env.test backend/.env.docker
+   ```
+   and fix `.gitignore` to match the glob:
+   ```
+   .env*
+   !/.env.example
+   ```
+5. **Super-admin / admin accounts** seeded by `backend/docker/postgres/admin_users.sql`
+   with plaintext `password123` — either delete that file or re-seed with Argon2id
+   hashes (the live `init-scripts/01-init.sql` already does); rotate the admin
+   password.
+6. **Force-logout everyone** (the `COOKIE_KEY` change rotates the derived
+   session-cookie key, so all existing private cookies/sessions invalidate and
+   users re-authenticate once — expected).
+7. **Re-audit** provider webhook secrets at each provider's dashboard if any
+   `.env.*` was ever pushed to a public/hosted remote.
+
+### Still OPEN (deferred, not in this remediation pass)
+- **V-HIGH-2** server-side session revocation (extractor consults `user_sessions`
+  / Redis allowlist) — touches the rux-auth hot path; needs its own change + tests.
+- **V-HIGH-4** retire the legacy `/reset` code path (pre-consume the code row).
+- **V-MED-7** re-verify TraceLayer header capture + frontend `APP_CSRF_TOKEN`
+  baked-in-WASM (coverage gap; claimed fixed in Phase 2/5 but never re-confirmed).
+- **V-MED-6 / V-MED-8..12, LOW/INFO** — see the residual tables above.
+- **Accepted deferrals** F#4/F#7/F#16 (2FA-at-login) remain by product decision.
+
+*Posture after remediation: the crypto, paywall, OAuth, CSRF, transport, and
+2FA-disable residuals are closed and test-verified. The single remaining
+critical — committed secrets + git-history retention (V-CRIT-1) — is an operator
+runbook, not a code change. Session revocation (V-HIGH-2) and the legacy reset
+path (V-HIGH-4) remain the next two code priorities.*
+

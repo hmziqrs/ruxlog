@@ -416,6 +416,7 @@ mod tests {
             provider: "stripe".into(),
             payload: payload.to_vec(),
             headers,
+            query: None,
         }
     }
 
@@ -447,6 +448,7 @@ mod tests {
             provider: "stripe".into(),
             payload: body.to_vec(),
             headers: axum::http::HeaderMap::new(),
+            query: None,
         };
         assert!(provider.verify_webhook(no_sig).await.is_err());
 

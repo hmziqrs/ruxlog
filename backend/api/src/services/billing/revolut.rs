@@ -337,6 +337,7 @@ mod tests {
             provider: "revolut".into(),
             payload: payload.to_vec(),
             headers,
+            query: None,
         }
     }
 

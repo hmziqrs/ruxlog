@@ -178,22 +178,31 @@ async fn finish_google_login(
     // endpoint for our PKCE-bound code. We additionally require the id_token's
     // `sub`/`email` to match the userinfo response so a token-substitution
     // attack can't pin a verified identity to a different profile.
+    // The openid scope is requested, so Google always returns an id_token.
+    // Requiring it (and verifying its signature) closes the defense-in-depth
+    // gap of trusting only the bearer-authenticated userinfo endpoint.
+    let id_token = token_result
+        .extra_fields()
+        .id_token
+        .as_deref()
+        .ok_or_else(|| {
+            warn!("Google token response omitted id_token; rejecting login");
+            tracing::Span::current().record("result", "missing_id_token");
+            ErrorResponse::new(ErrorCode::InvalidToken)
+                .with_message("OAuth identity verification failed")
+        })?;
+
+    let client_id = std::env::var("GOOGLE_CLIENT_ID").map_err(|_| {
+        ErrorResponse::new(ErrorCode::InternalServerError)
+            .with_message("GOOGLE_CLIENT_ID not configured")
+    })?;
     let id_claims: Option<GoogleIdTokenClaims> =
-        if let Some(id_token) = token_result.extra_fields().id_token.as_deref() {
-            let client_id = std::env::var("GOOGLE_CLIENT_ID").map_err(|_| {
-                ErrorResponse::new(ErrorCode::InternalServerError)
-                    .with_message("GOOGLE_CLIENT_ID not configured")
-            })?;
-            match verify_google_id_token(id_token, &client_id).await {
-                Ok(claims) => Some(claims),
-                Err(err) => {
-                    warn!(error = ?err, "id_token verification failed; rejecting login");
-                    return Err(err);
-                }
+        match verify_google_id_token(id_token, &client_id).await {
+            Ok(claims) => Some(claims),
+            Err(err) => {
+                warn!(error = ?err, "id_token verification failed; rejecting login");
+                return Err(err);
             }
-        } else {
-            warn!("Google token response omitted id_token");
-            None
         };
 
     let user_info = fetch_google_user_info(access_token).await?;
@@ -335,9 +344,24 @@ async fn find_or_create_user(
         return Ok(existing_user);
     }
 
-    if let Some(mut existing_user) =
+    if let Some(existing_user) =
         user::Entity::find_by_email(&state.sea_db, user_info.email.clone()).await?
     {
+        // Linking a Google identity onto an existing local account is only safe
+        // when the IdP has verified the account actually owns that email.
+        // Otherwise an attacker controlling an unverified-at-IdP Google account
+        // with the victim's email would take over the account. Fail closed: do
+        // not link and do not create a duplicate (the email is already taken).
+        if !user_info.verified_email {
+            warn!(
+                user_id = existing_user.id,
+                email = %user_info.email,
+                "Refusing to link Google account: IdP email is not verified"
+            );
+            return Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
+                .with_message("Unable to link this Google account"));
+        }
+
         info!(user_id = existing_user.id, "Linking Google account to existing user");
 
         use sea_orm::ActiveModelTrait;
@@ -346,7 +370,7 @@ async fn find_or_create_user(
         active.oauth_provider = sea_orm::Set(Some("google".to_string()));
         active.updated_at = sea_orm::Set(chrono::Utc::now().fixed_offset());
 
-        existing_user = active.update(&state.sea_db).await.map_err(|e| {
+        let existing_user = active.update(&state.sea_db).await.map_err(|e| {
             error!(error = ?e, "Failed to link Google account");
             ErrorResponse::new(ErrorCode::InternalServerError).with_message("Failed to link Google account")
         })?;
