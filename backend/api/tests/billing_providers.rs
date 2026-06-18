@@ -38,6 +38,99 @@ mod billing_mock_tests {
         hex::encode(mac.finalize().into_bytes())
     }
 
+    fn now_secs() -> i64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0)
+    }
+
+    /// Build a `WebhookEvent` carrying the correctly-signed header for each
+    /// provider's CURRENT verification scheme (Phase 1 rebuild). Each branch
+    /// mirrors exactly what the provider's `verify_webhook` recomputes, so a
+    /// genuine event parses and a tampered one is rejected. Paddle (Ed25519)
+    /// and PayPal (outbound verify API) are handled in their own tests.
+    fn signed_event(provider: &str, payload: &[u8], secret: &str) -> WebhookEvent {
+        let mut headers = axum::http::HeaderMap::new();
+        let now = now_secs();
+        let body_hex = sign_payload(secret, payload);
+        match provider {
+            "stripe" => {
+                // Stripe-Signature: t=<ts>,v1=<HMAC(secret, "{ts}.{body}")>
+                let ts = now.to_string();
+                let mut msg = Vec::with_capacity(ts.len() + 1 + payload.len());
+                msg.extend_from_slice(ts.as_bytes());
+                msg.push(b'.');
+                msg.extend_from_slice(payload);
+                let v1 = sign_payload(secret, &msg);
+                headers.insert(
+                    "Stripe-Signature",
+                    format!("t={ts},v1={v1}").parse().unwrap(),
+                );
+            }
+            "razorpay" => {
+                headers.insert("X-Razorpay-Signature", body_hex.parse().unwrap());
+            }
+            "lemon_squeezy" | "lemonsqueezy" => {
+                headers.insert("X-Signature", body_hex.parse().unwrap());
+            }
+            "polar" => {
+                headers.insert("X-Polar-Signature", body_hex.parse().unwrap());
+            }
+            "mercado_pago" => {
+                // x-signature: ts=<ms>,v1=<HMAC(secret, "{ts_ms}{body}")>
+                let ts_ms = (now * 1000).to_string();
+                let mut msg = Vec::with_capacity(ts_ms.len() + payload.len());
+                msg.extend_from_slice(ts_ms.as_bytes());
+                msg.extend_from_slice(payload);
+                let v1 = sign_payload(secret, &msg);
+                headers.insert(
+                    "x-signature",
+                    format!("ts={ts_ms},v1={v1}").parse().unwrap(),
+                );
+            }
+            "airwallex" => {
+                // x-www-airwallex-signature: <ts>.<HMAC(secret, "{ts}{body}")>
+                let ts = now.to_string();
+                let mut msg = Vec::with_capacity(ts.len() + payload.len());
+                msg.extend_from_slice(ts.as_bytes());
+                msg.extend_from_slice(payload);
+                let mac = sign_payload(secret, &msg);
+                headers.insert(
+                    "x-www-airwallex-signature",
+                    format!("{ts}.{mac}").parse().unwrap(),
+                );
+            }
+            "revolut" => {
+                // X-Revolut-Signature: <ts>.<HMAC(secret, "{ts}{body}")>
+                let ts = now.to_string();
+                let mut msg = Vec::with_capacity(ts.len() + payload.len());
+                msg.extend_from_slice(ts.as_bytes());
+                msg.extend_from_slice(payload);
+                let mac = sign_payload(secret, &msg);
+                headers.insert(
+                    "X-Revolut-Signature",
+                    format!("{ts}.{mac}").parse().unwrap(),
+                );
+            }
+            other => panic!("signed_event: no signing scheme for provider '{other}'"),
+        }
+        WebhookEvent {
+            provider: provider.into(),
+            payload: payload.to_vec(),
+            headers,
+        }
+    }
+
+    /// An event with no signature headers at all — every provider must reject it.
+    fn unsigned_event(provider: &str, payload: &[u8]) -> WebhookEvent {
+        WebhookEvent {
+            provider: provider.into(),
+            payload: payload.to_vec(),
+            headers: axum::http::HeaderMap::new(),
+        }
+    }
+
     // ── Stripe: create_checkout ──────────────────────────────────────────
 
     #[tokio::test]
@@ -195,13 +288,7 @@ mod billing_mock_tests {
             }
         });
         let payload_bytes = serde_json::to_vec(&payload).unwrap();
-        let signature = sign_payload(webhook_secret, &payload_bytes);
-
-        let event = WebhookEvent {
-            provider: "stripe".into(),
-            payload: payload_bytes,
-            signature,
-        };
+        let event = signed_event("stripe", &payload_bytes, webhook_secret);
 
         let parsed = provider.verify_webhook(event).await.expect("should verify");
 
@@ -216,11 +303,7 @@ mod billing_mock_tests {
         let provider = stripe_webhook_provider("whsec_real");
 
         let payload = json!({"type": "test", "data": {"object": {}}});
-        let event = WebhookEvent {
-            provider: "stripe".into(),
-            payload: serde_json::to_vec(&payload).unwrap(),
-            signature: "badsignature".to_string(),
-        };
+        let event = unsigned_event("stripe", &serde_json::to_vec(&payload).unwrap());
 
         let result = provider.verify_webhook(event).await;
         assert!(result.is_err());
@@ -284,14 +367,8 @@ mod billing_mock_tests {
             }
         });
         let bytes = serde_json::to_vec(&updated_payload).unwrap();
-        let sig = sign_payload(webhook_secret, &bytes);
-
         let parsed = provider
-            .verify_webhook(WebhookEvent {
-                provider: "stripe".into(),
-                payload: bytes,
-                signature: sig,
-            })
+            .verify_webhook(signed_event("stripe", &bytes, webhook_secret))
             .await
             .expect("should verify");
 
@@ -310,14 +387,8 @@ mod billing_mock_tests {
             }
         });
         let bytes = serde_json::to_vec(&deleted_payload).unwrap();
-        let sig = sign_payload(webhook_secret, &bytes);
-
         let parsed = provider
-            .verify_webhook(WebhookEvent {
-                provider: "stripe".into(),
-                payload: bytes,
-                signature: sig,
-            })
+            .verify_webhook(signed_event("stripe", &bytes, webhook_secret))
             .await
             .expect("should verify");
 
@@ -342,14 +413,8 @@ mod billing_mock_tests {
             }
         });
         let bytes = serde_json::to_vec(&payload).unwrap();
-        let sig = sign_payload(webhook_secret, &bytes);
-
         let parsed = provider
-            .verify_webhook(WebhookEvent {
-                provider: "stripe".into(),
-                payload: bytes,
-                signature: sig,
-            })
+            .verify_webhook(signed_event("stripe", &bytes, webhook_secret))
             .await
             .expect("should verify");
 
@@ -440,13 +505,9 @@ mod billing_mock_tests {
             });
             let bytes = serde_json::to_vec(&payload).unwrap();
             let parsed = provider
-                .verify_webhook(WebhookEvent {
-                    provider: "polar".into(),
-                    payload: bytes,
-                    signature: String::new(),
-                })
+                .verify_webhook(signed_event("polar", &bytes, "sec"))
                 .await
-                .expect("polar doesn't verify sig");
+                .expect("should verify");
             assert_eq!(parsed.event_type, "subscription.created");
         }
 
@@ -548,17 +609,13 @@ mod billing_mock_tests {
                 }
             });
             let payload_bytes = serde_json::to_vec(&payload).unwrap();
-            let sig = sign_payload("secret123", &payload_bytes);
-
             let parsed = provider
-                .verify_webhook(WebhookEvent {
-                    provider: "lemonsqueezy".into(),
-                    payload: payload_bytes,
-                    signature: sig,
-                })
+                .verify_webhook(signed_event("lemon_squeezy", &payload_bytes, "secret123"))
                 .await
                 .expect("should verify");
-            assert_eq!(parsed.event_type, "subscription_created");
+            // `subscription_created` normalizes to the canonical checkout-completion
+            // event (audit F#11); the provider-agnostic dispatch matches on it.
+            assert_eq!(parsed.event_type, "checkout.session.completed");
         }
 
         #[test]
@@ -653,22 +710,44 @@ mod billing_mock_tests {
 
         #[tokio::test]
         async fn verify_webhook() {
-            let provider = PaddleProvider::new("tok".into(), "padsecret".into());
+            use ed25519_dalek::{Signer, SigningKey};
+
+            // Paddle verifies an Ed25519 signature over "<ts><body>" against a
+            // configured public key (PADDLE_PUBLIC_KEY). Generate a deterministic
+            // test keypair and configure it.
+            let sk = SigningKey::from_bytes(&[7u8; 32]);
+            let vk = sk.verifying_key();
+            let provider = PaddleProvider::new("tok".into(), "padsecret".into())
+                .with_public_key(&hex::encode(vk.to_bytes()))
+                .expect("valid hex public key");
+
             let payload = json!({
                 "event_type": "subscription.created",
                 "data": { "customer_id": "cus_pad", "id": "sub_padw", "transaction_id": "txn_1" }
             });
             let payload_bytes = serde_json::to_vec(&payload).unwrap();
-            let sig = sign_payload("padsecret", &payload_bytes);
 
-            let parsed = provider
-                .verify_webhook(WebhookEvent {
-                    provider: "paddle".into(),
-                    payload: payload_bytes,
-                    signature: sig,
-                })
-                .await
-                .expect("should verify");
+            let ts = now_secs();
+            let ts_str = ts.to_string();
+            let mut msg = Vec::with_capacity(ts_str.len() + payload_bytes.len());
+            msg.extend_from_slice(ts_str.as_bytes());
+            msg.extend_from_slice(&payload_bytes);
+            let sig = sk.sign(&msg);
+
+            let mut headers = axum::http::HeaderMap::new();
+            headers.insert(
+                "Paddle-Signature",
+                format!("ts={ts_str};key1={}", hex::encode(sig.to_bytes()))
+                    .parse()
+                    .unwrap(),
+            );
+            let event = WebhookEvent {
+                provider: "paddle".into(),
+                payload: payload_bytes,
+                headers,
+            };
+
+            let parsed = provider.verify_webhook(event).await.expect("should verify");
             assert_eq!(parsed.event_type, "subscription.created");
             assert_eq!(parsed.subscription_id, Some("sub_padw".to_string()));
             assert_eq!(parsed.payment_id, Some("txn_1".to_string()));
@@ -698,22 +777,26 @@ mod billing_mock_tests {
 
         #[tokio::test]
         async fn create_checkout() {
+            // create_checkout creates a REAL subscription (POST /subscriptions),
+            // so the stored session_id is a subscription id (`sub_…`) that
+            // `subscription.activated` echoes back — closing the round-trip
+            // (audit F#11 residual).
             let server = MockServer::start().await;
             Mock::given(method("POST"))
-                .and(path("/payment_links"))
+                .and(path("/subscriptions"))
                 .and(header("Content-Type", "application/json"))
                 .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-                    "id": "plink_abc123",
+                    "id": "sub_abc123",
                     "short_url": format!("{}/rzp/checkout", server.uri()),
                 })))
                 .mount(&server)
                 .await;
 
             let result = razorpay_mock(&server)
-                .create_checkout("99900", "user@test.com", 5, "https://s.cx/s", "https://s.cx/c")
+                .create_checkout("plan_test", "user@test.com", 5, "https://s.cx/s", "https://s.cx/c")
                 .await
                 .expect("ok");
-            assert_eq!(result.session_id, "plink_abc123");
+            assert_eq!(result.session_id, "sub_abc123");
             assert!(result.checkout_url.contains("/rzp/checkout"));
         }
 
@@ -721,15 +804,15 @@ mod billing_mock_tests {
         async fn create_checkout_api_error() {
             let server = MockServer::start().await;
             Mock::given(method("POST"))
-                .and(path("/payment_links"))
+                .and(path("/subscriptions"))
                 .respond_with(ResponseTemplate::new(400).set_body_json(json!({
-                    "error": { "code": "BAD_REQUEST", "description": "Invalid amount" }
+                    "error": { "code": "BAD_REQUEST", "description": "Invalid plan" }
                 })))
                 .mount(&server)
                 .await;
 
             let result = razorpay_mock(&server)
-                .create_checkout("bad", "u@t.com", 1, "https://s", "https://c")
+                .create_checkout("bad_plan", "u@t.com", 1, "https://s", "https://c")
                 .await;
             assert!(result.is_err());
             assert!(matches!(result.unwrap_err(), BillingError::ProviderApi(_)));
@@ -798,17 +881,13 @@ mod billing_mock_tests {
                 }
             });
             let bytes = serde_json::to_vec(&payload).unwrap();
-            let sig = sign_payload(secret, &bytes);
-
             let parsed = provider
-                .verify_webhook(WebhookEvent {
-                    provider: "razorpay".into(),
-                    payload: bytes,
-                    signature: sig,
-                })
+                .verify_webhook(signed_event("razorpay", &bytes, secret))
                 .await
                 .expect("should verify");
-            assert_eq!(parsed.event_type, "payment.captured");
+            // `payment.captured` normalizes to the canonical payment-succeeded
+            // event (audit F#11).
+            assert_eq!(parsed.event_type, "invoice.payment_succeeded");
             assert_eq!(parsed.customer_id, "cus_rzp");
             assert_eq!(parsed.subscription_id, Some("sub_rzp_w".to_string()));
         }
@@ -818,11 +897,10 @@ mod billing_mock_tests {
             let provider = RazorpayProvider::new("k".into(), "s".into(), "real_secret".into());
             let payload = json!({"event": "test"});
             let result = provider
-                .verify_webhook(WebhookEvent {
-                    provider: "razorpay".into(),
-                    payload: serde_json::to_vec(&payload).unwrap(),
-                    signature: "badsig".to_string(),
-                })
+                .verify_webhook(unsigned_event(
+                    "razorpay",
+                    &serde_json::to_vec(&payload).unwrap(),
+                ))
                 .await;
             assert!(result.is_err());
             assert!(matches!(result.unwrap_err(), BillingError::WebhookVerification(_)));
@@ -921,23 +999,15 @@ mod billing_mock_tests {
                 "data": { "id": "pay_mp1", "payer_id": "cus_mp1", "preapproval_id": "sub_mp_w" }
             });
             let payload_bytes = serde_json::to_vec(&payload).unwrap();
-            let payload_str = String::from_utf8(payload_bytes.clone()).unwrap();
-
-            // Mercado Pago signature format: ts=<timestamp>,v1=<hmac>
-            let ts = "1234567890";
-            let manifest = format!("{}{}", ts, payload_str);
-            let v1 = sign_payload(secret, manifest.as_bytes());
-            let signature = format!("ts={},v1={}", ts, v1);
-
             let parsed = provider
-                .verify_webhook(WebhookEvent {
-                    provider: "mercado_pago".into(),
-                    payload: payload_bytes,
-                    signature,
-                })
+                .verify_webhook(signed_event("mercado_pago", &payload_bytes, secret))
                 .await
                 .expect("should verify");
-            assert_eq!(parsed.event_type, "payment");
+            // A `payment` event normalizes to the canonical checkout-completion
+            // event (audit F#11). NOTE: the thin MP webhook does not round-trip
+            // the stored preference id, so the checkout arm still fails closed on
+            // intent recovery — but it reaches the correct arm now.
+            assert_eq!(parsed.event_type, "checkout.session.completed");
             assert_eq!(parsed.customer_id, "cus_mp1");
             assert_eq!(parsed.subscription_id, Some("sub_mp_w".to_string()));
             assert_eq!(parsed.payment_id, Some("pay_mp1".to_string()));
@@ -947,11 +1017,7 @@ mod billing_mock_tests {
         async fn verify_webhook_invalid_signature() {
             let provider = MercadoPagoProvider::new("t".into(), "real_secret".into());
             let result = provider
-                .verify_webhook(WebhookEvent {
-                    provider: "mercado_pago".into(),
-                    payload: b"{}".to_vec(),
-                    signature: "ts=0,v1=bad".to_string(),
-                })
+                .verify_webhook(unsigned_event("mercado_pago", b"{}"))
                 .await;
             assert!(result.is_err());
             assert!(matches!(result.unwrap_err(), BillingError::WebhookVerification(_)));
@@ -1080,14 +1146,8 @@ mod billing_mock_tests {
                 }
             });
             let bytes = serde_json::to_vec(&payload).unwrap();
-            let sig = sign_payload(secret, &bytes);
-
             let parsed = provider
-                .verify_webhook(WebhookEvent {
-                    provider: "airwallex".into(),
-                    payload: bytes,
-                    signature: sig,
-                })
+                .verify_webhook(signed_event("airwallex", &bytes, secret))
                 .await
                 .expect("should verify");
             assert_eq!(parsed.event_type, "payment_intent.created");
@@ -1100,11 +1160,7 @@ mod billing_mock_tests {
         async fn verify_webhook_invalid_signature() {
             let provider = AirwallexProvider::new("c".into(), "k".into(), "secret".into());
             let result = provider
-                .verify_webhook(WebhookEvent {
-                    provider: "airwallex".into(),
-                    payload: b"{}".to_vec(),
-                    signature: "badsig".to_string(),
-                })
+                .verify_webhook(unsigned_event("airwallex", b"{}"))
                 .await;
             assert!(result.is_err());
             assert!(matches!(result.unwrap_err(), BillingError::WebhookVerification(_)));
@@ -1193,14 +1249,8 @@ mod billing_mock_tests {
                 "subscription": { "id": "sub_rev_w" }
             });
             let bytes = serde_json::to_vec(&payload).unwrap();
-            let sig = sign_payload(secret, &bytes);
-
             let parsed = provider
-                .verify_webhook(WebhookEvent {
-                    provider: "revolut".into(),
-                    payload: bytes,
-                    signature: sig,
-                })
+                .verify_webhook(signed_event("revolut", &bytes, secret))
                 .await
                 .expect("should verify");
             assert_eq!(parsed.event_type, "order.completed");
@@ -1213,11 +1263,7 @@ mod billing_mock_tests {
         async fn verify_webhook_invalid_signature() {
             let provider = RevolutProvider::new("k".into(), "real_secret".into());
             let result = provider
-                .verify_webhook(WebhookEvent {
-                    provider: "revolut".into(),
-                    payload: b"{}".to_vec(),
-                    signature: "badsig".to_string(),
-                })
+                .verify_webhook(unsigned_event("revolut", b"{}"))
                 .await;
             assert!(result.is_err());
             assert!(matches!(result.unwrap_err(), BillingError::WebhookVerification(_)));
@@ -1270,12 +1316,17 @@ mod billing_mock_tests {
                 .mount(&server)
                 .await;
 
-            // Mock checkout order
+            // Mock subscription creation. create_checkout creates a REAL billing
+            // subscription (POST /v1/billing/subscriptions), so the stored
+            // session_id is the subscription id (`I-…`) that
+            // BILLING.SUBSCRIPTION.ACTIVATED echoes back — closing the round-trip
+            // (audit F#11 residual).
             Mock::given(method("POST"))
-                .and(path("/v2/checkout/orders"))
+                .and(path("/v1/billing/subscriptions"))
                 .and(header("Authorization", "Bearer pp_bearer_tok"))
                 .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-                    "id": "pp_order_1",
+                    "id": "I_TESTSUB1",
+                    "status": "APPROVAL_PENDING",
                     "links": [
                         { "rel": "approve", "href": format!("{}/pp/approve", server.uri()) },
                         { "rel": "self", "href": format!("{}/pp/self", server.uri()) },
@@ -1285,10 +1336,10 @@ mod billing_mock_tests {
                 .await;
 
             let result = paypal_mock(&server)
-                .create_checkout("99.99", "user@test.com", 8, "https://s.cx/s", "https://s.cx/c")
+                .create_checkout("P_TESTPLAN", "user@test.com", 8, "https://s.cx/s", "https://s.cx/c")
                 .await
                 .expect("ok");
-            assert_eq!(result.session_id, "pp_order_1");
+            assert_eq!(result.session_id, "I_TESTSUB1");
             assert!(result.checkout_url.contains("/pp/approve"));
         }
 
@@ -1339,8 +1390,31 @@ mod billing_mock_tests {
 
         #[tokio::test]
         async fn verify_webhook_valid_signature() {
-            let secret = "pp_secret_123";
-            let provider = PayPalProvider::new("c".into(), "s".into(), secret.into());
+            // PayPal verifies via its outbound verify-webhook-signature API, so we
+            // mock the OAuth token + the verify endpoint returning SUCCESS.
+            let server = MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path("/v1/oauth2/token"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                    "access_token": "pp_bearer_tok",
+                    "token_type": "Bearer",
+                })))
+                .mount(&server)
+                .await;
+            Mock::given(method("POST"))
+                .and(path("/v1/notifications/verify-webhook-signature"))
+                .and(header("Authorization", "Bearer pp_bearer_tok"))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .set_body_json(json!({ "verification_status": "SUCCESS" })),
+                )
+                .mount(&server)
+                .await;
+
+            let provider = PayPalProvider::new("c".into(), "s".into(), "w".into())
+                .with_base_url(server.uri())
+                .with_webhook_id("wh_123".into());
+
             let payload = json!({
                 "event_type": "PAYMENT.SALE.COMPLETED",
                 "resource": {
@@ -1349,29 +1423,34 @@ mod billing_mock_tests {
                 },
             });
             let bytes = serde_json::to_vec(&payload).unwrap();
-            let sig = sign_payload(secret, &bytes);
+
+            let mut headers = axum::http::HeaderMap::new();
+            headers.insert("PAYPAL-TRANSMISSION-ID", "tid_1".parse().unwrap());
+            headers.insert("PAYPAL-TRANSMISSION-TIME", "2026-06-17T00:00:00Z".parse().unwrap());
+            headers.insert("PAYPAL-CERT-URL", "https://example.com/cert".parse().unwrap());
+            headers.insert("PAYPAL-AUTH-ALGO", "SHA256withRSA".parse().unwrap());
+            headers.insert("PAYPAL-TRANSMISSION-SIG", "sig".parse().unwrap());
 
             let parsed = provider
                 .verify_webhook(WebhookEvent {
                     provider: "paypal".into(),
                     payload: bytes,
-                    signature: sig,
+                    headers,
                 })
                 .await
                 .expect("should verify");
-            assert_eq!(parsed.event_type, "PAYMENT.SALE.COMPLETED");
+            // `PAYMENT.SALE.COMPLETED` normalizes to the canonical payment-succeeded
+            // event (audit F#11).
+            assert_eq!(parsed.event_type, "invoice.payment_succeeded");
             assert_eq!(parsed.customer_id, "cus_pp1");
         }
 
         #[tokio::test]
         async fn verify_webhook_invalid_signature() {
-            let provider = PayPalProvider::new("c".into(), "s".into(), "secret".into());
+            // Without PAYPAL_WEBHOOK_ID configured, verification fails closed.
+            let provider = PayPalProvider::new("c".into(), "s".into(), "w".into());
             let result = provider
-                .verify_webhook(WebhookEvent {
-                    provider: "paypal".into(),
-                    payload: b"{}".to_vec(),
-                    signature: "badsig".to_string(),
-                })
+                .verify_webhook(unsigned_event("paypal", b"{}"))
                 .await;
             assert!(result.is_err());
             assert!(matches!(result.unwrap_err(), BillingError::WebhookVerification(_)));
@@ -1454,14 +1533,8 @@ mod billing_mock_tests {
                 "data": { "object": { "customer": "cus_1", "subscription": "sub_1" } }
             });
             let bytes = serde_json::to_vec(&payload).unwrap();
-            let sig = sign_payload(secret, &bytes);
-
             let parsed = router
-                .verify_webhook(WebhookEvent {
-                    provider: "stripe".into(),
-                    payload: bytes,
-                    signature: sig,
-                })
+                .verify_webhook(signed_event("stripe", &bytes, secret))
                 .await
                 .expect("should route and verify");
             assert_eq!(parsed.event_type, "checkout.session.completed");
@@ -1474,11 +1547,7 @@ mod billing_mock_tests {
             let router = make_router(providers, "stripe");
 
             let result = router
-                .verify_webhook(WebhookEvent {
-                    provider: "unknown_provider".into(),
-                    payload: b"{}".to_vec(),
-                    signature: String::new(),
-                })
+                .verify_webhook(unsigned_event("unknown_provider", b"{}"))
                 .await;
             assert!(result.is_err());
             let err = result.unwrap_err();
@@ -1556,7 +1625,11 @@ mod billing_mock_tests {
     }
 
     #[tokio::test]
-    async fn crypto_webhook_confirmed_flow() {
+    async fn crypto_webhook_rejected_fail_closed_btc() {
+        // Crypto webhooks cannot be cryptographically verified (any chain payload
+        // is forgeable), so verify_webhook fails closed until on-chain
+        // confirmation polling lands (plan §1j). A well-formed-looking payload
+        // must STILL be rejected.
         let provider = CryptoProvider::new(
             "bc1qtestwallet".into(),
             "https://api.blockcypher.com/v1".into(),
@@ -1564,7 +1637,6 @@ mod billing_mock_tests {
             "BTC".into(),
         );
 
-        // Simulate a BlockCypher webhook payload
         let webhook_payload = json!({
             "hash": "a1b2c3d4e5f6",
             "confirmations": 6,
@@ -1574,24 +1646,16 @@ mod billing_mock_tests {
         });
         let bytes = serde_json::to_vec(&webhook_payload).unwrap();
 
-        let parsed = provider
-            .verify_webhook(WebhookEvent {
-                provider: "crypto".into(),
-                payload: bytes,
-                signature: String::new(),
-            })
-            .await
-            .expect("should parse");
-
-        assert_eq!(parsed.event_type, "payment.confirmed");
-        assert_eq!(parsed.payment_id, Some("a1b2c3d4e5f6".to_string()));
-        assert_eq!(parsed.data["memo"], "rux-42-some-uuid");
-        assert_eq!(parsed.data["currency"], "BTC");
-        assert_eq!(parsed.data["confirmations"], 6);
+        let result = provider.verify_webhook(unsigned_event("crypto", &bytes)).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            BillingError::WebhookVerification(_)
+        ));
     }
 
     #[tokio::test]
-    async fn crypto_webhook_pending_flow() {
+    async fn crypto_webhook_rejected_fail_closed_eth() {
         let provider = CryptoProvider::new(
             "0xEthWallet".into(),
             "https://api.etherscan.io".into(),
@@ -1608,17 +1672,12 @@ mod billing_mock_tests {
         });
         let bytes = serde_json::to_vec(&webhook_payload).unwrap();
 
-        let parsed = provider
-            .verify_webhook(WebhookEvent {
-                provider: "crypto".into(),
-                payload: bytes,
-                signature: String::new(),
-            })
-            .await
-            .expect("should parse");
-
-        // ETH requires 12 confirmations, 5 < 12 = pending
-        assert_eq!(parsed.event_type, "payment.pending");
+        let result = provider.verify_webhook(unsigned_event("crypto", &bytes)).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            BillingError::WebhookVerification(_)
+        ));
     }
 
     #[tokio::test]

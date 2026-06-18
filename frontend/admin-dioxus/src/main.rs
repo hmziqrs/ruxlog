@@ -15,11 +15,10 @@ pub mod utils;
 use utils::js_bridge;
 
 fn main() {
-    use base64::prelude::*;
-
-    // Configure HTTP client
+    // Configure HTTP client base URL only. The per-session CSRF token is no
+    // longer baked in at build time (plan Phase 5); it is fetched from
+    // `/csrf/v1/generate` on boot (see App) and after login.
     println!("APP_API_URL: {}", env::APP_API_URL);
-    println!("APP_CSRF_TOKEN: {}", env::APP_CSRF_TOKEN);
 
     // Ensure URL has protocol
     let base_url = if env::APP_API_URL.starts_with("http") {
@@ -28,8 +27,7 @@ fn main() {
         format!("http://{}", env::APP_API_URL)
     };
 
-    let csrf_token = BASE64_STANDARD.encode((env::APP_CSRF_TOKEN).as_bytes());
-    oxcore::http::configure(base_url, csrf_token);
+    oxcore::http::configure(base_url);
 
     dioxus::launch(App);
 }
@@ -40,7 +38,6 @@ const TAILWIND_CSS: Asset = asset!("/assets/tailwind.css");
 fn App() -> Element {
     // let toast = use_context_provider(|| Signal::new(ToastManager::default()));
     tracing::info!("APP_API_URL: {}", env::APP_API_URL);
-    tracing::info!("APP_CSRF_TOKEN: {}", env::APP_CSRF_TOKEN);
     // Initialize document theme from persistent storage on app mount.
     use_effect(|| {
         let stored = persist::get_theme();
@@ -54,6 +51,17 @@ fn App() -> Element {
                         document::eval("document.documentElement.classList.remove('dark');").await;
                 }
                 _ => {}
+            }
+        });
+    });
+
+    // Fetch the per-session CSRF token on boot. The backend bootstraps/
+    // rehydrates the session and returns the bound token, attached to every
+    // mutating request thereafter. Login re-fetches it too.
+    use_effect(|| {
+        spawn(async move {
+            if let Err(e) = oxcore::http::refresh_csrf_token().await {
+                tracing::warn!("Failed to refresh CSRF token on boot: {e}");
             }
         });
     });

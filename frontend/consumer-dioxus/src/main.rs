@@ -20,19 +20,17 @@ pub mod utils;
 pub mod analytics;
 
 fn configure_http_client() {
-    use base64::prelude::*;
-
-    // Configure HTTP client
+    // Configure HTTP client base URL only. The per-session CSRF token is no
+    // longer baked in at build time (plan Phase 5); it is fetched from
+    // `/csrf/v1/generate` on boot (see App) and after login.
     println!("APP_API_URL: {}", env::APP_API_URL);
-    println!("APP_CSRF_TOKEN: {}", env::APP_CSRF_TOKEN);
 
     let base_url = if env::APP_API_URL.starts_with("http") {
         env::APP_API_URL.to_string()
     } else {
         format!("http://{}", env::APP_API_URL)
     };
-    let csrf_token = BASE64_STANDARD.encode(env::APP_CSRF_TOKEN.as_bytes());
-    oxcore::http::configure(base_url, csrf_token);
+    oxcore::http::configure(base_url);
 }
 
 #[cfg(feature = "server")]
@@ -87,7 +85,6 @@ const TAILWIND_CSS: Asset = asset!("/assets/tailwind.css");
 #[component]
 fn App() -> Element {
     tracing::info!("APP_API_URL: {}", env::APP_API_URL);
-    tracing::info!("APP_CSRF_TOKEN: {}", env::APP_CSRF_TOKEN);
 
     // Initialize Firebase Analytics (WASM-only)
     #[cfg(all(target_arch = "wasm32", feature = "analytics"))]
@@ -97,6 +94,18 @@ fn App() -> Element {
         } else {
             tracing::warn!("Firebase Analytics initialization failed - check configuration");
         }
+    });
+
+    // Fetch the per-session CSRF token on boot (client builds only). The backend
+    // bootstraps/rehydrates the session and returns the bound token, which is
+    // then attached to every mutating request. Login re-fetches it too.
+    #[cfg(not(feature = "server"))]
+    use_effect(|| {
+        spawn(async move {
+            if let Err(e) = oxcore::http::refresh_csrf_token().await {
+                tracing::warn!("Failed to refresh CSRF token on boot: {e}");
+            }
+        });
     });
 
     // Initialize document theme from persistent storage on app mount (WASM-only)

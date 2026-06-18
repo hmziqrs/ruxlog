@@ -8,6 +8,7 @@ use axum_macros::debug_handler;
 
 use axum_client_ip::ClientIp;
 
+use rux_auth::AuthBackend as AuthBackendTrait;
 use sea_orm::ActiveModelTrait;
 use serde_json::json;
 use tracing::{error, info, instrument, warn};
@@ -19,9 +20,21 @@ use crate::{
     modules::auth_v1::validator::{
         V1LoginPayload, V1RegisterPayload, V1TwoFADisablePayload, V1TwoFAVerifyPayload,
     },
-    services::{auth::AuthSession, mail::send_email_verification_code},
+    services::{abuse_limiter, auth::AuthSession, mail::send_email_verification_code},
     utils::twofa,
     AppState,
+};
+
+/// Two-tier, fail-closed limiter config reused for brute-force-sensitive
+/// auth endpoints (here: the 2FA code verify). Mirrors the config used by the
+/// forgot-password and email-verification flows.
+const ABUSE_LIMITER_CONFIG: abuse_limiter::AbuseLimiterConfig = abuse_limiter::AbuseLimiterConfig {
+    temp_block_attempts: 3,
+    temp_block_range: 360,
+    temp_block_duration: 3600,
+    block_retry_limit: 5,
+    block_range: 900,
+    block_duration: 86400,
 };
 
 #[debug_handler(state = AppState)]
@@ -66,6 +79,37 @@ pub async fn log_in(
         Ok(Some(user)) => {
             tracing::Span::current().record("user_id", user.id);
             tracing::Span::current().record("user_role", user.role.to_string());
+
+            // Reject banned users at the door — never issue a session for a
+            // banned account. Fail closed if the ban lookup itself errors so a
+            // transient DB/Redis failure cannot grant access to a banned user.
+            match auth.backend().check_ban(&user.id).await {
+                Ok(ban_status) if ban_status.is_banned() => {
+                    warn!(user_id = user.id, "Banned user attempted login");
+                    tracing::Span::current().record("result", "banned");
+                    return Err(ErrorResponse::new(ErrorCode::AccountLocked)
+                        .with_message("This account has been banned"));
+                }
+                Ok(_) => {}
+                Err(_) => {
+                    tracing::Span::current().record("result", "ban_check_error");
+                    return Err(ErrorResponse::new(ErrorCode::InternalServerError)
+                        .with_message("Unable to verify account status"));
+                }
+            }
+
+            // NOTE (audit F#4 — intentionally deferred): a correct password is
+            // sufficient to obtain a fully authenticated session here, EVEN for
+            // users with 2FA enrolled. The login flow does not issue a partial
+            // session that demands a TOTP challenge, and no protected route
+            // enforces `totp_if_enabled()` (see rux-auth `check_requirements`).
+            // 2FA is therefore self-serve / opt-in-for-UI only at the access
+            // boundary. This is the locked "leave the login flow as-is, fix
+            // leaks only" decision — the TOTP-seed leak and backup-code bias
+            // HAVE been fixed; enforcing 2FA at login is explicitly out of
+            // scope. Reversing it is a one-line `.totp_if_enabled()` chain on
+            // the live guards plus a two-step login response. See
+            // `docs/CRYPTO_AUDIT.md` → "Accepted Deferrals".
 
             let ip = Some(secure_ip.to_string());
             let device = headers
@@ -130,7 +174,14 @@ pub async fn register(
 
     let email = payload.email.clone();
 
-    match user::Entity::create(&state.sea_db, payload.into_new_user()).await {
+    // Generate the verification code now: store only its keyed hash alongside
+    // the new user (transactional), but email the plaintext. The plaintext
+    // never touches the database (audit: "brute-forceable plaintext codes" —
+    // fixed in Phase 3d).
+    let code = email_verification::Entity::generate_code();
+    let code_hash = crate::utils::code_hash::hash_code(&state.secret_key, &code);
+
+    match user::Entity::create(&state.sea_db, payload.into_new_user(), code_hash).await {
         Ok(user) => {
             info!(user_id = user.id, email = %user.email, "User registered successfully");
             tracing::Span::current().record("user_id", user.id);
@@ -140,37 +191,18 @@ pub async fn register(
             let app_state = state.clone();
             let user_id = user.id;
             let email_for_task = email.clone();
+            let code_for_task = code.clone();
             tokio::spawn(async move {
-                match email_verification::Entity::find_by_user_id_or_code(
-                    &app_state.sea_db,
-                    Some(user_id),
-                    None,
-                )
-                .await
-                {
-                    Ok(verification) => {
-                        if let Err(err) = send_email_verification_code(
-                            &app_state.mailer,
-                            &email_for_task,
-                            &verification.code,
-                        )
+                if let Err(err) =
+                    send_email_verification_code(&app_state.mailer, &email_for_task, &code_for_task)
                         .await
-                        {
-                            tracing::error!(
-                                user_id,
-                                email = %email_for_task,
-                                "Failed to send verification email: {}",
-                                err
-                            );
-                        }
-                    }
-                    Err(err) => {
-                        tracing::error!(
-                            user_id,
-                            "Failed to load verification code for email: {}",
-                            err
-                        );
-                    }
+                {
+                    tracing::error!(
+                        user_id,
+                        email = %email_for_task,
+                        "Failed to send verification email: {}",
+                        err
+                    );
                 }
             });
 
@@ -196,8 +228,14 @@ pub async fn twofa_setup(
 
     info!(user_id = user.id, "2FA setup initiated");
 
-    // Generate base32 secret and backup codes, persist to user
-    let secret_b32 = twofa::generate_secret_base32(20);
+    // Generate base32 secret and backup codes, persist to user.
+    // CSPRNG failures must surface as 500s — never silently produce a
+    // predictable secret. See plan Phase 2f.
+    let secret_b32 = twofa::generate_secret_base32(20)
+        .ok_or_else(|| {
+            ErrorResponse::new(ErrorCode::InternalServerError)
+                .with_message("Failed to generate 2FA secret")
+        })?;
     let otpauth_url = twofa::build_otpauth_url(
         &user.email,
         "Ruxlog",
@@ -205,9 +243,22 @@ pub async fn twofa_setup(
         twofa::DEFAULT_TOTP_DIGITS,
     );
 
-    // Generate and hash backup codes (store hashes only)
-    let backup_codes = twofa::generate_backup_codes(10);
-    let backup_hashes = twofa::hash_backup_codes(&backup_codes);
+    // Generate and hash backup codes (store Argon2id hashes only).
+    let backup_codes = twofa::generate_backup_codes(10)
+        .ok_or_else(|| {
+            ErrorResponse::new(ErrorCode::InternalServerError)
+                .with_message("Failed to generate backup codes")
+        })?;
+    // Argon2id is memory-hard; hash off the async worker thread.
+    let backup_hashes = {
+        let codes_for_hash = backup_codes.clone();
+        tokio::task::spawn_blocking(move || twofa::hash_backup_codes(&codes_for_hash))
+            .await
+            .map_err(|e| {
+                ErrorResponse::new(ErrorCode::InternalServerError)
+                    .with_message(format!("Backup code hashing failed: {e}"))
+            })?
+    };
     let backup_hashes_json = serde_json::json!(backup_hashes);
 
     // Persist on user
@@ -239,6 +290,11 @@ pub async fn twofa_verify(
     let user = auth.user.unwrap();
     let payload = payload.0;
 
+    // Throttle brute-force attempts on the 2FA code. Fail-closed: a Redis
+    // outage denies the attempt rather than letting unbounded tries through.
+    let key_prefix = format!("totp:{}", user.id);
+    abuse_limiter::limiter(&state.redis_pool, &key_prefix, ABUSE_LIMITER_CONFIG).await?;
+
     let existing = user::Entity::find_by_id_with_404(&state.sea_db, user.id).await?;
     let secret = match &existing.two_fa_secret {
         Some(s) => s.clone(),
@@ -262,9 +318,23 @@ pub async fn twofa_verify(
     // Try backup code if provided
     if let Some(backup_code) = payload.backup_code {
         if let Some(stored) = &existing.two_fa_backup_codes {
+            // Materialize owned copies and end the borrow on `existing` before
+            // awaiting: Argon2id verification runs on the blocking pool.
             let stored_vec: Vec<String> =
                 serde_json::from_value(stored.clone()).unwrap_or_else(|_| vec![]);
-            if let Some(updated_hashes) = twofa::consume_backup_code(&stored_vec, &backup_code) {
+            let consume_result = {
+                let stored_clone = stored_vec;
+                let code_clone = backup_code.clone();
+                tokio::task::spawn_blocking(move || {
+                    twofa::consume_backup_code(&stored_clone, &code_clone)
+                })
+                .await
+                .map_err(|e| {
+                    ErrorResponse::new(ErrorCode::InternalServerError)
+                        .with_message(format!("Backup code verification failed: {e}"))
+                })?
+            };
+            if let Some(updated_hashes) = consume_result {
                 let mut active: user::ActiveModel = existing.into();
                 active.two_fa_enabled = sea_orm::Set(true);
                 active.two_fa_backup_codes = sea_orm::Set(Some(serde_json::json!(updated_hashes)));
@@ -305,7 +375,21 @@ pub async fn twofa_disable(
                 if let Some(stored) = &existing.two_fa_backup_codes {
                     let stored_vec: Vec<String> =
                         serde_json::from_value(stored.clone()).unwrap_or_else(|_| vec![]);
-                    backup_ok = twofa::consume_backup_code(&stored_vec, &code).is_some();
+                    // Argon2id verification is memory-hard; run off the async
+                    // worker. The borrow of `existing` via `stored` ends here
+                    // (only `stored_vec`, owned, crosses the await).
+                    backup_ok = {
+                        let stored_clone = stored_vec;
+                        let code_clone = code.clone();
+                        tokio::task::spawn_blocking(move || {
+                            twofa::consume_backup_code(&stored_clone, &code_clone).is_some()
+                        })
+                        .await
+                        .map_err(|e| {
+                            ErrorResponse::new(ErrorCode::InternalServerError)
+                                .with_message(format!("Backup code verification failed: {e}"))
+                        })?
+                    };
                 }
             }
 

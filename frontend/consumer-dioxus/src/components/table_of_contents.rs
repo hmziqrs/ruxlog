@@ -37,7 +37,11 @@ pub fn TableOfContents(post: Post) -> Element {
                                 a {
                                     href: "#{id}",
                                     class: "text-sm text-muted-foreground hover:text-primary transition-colors block truncate",
-                                    dangerous_inner_html: "{text}",
+                                    // Escaped text — header text is a plain-text
+                                    // label, not HTML. Using `dangerous_inner_html`
+                                    // here made header `data.text` an XSS sink;
+                                    // escaping closes it (plan Phase 6e).
+                                    "{text}",
                                 }
                             }
                         }

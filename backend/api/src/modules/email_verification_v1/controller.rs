@@ -31,12 +31,19 @@ pub async fn verify(
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let user = auth.user.unwrap();
     let user_id = user.id;
+
+    // Throttle code-guessing per account. Fail-closed: a Redis outage denies
+    // the attempt rather than allowing unbounded tries.
+    let key_prefix = format!("email_verify:{}", user_id);
+    abuse_limiter::limiter(&state.redis_pool, &key_prefix, ABUSE_LIMITER_CONFIG).await?;
+
     let code = payload.0.code;
+    let code_hash = crate::utils::code_hash::hash_code(&state.secret_key, &code);
 
     let verification_result = email_verification::Entity::find_by_user_id_or_code(
         &state.sea_db,
         Some(user_id),
-        Some(code),
+        Some(code_hash),
     )
     .await;
 
@@ -56,6 +63,12 @@ pub async fn verify(
 
     match user::Entity::verify(&state.sea_db, user_id).await {
         Ok(_) => {
+            // Single-use: delete the verification row so the (hash of the)
+            // code cannot be replayed. Audit: "codes not consumed at verify"
+            // — fixed in Phase 3d.
+            if let Err(err) = email_verification::Entity::consume(&state.sea_db, user_id).await {
+                warn!(user_id, "Failed to consume verification code: {}", err);
+            }
             info!(user_id, "Email verified successfully");
             Ok((
                 StatusCode::OK,
@@ -113,10 +126,13 @@ pub async fn resend(
         }
     }
 
-    let verification = email_verification::Entity::regenerate(pool, user_id).await?;
-    if let Err(err) =
-        send_email_verification_code(&state.mailer, &user.email, &verification.code).await
-    {
+    // Generate a fresh plaintext code, store only its keyed hash, and email the
+    // plaintext. The plaintext never touches the database (audit: "brute-forceable
+    // plaintext verification codes" — fixed in Phase 3d).
+    let code = email_verification::Entity::generate_code();
+    let code_hash = crate::utils::code_hash::hash_code(&state.secret_key, &code);
+    email_verification::Entity::regenerate(pool, user_id, code_hash).await?;
+    if let Err(err) = send_email_verification_code(&state.mailer, &user.email, &code).await {
         error!(user_id, "Failed to send verification email: {}", err);
         return Err(ErrorResponse::new(ErrorCode::ExternalServiceError)
             .with_message("Failed to send verification email")

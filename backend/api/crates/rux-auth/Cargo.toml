@@ -3,6 +3,7 @@ name = "rux-auth"
 version = "0.1.0"
 edition = "2021"
 description = "Composable authentication and authorization for Axum"
+publish = false
 
 [dependencies]
 axum = "0.8"
@@ -17,8 +18,9 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
 tracing = "0.1"
-oauth2 = "4.4"
-reqwest = { version = "0.12", features = ["json"] }
 http = "1.0"
 pin-project-lite = "0.2"
 futures-util = "0.3"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt"] }

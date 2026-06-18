@@ -684,16 +684,18 @@ where
         ));
     }
 
+    let secret_key = super::base::cookie_key_bytes();
     for i in 0..count {
         let user = users.choose(&mut rng).unwrap();
         let code = email_verification::Entity::generate_code();
+        let code_hash = crate::utils::code_hash::hash_code(&secret_key, &code);
         let created_at =
             chrono::Utc::now().fixed_offset() - chrono::Duration::minutes(rng.random_range(0..90));
 
         let verification = email_verification::Model {
             id: 0,
             user_id: user.id,
-            code,
+            code_hash,
             created_at,
             updated_at: created_at,
         };
@@ -701,7 +703,7 @@ where
         let active_model = email_verification::ActiveModel {
             id: ActiveValue::NotSet,
             user_id: Set(verification.user_id),
-            code: Set(verification.code),
+            code_hash: Set(verification.code_hash),
             created_at: Set(verification.created_at),
             updated_at: Set(verification.updated_at),
         };
@@ -747,17 +749,19 @@ where
         ));
     }
 
+    let secret_key = super::base::cookie_key_bytes();
     for i in 0..count {
         let user = users.choose(&mut rng).unwrap();
         if rng.random_bool(0.3) {
             let code = forgot_password::Entity::generate_code();
+            let code_hash = crate::utils::code_hash::hash_code(&secret_key, &code);
             let created_at = chrono::Utc::now().fixed_offset()
                 - chrono::Duration::minutes(rng.random_range(0..60));
 
             let forgot = forgot_password::Model {
                 id: 0,
                 user_id: user.id,
-                code,
+                code_hash,
                 created_at,
                 updated_at: created_at,
             };
@@ -765,7 +769,7 @@ where
             let active_model = forgot_password::ActiveModel {
                 id: ActiveValue::NotSet,
                 user_id: Set(forgot.user_id),
-                code: Set(forgot.code),
+                code_hash: Set(forgot.code_hash),
                 created_at: Set(forgot.created_at),
                 updated_at: Set(forgot.updated_at),
             };

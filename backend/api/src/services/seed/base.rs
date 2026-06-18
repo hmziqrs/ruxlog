@@ -695,11 +695,22 @@ async fn seed_user_sessions(db: &DatabaseConnection) -> SeedResult<()> {
     Ok(())
 }
 
+/// Read the application secret used to hash verification/reset codes. Seeds run
+/// in dev contexts where COOKIE_KEY may be unset, so fall back to a constant —
+/// the seeded codes are never emailed and only exist to exercise the schema.
+pub(super) fn cookie_key_bytes() -> Vec<u8> {
+    std::env::var("COOKIE_KEY")
+        .unwrap_or_else(|_| "ruxlog-dev-seed-fallback-key".to_string())
+        .into_bytes()
+}
+
 async fn seed_email_verifications(db: &DatabaseConnection) -> SeedResult<()> {
     let users = user::Entity::find().all(db).await?;
     let mut rng = seeded_rng(None);
+    let secret_key = cookie_key_bytes();
     for user in users {
         let code = email_verification::Entity::generate_code();
+        let code_hash = crate::utils::code_hash::hash_code(&secret_key, &code);
         // Spread creation times a bit for realism
         let created_at =
             chrono::Utc::now().fixed_offset() - chrono::Duration::minutes(rng.random_range(0..90));
@@ -707,7 +718,7 @@ async fn seed_email_verifications(db: &DatabaseConnection) -> SeedResult<()> {
         let verification = email_verification::Model {
             id: 0,
             user_id: user.id,
-            code,
+            code_hash,
             created_at,
             updated_at: created_at,
         };
@@ -716,7 +727,7 @@ async fn seed_email_verifications(db: &DatabaseConnection) -> SeedResult<()> {
             id: ActiveValue::NotSet,
             user_id: Set(verification.user_id),
             created_at: Set(verification.created_at),
-            code: Set(verification.code),
+            code_hash: Set(verification.code_hash),
             updated_at: Set(verification.updated_at),
         };
 
@@ -728,17 +739,19 @@ async fn seed_email_verifications(db: &DatabaseConnection) -> SeedResult<()> {
 async fn seed_forgot_passwords(db: &DatabaseConnection) -> SeedResult<()> {
     let users = user::Entity::find().all(db).await?;
     let mut rng = seeded_rng(None);
+    let secret_key = cookie_key_bytes();
 
     for user in users {
         if rng.random_bool(0.3) {
             let code = forgot_password::Entity::generate_code();
+            let code_hash = crate::utils::code_hash::hash_code(&secret_key, &code);
             let created_at = chrono::Utc::now().fixed_offset()
                 - chrono::Duration::minutes(rng.random_range(0..60));
 
             let forgot = forgot_password::Model {
                 id: 0,
                 user_id: user.id,
-                code,
+                code_hash,
                 created_at,
                 updated_at: created_at,
             };
@@ -748,7 +761,7 @@ async fn seed_forgot_passwords(db: &DatabaseConnection) -> SeedResult<()> {
                 user_id: Set(forgot.user_id),
                 created_at: Set(forgot.created_at),
                 updated_at: Set(forgot.updated_at),
-                code: Set(forgot.code),
+                code_hash: Set(forgot.code_hash),
             };
 
             let _ = active_model.insert(db).await;

@@ -33,8 +33,9 @@ set -euo pipefail
 BASE_URL="${BASE_URL:-http://127.0.0.1:8888}"
 EMAIL="${EMAIL:-laurie40@yahoo.com}"
 PASSWORD="${PASSWORD:-laurie40@yahoo.com}"
-CSRF_KEY="${CSRF_KEY:-ultra-instinct-goku}"
-CSRF_TOKEN="$(printf %s "$CSRF_KEY" | base64)"
+# Per-session CSRF token (plan Phase 5): HMAC-bound to the live session and
+# bootstrapped from /csrf/v1/generate — see bootstrap_csrf() below.
+CSRF_TOKEN=""
 COOKIES_FILE="${COOKIES_FILE:-$(dirname "$0")/cookies.txt}"
 TMP_DIR="$(mktemp -d)"
 RETRY_ATTEMPTS="${RETRY_ATTEMPTS:-20}"
@@ -48,6 +49,31 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 # -----------------------------
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || { echo "Missing required command: $1"; exit 1; }
+}
+
+# Obtain a real per-session CSRF token from the exempt /csrf/v1/generate
+# endpoint, which both issues the token and materializes the session (the
+# Set-Cookie is captured into $COOKIES_FILE via -c). MUST be re-called after
+# login: login rotates the session id (session-fixation defense), which
+# invalidates the prior token.
+bootstrap_csrf() {
+  local out curl_status
+  set +e
+  out="$(curl -sS -X POST \
+    -H "Content-Type: application/json" \
+    -b "$COOKIES_FILE" -c "$COOKIES_FILE" \
+    "$BASE_URL/csrf/v1/generate")"
+  curl_status=$?
+  set -e
+  if [[ $curl_status -ne 0 ]]; then
+    echo "ERROR: /csrf/v1/generate request failed (curl status $curl_status)" >&2
+    exit 1
+  fi
+  CSRF_TOKEN="$(printf '%s' "$out" | jq -r '.token // empty')"
+  if [[ -z "${CSRF_TOKEN:-}" ]]; then
+    echo "ERROR: /csrf/v1/generate did not return a token; response: $out" >&2
+    exit 1
+  fi
 }
 
 wait_for_server() {
@@ -165,6 +191,9 @@ echo "==> Wait for server"
 wait_for_server
 echo
 
+# Bootstrap a per-session CSRF token so the login POST (CSRF-protected) passes.
+bootstrap_csrf
+
 # -----------------------------
 # Log in
 # -----------------------------
@@ -197,6 +226,9 @@ if [[ "$login_code" != "200" ]]; then
   echo "ERROR: login failed"
   exit 1
 fi
+# login rotated the session id (session-fixation defense); the pre-login token
+# is now invalid, so re-bootstrap a token bound to the new session.
+bootstrap_csrf
 echo
 
 # -----------------------------

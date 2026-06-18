@@ -23,7 +23,10 @@ impl RazorpayProvider {
             key_id,
             key_secret,
             webhook_secret,
-            base_url: "https://api.razorpay.com/v1".to_string(),
+            // Production by default; override with the sandbox host via
+            // RAZORPAY_API_BASE_URL for development. See plan Phase 6f.
+            base_url: std::env::var("RAZORPAY_API_BASE_URL")
+                .unwrap_or_else(|_| "https://api.razorpay.com/v1".to_string()),
         }
     }
 
@@ -44,35 +47,47 @@ impl BillingProvider for RazorpayProvider {
         plan_slug: &str,
         customer_email: &str,
         user_id: i32,
-        success_url: &str,
-        cancel_url: &str,
+        // Razorpay subscription creation has no per-subscription success URL —
+        // the hosted `short_url` auth page is the entry point and the verified
+        // `subscription.activated` webhook (not a redirect) drives the grant.
+        _success_url: &str,
+        _cancel_url: &str,
     ) -> Result<CheckoutSession, BillingError> {
         let client = reqwest::Client::new();
-        let receipt = format!("rcpt_{}_{}", user_id, chrono::Utc::now().timestamp());
+
+        // Create a REAL Razorpay subscription (not a one-time payment link) so
+        // the `session_id` we store — and key the checkout intent by — is a
+        // subscription id (`sub_…`). That is exactly the id
+        // `subscription.activated` echoes back in `payload.subscription.entity`,
+        // so the checkout arm's intent recovery connects (audit F#11 residual;
+        // the prior payment-link flow keyed the intent on `plink_…` while the
+        // webhook emitted `sub_…`, so every subscription checkout silently never
+        // granted). A subscription also carries an authoritative `current_end`,
+        // giving the grant a real period end so the paywall admits the paying
+        // subscriber (it fails closed on a missing period end).
+        //
+        // `plan_slug` is the provider-side Razorpay plan id — the plan's amount
+        // and billing cycle live in Razorpay, not here. `total_count` (number of
+        // charge cycles) is mandatory; default 12, override per deployment.
+        let total_count: i64 = std::env::var("RAZORPAY_SUBSCRIPTION_TOTAL_COUNT")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(12);
 
         let body = serde_json::json!({
-            "type": "link",
-            "amount": plan_slug.parse::<i64>().unwrap_or(99900),
-            "currency": "INR",
-            "description": format!("Subscription for user {}", user_id),
-            "customer": {
-                "email": customer_email,
-            },
-            "notify": {
-                "sms": false,
-                "email": true,
-            },
-            "callback_url": success_url,
-            "callback_method": "get",
-            "receipt": receipt,
+            "plan_id": plan_slug,
+            "total_count": total_count,
+            "quantity": 1,
+            "customer_notify": 1,
             "notes": {
                 "user_id": user_id.to_string(),
                 "plan_slug": plan_slug,
+                "email": customer_email,
             },
         });
 
         let resp = client
-            .post(format!("{}/payment_links", self.base_url))
+            .post(format!("{}/subscriptions", self.base_url))
             .header(
                 "Authorization",
                 format!(
@@ -211,33 +226,49 @@ impl BillingProvider for RazorpayProvider {
     }
 
     async fn verify_webhook(&self, event: WebhookEvent) -> Result<ParsedWebhook, BillingError> {
-        // Razorpay webhook verification: HMAC-SHA256 of payload with webhook secret
-        let payload_str = String::from_utf8(event.payload.clone())
-            .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
-
-        let expected = {
-            use hmac::{Hmac, Mac};
-            use sha2::Sha256;
-            let mut mac =
-                Hmac::<Sha256>::new_from_slice(self.webhook_secret.as_bytes()).expect("HMAC key");
-            mac.update(event.payload.as_slice());
-            let result = mac.finalize().into_bytes();
-            hex::encode(result)
-        };
-
-        if !constant_time_eq_str(&expected, &event.signature) {
+        // Razorpay signs the raw body: HMAC-SHA256(webhook_secret, body), hex
+        // digest in X-Razorpay-Signature. No timestamp is sent, so no freshness
+        // check is possible. Verify over the raw bytes in constant time.
+        let sig = super::webhook_util::header_str(&event.headers, "X-Razorpay-Signature")
+            .ok_or_else(|| {
+                BillingError::WebhookVerification("Missing X-Razorpay-Signature header".into())
+            })?;
+        if !super::webhook_util::verify_hmac_sha256_hex(
+            self.webhook_secret.as_bytes(),
+            &event.payload,
+            &sig,
+        ) {
             return Err(BillingError::WebhookVerification(
-                "Signature mismatch".to_string(),
+                "Razorpay signature mismatch".into(),
             ));
         }
+
+        let payload_str = std::str::from_utf8(&event.payload)
+            .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
 
         let data: serde_json::Value = serde_json::from_str(&payload_str)
             .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
 
-        let event_type = data["event"].as_str().unwrap_or_default().to_string();
+        // Normalize Razorpay's native event taxonomy to the canonical vocabulary
+        // the dispatch matches on (audit F#11 residual). `subscription.activated`
+        // fires once the subscription starts (after first payment) and carries
+        // the subscription id we keyed the intent by at create-checkout, so it
+        // maps to CHECKOUT_COMPLETED; `subscription.charged` is a renewal.
+        let native_event = data["event"].as_str().unwrap_or_default();
+        let event_type = match native_event {
+            "subscription.activated" => super::provider::canonical::CHECKOUT_COMPLETED,
+            "subscription.charged" => super::provider::canonical::SUBSCRIPTION_UPDATED,
+            "subscription.cancelled" => super::provider::canonical::SUBSCRIPTION_DELETED,
+            "payment.captured" | "payment.authorized" => {
+                super::provider::canonical::PAYMENT_SUCCEEDED
+            }
+            other => other,
+        }
+        .to_string();
 
         let payload_obj = &data["payload"]["payment"]["entity"];
         let sub_obj = &data["payload"]["subscription"]["entity"];
+        let sub_id = sub_obj["id"].as_str().map(String::from);
 
         Ok(ParsedWebhook {
             event_type,
@@ -245,8 +276,24 @@ impl BillingProvider for RazorpayProvider {
                 .as_str()
                 .unwrap_or_default()
                 .to_string(),
-            subscription_id: sub_obj["id"].as_str().map(String::from),
+            subscription_id: sub_id.clone(),
             payment_id: payload_obj["id"].as_str().map(String::from),
+            // Razorpay subscription entities expose `current_end` (Unix seconds).
+            current_period_end: super::provider::period_end_to_unix(sub_obj.get("current_end")),
+            // Razorpay keys the checkout intent by the subscription id (its
+            // `create_checkout` returns the subscription id as `session_id`),
+            // and `subscription.activated`'s entity id is that same id.
+            checkout_session_id: sub_id,
+            subscription_status: sub_obj["status"].as_str().map(String::from),
+            user_id: sub_obj["notes"]["user_id"]
+                .as_str()
+                .or_else(|| payload_obj["notes"]["user_id"].as_str())
+                .and_then(|s| s.parse().ok()),
+            // Razorpay amounts are in paise (minor units).
+            amount_cents: payload_obj["amount"]
+                .as_i64()
+                .or_else(|| payload_obj["amount_paid"].as_i64()),
+            currency: payload_obj["currency"].as_str().map(String::from),
             data,
         })
     }
@@ -263,17 +310,6 @@ impl BillingProvider for RazorpayProvider {
             urlencoding::encode(return_url)
         ))
     }
-}
-
-fn constant_time_eq_str(a: &str, b: &str) -> bool {
-    if a.len() != b.len() {
-        return false;
-    }
-    let mut diff: u8 = 0;
-    for (x, y) in a.bytes().zip(b.bytes()) {
-        diff |= x ^ y;
-    }
-    diff == 0
 }
 
 #[cfg(test)]
@@ -303,10 +339,62 @@ mod tests {
         assert_eq!(provider.base_url, "http://localhost:9999");
     }
 
-    #[test]
-    fn test_constant_time_eq() {
-        assert!(constant_time_eq_str("abc", "abc"));
-        assert!(!constant_time_eq_str("abc", "abd"));
-        assert!(!constant_time_eq_str("abc", "abcd"));
+    use crate::services::billing::webhook_util;
+
+    /// Sign a Razorpay webhook: HMAC-SHA256(secret, raw body) in
+    /// `X-Razorpay-Signature` (no timestamp).
+    fn signed_razorpay(payload: &[u8], secret: &str) -> WebhookEvent {
+        let sig = webhook_util::hmac_sha256_hex(secret.as_bytes(), payload);
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert("X-Razorpay-Signature", sig.parse().unwrap());
+        WebhookEvent {
+            provider: "razorpay".into(),
+            payload: payload.to_vec(),
+            headers,
+        }
+    }
+
+    /// Native Razorpay events must normalize to the canonical vocabulary the
+    /// provider-agnostic dispatch matches on (audit F#11).
+    #[tokio::test]
+    async fn verify_webhook_normalizes_native_events_to_canonical() {
+        let provider =
+            RazorpayProvider::new("key".into(), "secret".into(), "whsec".into());
+
+        let mk = |event: &str| -> Vec<u8> {
+            // Build a minimal but well-formed Razorpay envelope.
+            const TPL: &str = r#"{"event":"__EV__","payload":{"subscription":{"entity":{"id":"sub_1","status":"active","notes":{"user_id":"42"}}},"payment":{"entity":{"id":"pay_1","amount":99900,"currency":"INR"}}}}"#;
+            TPL.replace("__EV__", event).into_bytes()
+        };
+
+        let cases: &[(&str, &str)] = &[
+            ("subscription.activated", "checkout.session.completed"),
+            ("subscription.charged", "customer.subscription.updated"),
+            ("subscription.cancelled", "customer.subscription.deleted"),
+            ("payment.captured", "invoice.payment_succeeded"),
+        ];
+        for (event, expected) in cases {
+            let body = mk(event);
+            let evt = signed_razorpay(&body, "whsec");
+            let parsed = provider.verify_webhook(evt).await.expect("must verify");
+            assert_eq!(parsed.event_type, *expected, "event={event}");
+        }
+
+        // Structured fields: subscription_id round-trips to the stored session
+        // id (the checkout arm recovers the intent via the fallback chain).
+        let evt = signed_razorpay(&mk("subscription.activated"), "whsec");
+        let parsed = provider.verify_webhook(evt).await.unwrap();
+        assert_eq!(parsed.subscription_id.as_deref(), Some("sub_1"));
+        assert_eq!(parsed.checkout_session_id.as_deref(), Some("sub_1"));
+        assert_eq!(parsed.subscription_status.as_deref(), Some("active"));
+        assert_eq!(parsed.user_id, Some(42));
+        assert_eq!(parsed.amount_cents, Some(99900));
+        assert_eq!(parsed.currency.as_deref(), Some("INR"));
+
+        // An unmapped native event passes through (not silently dropped to a
+        // canonical arm); the dispatch logs it as unhandled.
+        let evt = signed_razorpay(&mk("payment.link.cancelled"), "whsec");
+        let parsed = provider.verify_webhook(evt).await.unwrap();
+        assert_eq!(parsed.event_type, "payment.link.cancelled");
     }
 }

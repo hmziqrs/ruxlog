@@ -1,9 +1,17 @@
 pub mod controller;
 pub mod validator;
 
+use crate::middlewares::auth_guard;
 use crate::AppState;
-use axum::{routing::post, Router};
+use axum::{middleware, routing::post, Router};
 
+/// Seed/system-provisioning routes.
+///
+/// These mutate core tables and must never be reachable in production. They are
+/// (1) feature-gated behind `seed-system`, which is excluded from the `full`
+/// feature set so production images never compile them, and (2) additionally
+/// gated behind a super-admin auth requirement so even dev/staging builds can
+/// only be exercised by `ROLE_SUPER_ADMIN`. See plan Phase 6d.
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/seed_tags", post(controller::seed_tags))
@@ -43,4 +51,7 @@ pub fn routes() -> Router<AppState> {
         .route("/seed_route_status", post(controller::seed_route_status))
         .route("/seed", post(controller::seed))
         .route("/presets", post(controller::list_presets))
+        .route_layer(middleware::from_fn(
+            auth_guard::verified_with_role::<{ auth_guard::ROLE_SUPER_ADMIN }>,
+        ))
 }

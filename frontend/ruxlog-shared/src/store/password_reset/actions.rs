@@ -1,5 +1,6 @@
 use super::{
-    PasswordResetState, RequestResetPayload, ResetPasswordPayload, ResetResult, VerifyResetPayload,
+    PasswordResetState, RequestResetPayload, ResetPasswordPayload, ResetResult,
+    VerifyResetPayload, VerifyResetResponse,
 };
 use oxcore::http;
 use oxstore::state_request_abstraction;
@@ -24,7 +25,9 @@ impl PasswordResetState {
             Some(meta),
             http::post("/forgot_password/v1/verify", &payload).send(),
             "password_reset_verify",
-            |resp: &ResetResult| (Some(Some(resp.clone())), None),
+            // Capture the issued reset_token so the caller can thread it into
+            // the subsequent reset request (audit F#9 single-use flow).
+            |resp: &VerifyResetResponse| (Some(Some(resp.clone())), None),
         )
         .await;
     }

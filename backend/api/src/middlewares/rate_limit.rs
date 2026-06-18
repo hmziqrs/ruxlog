@@ -53,23 +53,18 @@ if current_ttl < 0 then current_ttl = ttl end
 return {count, current_ttl}
 "#;
 
-/// Extract the client IP address from the request headers.
+/// Extract the client IP from the request's resolved `ClientIp` extension.
 ///
-/// Checks `X-Forwarded-For`, then `X-Real-IP`, falling back to "unknown".
+/// The extension is populated by the `axum_client_ip` layer (configured via
+/// `IP_SOURCE`) at the app root, which centralises the trusted-proxy / header
+/// policy. Reading raw `x-forwarded-for` here would let an attacker spoof the
+/// rate-limit key. Falls back to `"unknown"` only if the layer was not applied
+/// (which itself collapses all such clients into one bucket). See plan 6b.
 fn client_ip<B>(request: &axum::http::Request<B>) -> String {
     request
-        .headers()
-        .get("x-forwarded-for")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.split(',').next())
-        .map(|s| s.trim().to_string())
-        .or_else(|| {
-            request
-                .headers()
-                .get("x-real-ip")
-                .and_then(|v| v.to_str().ok())
-                .map(|s| s.trim().to_string())
-        })
+        .extensions()
+        .get::<axum_client_ip::ClientIp>()
+        .map(|ip| ip.0.to_string())
         .unwrap_or_else(|| "unknown".to_string())
 }
 
@@ -161,13 +156,24 @@ where
                     (count, ttl)
                 }
                 Err(err) => {
+                    // Fail closed: if Redis is unavailable we cannot enforce a
+                    // per-IP limit, so rejecting (503) is safer than silently
+                    // allowing unbounded traffic (the previous fail-open
+                    // behaviour). See plan Phase 6b.
                     warn!(
                         error = %err,
                         key = %key,
-                        "Redis error during rate limit check, allowing request"
+                        "Redis error during rate limit check, rejecting (fail-closed)"
                     );
-                    // Fail open: if Redis is down, allow the request through
-                    return inner.call(req).await;
+                    let response = (
+                        axum::http::StatusCode::SERVICE_UNAVAILABLE,
+                        axum::Json(serde_json::json!({
+                            "error": "rate limit service unavailable",
+                            "message": "Could not reach the rate-limit store. Try again shortly."
+                        })),
+                    )
+                        .into_response();
+                    return Ok(response);
                 }
             };
 
@@ -225,38 +231,35 @@ fn insert_header(headers: &mut axum::http::HeaderMap, name: &HeaderName, value: 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::{IpAddr, Ipv4Addr};
 
     #[test]
-    fn client_ip_from_x_forwarded_for() {
-        let req = axum::http::Request::builder()
-            .header("x-forwarded-for", "203.0.113.50, 70.41.3.18")
+    fn client_ip_reads_resolved_extension() {
+        // The middleware trusts the axum_client_ip layer, not raw headers.
+        let mut req = axum::http::Request::builder()
             .body(())
             .unwrap();
+        req.extensions_mut().insert(axum_client_ip::ClientIp(IpAddr::V4(
+            Ipv4Addr::new(203, 0, 113, 50),
+        )));
         assert_eq!(client_ip(&req), "203.0.113.50");
     }
 
     #[test]
-    fn client_ip_from_x_real_ip() {
+    fn client_ip_ignores_spoofed_headers_without_extension() {
+        // An attacker-supplied X-Forwarded-For must NOT be read directly; with
+        // no resolved extension the limiter falls back to "unknown".
         let req = axum::http::Request::builder()
-            .header("x-real-ip", "198.51.100.22")
+            .header("x-forwarded-for", "1.2.3.4")
+            .header("x-real-ip", "5.6.7.8")
             .body(())
             .unwrap();
-        assert_eq!(client_ip(&req), "198.51.100.22");
+        assert_eq!(client_ip(&req), "unknown");
     }
 
     #[test]
     fn client_ip_fallback_to_unknown() {
         let req = axum::http::Request::builder().body(()).unwrap();
         assert_eq!(client_ip(&req), "unknown");
-    }
-
-    #[test]
-    fn x_forwarded_for_takes_precedence() {
-        let req = axum::http::Request::builder()
-            .header("x-forwarded-for", "1.2.3.4")
-            .header("x-real-ip", "5.6.7.8")
-            .body(())
-            .unwrap();
-        assert_eq!(client_ip(&req), "1.2.3.4");
     }
 }

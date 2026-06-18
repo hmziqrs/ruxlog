@@ -3,6 +3,7 @@ name = "ruxlog-types"
 version = "0.1.0"
 edition = "2021"
 description = "Shared domain types for the ruxlog backend and frontend"
+publish = false
 
 [dependencies]
 serde = { version = "1.0.219", features = ["derive"] }

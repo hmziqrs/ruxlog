@@ -31,6 +31,15 @@ pub struct AuthSessionState<UserId> {
     /// Cached ban status
     pub is_banned: bool,
 
+    /// Snapshot of the user's `session_auth_hash()` captured at login time.
+    ///
+    /// On every subsequent request the extractor recomputes the user's current
+    /// hash and compares it to this stored value; a mismatch (e.g. the password
+    /// was changed/reset, or the user was deleted and recreated) invalidates the
+    /// session immediately. This is what kills all prior sessions after a
+    /// credential change without needing to enumerate session stores.
+    pub session_auth_hash: Vec<u8>,
+
     /// Optional device identifier
     pub device: Option<String>,
 
@@ -53,6 +62,7 @@ impl<UserId: Clone> AuthSessionState<UserId> {
             reauthenticated_at: None,
             ban_checked_at: None,
             is_banned: false,
+            session_auth_hash: Vec::new(),
             device: None,
             ip_address: None,
             last_seen: now,

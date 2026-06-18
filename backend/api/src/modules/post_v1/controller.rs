@@ -10,15 +10,19 @@ use crate::db::sea_models::{post_revision, post_series, post_series_post, schedu
 use axum_macros::debug_handler;
 use sea_orm::EntityTrait;
 use serde_json::json;
+use std::collections::HashSet;
 use tracing::{error, info, instrument, warn};
 
-use crate::db::sea_models::user::UserRole;
+use crate::db::sea_models::user::{self, UserRole};
 use crate::{
     db::sea_models::post,
     error::{ErrorCode, ErrorResponse},
     extractors::ValidatedJson,
     modules::post_v1::validator::V1UpdatePostPayload,
-    services::auth::AuthSession,
+    services::{
+        auth::AuthSession,
+        paywall::{self, PostAccessPolicy},
+    },
     AppState,
 };
 
@@ -26,6 +30,90 @@ use super::validator::{
     V1AutosavePayload, V1CreatePostPayload, V1PostQueryParams, V1SchedulePayload,
     V1SeriesCreatePayload, V1SeriesListQuery, V1SeriesUpdatePayload,
 };
+
+// ── Paywall helpers (plan Phase 4c) ─────────────────────────────────────
+//
+// Public read paths stamp each post with its access policy and blank out
+// `content` when the viewer lacks entitlement, so paid / subscriber-only bodies
+// are never shipped unauthenticated. The pure decision lives in
+// `services::paywall`; these helpers wire it onto `PostWithRelations`.
+
+/// Staff (moderator+) or the post's own author always see full content.
+fn viewer_bypasses_paywall(viewer: Option<&user::Model>, author_id: i32) -> bool {
+    match viewer {
+        Some(u) => u.is_moderator() || u.id == author_id,
+        None => false,
+    }
+}
+
+/// Stamp the access policy on a post and strip `content` if access is denied.
+async fn apply_paywall_single(
+    state: &AppState,
+    post: &mut post::PostWithRelations,
+    viewer: Option<&user::Model>,
+) -> Result<(), ErrorResponse> {
+    let bypass = viewer_bypasses_paywall(viewer, post.author.id);
+    let outcome =
+        paywall::user_has_access(&state.sea_db, viewer.map(|u| u.id), post.id, bypass).await?;
+    post.access_type = outcome.policy.access_type;
+    post.price_cents = outcome.policy.price_cents;
+    post.currency = outcome.policy.currency.clone();
+    post.has_access = outcome.granted;
+    if !outcome.granted {
+        // Drop the full body; `excerpt` (if any) remains as a public preview.
+        post.content = serde_json::Value::Object(serde_json::Map::new());
+    }
+    Ok(())
+}
+
+/// Batch-stamp policies and strip `content` for every gated post the viewer
+/// can't read. Costs three queries total regardless of page size (policies,
+/// purchases, subscription).
+async fn apply_paywall_list(
+    state: &AppState,
+    posts: &mut [post::PostWithRelations],
+    viewer: Option<&user::Model>,
+) -> Result<(), ErrorResponse> {
+    let ids: Vec<i32> = posts.iter().map(|p| p.id).collect();
+    let policies = paywall::load_post_access_map(&state.sea_db, &ids).await?;
+
+    let is_staff = viewer.map(|u| u.is_moderator()).unwrap_or(false);
+    // Entitlements are only needed for non-staff logged-in viewers; staff and
+    // anonymous viewers resolve without them (staff via bypass, anon never has).
+    let (purchased, has_active_sub) = if let Some(u) = viewer.filter(|_| !is_staff) {
+        (
+            paywall::user_purchased_post_ids(&state.sea_db, u.id, &ids).await?,
+            paywall::user_has_active_subscription(&state.sea_db, u.id).await?,
+        )
+    } else {
+        (HashSet::new(), false)
+    };
+
+    for post in posts {
+        let policy = policies
+            .get(&post.id)
+            .cloned()
+            .unwrap_or_else(PostAccessPolicy::free);
+        let bypass = is_staff
+            || viewer
+                .map(|u| u.id == post.author.id)
+                .unwrap_or(false);
+        let granted = paywall::decide_access(
+            &policy,
+            bypass,
+            purchased.contains(&post.id),
+            has_active_sub,
+        );
+        post.access_type = policy.access_type;
+        post.price_cents = policy.price_cents;
+        post.currency = policy.currency.clone();
+        post.has_access = granted;
+        if !granted {
+            post.content = serde_json::Value::Object(serde_json::Map::new());
+        }
+    }
+    Ok(())
+}
 
 #[debug_handler]
 #[instrument(skip(state, auth, payload), fields(user_id, post_id, slug, result))]
@@ -58,9 +146,10 @@ pub async fn create(
 }
 
 #[debug_handler]
-#[instrument(skip(state), fields(identifier = %slug_or_id, post_id, result))]
+#[instrument(skip(state, auth), fields(identifier = %slug_or_id, post_id, result))]
 pub async fn find_by_id_or_slug(
     State(state): State<AppState>,
+    auth: AuthSession,
     Path(slug_or_id): Path<String>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     info!(identifier = %slug_or_id, "Finding post by ID or slug");
@@ -89,10 +178,26 @@ pub async fn find_by_id_or_slug(
     };
 
     match query {
-        Ok(Some(post)) => {
+        Ok(Some(mut post)) => {
             info!(post_id = post.id, "Post found");
             tracing::Span::current().record("post_id", post.id);
             tracing::Span::current().record("result", "found");
+
+            // Status gate (audit F#12): the public single-post read must only
+            // serve Published posts. Draft/Archived posts are hidden from the
+            // public entirely — we 404 (not 403) so the existence of an
+            // unpublished post isn't leaked. The author and staff (moderator+)
+            // bypass so they can preview their own work.
+            let bypass = viewer_bypasses_paywall(auth.user.as_ref(), post.author.id);
+            if !bypass && post.status != post::PostStatus::Published {
+                tracing::Span::current().record("result", "hidden_status");
+                return Err(ErrorResponse::new(ErrorCode::RecordNotFound)
+                    .with_message("Post not found"));
+            }
+
+            // Enforce the server-side paywall: strip `content` for unentitled
+            // viewers of paid / subscriber-only posts.
+            apply_paywall_single(&state, &mut post, auth.user.as_ref()).await?;
             Ok((StatusCode::OK, Json(json!(post))))
         }
         Ok(None) => {
@@ -167,6 +272,7 @@ pub async fn delete(
 #[debug_handler]
 pub async fn find_published_posts(
     State(state): State<AppState>,
+    auth: AuthSession,
     payload: ValidatedJson<V1PostQueryParams>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let page = payload.page.unwrap_or(1);
@@ -177,15 +283,20 @@ pub async fn find_published_posts(
     )
     .await
     {
-        Ok((posts, total)) => Ok((
-            StatusCode::OK,
-            Json(json!({
-                "data": posts,
-                "total": total,
-                "per_page": post::Entity::PER_PAGE,
-                "page": page,
-            })),
-        )),
+        Ok((mut posts, total)) => {
+            // Strip gated content the viewer isn't entitled to (lists never need
+            // full bodies of paid posts anyway).
+            apply_paywall_list(&state, &mut posts, auth.user.as_ref()).await?;
+            Ok((
+                StatusCode::OK,
+                Json(json!({
+                    "data": posts,
+                    "total": total,
+                    "per_page": post::Entity::PER_PAGE,
+                    "page": page,
+                })),
+            ))
+        }
         Err(err) => Err(err),
     }
 }

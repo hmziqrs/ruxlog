@@ -2,7 +2,7 @@ use axum::{
     extract::State,
     http::{header, StatusCode},
     middleware,
-    routing::get,
+    routing::{get, post},
     Json, Router,
 };
 use tower_http::{
@@ -13,7 +13,7 @@ use tracing::Level;
 
 use crate::middlewares::{http_metrics, rate_limit, request_id_middleware, security_headers};
 use crate::modules::{
-    auth_v1, category_v1, feed_v1, media_v1, post_v1, search_v1, tag_v1, user_v1,
+    auth_v1, category_v1, csrf_v1, feed_v1, media_v1, post_v1, search_v1, tag_v1, user_v1,
 };
 use fred::interfaces::ClientLike;
 
@@ -51,6 +51,11 @@ pub fn router(state: AppState) -> Router<AppState> {
         .route("/healthz", get(health_check))
         .route("/robots.txt", get(robots_txt))
         .route("/sitemap.xml", get(sitemap_xml))
+        // Per-session CSRF token issuer. Lives inside the main router so the
+        // SessionManagerLayer and csrf_guard both apply (it's exempted from the
+        // latter via the exact-match exempt list). The handler bootstraps a new
+        // session and returns a token bound to its id.
+        .route("/csrf/v1/generate", post(csrf_v1::controller::generate))
         .nest(
             "/auth/v1",
             auth_v1::routes().layer(rate_limit::RateLimitLayer::new(state.clone(), 100, 60)),
@@ -141,17 +146,14 @@ pub fn router(state: AppState) -> Router<AppState> {
         .layer(middleware::from_fn(request_id_middleware))
         .layer(middleware::from_fn(http_metrics::track_metrics))
         .layer(
+            // Do NOT capture headers in spans/responses: Cookie, Authorization, and
+            // csrf-token would otherwise ship to OTLP at INFO. See plan Phase 2b.
             TraceLayer::new_for_http()
-                .make_span_with(
-                    DefaultMakeSpan::new()
-                        .level(Level::INFO)
-                        .include_headers(true),
-                )
+                .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
                 .on_response(
                     DefaultOnResponse::new()
                         .level(Level::INFO)
-                        .latency_unit(LatencyUnit::Millis)
-                        .include_headers(true),
+                        .latency_unit(LatencyUnit::Millis),
                 ),
         )
 }

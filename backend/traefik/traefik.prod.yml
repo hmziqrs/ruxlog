@@ -1,8 +1,19 @@
 entryPoints:
   web:
     address: ":80"
+    # forwardedHeaders.trustedIPs: list ONLY the egress IPs of an upstream
+    # reverse proxy / CDN that fronts this Traefik (if any). Leave EMPTY when
+    # Traefik is the public edge — Traefik then trusts no client-supplied
+    # X-Forwarded-* headers and derives the client IP from the TCP peer, which
+    # is the spoofing-resistant default. Populate only behind a known proxy.
+    # (Defence-in-depth: the app's client_ip() already derives IP from the
+    # IP_SOURCE-configured axum_client_ip, not raw headers — plan Phase 6b.)
+    forwardedHeaders:
+      trustedIPs: []
   websecure:
     address: ":443"
+    forwardedHeaders:
+      trustedIPs: []
 
 log:
   level: INFO

@@ -17,7 +17,7 @@ impl Entity {
         let now = Utc::now().fixed_offset();
         let forgot_password = ActiveModel {
             user_id: Set(new_forgot_password.user_id),
-            code: Set(new_forgot_password.code),
+            code_hash: Set(new_forgot_password.code_hash),
             created_at: Set(now),
             updated_at: Set(now),
             ..Default::default()
@@ -33,9 +33,9 @@ impl Entity {
         conn: &DbConn,
         user_id: Option<i32>,
         email: Option<&str>,
-        code: Option<&str>,
+        code_hash: Option<&str>,
     ) -> DbResult<Model> {
-        if user_id.is_none() && email.is_none() && code.is_none() {
+        if user_id.is_none() && email.is_none() && code_hash.is_none() {
             return Err(ErrorResponse::new(ErrorCode::InvalidInput)
                 .with_message("Either user_id, email or code must be provided"));
         }
@@ -44,8 +44,8 @@ impl Entity {
         if let Some(user_id) = user_id {
             query = query.filter(Column::UserId.eq(user_id));
         }
-        if let Some(code) = code {
-            query = query.filter(Column::Code.eq(code));
+        if let Some(code_hash) = code_hash {
+            query = query.filter(Column::CodeHash.eq(code_hash));
         }
         if let Some(email) = email {
             query = query
@@ -86,15 +86,29 @@ impl Entity {
         Ok(1)
     }
 
-    pub async fn regenerate(conn: &DbConn, user_id: i32) -> DbResult<Model> {
+    /// Delete any stored forgot-password code for `user_id` WITHOUT touching the
+    /// password — used by the `verify` step to make the emailed code single-use
+    /// (audit F#9). After this returns, the emailed code can no longer be used
+    /// to reset; the caller issues a fresh single-use `reset_token` instead.
+    pub async fn consume_code(conn: &DbConn, user_id: i32) -> DbResult<u64> {
+        Self::delete_many()
+            .filter(Column::UserId.eq(user_id))
+            .exec(conn)
+            .await
+            .map(|r| r.rows_affected)
+            .map_err(Into::into)
+    }
+
+    /// Upsert the (already-hashed) code for a user. The caller generates the
+    /// plaintext code, emails it, and passes `hash_code(secret, plaintext)` here.
+    pub async fn regenerate(conn: &DbConn, user_id: i32, code_hash: String) -> DbResult<Model> {
         let now = Utc::now().fixed_offset();
-        let new_code = Self::generate_code();
 
         let existing = Self::find_query(conn, Some(user_id), None, None).await;
 
         if let Ok(existing_model) = existing {
             let mut active_model: ActiveModel = existing_model.into_active_model();
-            active_model.code = Set(new_code);
+            active_model.code_hash = Set(code_hash);
             active_model.updated_at = Set(now);
 
             match active_model.update(conn).await {
@@ -102,10 +116,7 @@ impl Entity {
                 Err(err) => Err(err.into()),
             }
         } else {
-            let new_forgot_password = NewForgotPassword {
-                user_id,
-                code: new_code,
-            };
+            let new_forgot_password = NewForgotPassword { user_id, code_hash };
             Self::create(conn, new_forgot_password).await
         }
     }
@@ -120,8 +131,8 @@ impl Entity {
             db_query = db_query.filter(Column::UserId.eq(user_id));
         }
 
-        if let Some(code) = &query.code {
-            db_query = db_query.filter(Column::Code.eq(code));
+        if let Some(code_hash) = &query.code_hash {
+            db_query = db_query.filter(Column::CodeHash.eq(code_hash));
         }
 
         if let Some(created_at) = query.created_at {
@@ -143,7 +154,7 @@ impl Entity {
                 match field.as_str() {
                     "id" => db_query = db_query.order_by(Column::Id, order),
                     "user_id" => db_query = db_query.order_by(Column::UserId, order),
-                    "code" => db_query = db_query.order_by(Column::Code, order),
+                    "code_hash" => db_query = db_query.order_by(Column::CodeHash, order),
                     "created_at" => db_query = db_query.order_by(Column::CreatedAt, order),
                     "updated_at" => db_query = db_query.order_by(Column::UpdatedAt, order),
                     _ => {}

@@ -4,7 +4,6 @@
 //! - Rich session state (not just user_id)
 //! - Composable requirement middleware
 //! - Inverse route guards (unauthenticated/unverified only)
-//! - OAuth provider abstraction
 //! - Trait-based integration
 //!
 //! # Quick Start
@@ -33,7 +32,6 @@
 
 pub mod error;
 pub mod middleware;
-pub mod oauth;
 pub mod requirements;
 pub mod session;
 pub mod traits;
@@ -50,9 +48,3 @@ pub use requirements::{auth_requirements, AuthRequirements};
 
 // Middleware exports
 pub use middleware::{auth_guard, auth_guard_fn, check_requirements, AuthGuard, AuthGuardLayer};
-
-// OAuth exports
-pub use oauth::{
-    CsrfStorage, GoogleProvider, GoogleUserInfo, OAuthProvider, OAuthProviderConfig,
-    OAuthUserHandler, OAuthUserInfo,
-};

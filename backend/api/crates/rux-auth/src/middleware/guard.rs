@@ -126,9 +126,11 @@ pub async fn check_requirements<B: AuthBackend>(
         return Err(AuthError::new(AuthErrorCode::Unauthenticated));
     }
 
-    // Get user and state for remaining checks
+    // Get user and state for remaining checks. Clone out of the immutable
+    // borrow on `auth` so the ban-refresh path below can take `&mut auth` to
+    // write the refreshed status back into the session.
     let (user, state) = match (&auth.user, &auth.state) {
-        (Some(u), Some(s)) => (u, s),
+        (Some(u), Some(s)) => (u.clone(), s.clone()),
         _ => {
             // No user but we didn't require auth - pass through
             if requirements.authenticated != Some(true) {
@@ -150,6 +152,20 @@ pub async fn check_requirements<B: AuthBackend>(
     }
 
     // Check TOTP requirement
+    //
+    // NOTE (audit F#4 / F#7 — intentionally not enforced): this check, the
+    // `.totp_verified()` / `.totp_if_enabled()` builders, the matching
+    // `reauth_within` step-up check below, and the session-state fields they
+    // read (`totp_verified_at`, `reauthenticated_at`, via `mark_totp_verified`
+    // / `mark_reauthenticated`) are **wired to nothing**: no route layer or
+    // handler in the app composes these requirements. Per the project decision
+    // "leave the login flow as-is, fix leaks only", login does not issue a
+    // partial session that demands a TOTP challenge, and there is no step-up
+    // (re-enter-password) guard on sensitive routes. The infrastructure is kept
+    // so a future login-time 2FA challenge can be switched on by chaining
+    // `.totp_if_enabled()` onto the live guards — but until that decision is
+    // reversed, 2FA enrollment has no effect on the access decision. See
+    // `docs/CRYPTO_AUDIT.md` → "Accepted Deferrals".
     if let Some(strict) = requirements.totp_verified {
         if strict {
             // Strict mode: must have TOTP verified this session
@@ -165,6 +181,11 @@ pub async fn check_requirements<B: AuthBackend>(
     }
 
     // Check reauth requirement
+    //
+    // NOTE (audit F#7): step-up / re-authentication. Same status as the TOTP
+    // check above — the machinery exists but no route composes it, by the same
+    // "leave the login flow as-is" decision. It is dead code pending that
+    // decision being reversed.
     if let Some(duration) = requirements.reauth_within {
         if !state.reauth_within(duration) {
             return Err(AuthError::new(AuthErrorCode::ReauthRequired)
@@ -176,9 +197,11 @@ pub async fn check_requirements<B: AuthBackend>(
     if requirements.not_banned {
         // Check if we need to refresh ban status
         if state.ban_cache_stale(requirements.ban_cache_duration) {
+            // check_ban returns an owned BanStatus, so the &auth borrow ends here
+            // and we can write the refreshed status back to the session below.
             let ban_status = auth.backend().check_ban(&user.id()).await?;
-            // Note: we can't update the session here as we have immutable borrow
-            // The middleware should handle this
+            // Persist the refreshed ban status into the session cache.
+            auth.update_ban_status(&ban_status).await?;
             if ban_status.is_banned() {
                 return Err(AuthError::new(AuthErrorCode::Banned));
             }

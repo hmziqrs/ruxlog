@@ -1,4 +1,4 @@
-use axum::{extract::State, http::HeaderName, middleware, routing, Extension};
+use axum::{extract::State, http::HeaderName, middleware, Extension};
 use axum_client_ip::ClientIpSource;
 use axum_extra::extract::cookie::SameSite;
 use std::{env, net::SocketAddr, time::Duration};
@@ -9,10 +9,9 @@ use tower_http::{
 use tower_sessions::{cookie::Key, Expiry, SessionManagerLayer};
 use tower_sessions_redis_store::RedisStore;
 
-use modules::csrf_v1;
 use ruxlog::utils::cors::get_allowed_origins;
 use ruxlog::{
-    db, middlewares, modules, router,
+    db, middlewares, router,
     services::{self, redis::init_redis_store},
     state::{AppState, ObjectStorageConfig},
     utils::telemetry,
@@ -32,17 +31,6 @@ use ruxlog::services::billing::BillingProvider;
 
 #[cfg(feature = "billing")]
 use ruxlog::services::billing::router::{BillingRouter, GeoRouter, GeoRulesConfig};
-
-fn hex_to_512bit_key(hex: &str) -> [u8; 64] {
-    use sha2::{Digest, Sha512};
-    let bytes = hex::decode(hex).expect("Invalid hex string");
-    let mut hasher = Sha512::new();
-    hasher.update(bytes);
-    let result = hasher.finalize();
-    let mut array = [0u8; 64];
-    array.copy_from_slice(&result);
-    array
-}
 
 fn env_bool(key: &str, default: bool) -> bool {
     env::var(key)
@@ -227,8 +215,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             providers.insert(k, v);
         }
 
-        // LemonSqueezy
-        if let Some((k, v)) = try_init("lemonsqueezy", || {
+        // LemonSqueezy — key MUST match `provider_name()` ("lemon_squeezy") so the
+        // webhook path `/webhook/lemon_squeezy` resolves on the router. The prior
+        // `"lemonsqueezy"` registration 404'd every LemonSqueezy webhook (plan 1e).
+        if let Some((k, v)) = try_init("lemon_squeezy", || {
             let api_key = env::var("LEMONSQUEEZY_API_KEY").ok()?;
             let wh = env::var("LEMONSQUEEZY_WEBHOOK_SECRET").ok()?;
             let store_id = env::var("LEMONSQUEEZY_STORE_ID").ok()?;
@@ -240,12 +230,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             providers.insert(k, v);
         }
 
-        // Paddle
+        // Paddle — verifies webhooks with an Ed25519 public key (PADDLE_PUBLIC_KEY,
+        // hex of 32 bytes). Without it the provider verifies fail-closed.
         if let Some((k, v)) = try_init("paddle", || {
             let client_token = env::var("PADDLE_CLIENT_TOKEN").ok()?;
             let wh = env::var("PADDLE_WEBHOOK_SECRET").ok()?;
-            Some(std::sync::Arc::new(PaddleProvider::new(client_token, wh))
-                as std::sync::Arc<dyn BillingProvider>)
+            let mut provider = PaddleProvider::new(client_token, wh);
+            match env::var("PADDLE_PUBLIC_KEY") {
+                Ok(hex_key) if !hex_key.trim().is_empty() => {
+                    provider = provider.with_public_key(&hex_key).ok()?;
+                }
+                _ => tracing::warn!(
+                    "PADDLE_PUBLIC_KEY not set; Paddle webhooks will fail verification until it is configured"
+                ),
+            }
+            Some(std::sync::Arc::new(provider) as std::sync::Arc<dyn BillingProvider>)
         }) {
             providers.insert(k, v);
         }
@@ -322,15 +321,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             providers.insert(k, v);
         }
 
-        // PayPal
+        // PayPal — webhooks are verified via PayPal's verify-webhook-signature
+        // API, which requires the webhook ID PayPal issues on registration
+        // (PAYPAL_WEBHOOK_ID). Without it the provider verifies fail-closed.
         if let Some((k, v)) = try_init("paypal", || {
             let client_id = env::var("PAYPAL_CLIENT_ID").ok()?;
             let client_secret = env::var("PAYPAL_CLIENT_SECRET").ok()?;
             let wh = env::var("PAYPAL_WEBHOOK_SECRET").ok()?;
-            Some(
-                std::sync::Arc::new(PayPalProvider::new(client_id, client_secret, wh))
-                    as std::sync::Arc<dyn BillingProvider>,
-            )
+            let mut provider = PayPalProvider::new(client_id, client_secret, wh);
+            if let Ok(id) = env::var("PAYPAL_WEBHOOK_ID") {
+                if !id.is_empty() {
+                    provider = provider.with_webhook_id(id);
+                }
+            }
+            if provider.webhook_id.is_none() {
+                tracing::warn!(
+                    "PAYPAL_WEBHOOK_ID not set; PayPal webhooks will fail verification until it is configured"
+                );
+            }
+            Some(std::sync::Arc::new(provider) as std::sync::Arc<dyn BillingProvider>)
         }) {
             providers.insert(k, v);
         }
@@ -354,6 +363,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         mailer,
         object_storage,
         s3_client,
+        secret_key: cookie_key_str.as_bytes().to_vec(),
         #[cfg(feature = "image-optimization")]
         optimizer,
         meter: telemetry::global_meter(),
@@ -450,13 +460,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!("Redis successfully established.");
     let session_store = RedisStore::new(redis_pool);
-    let cookie_key_byes = hex_to_512bit_key(&cookie_key_str);
-    let cookie_key = Key::from(&cookie_key_byes);
+    // Derive the cookie signing+encryption key via HKDF-SHA256 rather than the
+    // previous raw SHA-512 of COOKIE_KEY (a fast hash is the wrong tool for key
+    // derivation: a weak COOKIE_KEY collapses to a brute-forceable key). cookie's
+    // Key::derive_from applies HKDF-SHA256 to the material. Note: changing the
+    // KDF rotates the derived key, so existing private cookies/sessions
+    // invalidate and users re-authenticate once. See plan Phase 2d.
+    let cookie_key = Key::derive_from(cookie_key_str.as_bytes());
+
+    // Secure cookies by default; dev/local sets COOKIE_SECURE=false. A permanent
+    // .with_secure(false) blocked the Secure flag in production. See plan 2e.
+    let cookie_secure = env_bool("COOKIE_SECURE", true);
 
     let session_layer = SessionManagerLayer::new(session_store)
         .with_expiry(Expiry::OnInactivity(time::Duration::hours(24 * 14)))
         .with_same_site(SameSite::Lax)
-        .with_secure(false)
+        .with_secure(cookie_secure)
         .with_http_only(true)
         .with_private(cookie_key);
 
@@ -496,7 +515,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut app = router::router(state.clone())
         .layer(ip_source.into_extension())
         .layer(db_extension)
-        .layer(session_layer)
+        // NOTE: `session_layer` is applied *after* `csrf_guard` below so that it
+        // is the OUTER layer. Order matters: later `.layer()` calls wrap the
+        // earlier ones, so a request flows session_layer → csrf_guard → router.
+        // The Session is therefore present in the request extensions when
+        // `csrf_guard` runs, letting it recompute the per-session HMAC token.
         //     config: governor_conf,
         // })
         .layer(compression)
@@ -508,10 +531,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ))
         .layer(middleware::from_fn(middlewares::cors::origin_guard))
         .layer(middleware::from_fn(middlewares::static_csrf::csrf_guard))
-        .route(
-            "/csrf/v1/generate",
-            routing::post(csrf_v1::controller::generate),
-        )
+        .layer(session_layer)
         .layer(cors);
 
     #[cfg(feature = "admin-routes")]

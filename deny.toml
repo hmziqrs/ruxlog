@@ -1,0 +1,131 @@
+# cargo-deny configuration — see https://embarkstudios.github.io/cargo-deny/
+#
+# Run locally:  cargo deny --manifest-path backend/api/Cargo.toml check
+# CI:           .github/workflows/security-audit.yml runs `cargo deny check` +
+#               `cargo audit` on every push/PR touching backend/Cargo.lock.
+#
+# Goal (plan Phase 6g): surface known-vulnerable crates (`[advisories]`) and
+# license violations in CI. Duplicate crate versions are a *warning*, not a
+# hard failure, because the two unavoidable duplicates below are pulled
+# transitively by the AWS SDK and cannot be collapsed without a major SDK bump.
+
+# ── Advisories: the load-bearing check. Fail CI on any RUSTSEC advisory. ─────
+[advisories]
+# Fetch the live advisory DB (default). CI is the right place to enforce this.
+db-urls = ["https://github.com/rustsec/advisory-db"]
+# A yanked crate version must not ship — treat as an error.
+yanked = "deny"
+# Downgrade unmaintained / unsound to workspace-scoped: cargo-deny fails on an
+# unmaintained/unsound advisory only when a workspace member DIRECTLY depends on
+# the affected crate (Scope::Workspace) — i.e. the actionable "you pulled in an
+# unmaintained dep" case. Deeply transitive unmaintained crates (the GTK
+# desktop-frontend stack atk/gdk/gtk/glib, never built for the server target)
+# are not surfaced as failures here; cargo-audit still reports them as
+# informational warnings. Real vulnerabilities always fail.
+unmaintained = "workspace"
+unsound = "workspace"
+# Ignore specific, assessed-and-accepted advisories here. Each entry carries the
+# RUSTSEC id and a written reason. Do NOT add an entry without a justification.
+#
+# Every entry below has no available fix for the version we are pinned to;
+# reassess when an upstream patch lands. (Phase 6g dep bumps cut cargo-audit
+# from 20 to 4 real vulnerabilities; the rsa + webpki IDs carry over.)
+ignore = [
+    # rsa 0.9.x — Marvin Attack (timing side-channel on private-key ops).
+    # Advisory: "No fixed upgrade is available!" — no patched rsa exists as of
+    # 2026-06. Exploitation requires an attacker to drive many RSA private-key
+    # operations on the target (privileged local access to the key path). We do
+    # not perform RSA ourselves — all signature ops use Ed25519 / HMAC-SHA256 /
+    # aws-lc-rs — and `cargo tree -i rsa` returns empty: rsa is a lockfile ghost
+    # from an optional/platform-gated transitive dep and is never compiled into
+    # any built target. Pure lockfile-residual risk.
+    { id = "RUSTSEC-2023-0071", reason = "rsa Marvin: no upstream fix; not in the built graph; no RSA ops in ruxlog." },
+
+    # rustls-webpki 0.101.7 — three advisories (CRL panic, URI-name-constraint
+    # mis-acceptance, wildcard-name-constraint mis-acceptance). 0.101.7 is
+    # pinned by rustls 0.21.12, which is itself pinned by aws-smithy-http-client
+    # (via aws-config / aws-sdk-s3) for one internal HTTPS path. No patched
+    # rustls 0.21.x exists; the fix lives in rustls-webpki >=0.103.x, reached
+    # only by moving the AWS SDK off rustls 0.21. Unavoidable while on the SDK.
+    # The rest of our TLS surface (fred, native-tls/openssl, sea-orm) is on
+    # rustls 0.23 / openssl >=0.10.72 and unaffected.
+    { id = "RUSTSEC-2026-0104", reason = "rustls-webpki 0.101.7 CRL panic; pinned by AWS SDK rustls 0.21, no 0.21.x patch." },
+    { id = "RUSTSEC-2026-0098", reason = "rustls-webpki 0.101.7 URI name-constraint bug; pinned by AWS SDK rustls 0.21." },
+    { id = "RUSTSEC-2026-0099", reason = "rustls-webpki 0.101.7 wildcard name-constraint bug; pinned by AWS SDK rustls 0.21." },
+
+    # async-std 1.13.x — "has been discontinued" (unmaintained). Pulled directly
+    # by our `migration` path-crate (SeaORM migration tooling), which is why the
+    # workspace-scope above still flags it. No maintained drop-in is wired into
+    # the migration setup; the runtime itself is tokio. Accepted until the
+    # migration crate's async-std usage can be removed upstream.
+    { id = "RUSTSEC-2025-0052", reason = "async-std unmaintained; pinned by the `migration` path-crate, no drop-in; runtime is tokio." },
+]
+
+# ── Licenses: deny anything outside this allowlist. ─────────────────────────
+[licenses]
+# Our own workspace path-crates (ruxlog, migration, rux-auth, ruxlog-types) are
+# private/self-hosted and intentionally carry no `license` field. Skip the
+# license check for them so it stays focused on third-party crates.
+private = { ignore = true }
+# New crates must land under one of these permissive / copyleft licenses.
+allow = [
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "MPL-2.0",
+    "Zlib",
+    "Unicode-DFS-2016",
+    "Unicode-3.0",
+    "CC0-1.0",
+    "Unlicense",
+    "OpenSSL",
+    # 0BSD — BSD Zero Clause (permissive; used by e.g. small transitive utility
+    # crates). CDLA-Permissive-2.0 — Community Data License Agreement Permissive
+    # (a permissive data license carried by a crate in the sqlx tree).
+    "0BSD",
+    "CDLA-Permissive-2.0",
+]
+# Confidence threshold for the license-expression scanner.
+confidence-threshold = 0.93
+
+# ── Bans: duplicate-version awareness (warn, don't break CI). ───────────────
+[bans]
+# Warn on multiple versions so NEW duplicates are visible in CI logs without
+# failing the build (the accepted transitive duplicates are skipped below).
+multiple-versions = "warn"
+wildcards = "warn"
+highlight = "all"
+# These duplicates are transitive via the AWS SDK (aws-config / aws-sdk-s3) and
+# the rustls/getrandom crypto stack; they have no open advisories and cannot be
+# collapsed from this crate. Skipping them keeps the warnings signal clean for
+# any *new* duplicate that a dependency change might introduce.
+skip = [
+    # aws-smithy-http-client still pulls hyper-rustls 0.24 (rustls 0.21) for one
+    # internal HTTP path while the rest of the graph (fred, newer AWS connectors)
+    # is on rustls 0.23.
+    { name = "rustls", version = "0.21" },
+    # getrandom resolves to THREE transitive versions, all pulled by the AWS SDK
+    # stack and impossible to collapse from this crate:
+    #   0.2 - rand_core 0.6 <- crypto-bigint <- aws-sigv4 (sigv4 request signing)
+    #   0.3 - rand_core 0.9 / the cc build-script <- aws-lc-sys <- aws-lc-rs
+    #   0.4 - rand 0.10 <- uuid <- aws-runtime
+    # Skipping the two older transitive residuals (0.2 and 0.3) leaves the
+    # newest (0.4) as the single representative, so this known-and-accepted
+    # duplicate no longer drowns the "a new duplicate appeared" signal that
+    # multiple-versions = "warn" is here to surface.
+    { name = "getrandom", version = "0.2" },
+    { name = "getrandom", version = "0.3" },
+]
+
+# ── Sources: only crates.io (deny git/registry forks by default). ───────────
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+# The only crate registry we consume. (The advisory-db URL belongs in
+# `[advisories].db-urls` above, NOT here — `allow-registry` lists where crates
+# are fetched from.)
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

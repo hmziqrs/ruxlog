@@ -1,6 +1,7 @@
 use std::{env, time::Duration};
 
 use tower_sessions_redis_store::fred::prelude::*;
+use tower_sessions_redis_store::fred::types::config::TlsHostMapping;
 
 use tokio::task::JoinHandle;
 use tracing::{error, info, instrument, warn};
@@ -16,12 +17,30 @@ fn redis_config() -> Config {
 
     info!(redis_host = %host, redis_port = port, "Configuring Redis connection");
 
+    // Optional TLS (rediss) transport, gated by REDIS_TLS=true|1. Uses the
+    // system trust store via rustls-native-certs. See plan Phase 6a.
+    let tls = if env::var("REDIS_TLS")
+        .map(|v| v.eq_ignore_ascii_case("true") || v == "1")
+        .unwrap_or(false)
+    {
+        info!("Enabling TLS for the Redis connection (REDIS_TLS=true)");
+        Some(TlsConfig {
+            connector: TlsConnector::default_rustls().expect(
+                "REDIS_TLS set but could not build a rustls connector from the native cert store",
+            ),
+            hostnames: TlsHostMapping::None,
+        })
+    } else {
+        None
+    };
+
     Config {
         username: Some(env::var("REDIS_USER").expect("REDIS_USER must be set")),
         password: Some(env::var("REDIS_PASSWORD").expect("REDIS_PASSWORD must be set")),
         server: ServerConfig::Centralized {
             server: Server::new(host, port),
         },
+        tls,
         ..Default::default()
     }
 }

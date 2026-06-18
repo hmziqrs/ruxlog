@@ -61,6 +61,18 @@ pub struct CreateCheckoutPayload {
     pub cancel_url: Option<String>,
 }
 
+/// One-time purchase of a single gated post. The amount charged is the
+/// server-side price from the post's access policy — never the client's.
+#[derive(Debug, Deserialize, Serialize, Validate)]
+pub struct CreatePostCheckoutPayload {
+    #[validate(range(min = 1))]
+    pub post_id: i32,
+    /// Override success URL (optional, server provides default)
+    pub success_url: Option<String>,
+    /// Override cancel URL (optional, server provides default)
+    pub cancel_url: Option<String>,
+}
+
 // --- Subscription management ---
 
 #[derive(Debug, Deserialize, Serialize)]

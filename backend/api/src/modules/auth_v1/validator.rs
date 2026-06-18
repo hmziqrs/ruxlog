@@ -17,7 +17,7 @@ fn validate_email(email: &str) -> Result<(), ValidationError> {
 pub struct V1LoginPayload {
     #[validate(email)]
     pub email: String,
-    #[validate(length(min = 1))]
+    #[validate(length(min = 12))]
     pub password: String,
 }
 
@@ -27,7 +27,7 @@ pub struct V1RegisterPayload {
     pub name: String,
     #[validate(email, custom(function = "validate_email"))]
     pub email: String,
-    #[validate(length(min = 1))]
+    #[validate(length(min = 12))]
     pub password: String,
 }
 
@@ -130,7 +130,7 @@ mod tests {
         let payload = V1RegisterPayload {
             name: "Bob".to_string(),
             email: "bob@test.com".to_string(),
-            password: "password123".to_string(),
+            password: "strongpassword123".to_string(),
         };
         assert!(payload.validate().is_ok());
     }
@@ -140,7 +140,7 @@ mod tests {
         let payload = V1RegisterPayload {
             name: "".to_string(),
             email: "bob@test.com".to_string(),
-            password: "password123".to_string(),
+            password: "strongpassword123".to_string(),
         };
         assert!(payload.validate().is_err());
     }
@@ -160,7 +160,7 @@ mod tests {
         let payload = V1RegisterPayload {
             name: "Bob".to_string(),
             email: "not-an-email".to_string(),
-            password: "password123".to_string(),
+            password: "strongpassword123".to_string(),
         };
         assert!(payload.validate().is_err());
     }
@@ -171,7 +171,7 @@ mod tests {
     fn login_payload_valid() {
         let payload = V1LoginPayload {
             email: "user@host.com".to_string(),
-            password: "pass".to_string(),
+            password: "validpassword123".to_string(),
         };
         assert!(payload.validate().is_ok());
     }

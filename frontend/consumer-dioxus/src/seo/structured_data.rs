@@ -1,8 +1,26 @@
 use dioxus::prelude::*;
-use serde_json::json;
+use serde_json::{json, Value};
 
 use super::config::SEO_CONFIG;
 use ruxlog_shared::Post;
+
+/// Serialize JSON-LD for safe embedding inside a
+/// `<script type="application/ld+json">…</script>` element.
+///
+/// `serde_json::to_string` does not escape `<`, `>` or `&`, so any
+/// attacker/admin-controlled string interpolated into the schema (post titles,
+/// tag/category/author names, breadcrumb labels) could otherwise contain
+/// `</script>` and terminate the script context — enabling markup injection in
+/// the page (plan Phase 6e). Escaping the three HTML-significant characters as
+/// JSON Unicode escapes keeps the JSON valid while making it inert inside an
+/// HTML script element.
+fn to_safe_json_ld(value: &Value) -> String {
+    serde_json::to_string(value)
+        .unwrap_or_else(|_| "{}".to_string())
+        .replace('<', "\\u003c")
+        .replace('>', "\\u003e")
+        .replace('&', "\\u0026")
+}
 
 /// Generate Article schema JSON-LD for blog posts
 pub fn article_schema(post: &Post) -> String {
@@ -35,7 +53,7 @@ pub fn article_schema(post: &Post) -> String {
         "keywords": post.tags.iter().map(|t| &t.name).collect::<Vec<_>>()
     });
 
-    serde_json::to_string(&schema).unwrap_or_else(|_| "{}".to_string())
+    to_safe_json_ld(&schema)
 }
 
 /// Generate BreadcrumbList schema
@@ -63,7 +81,7 @@ pub fn breadcrumb_schema(items: Vec<(&str, &str)>) -> String {
         "itemListElement": list_items
     });
 
-    serde_json::to_string(&schema).unwrap_or_else(|_| "{}".to_string())
+    to_safe_json_ld(&schema)
 }
 
 /// Generate WebSite schema for homepage
@@ -84,7 +102,7 @@ pub fn website_schema() -> String {
         }
     });
 
-    serde_json::to_string(&schema).unwrap_or_else(|_| "{}".to_string())
+    to_safe_json_ld(&schema)
 }
 
 /// Component to inject JSON-LD structured data into the page

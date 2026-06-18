@@ -4,7 +4,7 @@ use sea_orm::prelude::{DateTimeWithTimeZone, Json};
 use sea_orm::FromQueryResult;
 use serde::{Deserialize, Serialize};
 
-pub use ruxlog_types::enums::PostSortBy;
+pub use ruxlog_types::enums::{PostAccessType, PostSortBy};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthorMedia {
@@ -125,6 +125,11 @@ pub struct PostWithRelations {
     pub id: i32,
     pub title: String,
     pub slug: String,
+    // Sanitized on read (plan Phase 6e): every client-facing serialization
+    // strips XSS payloads from the EditorJS block fields the frontends render
+    // via `dangerous_inner_html` (paragraph text, list items, raw html). The
+    // stored value is untouched; see `utils::sanitize`.
+    #[serde(serialize_with = "crate::utils::sanitize::serialize_sanitized_content")]
     pub content: Json,
     pub excerpt: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -141,6 +146,30 @@ pub struct PostWithRelations {
     pub author: PostAuthor,
 
     pub comment_count: i64,
+
+    // ── Paywall (plan Phase 4c) ──────────────────────────────────────────
+    /// Access policy for this post. Defaults to `Free`; the read-path controllers
+    /// overwrite it from `post_access` and clear `content` when `has_access` is
+    /// false, so paid/subscriber-only content is never shipped unentitled.
+    #[serde(default = "default_access_type")]
+    pub access_type: PostAccessType,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub price_cents: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub currency: Option<String>,
+    /// Whether the requesting viewer may read `content`. Controllers set this;
+    /// `into_relation` defaults it to `true` (free posts, or internal callers
+    /// that bypass the paywall such as the post author / admin editors).
+    #[serde(default = "default_true")]
+    pub has_access: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_access_type() -> PostAccessType {
+    PostAccessType::Free
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, FromQueryResult)]
@@ -328,6 +357,12 @@ impl PostWithJoinedData {
                 avatar,
             },
             comment_count: self.comment_count,
+            // Default to free + full access; public read-path controllers
+            // overwrite these after consulting the paywall (`services/paywall`).
+            access_type: PostAccessType::Free,
+            price_cents: None,
+            currency: None,
+            has_access: true,
         }
     }
 }

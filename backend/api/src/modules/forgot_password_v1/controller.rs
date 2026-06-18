@@ -13,7 +13,7 @@ use crate::{
     AppState,
 };
 
-use super::validator::{V1GeneratePayload, V1ResetPayload, V1VerifyPayload};
+use super::validator::{V1GeneratePayload, V1ResetPayload, V1VerifyPayload, V1VerifyResponse};
 
 const ABUSE_LIMITER_CONFIG: abuse_limiter::AbuseLimiterConfig = abuse_limiter::AbuseLimiterConfig {
     temp_block_attempts: 3,
@@ -23,6 +23,79 @@ const ABUSE_LIMITER_CONFIG: abuse_limiter::AbuseLimiterConfig = abuse_limiter::A
     block_range: 900,
     block_duration: 86400,
 };
+
+/// Single-use reset token minted by `verify` and consumed by `reset`
+/// (audit F#9).
+///
+/// The emailed code is deleted from the DB the moment `verify` accepts it; the
+/// only thing that can subsequently change the password is this opaque token,
+/// which is stored in Redis with a short TTL and burned (atomic `GETDEL`) on
+/// first use. Consequences:
+///   - the emailed code can never be **replayed** against `verify` or `reset`
+///     once the legitimate user has verified;
+///   - the reset token itself is strictly single-use — a replayed `reset`
+///     request can never observe the token twice.
+///
+/// This closes the window the old flow left open, where `verify` merely *checked*
+/// the code and left it live so the (single) `reset` could re-check it — meaning
+/// the code stayed reusable until consumed.
+mod reset_token {
+    use super::*;
+    // fred's `set`/`getdel` are trait methods on the Pool.
+    use rand::Rng;
+    use tower_sessions_redis_store::fred::prelude::*;
+
+    fn redis_key(token: &str) -> String {
+        // Namespaced so it can't collide with session/checkout/oauth keys.
+        format!("forgot_password:reset_token:{token}")
+    }
+
+    /// Mint a fresh single-use token bound to `user_id`. 32 random bytes → 256
+    /// bits, hex-encoded. Returned to the client in the `verify` response.
+    /// 10-minute TTL: longer than a user spends typing a new password, short
+    /// enough to bound an attacker's replay window.
+    pub async fn mint(state: &AppState, user_id: i32) -> Result<String, ErrorResponse> {
+        let bytes: [u8; 32] = rand::rng().random();
+        let token = hex::encode(bytes);
+        state
+            .redis_pool
+            .set::<(), _, _>(
+                redis_key(&token),
+                user_id.to_string(),
+                Some(fred::types::Expiration::EX(600)),
+                None,
+                false,
+            )
+            .await
+            .map_err(|e| {
+                error!(error = ?e, "Failed to store reset token in Redis");
+                ErrorResponse::new(ErrorCode::InternalServerError)
+            })?;
+        Ok(token)
+    }
+
+    /// Atomically consume the token, returning the bound `user_id` if the token
+    /// was valid and present, or `None` if it was already used / unknown / expired.
+    /// `GETDEL` guarantees a replayed `reset` can never observe the same token
+    /// twice (the same atomic-take guarantee used for checkout intents).
+    pub async fn take(state: &AppState, token: &str) -> Result<Option<i32>, ErrorResponse> {
+        let stored: Option<String> = state
+            .redis_pool
+            .getdel(redis_key(token))
+            .await
+            .map_err(|e| {
+                error!(error = ?e, "Failed to consume reset token from Redis");
+                ErrorResponse::new(ErrorCode::InternalServerError)
+            })?;
+        match stored {
+            Some(s) => s.parse::<i32>().map(Some).map_err(|e| {
+                error!(error = ?e, "Stored reset token value was not a user id");
+                ErrorResponse::new(ErrorCode::InternalServerError)
+            }),
+            None => Ok(None),
+        }
+    }
+}
 
 #[debug_handler]
 #[instrument(skip(state, payload), fields(email = %payload.email, client_ip = %secure_ip))]
@@ -75,8 +148,15 @@ pub async fn generate(
         }
     }
 
-    let result = forgot_password::Entity::regenerate(pool, user_id).await?;
-    let code = result.code;
+    // Generate a fresh plaintext code, store only its keyed hash, and email the
+    // plaintext. The plaintext never touches the database (audit: "brute-forceable
+    // plaintext reset codes" — fixed in Phase 3d).
+    let code = forgot_password::Entity::generate_code();
+    let code_hash = crate::utils::code_hash::hash_code(&state.secret_key, &code);
+    if let Err(err) = forgot_password::Entity::regenerate(pool, user_id, code_hash).await {
+        error!(user_id, email = %payload.email, "Failed to store forgot-password code: {}", err);
+        return Err(err);
+    }
     if let Err(err) = send_forgot_password_email(&state.mailer, &payload.email, &code).await {
         error!(user_id, email = %payload.email, "Failed to send forgot password email: {}", err);
         return Err(ErrorResponse::new(ErrorCode::ExternalServiceError)
@@ -94,83 +174,137 @@ pub async fn generate(
 }
 
 #[debug_handler]
-#[instrument(skip(state, payload), fields(email = %payload.email))]
+#[instrument(skip(state, payload), fields(email = %payload.email, client_ip = %secure_ip))]
 pub async fn verify(
     state: State<AppState>,
+    ClientIp(secure_ip): ClientIp,
     payload: ValidatedJson<V1VerifyPayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
+    // Throttle code-guessing. Fail-closed: a Redis outage denies the attempt.
+    let key_prefix = format!("forgot_password_verify:{}", secure_ip);
+    abuse_limiter::limiter(&state.redis_pool, &key_prefix, ABUSE_LIMITER_CONFIG).await?;
+
+    let code_hash = crate::utils::code_hash::hash_code(&state.secret_key, &payload.code);
     let result = forgot_password::Entity::find_query(
         &state.sea_db,
         None,
         Some(&payload.email),
-        Some(&payload.code),
+        Some(&code_hash),
     )
     .await;
 
-    match result {
+    let verification = match result {
         Ok(verification) => {
             if verification.is_expired() {
                 warn!(email = %payload.email, "Forgot password code expired");
                 return Err(ErrorResponse::new(ErrorCode::InvalidInput)
                     .with_message("The verification code has expired"));
             }
+            verification
         }
         Err(err) => {
             warn!(email = %payload.email, "Invalid forgot password code");
             return Err(err);
         }
+    };
+    let user_id = verification.user_id;
+
+    // Make the emailed code single-use (audit F#9): delete its row NOW so it
+    // can't be replayed against `verify` or used by the legacy `reset` path.
+    // The password is NOT changed here — that requires the freshly-issued
+    // reset_token, which we return below.
+    if let Err(err) = forgot_password::Entity::consume_code(&state.sea_db, user_id).await {
+        error!(user_id, email = %payload.email, "Failed to consume forgot-password code: {}", err);
+        return Err(err);
     }
 
-    info!(email = %payload.email, "Forgot password code verified");
+    let reset_token = reset_token::mint(&state, user_id).await?;
+
+    info!(user_id, email = %payload.email, "Forgot password code verified and consumed; reset token issued");
     Ok((
         StatusCode::OK,
-        Json(json!({
-            "message": "code verified successfully",
-        })),
+        Json(V1VerifyResponse { reset_token }),
     ))
 }
 
 #[debug_handler]
-#[instrument(skip(state, payload), fields(email = %payload.email))]
+#[instrument(skip(state, payload), fields(client_ip = %secure_ip))]
 pub async fn reset(
     state: State<AppState>,
+    ClientIp(secure_ip): ClientIp,
     payload: ValidatedJson<V1ResetPayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
+    // Shares the verify bucket so an attacker can't reset-vote their way past
+    // the verify limiter (or vice-versa). Fail-closed.
+    let key_prefix = format!("forgot_password_verify:{}", secure_ip);
+    abuse_limiter::limiter(&state.redis_pool, &key_prefix, ABUSE_LIMITER_CONFIG).await?;
+
     if payload.password != payload.confirm_password {
-        warn!(email = %payload.email, "Password mismatch");
+        warn!("Password mismatch");
         return Err(ErrorResponse::new(ErrorCode::InvalidInput)
             .with_message("Password and confirm password do not match"));
     }
 
-    let result = forgot_password::Entity::find_query(
-        &state.sea_db,
-        None,
-        Some(&payload.email),
-        Some(&payload.code),
-    )
-    .await;
-
-    let verification = match &result {
-        Ok(verification) => {
-            if verification.is_expired() {
-                warn!(email = %payload.email, "Expired code during reset");
+    // Resolve the account whose password is changing via one of two paths:
+    //  (a) reset_token — the preferred path issued by `verify`. By the time one
+    //      of these exists the emailed code has already been consumed, so this is
+    //      the only valid credential after verify. Atomically single-use (GETDEL).
+    //  (b) legacy code+email — for a client that resets WITHOUT first calling
+    //      `verify` (the code row must still be present). Kept so older clients
+    //      keep working; the new `verify`→`reset` flow never reaches it.
+    let user_id = if let Some(token) = payload.reset_token.as_deref() {
+        match reset_token::take(&state, token).await? {
+            Some(id) => id,
+            None => {
+                warn!("Reset attempted with an unknown or already-used reset token");
                 return Err(ErrorResponse::new(ErrorCode::InvalidInput)
-                    .with_message("The verification code has expired"));
+                    .with_message("Reset token is invalid or has expired"));
             }
-            verification
         }
-        Err(err) => {
-            warn!(email = %payload.email, "Invalid code during reset");
-            return Err(err.to_owned());
-        }
-    };
-    let user_id = verification.user_id;
+    } else {
+        let code = match payload.code.as_deref() {
+            Some(c) => c,
+            None => {
+                warn!("Reset attempted without a reset token or a code");
+                return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                    .with_message("Either a reset token or a verification code is required"));
+            }
+        };
+        let email = payload.email.as_deref().ok_or_else(|| {
+            warn!("Reset via legacy code path without an email");
+            ErrorResponse::new(ErrorCode::InvalidInput)
+                .with_message("Email is required when using a verification code")
+        })?;
 
-    // Reset password in PostgreSQL
+        let code_hash = crate::utils::code_hash::hash_code(&state.secret_key, code);
+        let verification = match forgot_password::Entity::find_query(
+            &state.sea_db,
+            None,
+            Some(email),
+            Some(&code_hash),
+        )
+        .await
+        {
+            Ok(v) => {
+                if v.is_expired() {
+                    warn!("Expired code during reset");
+                    return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                        .with_message("The verification code has expired"));
+                }
+                v
+            }
+            Err(err) => {
+                warn!("Invalid code during reset");
+                return Err(err);
+            }
+        };
+        verification.user_id
+    };
+
+    // Reset password in PostgreSQL (also deletes any remaining code row).
     match forgot_password::Entity::reset(&state.sea_db, user_id, payload.password.clone()).await {
         Ok(_) => {
-            info!(user_id, email = %payload.email, "Password reset in PostgreSQL");
-
+            info!(user_id, "Password reset in PostgreSQL");
             Ok((
                 StatusCode::OK,
                 Json(json!({

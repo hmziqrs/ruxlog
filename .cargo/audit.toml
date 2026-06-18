@@ -1,0 +1,51 @@
+# cargo-audit configuration (cargo-audit 0.22 schema).
+#
+# cargo-audit auto-discovers this at `./.cargo/audit.toml` (relative to the
+# working directory) — NOT `./audit.toml`. CI and local runs execute from the
+# repo root, so this file is what governs the scan. The schema uses
+# `deny_unknown_fields`, so only `ignore`, `informational_warnings`, and
+# `severity_threshold` are valid under `[advisories]`.
+#
+# Run locally:  cargo audit
+# CI:           .github/workflows/security-audit.yml runs `cargo audit` from the
+#               repo root (so it reads the canonical workspace Cargo.lock, NOT
+#               the stale backend/api/Cargo.lock leftover).
+#
+# Phase 6g reduced the advisory count from 20 to 4 by bumping direct deps
+# (lettre 0.11.22, time 0.3.47, tracing-subscriber 0.3.20, bytes 1.11.1,
+# maxminddb 0.27, rand 0.9) and running `cargo update`. The four remaining
+# advisories have no available fix for the pinned version and are explicitly
+# accepted below (per-advisory rationale lives in /deny.toml, which carries the
+# same ignore set for cargo-deny).
+#
+# Informational advisories (unmaintained/unsound/notice) are surfaced as
+# non-fatal warnings by cargo-audit's default — that is the "N allowed warnings"
+# line, dominated by the GTK desktop-frontend stack (atk/gdk/gtk/glib — never
+# built for the server target). They never affect the exit code; only real
+# vulnerabilities do.
+
+[advisories]
+# Advisory IDs to ignore. Each has no available fix for the version we are
+# pinned to; reassess when an upstream patch lands.
+ignore = [
+    # rsa 0.9.x Marvin Attack — no upstream fix ("No fixed upgrade is
+    # available!"); rsa is not even in cargo-deny's resolved dependency graph
+    # (an optional/platform-gated transitive residual in the lockfile), and
+    # ruxlog performs no RSA operations (Ed25519 / HMAC-SHA256 / aws-lc-rs only).
+    "RUSTSEC-2023-0071",
+    # rustls-webpki 0.101.7 (x3: CRL panic, URI-name-constraint, wildcard-name-
+    # constraint). Pinned by rustls 0.21.12, which is itself pinned by
+    # aws-smithy-http-client (aws-config / aws-sdk-s3) for one internal HTTPS
+    # path. No patched rustls 0.21.x exists; the fix lives in webpki >=0.103.x,
+    # reachable only by moving the AWS SDK off rustls 0.21. The rest of our TLS
+    # surface (fred, sea-orm, openssl) is unaffected.
+    "RUSTSEC-2026-0104",
+    "RUSTSEC-2026-0098",
+    "RUSTSEC-2026-0099",
+    # async-std 1.13.x — informational "unmaintained/discontinued" advisory.
+    # Pulled directly by our `migration` path-crate (SeaORM migration tooling);
+    # the runtime itself is tokio. Kept in sync with deny.toml's ignore set.
+    # Listed here for parity: cargo-audit already treats informational
+    # advisories as non-fatal warnings; this additionally silences the line.
+    "RUSTSEC-2025-0052",
+]

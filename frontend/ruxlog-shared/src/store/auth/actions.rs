@@ -71,6 +71,16 @@ impl AuthState {
                     self.logout_status.write().set_success(None);
                     *self.user.write() = None;
                     self.reset_all_stores();
+                    // The CSRF token is HMAC-bound to the session id of the
+                    // session we just destroyed, so it is now invalid — the
+                    // per-session guard would reject any mutating request that
+                    // still carried it (audit F#17). Drop it, then fetch a
+                    // fresh token bound to the new anonymous session that
+                    // `/csrf/v1/generate` materializes. This mirrors the login
+                    // flow and keeps the client's token always matched to the
+                    // active session across the full login ⇄ logout cycle.
+                    http::set_csrf_token("");
+                    let _ = http::refresh_csrf_token().await;
                 } else {
                     let status = response.status();
                     let body = response.text().await.unwrap_or_default();
@@ -180,6 +190,10 @@ impl AuthState {
                             }
                             *self.user.write() = Some(user);
                             self.login_status.write().set_success(None);
+                            // Login may rotate the server-side session; re-fetch
+                            // the per-session CSRF token so subsequent mutating
+                            // requests carry one bound to the active session.
+                            let _ = http::refresh_csrf_token().await;
                         }
                         Err(e) => {
                             eprintln!("Failed to parse user data: {}\nResponse: {}", e, raw);

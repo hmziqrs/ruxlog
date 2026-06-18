@@ -2,7 +2,6 @@ use chrono::{DateTime, FixedOffset, Utc};
 use getrandom::getrandom;
 use hmac::{Hmac, Mac};
 use sha1::Sha1;
-use sha2::{Digest, Sha256};
 
 /// Alphabet for Base32 encoding/decoding without padding (RFC 4648)
 /// Default TOTP step in seconds
@@ -10,14 +9,16 @@ pub const DEFAULT_TOTP_STEP: u64 = 30;
 /// Default TOTP digits
 pub const DEFAULT_TOTP_DIGITS: u32 = 6;
 
-/// Generates a new random Base32 (RFC 4648, no padding) secret
+/// Generates a new random Base32 (RFC 4648, no padding) secret.
+///
+/// Returns `None` only if the OS CSPRNG fails — the previous implementation
+/// swallowed `getrandom`'s `Result`, which could leave the buffer zeroed and
+/// yield a predictable (all-zero) TOTP secret. See plan Phase 2f.
 /// Common sizes: 20 bytes (~160 bits)
-pub fn generate_secret_base32(num_bytes: usize) -> String {
+pub fn generate_secret_base32(num_bytes: usize) -> Option<String> {
     let mut buf = vec![0u8; num_bytes];
-    // Fill with OS randomness; leave zeros if it fails
-    let _ = getrandom(&mut buf);
-
-    data_encoding::BASE32_NOPAD.encode(&buf)
+    getrandom(&mut buf).ok()?;
+    Some(data_encoding::BASE32_NOPAD.encode(&buf))
 }
 
 /// Builds an otpauth URI compatible with Google Authenticator
@@ -131,48 +132,55 @@ pub fn verify_totp_code_now(secret_base32: &str, code: &str) -> bool {
 }
 
 /// Generate human-friendly backup codes.
+///
+/// Returns `None` only if the OS CSPRNG fails. See plan Phase 2f.
 /// Default strength: 10 codes, each 12 characters as 4-4-4 (A-Z2-9 excluding ambiguous).
-pub fn generate_backup_codes(count: usize) -> Vec<String> {
+pub fn generate_backup_codes(count: usize) -> Option<Vec<String>> {
     (0..count).map(|_| generate_backup_code()).collect()
 }
 
-/// Hash a list of backup codes using SHA-256 (hex). Store these hashes server-side.
-/// Always store only hashes; return values are hex-encoded lowercase strings.
+/// Hash a list of backup codes for storage.
+///
+/// Hashes are Argon2id PHC strings (via the same `password_auth` wrapper used
+/// for login passwords), so plaintext is unrecoverable and not brute-forceable
+/// at speed if the DB leaks — replacing the previous bare, unsalted SHA-256.
+/// Callers MUST run this off the async worker thread (Argon2id is memory-hard).
+/// See plan Phase 2f.
 pub fn hash_backup_codes(codes: &[String]) -> Vec<String> {
-    codes.iter().map(hash_backup_code).collect()
+    codes.iter().map(|c| hash_backup_code(c)).collect()
 }
 
 /// Attempt to consume a backup code:
-/// - Returns Some(updated_hashes) with the consumed code removed (by its hash) on success
-/// - Returns None if the input code does not match any hash
+/// - Returns `Some(updated_hashes)` with the consumed code removed on success.
+/// - Returns `None` if the input code matches no stored hash.
+///
+/// Verifies each stored Argon2id PHC hash against the input. Callers MUST run
+/// this off the async worker thread. See plan Phase 2f.
 pub fn consume_backup_code(hashed_codes: &[String], input_code: &str) -> Option<Vec<String>> {
-    let input_hash = hash_backup_code(&input_code.to_string());
-    if let Some(pos) = hashed_codes
-        .iter()
-        .position(|h| constant_time_eq(h.as_bytes(), input_hash.as_bytes()))
-    {
-        let mut updated = hashed_codes.to_vec();
-        updated.remove(pos);
-        Some(updated)
-    } else {
-        None
+    for (pos, stored) in hashed_codes.iter().enumerate() {
+        if password_auth::verify_password(input_code, stored).is_ok() {
+            let mut updated = hashed_codes.to_vec();
+            updated.remove(pos);
+            return Some(updated);
+        }
     }
+    None
 }
 
-/// Generate a single human-friendly backup code in the form XXXX-XXXX-XXXX
-fn generate_backup_code() -> String {
+/// Generate a single human-friendly backup code in the form XXXX-XXXX-XXXX.
+///
+/// Selects each symbol via rejection sampling (no modulo bias) and propagates
+/// CSPRNG failure. See plan Phase 2f.
+fn generate_backup_code() -> Option<String> {
     // Exclude ambiguous characters: 0, 1, O, I, L
     const ALPHABET: &[u8] = b"ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
     let mut chars = [0u8; 12];
-    for c in &mut chars {
-        let mut b = [0u8; 1];
-        let _ = getrandom(&mut b);
-        let idx = (b[0] as usize) % ALPHABET.len();
-        *c = ALPHABET[idx];
+    for c in chars.iter_mut() {
+        *c = ALPHABET[sample_index(ALPHABET.len())?];
     }
 
-    format!(
+    Some(format!(
         "{}{}{}{}-{}{}{}{}-{}{}{}{}",
         chars[0] as char,
         chars[1] as char,
@@ -185,15 +193,30 @@ fn generate_backup_code() -> String {
         chars[8] as char,
         chars[9] as char,
         chars[10] as char,
-        chars[11] as char
-    )
+        chars[11] as char,
+    ))
 }
 
-/// Hash a single backup code using SHA-256 (hex, lowercase)
-fn hash_backup_code(code: &String) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(code.as_bytes());
-    hex::encode(hasher.finalize())
+/// Hash a single backup code with Argon2id (PHC string).
+fn hash_backup_code(code: &str) -> String {
+    password_auth::generate_hash(code)
+}
+
+/// Uniformly sample an index in `[0, len)` via rejection sampling so the
+/// distribution is unbiased for any `len`. Eliminates the modulo-bias finding
+/// (the previous `% 31` over-weighted the first 8 symbols since `256 % 31 == 8`).
+/// Returns `None` only on CSPRNG failure. See plan Phase 2f.
+fn sample_index(len: usize) -> Option<usize> {
+    // Largest multiple of `len` that fits in a u8; reject bytes at/above it so
+    // the accepted range divides evenly by `len`.
+    let limit = 256 - (256 % len);
+    loop {
+        let mut b = [0u8; 1];
+        getrandom(&mut b).ok()?;
+        if (b[0] as usize) < limit {
+            return Some((b[0] as usize) % len);
+        }
+    }
 }
 
 /// Compute HMAC-SHA1 and dynamically truncate to 'digits' decimal code
@@ -224,16 +247,18 @@ fn pow10(n: u32) -> u32 {
     v
 }
 
-/// Constant-time comparison to avoid timing attacks
+/// Constant-time comparison to avoid timing attacks on backup-code verification.
+///
+/// Backed by `subtle::ConstantTimeEq` (audited) rather than a hand-rolled loop,
+/// consistent with `services::billing::webhook_util::ct_eq`. A length mismatch
+/// returns `false` immediately — backup codes are a fixed length, so the length
+/// is not a secret and leaking it is not a timing oracle. See plan Phase 1c/2f.
 fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     if a.len() != b.len() {
         return false;
     }
-    let mut diff: u8 = 0;
-    for i in 0..a.len() {
-        diff |= a[i] ^ b[i];
-    }
-    diff == 0
+    use subtle::ConstantTimeEq;
+    a.ct_eq(b).into()
 }
 
 #[cfg(test)]
@@ -242,21 +267,21 @@ mod tests {
 
     #[test]
     fn test_secret_generation_is_base32() {
-        let s = generate_secret_base32(20);
+        let s = generate_secret_base32(20).expect("CSPRNG available");
         assert!(!s.is_empty());
         assert!(data_encoding::BASE32_NOPAD.decode(s.as_bytes()).is_ok());
     }
 
     #[test]
     fn test_totp_roundtrip_now() {
-        let secret = generate_secret_base32(20);
+        let secret = generate_secret_base32(20).expect("CSPRNG available");
         let code = generate_totp_code_now(&secret, DEFAULT_TOTP_DIGITS).unwrap();
         assert!(verify_totp_code_now(&secret, &code));
     }
 
     #[test]
     fn test_backup_codes_generation_and_hashing() {
-        let codes = generate_backup_codes(5);
+        let codes = generate_backup_codes(5).expect("CSPRNG available");
         assert_eq!(codes.len(), 5);
         for c in &codes {
             assert_eq!(c.len(), 14); // 12 chars + 2 hyphens
@@ -267,7 +292,8 @@ mod tests {
         let hashes = hash_backup_codes(&codes);
         assert_eq!(hashes.len(), 5);
         for h in &hashes {
-            assert_eq!(h.len(), 64);
+            // Argon2id PHC string (replaces bare 64-char SHA-256 hex). See plan 2f.
+            assert!(h.starts_with("$argon2"), "expected Argon2id PHC string, got: {h}");
         }
 
         let updated = consume_backup_code(&hashes, &codes[0]);

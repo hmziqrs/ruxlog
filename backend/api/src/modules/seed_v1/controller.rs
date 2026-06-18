@@ -460,10 +460,12 @@ pub async fn seed_email_verifications(
     let _rng = StdRng::seed_from_u64(1234);
 
     for user in users.into_iter().take(20) {
+        let plaintext = email_verification::Entity::generate_code();
+        let code_hash = crate::utils::code_hash::hash_code(&state.secret_key, &plaintext);
         let verification = email_verification::Model {
             id: 0, // Auto-increment
             user_id: user.id,
-            code: email_verification::Entity::generate_code(),
+            code_hash,
             created_at: chrono::Utc::now().fixed_offset(),
             updated_at: chrono::Utc::now().fixed_offset(),
         };
@@ -471,7 +473,7 @@ pub async fn seed_email_verifications(
         let active_model = email_verification::ActiveModel {
             id: Set(verification.id),
             user_id: Set(verification.user_id),
-            code: Set(verification.code),
+            code_hash: Set(verification.code_hash),
             created_at: Set(verification.created_at),
             updated_at: Set(verification.updated_at),
         };
@@ -511,10 +513,12 @@ pub async fn seed_forgot_passwords(
     let _rng = StdRng::seed_from_u64(5678);
 
     for user in users.into_iter().take(10) {
+        let plaintext = forgot_password::Entity::generate_code();
+        let code_hash = crate::utils::code_hash::hash_code(&state.secret_key, &plaintext);
         let forgot_password = forgot_password::Model {
             id: 0, // Auto-increment
             user_id: user.id,
-            code: forgot_password::Entity::generate_code(),
+            code_hash,
             created_at: chrono::Utc::now().fixed_offset(),
             updated_at: chrono::Utc::now().fixed_offset(),
         };
@@ -522,7 +526,7 @@ pub async fn seed_forgot_passwords(
         let active_model = forgot_password::ActiveModel {
             id: Set(forgot_password.id),
             user_id: Set(forgot_password.user_id),
-            code: Set(forgot_password.code),
+            code_hash: Set(forgot_password.code_hash),
             created_at: Set(forgot_password.created_at),
             updated_at: Set(forgot_password.updated_at),
         };

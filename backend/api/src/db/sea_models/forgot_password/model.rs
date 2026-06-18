@@ -9,7 +9,9 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub user_id: i32,
-    pub code: String,
+    /// `HMAC-SHA256(secret, code)` — never the plaintext code. See
+    /// `utils::code_hash`. Looked up deterministically by hash.
+    pub code_hash: String,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }
@@ -36,13 +38,16 @@ impl Entity {
     pub const DELAY_TIME: Duration = Duration::minutes(1);
     pub const EXPIRY_TIME: Duration = Duration::hours(3);
 
+    /// Generate a fresh plaintext code. 8 chars over the full alphanumeric
+    /// alphabet (mixed case) ≈ 47 bits of entropy — enough to defeat online
+    /// guessing under the Phase-3c rate limiter. Returned in plaintext to the
+    /// caller, which emails it and stores only `hash_code(secret, code)`.
     pub fn generate_code() -> String {
         rand::rng()
             .sample_iter(&Alphanumeric)
-            .take(6)
+            .take(8)
             .map(char::from)
-            .collect::<String>()
-            .to_lowercase()
+            .collect()
     }
 }
 

@@ -59,6 +59,8 @@ pub fn routes() -> Router<AppState> {
     let authenticated = Router::<AppState>::new()
         // Checkout
         .route("/checkout", post(controller::create_checkout))
+        // Per-post one-time purchase checkout
+        .route("/checkout/post", post(controller::create_post_checkout))
         // My subscriptions
         .route("/subscriptions", get(controller::my_subscriptions))
         // My payments

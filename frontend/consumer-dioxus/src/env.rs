@@ -3,11 +3,6 @@ pub const APP_API_URL: &str = match std::option_env!("SITE_URL") {
     None => "http://localhost:1100",
 };
 
-pub const APP_CSRF_TOKEN: &str = match std::option_env!("CSRF_KEY") {
-    Some(key) => key,
-    None => "dev-csrf-key",
-};
-
 // Frontend consumer URL for SEO canonical URLs
 pub const CONSUMER_SITE_URL: &str = match std::option_env!("CONSUMER_SITE_URL") {
     Some(url) => url,

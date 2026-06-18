@@ -1,0 +1,78 @@
+name: security-audit
+
+# Runs `cargo audit` (RUSTSEC advisory DB) and `cargo deny check`
+# (advisories + licenses + duplicate-version/registry bans) against the backend
+# dependency graph. Fails on any *real* vulnerability (the four assessed-and-
+# accepted advisories with no upstream fix are ignored in audit.toml / deny.toml).
+# See plan Phase 6g.
+#
+# IMPORTANT: both commands run from the repo ROOT so cargo reads the canonical
+# workspace Cargo.lock (/Cargo.lock, ~1238 pkgs). The backend/api/Cargo.lock is
+# a stale leftover (~674 pkgs, May 2025) that must NOT be used — auditing it
+# would show pre-bump versions and miss real exposure.
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "backend/**/Cargo.toml"
+      - ".cargo/audit.toml"
+      - "deny.toml"
+      - ".github/workflows/security-audit.yml"
+  pull_request:
+    paths:
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "backend/**/Cargo.toml"
+      - ".cargo/audit.toml"
+      - "deny.toml"
+      - ".github/workflows/security-audit.yml"
+  # Re-scan weekly even with no code change, so a newly-filed advisory in a
+  # pinned dependency fails CI without waiting for the next PR.
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  audit:
+    name: cargo audit + cargo deny
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+
+      # cargo-audit: fail on any *unignored* RUSTSEC vulnerability in the
+      # canonical workspace lockfile (repo root). We deliberately do NOT pass
+      # `--deny warnings`: the unmaintained/unsound informational warnings are
+      # dominated by the GTK desktop-frontend stack (never built for the server
+      # target), so gating on them would be noise. .cargo/audit.toml carries
+      # the accepted-with-no-fix ignore IDs.
+      - name: cargo audit
+        run: cargo audit
+
+      # cargo-deny: advisories + licenses + duplicate-version/registry bans per
+      # deny.toml (repo root). `--manifest-path` selects the backend member;
+      # cargo-deny resolves its lockfile from the workspace root, so this reads
+      # the same canonical Cargo.lock as `cargo audit`.
+      #
+      # NOTE: `--config deny.toml` MUST come AFTER the `check` subcommand.
+      # Putting it before `check` makes cargo-deny reject the flag (exit 2)
+      # before performing any check — silently disabling the whole step.
+      - name: cargo deny check
+        run: |
+          cargo deny --manifest-path backend/api/Cargo.toml \
+            check --config deny.toml advisories bans licenses sources

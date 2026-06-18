@@ -34,7 +34,7 @@ pub async fn authenticated(
     next: Next,
 ) -> Result<Response, AuthError> {
     let mut auth = make_auth_session(&db, session).await;
-    check_requirements(&mut auth, &auth_requirements().authenticated()).await?;
+    check_requirements(&mut auth, &auth_requirements().authenticated().not_banned()).await?;
     Ok(next.run(request).await)
 }
 
@@ -74,7 +74,11 @@ pub async fn verified(
     next: Next,
 ) -> Result<Response, AuthError> {
     let mut auth = make_auth_session(&db, session).await;
-    check_requirements(&mut auth, &auth_requirements().authenticated().verified()).await?;
+    check_requirements(
+        &mut auth,
+        &auth_requirements().authenticated().verified().not_banned(),
+    )
+    .await?;
     Ok(next.run(request).await)
 }
 
@@ -91,6 +95,7 @@ pub async fn verified_with_role<const LEVEL: i32>(
         &auth_requirements()
             .authenticated()
             .verified()
+            .not_banned()
             .role_min(LEVEL),
     )
     .await?;

@@ -37,6 +37,10 @@ pub struct AppState {
     pub mailer: lettre::AsyncSmtpTransport<lettre::Tokio1Executor>,
     pub object_storage: ObjectStorageConfig,
     pub s3_client: aws_sdk_s3::Client,
+    /// Server secret (the `COOKIE_KEY` bytes) used to derive keyed hashes for
+    /// short-lived verification/reset codes (see `utils::code_hash`). Held here
+    /// rather than re-reading env so the key is fixed for the process lifetime.
+    pub secret_key: Vec<u8>,
     #[cfg(feature = "image-optimization")]
     pub optimizer: OptimizerConfig,
     pub meter: Meter,

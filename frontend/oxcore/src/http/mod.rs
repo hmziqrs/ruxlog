@@ -13,7 +13,7 @@ pub use web_sys::FormData;
 pub use serde_json::Value as FormData;
 
 // Re-export config
-pub use config::configure;
+pub use config::{configure, set_csrf_token};
 
 // Re-export platform-appropriate types
 #[cfg(target_arch = "wasm32")]

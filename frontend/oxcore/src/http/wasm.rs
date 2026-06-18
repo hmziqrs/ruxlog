@@ -134,3 +134,21 @@ pub fn post_multipart(endpoint: &str, form_data: &FormData) -> Result<Request, S
 
     Ok(Request(req))
 }
+
+#[derive(serde::Deserialize)]
+struct CsrfTokenResponse {
+    token: String,
+}
+
+/// Fetch the per-session CSRF token from `/csrf/v1/generate` and store it for
+/// use on subsequent mutating requests. The endpoint is CSRF-exempt (it is the
+/// bootstrap) and, for a fresh client, also establishes the session cookie. Call
+/// on app boot and after any flow that rotates the session (e.g. login).
+pub async fn refresh_csrf_token() -> Result<(), Error> {
+    let resp = post("/csrf/v1/generate", &serde_json::json!({}))
+        .send()
+        .await?;
+    let parsed: CsrfTokenResponse = resp.json().await?;
+    super::config::set_csrf_token(parsed.token);
+    Ok(())
+}

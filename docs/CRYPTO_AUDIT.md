@@ -597,3 +597,156 @@ These supplement the v1 roadmap; the ordering reflects newly-discovered blast ra
 ---
 
 *v2 re-audit: 18-dimension delta scan → adversarial verification → 3-critic completeness panel → targeted resweep. 221 confirmed findings, 135 new. All NEW critical/high findings above were re-confirmed against the cited source lines during synthesis. Three v1 findings corrected. Posture unchanged: **compromised-by-default**, and the authorization + auth-enforcement layers are as broken as the crypto layer.*
+
+---
+
+# Part III — Remediation · June 2026
+
+All six remediation phases from Parts I–II were implemented. A post-fix
+**43-agent adversarial verification workflow** (per-dimension re-review of the
+changed code, each finding independently confirmed-or-refuted) surfaced **18
+confirmed-real residual findings** (F#1–F#18). **15 are now fixed; 3 are
+accepted deferrals** (see *Accepted Deferrals* below).
+
+## Residual Findings — Status
+
+| # | Finding | Status | Fix location |
+|---|---------|--------|--------------|
+| F#1 | Replayed webhook could double-grant a subscription (GET-then-DEL TOCTOU on the checkout intent) | ✅ Fixed | Atomic `GETDEL` intent take + unique `(provider, provider_subscription_id)` index (migration `m20260618_000049`); duplicate-tolerant insert |
+| F#2 / F#10 | Subscription grantable from attacker-controlled `metadata.user_id` when no checkout intent exists | ✅ Fixed | Refuse metadata-only grant; require server-stored intent at checkout |
+| F#3 | Granted subscription plan guessed as "first active plan" instead of the purchased plan | ✅ Fixed | `plan_id` recorded in the intent at checkout; grant refuses a `None` plan |
+| F#5 / F#11 | `user_has_active_subscription` granted forever on a stale `status`; `current_period_end` not persisted across providers | ✅ Fixed | Fail-closed when `current_period_end` is missing; `period_end_to_unix` normalizes all 9 providers' shapes; persisted on create + update |
+| F#6 | Password-reset floor was 4 characters while every other path enforces 12 | ✅ Fixed | Floor raised to 12 in the reset validator |
+| F#8 | Reset/verify code length mismatch: generator emits 8 chars, validators accepted exactly 6 | ✅ Fixed | Validators aligned to the 8-char generator |
+| F#9 | `forgot_password::verify` did not consume the code — it stayed reusable until `reset` | ✅ Fixed | `verify` now deletes the code row (single-use) and issues a one-time `reset_token` (Redis, atomic `GETDEL`); `reset` honors the token or the legacy code path |
+| F#12 | Draft/Archived posts readable on the public single-post route | ✅ Fixed | Status gate → 404 for non-`Published`; author/staff bypass |
+| F#13 | No session-id rotation on login → session fixation | ✅ Fixed | Session id rotated at login |
+| F#14 | CSRF signing key derived incorrectly; stale comments | ✅ Fixed | HKDF-SHA256 derivation of the signing key from `COOKIE_KEY`; comments corrected |
+| F#15 | No CSRF integration test; the baked-in `"ultra-instinct-goku"` secret still referenced | ✅ Fixed | Integration test + smoke scripts; static fallback removed |
+| F#17 | Stale (session-bound) CSRF token lingered after logout, breaking the next mutating request | ✅ Fixed | Logout drops the token and re-fetches one for the new anonymous session |
+| F#18 | 9 billing providers had hard-coded sandbox base URLs | ✅ Fixed | All base URLs env-driven (`*_API_BASE_URL`), production-default |
+| **F#4** | **2FA never enforced at login** — a correct password yields a full session even for TOTP-enrolled users | ⏸️ Accepted deferral | — |
+| **F#7** | `totp_verified` / `reauth_within` step-up checks are dead code — wired to no route | ⏸️ Accepted deferral | — |
+| **F#16** | CSRF token not re-rotated at intra-session trust transitions (2FA / password / role); no step-up refresh | ⏸️ Accepted deferral | — |
+
+## Accepted Deferrals (F#4, F#7, F#16)
+
+These three are real, but are **consequences of a single locked product
+decision**, recorded here so they are not "found" again:
+
+> **Decision:** *Leave the login flow as-is; fix the leaks only.*
+
+The leaks have all been closed — the TOTP seed is no longer serialized into
+response bodies (`#[serde(skip_serializing)]` on `two_fa_secret` /
+`two_fa_backup_codes`), backup codes use rejection sampling + Argon2id hashing,
+and the TOTP/RNG-failure paths fail closed. What was deliberately **not** done
+is gating login (or any sensitive route) on TOTP:
+
+- **F#4 — 2FA not enforced at login.** `log_in` issues a fully authenticated
+  session on a correct password regardless of TOTP enrollment. 2FA is
+  self-serve / UI-only at the access boundary. Honest note placed at
+  `backend/api/src/modules/auth_v1/controller.rs` (`log_in`).
+- **F#7 — step-up / TOTP requirement machinery is dead code.**
+  `check_requirements` implements `totp_verified` (strict & conditional),
+  `reauth_within`, and the session-state setters/readers
+  (`mark_totp_verified`, `mark_reauthenticated`, `totp_verified_at`,
+  `reauthenticated_at`) — but no route composes `.totp_if_enabled()` /
+  `.reauth_within()`, so they enforce nothing. The infrastructure is retained
+  so a future login-2FA decision is a one-line chain on the live guards.
+  Honest note placed at `backend/api/crates/rux-auth/src/middleware/guard.rs`
+  (`check_requirements`).
+- **F#16 — CSRF token has login-session granularity.** The token is HMAC-bound
+  to the session id and rotated when that id changes (login/logout via F#13 /
+  F#17). It is NOT re-rotated at intra-session trust transitions, so a token
+  captured before one stays valid after. This follows from F#4: with no 2FA
+  gate at login there is no 2FA-completion trust transition to protect, and
+  CSRF's job is to bind to the authenticated session, not to model step-up
+  freshness. Honest note placed at `frontend/oxcore/src/http/config.rs`.
+
+**What it would take to reverse:** add a two-step login response (partial
+session pending TOTP), chain `.totp_if_enabled()` onto the live guards, and
+rotate the session id (hence the CSRF token) at the TOTP-completion trust
+transition. All three findings close together.
+
+## F#11 Verification-Round Follow-Up (2026-06-18)
+
+After F#11 was marked ✅ Fixed above, a focused verification Workflow
+(`wkkx0ptxi`, 23 raised / 15 confirmed / 0 uncertain / 8 refuted) confirmed
+the **core fix is sound and done for all 9 providers**: native event types are
+normalized to the canonical vocabulary (`pub mod canonical`) so each reaches
+the correct dispatch arm instead of falling to the silent log-only `_ =>` drop,
+and the grant path is fail-closed on the server-bound checkout intent.
+
+It also surfaced **15 new residuals** with the same business harm (paying
+subscriber never granted) plus data-integrity defects. The **7 must-fix are
+now fixed and adversarially re-verified** (Workflow `wx4obq51y`: 8 sonnet
+skeptic agents, 8/8 `correct` / 0 bugs / 0 uncertain — id-equality chains
+re-confirmed with file:line evidence):
+
+| Provider | Residual | Fix |
+|----------|----------|-----|
+| Razorpay | `create_checkout` returned a `plink_` payment-link id; the activation webhook keys the entity by the `sub_` subscription id → round-trip never matched → never granted | `create_checkout` rewritten to create a real subscription (`POST /subscriptions`); `session_id` now the `sub_…` the webhook echoes |
+| PayPal | `create_checkout` returned an `ORDER-` order id; the activation webhook keys `BILLING.SUBSCRIPTION.ACTIVATED` by the `I-` subscription id → same round-trip break | `create_checkout` rewritten to create a real billing subscription (`POST /v1/billing/subscriptions`); `session_id` now the `I-…` |
+| Paddle | Wrong period-end path (`current_billing_period_at`) → always `None`; `transaction.*` checkout-completion events carry no period → paywall denied the paying subscriber | Correct path (`current_billing_period.ends_at`); `transaction.*` events fetch the linked subscription for an authoritative end (fail-closed on fetch failure) |
+| Revolut | Bogus `ORDER.FAILED → PAYMENT_SUCCEEDED` mapping; `user_id` read from the `customer_id` string | Dropped the mapping; `user_id` now read from `metadata.user_id` |
+| LemonSqueezy | `order_refunded → PAYMENT_SUCCEEDED` recorded a phantom payment | Dropped the mapping |
+| Airwallex | `subscription.cancelled/canceled/expired` were unmapped → cancelled/expired subscriptions stayed active | Mapped to `SUBSCRIPTION_DELETED` |
+| (shared) | `canonical_subscription_status` missed `on_trial`, `authorized`, `ended`, `completed` → status left stale | Vocabulary folded (+ 6 unit tests; no provider collision) |
+
+**Accepted residual:** LemonSqueezy's webhook resource id is the
+order/subscription id, not the stored checkout id — so the checkout-id ↔
+resource-id intent correlation cannot match and the grant is refused
+(fail-closed). LS subscription checkouts are denied, not granted-without-intent.
+
+**Deployment note:** `plan_slug` is now treated as a provider plan id
+(Razorpay/PayPal plan id), not a numeric amount — a deployment-config
+expectation. Verified: `cargo check --features full` clean; billing lib +
+integration tests green (119 + 72); `cargo audit` shows only pre-existing
+dependency advisories (zero new deps added).
+
+*Posture after Part III: the crypto, authorization, paywall, and transport
+layers that made the system "compromised-by-default" are closed. The one
+remaining known gap is the intentionally-deferred 2FA-at-login enforcement
+above.*
+
+## Part IV — w6ilyectm Adversarial Round-2 (2026-06-18)
+
+After Part III, a fresh 8-lens adversarial Workflow (`w6ilyectm`) re-audited
+the billing/paywall surface and confirmed **18 residual findings**
+(catastrophic + high), each independently verified against the code and
+official provider documentation. The 7 implementable residuals (#132–#138)
+are now **fixed and adversarially re-verified clean** (Workflow
+`wf_7d205f96-33e`: 4 independent sonnet reviewers across the three changed
+files → **0 confirmed bugs**, 0 refuted).
+
+The cluster shares one root cause with F#11: **F#11's paywall now fails
+closed on a missing `current_period_end`** (`paywall.rs` — an `Active`-status
+row with a `None` period end is denied, not granted forever). That invariant
+is correct, but it silently makes *every* checkout-grant path responsible for
+yielding a real period end — and several providers' checkouts didn't, so the
+paying subscriber was denied. The other half was fabricated/incorrect webhook
+verification schemes that rejected every real webhook at the gate.
+
+| # | Provider/Area | Residual | Fix |
+|---|---------------|----------|-----|
+| 132 | Revolut | `verify_webhook` read a non-existent `X-Revolut-Signature` in a `ts.hmac` shape and matched a fabricated `ORDER.COMPLETED` against a nested `order` object — every real Revolut webhook was rejected | Rewritten to the real Merchant-API scheme: `Revolut-Signature: v1=<hex>` (comma-separated for key rotation) + `Revolut-Request-Timestamp` (epoch ms); signed message `<ts>.<body>`; flat `{event,order_id}` payload; `ORDER_COMPLETED`→CHECKOUT_COMPLETED (underscore event). Tamper + non-`v1=` rejection tests added |
+| 133 | Airwallex | Read a single non-existent `x-www-airwallex-signature` header | Real two-header scheme: `x-timestamp` + `x-signature`, digest = `x-timestamp string + raw body` (the digest construction was already correct — only the header names were wrong) |
+| 134 | Airwallex / Paddle | Lifecycle events left `subscription_id=None`, so the dispatch's updated/deleted arm no-op'd → cancelled/expired subs stayed active | `id` fallback gated to `subscription.*` native events (the entity IS the subscription); Paddle keeps only `transaction.completed`→CHECKOUT_COMPLETED + lifecycle `id` fallback |
+| 135 | Stripe / Polar / Paddle | Checkout objects lack `current_period_end` → grant persisted `None` → paywall denied the paying subscriber | Added `fetch_subscription_period_end` (GET `/v1/subscriptions/{id}`) fallback on checkout-completion events |
+| 136 | Razorpay / dispatch | "Over-grant on grant-on-activated" + "stale-update resurrection" | **Verified-SAFE, no code change.** The grant is server-intent-gated and carries a real `current_end` (trials legitimately activate without payment; gating on `payment_id` would deny them). Resurrection is neutralized by the paywall's dual invariant (`status ∈ {Active,Trialing}` **AND** a future `current_period_end`) — a revival with a future period is a real reactivation, one without is denied. Documented in `controller.rs` |
+| 137 | PayPal | SALE events set `subscription_id=resource.id` (the SALE id `S-…`) → never matched a row → renewals recorded no owner and never refreshed `current_period_end` → renewing subscriber denied after cycle 1 | `subscription_id=billing_agreement_id` (`I-…`) for SALE/CAPTURE; added `fetch_subscription_period_end`; the controller's `invoice.payment_succeeded` arm now refreshes the row's period (forward-only, never shortens) when both `subscription_id`+period resolve |
+| 138 | RSS/Atom feed + D3 | `rss()`/`atom()` derived summaries from `content_to_summary(content,500)` when no excerpt → leaked ≤500 chars of Paid/SubscriberOnly body to anonymous readers | Batch `load_post_access_map`; gated posts get `gated_summary()` (a fixed policy hint, never the body). Checkout period-end now degrades to `None` on a malformed ts (was `unwrap_or_else(now)`, which expired the subscriber immediately) |
+
+**Verification:** `cargo check --features full` clean; **115 billing + 23 feed
+lib tests pass** (4 new `gated_summary` unit tests); `cargo audit` shows only
+pre-existing dependency advisories (zero new deps). Re-verification Workflow
+`wf_7d205f96-33e` ran 4 sonnet reviewers (dimensions: PayPal correctness,
+controller period-refresh + D3, feed leak, cross-cutting regression) —
+**0 confirmed findings**.
+
+*Posture after Part IV: every confirmed residual from the w6ilyectm
+re-audit is closed. The only outstanding item remains the intentionally-
+deferred 2FA-at-login enforcement (Part III). LemonSqueezy's
+checkout-id↔resource-id correlation stays the accepted fail-closed deferral
+(LS subscription checkouts are refused, never granted-without-intent).*
+

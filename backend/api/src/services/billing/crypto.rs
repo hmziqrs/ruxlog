@@ -94,6 +94,9 @@ impl CryptoProvider {
     }
 
     /// Minimum confirmations required before marking payment as confirmed.
+    /// Unused while crypto webhooks fail-closed (plan §1j); the on-chain
+    /// confirmation-polling job will consult this once wired.
+    #[allow(dead_code)]
     fn required_confirmations(&self) -> u64 {
         match self.currency.as_str() {
             "BTC" => 3,
@@ -150,47 +153,22 @@ impl BillingProvider for CryptoProvider {
         })
     }
 
-    async fn verify_webhook(&self, event: WebhookEvent) -> Result<ParsedWebhook, BillingError> {
-        let payload_str = String::from_utf8(event.payload.clone())
-            .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
-
-        let data: serde_json::Value = serde_json::from_str(&payload_str)
-            .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
-
-        let tx_hash = data["hash"]
-            .as_str()
-            .unwrap_or(data["tx_hash"].as_str().unwrap_or_default())
-            .to_string();
-
-        let confirmations = data["confirmations"].as_u64().unwrap_or(0);
-
-        let event_type = if confirmations >= self.required_confirmations() {
-            "payment.confirmed"
-        } else {
-            "payment.pending"
-        };
-
-        // Extract memo/label to recover payment reference (rux-{user_id}-{uuid})
-        let memo = data["memo"]
-            .as_str()
-            .or_else(|| data["label"].as_str())
-            .unwrap_or("");
-
-        Ok(ParsedWebhook {
-            event_type: event_type.to_string(),
-            customer_id: data["address"].as_str().unwrap_or_default().to_string(),
-            subscription_id: None,
-            payment_id: Some(tx_hash),
-            data: serde_json::json!({
-                "raw": data,
-                "memo": memo,
-                "confirmations": confirmations,
-                "currency": self.currency,
-                "amount": data["value"].as_f64()
-                    .or_else(|| data["amount"].as_f64())
-                    .unwrap_or(0.0),
-            }),
-        })
+    async fn verify_webhook(&self, _event: WebhookEvent) -> Result<ParsedWebhook, BillingError> {
+        // Crypto payments cannot be authenticated by a provider signature: an
+        // on-chain payment notification carries no shared secret the merchant
+        // could verify — anyone can POST a plausible `{hash, address, value}`
+        // payload. Entitlement must therefore be granted only AFTER polling the
+        // chain explorer (`CRYPTO_API_URL`) for the `tx_hash` and confirming
+        // `required_confirmations()`. That confirmation-polling subsystem is not
+        // wired yet; until it lands we reject every crypto webhook (fail closed)
+        // rather than grant entitlement on unauthenticated JSON. The previous
+        // implementation parsed and trusted the body verbatim — a forgery grants
+        // paid content for free. See plan §1j and CRYPTO_AUDIT.md.
+        Err(BillingError::WebhookVerification(
+            "Crypto webhooks require on-chain confirmation polling (not yet implemented); \
+             rejecting fail-closed"
+                .into(),
+        ))
     }
 
     async fn create_portal_session(
@@ -338,22 +316,18 @@ impl BillingProvider for MultiChainCryptoProvider {
         })
     }
 
-    async fn verify_webhook(&self, event: WebhookEvent) -> Result<ParsedWebhook, BillingError> {
-        let data: serde_json::Value = serde_json::from_slice(&event.payload)
-            .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
-
-        let address = data["address"].as_str().unwrap_or("");
-        let provider = self
-            .chains
-            .iter()
-            .find(|(_, p)| p.wallet_address == address)
-            .map(|(_, p)| p)
-            .or_else(|| self.chains.values().next());
-
-        match provider {
-            Some(p) => p.verify_webhook(event).await,
-            None => Err(BillingError::Other("No chains configured".to_string())),
-        }
+    async fn verify_webhook(&self, _event: WebhookEvent) -> Result<ParsedWebhook, BillingError> {
+        // Multi-chain variant shares the same constraint as the single-chain
+        // provider (see CryptoProvider::verify_webhook): crypto webhooks carry
+        // no verifiable signature, so entitlement must come from on-chain
+        // confirmation polling, not from this payload. Reject fail-closed
+        // until that subsystem lands (plan §1j). The chain-routing logic that
+        // used to live here was dead under the new model.
+        Err(BillingError::WebhookVerification(
+            "Crypto webhooks require on-chain confirmation polling (not yet implemented); \
+             rejecting fail-closed"
+                .into(),
+        ))
     }
 
     async fn create_portal_session(&self, _: &str, _: &str) -> Result<String, BillingError> {
@@ -581,7 +555,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_verify_webhook_confirmed() {
+    async fn test_verify_webhook_rejected_fail_closed() {
+        // Crypto webhooks cannot be cryptographically verified, so every
+        // payload must be rejected until on-chain confirmation polling lands
+        // (plan §1j). A confirmed-looking payload is NOT trusted.
         let p = btc_provider();
         let payload = serde_json::json!({
             "hash": "abc123def456",
@@ -594,64 +571,19 @@ mod tests {
         let event = WebhookEvent {
             provider: "crypto".into(),
             payload: serde_json::to_vec(&payload).unwrap(),
-            signature: String::new(),
+            headers: axum::http::HeaderMap::new(),
         };
 
-        let parsed = p.verify_webhook(event).await.expect("should parse");
-        assert_eq!(parsed.event_type, "payment.confirmed");
-        assert_eq!(parsed.payment_id, Some("abc123def456".to_string()));
-        assert_eq!(parsed.data["memo"], "rux-42-test");
-        assert_eq!(parsed.data["currency"], "BTC");
-    }
-
-    #[tokio::test]
-    async fn test_verify_webhook_pending() {
-        let p = btc_provider();
-        let payload = serde_json::json!({
-            "hash": "pending_tx",
-            "confirmations": 1,
-            "address": "bc1qexampleaddr",
-            "value": 0.01,
-            "memo": "rux-99-uuid"
-        });
-
-        let event = WebhookEvent {
-            provider: "crypto".into(),
-            payload: serde_json::to_vec(&payload).unwrap(),
-            signature: String::new(),
-        };
-
-        let parsed = p.verify_webhook(event).await.expect("should parse");
-        assert_eq!(parsed.event_type, "payment.pending");
-    }
-
-    #[tokio::test]
-    async fn test_verify_webhook_eth_requires_12_confirmations() {
-        let p = eth_provider();
-        let payload = serde_json::json!({
-            "hash": "0xethtx",
-            "confirmations": 10,
-            "address": "0xDeadBeef1234",
-            "value": 0.5,
-            "memo": "rux-5-test"
-        });
-
-        let event = WebhookEvent {
-            provider: "crypto".into(),
-            payload: serde_json::to_vec(&payload).unwrap(),
-            signature: String::new(),
-        };
-
-        let parsed = p.verify_webhook(event).await.expect("should parse");
-        // 10 < 12 required for ETH
-        assert_eq!(parsed.event_type, "payment.pending");
+        let err = p
+            .verify_webhook(event)
+            .await
+            .expect_err("must reject fail-closed");
+        assert!(matches!(err, BillingError::WebhookVerification(_)));
     }
 
     // ──────────────────────────────────────────────────────────────────
     // Multi-chain tests
     // ──────────────────────────────────────────────────────────────────
-
-    use super::*;
 
     fn multi_provider() -> MultiChainCryptoProvider {
         MultiChainCryptoProvider::new(vec![
@@ -696,7 +628,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_multi_chain_verify_routes_by_address() {
+    async fn test_multi_chain_verify_rejected_fail_closed() {
+        // Multi-chain variant also rejects fail-closed (plan §1j).
         let p = multi_provider();
         let payload = serde_json::json!({
             "hash": "btc_tx_123",
@@ -709,12 +642,14 @@ mod tests {
         let event = WebhookEvent {
             provider: "crypto".into(),
             payload: serde_json::to_vec(&payload).unwrap(),
-            signature: String::new(),
+            headers: axum::http::HeaderMap::new(),
         };
 
-        let parsed = p.verify_webhook(event).await.expect("ok");
-        assert_eq!(parsed.event_type, "payment.confirmed");
-        assert_eq!(parsed.data["currency"], "BTC");
+        let err = p
+            .verify_webhook(event)
+            .await
+            .expect_err("must reject fail-closed");
+        assert!(matches!(err, BillingError::WebhookVerification(_)));
     }
 
     #[test]

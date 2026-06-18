@@ -146,18 +146,15 @@ impl GeoRouter {
 
     fn lookup_geo(&self, ip: IpAddr) -> Option<GeoInfo> {
         let reader = self.reader.as_ref()?;
-        let geoip: Option<maxminddb::geoip2::Country> = reader.lookup(ip).ok()?;
-        let geoip = geoip?;
+        // maxminddb 0.27 split lookup into `lookup()` (returns a LookupResult
+        // handle) + `decode::<T>()` (materialises the typed record). We resolve
+        // both errors (corrupt/truncated DB, decode failure) and missing-data
+        // (None) to a plain `None` — geo routing always falls back gracefully.
+        let result = reader.lookup(ip).ok()?;
+        let geoip: maxminddb::geoip2::Country<'_> = result.decode().ok()??;
 
-        let country_code = geoip
-            .country
-            .as_ref()
-            .and_then(|c| c.iso_code.map(String::from));
-
-        let continent_code = geoip
-            .continent
-            .as_ref()
-            .and_then(|c| c.code.map(String::from));
+        let country_code = geoip.country.iso_code.map(String::from);
+        let continent_code = geoip.continent.code.map(String::from);
 
         Some(GeoInfo {
             country_code,
@@ -247,6 +244,43 @@ impl BillingRouter {
         );
         provider
             .create_checkout(plan_slug, customer_email, user_id, success_url, cancel_url)
+            .await
+    }
+
+    /// Geo-routed one-time checkout for a per-post purchase. Like
+    /// [`create_checkout_for_ip`] but for single payments; providers that don't
+    /// support one-time checkouts return `BillingError::Config` (per-post
+    /// purchases are simply unavailable for those regions/providers).
+    pub async fn create_post_checkout_for_ip(
+        &self,
+        client_ip: IpAddr,
+        post_id: i32,
+        amount_cents: i32,
+        currency: &str,
+        customer_email: &str,
+        user_id: i32,
+        success_url: &str,
+        cancel_url: &str,
+    ) -> Result<CheckoutSession, BillingError> {
+        let provider_name = self.geo_router.resolve(client_ip, &self.providers);
+        let provider = self.get_provider(&provider_name)?;
+        tracing::info!(
+            ip = %client_ip,
+            provider = %provider_name,
+            user_id,
+            post_id,
+            "Geo-routed per-post checkout"
+        );
+        provider
+            .create_post_checkout(
+                post_id,
+                amount_cents,
+                currency,
+                customer_email,
+                user_id,
+                success_url,
+                cancel_url,
+            )
             .await
     }
 

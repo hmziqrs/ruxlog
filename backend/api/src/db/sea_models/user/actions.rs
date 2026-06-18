@@ -71,8 +71,12 @@ impl Entity {
         Ok(results)
     }
 
-    #[instrument(skip(conn, new_user), fields(user_id, email = %new_user.email))]
-    pub async fn create(conn: &DbConn, new_user: NewUser) -> DbResult<Model> {
+    #[instrument(skip(conn, new_user, email_code_hash), fields(user_id, email = %new_user.email))]
+    pub async fn create(
+        conn: &DbConn,
+        new_user: NewUser,
+        email_code_hash: String,
+    ) -> DbResult<Model> {
         let now = chrono::Utc::now().fixed_offset();
         let hash = task::spawn_blocking(move || password_auth::generate_hash(new_user.password))
             .await
@@ -98,7 +102,8 @@ impl Entity {
         match user.insert(&transaction).await {
             Ok(model) => {
                 tracing::Span::current().record("user_id", model.id);
-                email_verification::Entity::create(&transaction, model.id).await?;
+                email_verification::Entity::create(&transaction, model.id, email_code_hash)
+                    .await?;
                 transaction.commit().await.map_err(|_| {
                     ErrorResponse::new(ErrorCode::TransactionError)
                         .with_message("Failed to commit transaction")
@@ -284,40 +289,6 @@ impl Entity {
                 error!("Failed to create user from Google: {}", err);
                 Err(err.into())
             }
-        }
-    }
-
-    #[instrument(skip(conn, otp_code), fields(email = %user_email))]
-    pub async fn find_by_email_and_forgot_password(
-        conn: &DbConn,
-        user_email: String,
-        otp_code: String,
-    ) -> DbResult<Option<(Model, super::super::forgot_password::Model)>> {
-        use super::super::forgot_password::{
-            Column as ForgotPasswordColumn, Entity as ForgotPassword,
-        };
-        use sea_orm::{entity::*, query::*};
-
-        let result = Entity::find()
-            .filter(Column::Email.eq(user_email))
-            .join(JoinType::InnerJoin, Relation::ForgotPassword.def())
-            .filter(ForgotPasswordColumn::Code.eq(otp_code))
-            .find_with_related(ForgotPassword)
-            .all(conn)
-            .await;
-
-        match result {
-            Ok(mut results) => {
-                if results.is_empty() {
-                    return Ok(None);
-                }
-
-                let (user, mut forgot_passwords) = results.remove(0);
-                let forgot_password = forgot_passwords.pop().unwrap();
-
-                Ok(Some((user, forgot_password)))
-            }
-            Err(err) => Err(err.into()),
         }
     }
 

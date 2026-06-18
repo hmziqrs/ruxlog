@@ -13,7 +13,7 @@ pub struct V1UpdateProfilePayload {
     pub name: Option<String>,
     #[validate(email)]
     pub email: Option<String>,
-    #[validate(length(min = 4))]
+    #[validate(length(min = 12))]
     pub password: Option<String>,
 }
 
@@ -33,7 +33,7 @@ pub struct V1AdminCreateUserPayload {
     pub name: String,
     #[validate(email)]
     pub email: String,
-    #[validate(length(min = 1))]
+    #[validate(length(min = 12))]
     pub password: String,
     #[serde(default = "default_role")]
     #[validate(custom(function = "validate_role"))]
@@ -74,7 +74,7 @@ pub struct V1AdminUpdateUserPayload {
     #[validate(email)]
     pub email: Option<String>,
     pub avatar_id: Option<i32>,
-    #[validate(length(min = 1))]
+    #[validate(length(min = 12))]
     pub password: Option<String>,
     pub is_verified: Option<bool>,
     #[validate(custom(function = "validate_role"))]
@@ -97,7 +97,7 @@ impl V1AdminUpdateUserPayload {
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct AdminChangePassword {
-    #[validate(length(min = 1))]
+    #[validate(length(min = 12))]
     pub password: String,
 }
 

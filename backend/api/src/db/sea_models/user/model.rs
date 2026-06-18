@@ -16,7 +16,11 @@ pub struct Model {
     pub is_verified: bool,
     pub role: UserRole,
     pub two_fa_enabled: bool,
+    // Never serialize these — leaking the TOTP seed or backup-code hashes lets an
+    // attacker bypass 2FA. See plan Phase 2a.
+    #[serde(skip_serializing)]
     pub two_fa_secret: Option<String>,
+    #[serde(skip_serializing)]
     pub two_fa_backup_codes: Option<Json>,
     pub google_id: Option<String>,
     pub oauth_provider: Option<String>,

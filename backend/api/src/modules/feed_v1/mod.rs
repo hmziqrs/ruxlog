@@ -16,12 +16,42 @@ pub mod controller {
     use crate::{
         db::sea_models::post::{self, Column as PostColumn, Entity as PostEntity, PostStatus},
         error::ErrorResponse,
+        services::paywall::{
+            load_post_access_map, PostAccessPolicy, PostAccessType,
+        },
         AppState,
     };
 
     #[derive(Debug, Deserialize)]
     pub struct FeedQuery {
         pub limit: Option<u64>,
+    }
+
+    /// Summary text shown for a gated post in the public feed. The feed is
+    /// unauthenticated, so the body of a `Paid`/`SubscriberOnly` post must NEVER
+    /// be derived from `content` — the previous fallback (`content_to_summary`)
+    /// leaked up to 500 chars of the real body to anonymous feed readers
+    /// (audit F#11 round-2, paywall bypass via the feed). Show only a policy
+    /// hint; readers must visit the site to read, where the server-side paywall
+    /// gates them properly.
+    fn gated_summary(policy: &PostAccessPolicy) -> String {
+        match policy.access_type {
+            PostAccessType::SubscriberOnly => {
+                "This post is for subscribers only — visit the site to read it.".to_string()
+            }
+            PostAccessType::Paid => match policy.price_cents {
+                Some(price) => format!(
+                    "This post is available for purchase ({} {}). Visit the site to read it.",
+                    (price as f64) / 100.0,
+                    policy.currency.as_deref().unwrap_or("USD")
+                ),
+                None => "This post is available for purchase — visit the site to read it."
+                    .to_string(),
+            },
+            // Unreachable for open posts (the caller only invokes this when the
+            // policy is gated), but kept exhaustive.
+            PostAccessType::Free => String::new(),
+        }
     }
 
     fn xml_escape(s: &str) -> String {
@@ -143,6 +173,12 @@ pub mod controller {
         let limit = params.limit.unwrap_or(20).min(100);
         let posts = fetch_latest_posts(&state, limit).await?;
 
+        // Batch-load the access policy for every post so gated (Paid/
+        // SubscriberOnly) entries never leak their body in the public feed
+        // (audit F#11 round-2). Defaults to Free for posts with no policy row.
+        let post_ids: Vec<i32> = posts.iter().map(|p| p.id).collect();
+        let policies = load_post_access_map(&state.sea_db, &post_ids).await?;
+
         let updated = Utc::now().fixed_offset();
         let mut xml = String::new();
         xml.push_str(r#"<?xml version="1.0" encoding="UTF-8"?>"#);
@@ -166,10 +202,21 @@ pub mod controller {
             let item_url = format!("{}/posts/{}", site_url.trim_end_matches('/'), p.slug);
             let pub_date = p.published_at.unwrap_or(p.updated_at).to_rfc2822();
             let title = xml_escape(&p.title);
-            let desc_raw = if let Some(ex) = &p.excerpt {
-                ex.clone()
+            let policy = policies
+                .get(&p.id)
+                .cloned()
+                .unwrap_or_else(PostAccessPolicy::free);
+            // The feed is public/unauthenticated: a gated post leaks nothing of
+            // its body — only a policy hint. Open (Free) posts keep the excerpt
+            // or a body-derived summary (audit F#11 round-2).
+            let desc_raw = if policy.is_open() {
+                if let Some(ex) = &p.excerpt {
+                    ex.clone()
+                } else {
+                    content_to_summary(&p.content, 500)
+                }
             } else {
-                content_to_summary(&p.content, 500)
+                gated_summary(&policy)
             };
             let desc = xml_escape(&desc_raw);
 
@@ -202,6 +249,12 @@ pub mod controller {
         let limit = params.limit.unwrap_or(20).min(100);
         let posts = fetch_latest_posts(&state, limit).await?;
 
+        // Batch-load the access policy for every post so gated (Paid/
+        // SubscriberOnly) entries never leak their body in the public feed
+        // (audit F#11 round-2). Defaults to Free for posts with no policy row.
+        let post_ids: Vec<i32> = posts.iter().map(|p| p.id).collect();
+        let policies = load_post_access_map(&state.sea_db, &post_ids).await?;
+
         let updated = Utc::now().fixed_offset();
         let self_link = format!("{}/feed/v1/atom", site_url.trim_end_matches('/'));
         let home_link = format!("{}/", site_url.trim_end_matches('/'));
@@ -223,10 +276,21 @@ pub mod controller {
             let entry_url = format!("{}/posts/{}", site_url.trim_end_matches('/'), p.slug);
             let pub_date = p.published_at.unwrap_or(p.updated_at).to_rfc3339();
             let title = xml_escape(&p.title);
-            let summary_raw = if let Some(ex) = &p.excerpt {
-                ex.clone()
+            let policy = policies
+                .get(&p.id)
+                .cloned()
+                .unwrap_or_else(PostAccessPolicy::free);
+            // The feed is public/unauthenticated: a gated post leaks nothing of
+            // its body — only a policy hint. Open (Free) posts keep the excerpt
+            // or a body-derived summary (audit F#11 round-2).
+            let summary_raw = if policy.is_open() {
+                if let Some(ex) = &p.excerpt {
+                    ex.clone()
+                } else {
+                    content_to_summary(&p.content, 500)
+                }
             } else {
-                content_to_summary(&p.content, 500)
+                gated_summary(&policy)
             };
             let summary = xml_escape(&summary_raw);
             let entry_id = entry_url.clone();
@@ -434,6 +498,45 @@ pub mod controller {
             let result = content_to_summary(&json, 5);
             // The fallback JSON string is also truncated
             assert_eq!(result.len(), 5);
+        }
+
+        // ── gated_summary (audit F#11 round-2, feed paywall) ──────────
+
+        fn access(access_type: PostAccessType, price: Option<i32>) -> PostAccessPolicy {
+            PostAccessPolicy {
+                access_type,
+                price_cents: price,
+                currency: price.map(|_| "USD".to_string()),
+            }
+        }
+
+        #[test]
+        fn gated_summary_subscriber_only_is_a_hint_not_the_body() {
+            let s = gated_summary(&access(PostAccessType::SubscriberOnly, None));
+            assert!(s.to_lowercase().contains("subscriber"));
+            // Never echoes body content — it is a fixed policy hint.
+            assert!(s.contains("visit the site"));
+        }
+
+        #[test]
+        fn gated_summary_paid_includes_price() {
+            let s = gated_summary(&access(PostAccessType::Paid, Some(499)));
+            assert!(s.to_lowercase().contains("purchase"));
+            // 499 cents → 4.99
+            assert!(s.contains("4.99"));
+        }
+
+        #[test]
+        fn gated_summary_paid_without_price_is_a_generic_hint() {
+            let s = gated_summary(&access(PostAccessType::Paid, None));
+            assert!(s.to_lowercase().contains("purchase"));
+            assert!(!s.contains("USD"));
+        }
+
+        #[test]
+        fn gated_summary_free_is_empty() {
+            // Open posts never reach gated_summary; the value is unused.
+            assert_eq!(gated_summary(&access(PostAccessType::Free, None)), "");
         }
     }
 }
