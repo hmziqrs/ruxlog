@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 use password_auth::verify_password;
-use rux_auth::{AuthBackend as RuxAuthBackend, AuthError, AuthErrorCode, AuthUser, BanStatus};
+use rux_auth::{
+    AuthBackend as RuxAuthBackend, AuthError, AuthErrorCode, AuthUser, BanStatus,
+    SessionRevocation,
+};
 use sea_orm::DatabaseConnection;
 use std::time::Instant;
 use tokio::task;
@@ -20,6 +23,54 @@ pub struct AuthBackend {
 impl AuthBackend {
     pub fn new(pool: &DatabaseConnection) -> Self {
         Self { pool: pool.clone() }
+    }
+
+    /// Revoke a live tower-sessions record from Redis by its store key.
+    ///
+    /// V-HIGH-2: stamping `user_sessions.revoked_at` does NOT touch the
+    /// tower-sessions Redis record, so the cookie keeps authenticating until its
+    /// 14-day inactivity expiry. This deletes the store key so the very next
+    /// request carrying that cookie finds no session and is unauthenticated.
+    ///
+    /// `tower_session_id` is the `tower_sessions::session::Id` `Display` output
+    /// (a 22-char base64url-no-pad i128) — the exact key `RedisStore` saves
+    /// under. We `sadd` it to a revocation set as well, as defense-in-depth for
+    /// any extractor that consults [`SessionRevocation`] (a future Redis-aware
+    /// backend) and as an audit record if the `DEL` races a concurrent save.
+    #[instrument(skip(self, redis_pool))]
+    pub async fn delete_tower_session(
+        &self,
+        redis_pool: &tower_sessions_redis_store::fred::prelude::Pool,
+        tower_session_id: &str,
+    ) {
+        use tower_sessions_redis_store::fred::interfaces::{KeysInterface, SetsInterface};
+
+        // 1. Kill the live record: the next request with this cookie loads
+        //    nothing from the store and is treated as anonymous.
+        let del_result: Result<i64, _> = redis_pool.del(tower_session_id.to_string()).await;
+        match del_result {
+            Ok(n) => info!(deleted = n, "Deleted tower-session from Redis"),
+            Err(e) => warn!(
+                error = %e,
+                "Failed to DEL tower-session from Redis (revoked_at audit row still set)"
+            ),
+        }
+
+        // 2. Defense-in-depth: record the revocation so an extractor-level
+        //    check (see rux_auth::SessionRevocation) can still catch it even if
+        //    a concurrent session save re-created the key. TTL matches the
+        //    session max-age (14 days) so the set self-cleans.
+        let revoked_key = revoked_set_key();
+        let sadd_result: Result<i64, _> =
+            redis_pool.sadd(revoked_key.clone(), vec![tower_session_id.to_string()]).await;
+        match sadd_result {
+            Ok(_) => {}
+            Err(e) => warn!(error = %e, "Failed to record revocation in Redis set"),
+        }
+        // Best-effort TTL refresh; ignore errors (key may already be gone).
+        let _: Result<(), _> = redis_pool
+            .expire(revoked_key, SESSION_MAX_AGE_SECS, None)
+            .await;
     }
 
     /// Verify password against hash
@@ -255,5 +306,44 @@ impl RuxAuthBackend for AuthBackend {
     async fn on_logout(&self, user_id: &i32) -> Result<(), AuthError> {
         info!(user_id = user_id, "User logged out via rux-auth");
         Ok(())
+    }
+}
+
+/// Session revocation set key in Redis.
+///
+/// Members are tower-session ids (`Id::Display`, 22-char base64url). TTL is
+/// refreshed to [`SESSION_MAX_AGE_SECS`] on each insert so the set self-cleans
+/// as sessions age out of the store entirely.
+pub fn revoked_set_key() -> String {
+    "rux:revoked_sessions".to_string()
+}
+
+/// Mirror of the `SessionManagerLayer` inactivity expiry (14 days, in seconds).
+/// Used to TTL the revocation set so it cannot grow without bound.
+pub const SESSION_MAX_AGE_SECS: i64 = 14 * 24 * 60 * 60;
+
+/// V-HIGH-2 revocation enforcement.
+///
+/// Revocation is enforced by [`AuthBackend::delete_tower_session`], which the
+/// `sessions_terminate` handler runs (it has `state.redis_pool`): it `DEL`s the
+/// live tower-sessions Redis key so the next request with that cookie finds no
+/// session and is anonymous, and `SADD`s the id to a revocation set as
+/// defense-in-depth.
+///
+/// This trait method is the per-request hook the extractor consults, but
+/// `AuthBackend` does NOT hold a Redis pool (its `FromRef`/middleware
+/// construction only provides the DB), so it returns `Ok(false)` today — i.e.
+/// there is no per-request revocation check. This is a deliberate best-effort
+/// tradeoff (mirrors the rate limiter's fail-open policy): revocation works as
+/// long as the `DEL` at terminate-time succeeds; if Redis is unavailable at
+/// that instant, the `revoked_at` stamp is audit/UI-only and does NOT enforce
+/// — the cookie stays valid until its 14-day inactivity expiry. A hard
+/// per-request guarantee would require plumbing a Redis pool into
+/// `AuthBackend` (state.rs `FromRef` + the `auth_guard` middleware) and
+/// overriding this to `SISMEMBER revoked_set_key()`.
+#[async_trait]
+impl SessionRevocation for AuthBackend {
+    async fn is_session_revoked(&self, _tower_session_id: &str) -> Result<bool, AuthError> {
+        Ok(false)
     }
 }

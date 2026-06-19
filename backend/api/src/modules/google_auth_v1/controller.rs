@@ -230,11 +230,28 @@ async fn finish_google_login(
         ErrorResponse::new(ErrorCode::InternalServerError).with_message("Failed to create session")
     })?;
 
-    let _ = user_session::Entity::create(
+    let session_row = user_session::Entity::create(
         &state.sea_db,
         user_session::NewUserSession::new(user.id, Some("Google OAuth".to_string()), None),
     )
-    .await;
+    .await
+    .ok();
+
+    // V-HIGH-2: record the PG-row -> tower-session-id mapping so
+    // `sessions_terminate` can later DEL the live tower-sessions record. The
+    // password-login path does the same; OAuth login previously omitted this,
+    // leaving Google-logged-in sessions un-revocable. `auth.login` cycles the
+    // session id (None until saved), so save first to materialize it.
+    if (auth.session().save().await).is_ok() {
+        if let (Some(row), Some(tower_sid)) = (session_row.as_ref(), auth.session().id()) {
+            crate::modules::auth_v1::controller::record_session_mapping(
+                &state.redis_pool,
+                row.id,
+                &tower_sid.to_string(),
+            )
+            .await;
+        }
+    }
 
     Ok(user)
 }

@@ -129,11 +129,39 @@ pub async fn log_in(
                         "Login successful"
                     );
 
-                    let _ = user_session::Entity::create(
+                    let session_row = user_session::Entity::create(
                         &state.sea_db,
                         user_session::NewUserSession::new(user.id, device, ip),
                     )
-                    .await;
+                    .await
+                    .ok();
+
+                    // V-HIGH-2: persist the PG-row → tower-session-id mapping in
+                    // Redis so `sessions_terminate` can later find and DEL the
+                    // live tower-sessions record. Without this, terminating a
+                    // session only stamps `revoked_at` and the cookie keeps
+                    // authenticating for up to 14 days. The mapping TTLs out
+                    // with the session max-age so it self-cleans.
+                    //
+                    // `login_with_metadata` calls `cycle_id`, which sets the
+                    // in-memory session id to `None` until the record is saved.
+                    // Save now to materialize the cycled id (the one the cookie
+                    // will carry) before reading it. The `SessionManagerLayer`
+                    // saves again at response time — that just updates the same
+                    // record (`store.save` path), so this is safe and
+                    // idempotent.
+                    if (auth.session().save().await).is_ok() {
+                        if let (Some(row), Some(tower_sid)) =
+                            (session_row.as_ref(), auth.session().id())
+                        {
+                            record_session_mapping(
+                                &state.redis_pool,
+                                row.id,
+                                &tower_sid.to_string(),
+                            )
+                            .await;
+                        }
+                    }
 
                     tracing::Span::current().record("result", "success");
                     Ok((StatusCode::OK, Json(json!(user))))
@@ -450,14 +478,107 @@ pub async fn sessions_terminate(
     auth: AuthSession,
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let user_id = auth.user.map(|u| u.id).unwrap_or(0);
+    let user_id = auth.user.as_ref().map(|u| u.id).unwrap_or(0);
     let result = user_session::Entity::revoke(&state.sea_db, id).await?;
     match result {
-        Some(session) if session.user_id == user_id => Ok((
-            StatusCode::OK,
-            Json(json!({ "message": "Session terminated" })),
-        )),
+        Some(session) if session.user_id == user_id => {
+            // V-HIGH-2: actually invalidate the live tower-sessions record.
+            // `Entity::revoke` only stamps `user_sessions.revoked_at` (audit/
+            // UI-only — nothing on the auth path reads it); the tower-sessions
+            // Redis key remains, so the cookie keeps authenticating. Look up the
+            // tower-session id captured at login and DEL it from Redis (plus
+            // add it to a revocation set as defense-in-depth). A missing mapping
+            // (a session whose login path didn't record one, or a pre-fix row)
+            // means we CANNOT DEL the live record — the cookie then stays valid
+            // until its 14-day inactivity expiry. `revoked_at` does NOT enforce
+            // that window; it is audit-only.
+            if let Some(tower_sid) = lookup_session_mapping(&state.redis_pool, id).await {
+                auth.backend()
+                    .delete_tower_session(&state.redis_pool, &tower_sid)
+                    .await;
+            } else {
+                warn!(
+                    session_id = id,
+                    "No tower-session mapping for session; live record could not be DEL'd — cookie valid until 14-day expiry (revoked_at is audit-only)"
+                );
+            }
+            Ok((StatusCode::OK, Json(json!({ "message": "Session terminated" }))))
+        }
         Some(_) => Err(ErrorResponse::new(ErrorCode::Unauthorized)),
         None => Err(ErrorResponse::new(ErrorCode::RecordNotFound)),
+    }
+}
+
+/// Redis key holding the tower-session id for a given `user_sessions.id`.
+fn session_mapping_key(pg_session_id: i32) -> String {
+    format!("rux:sid_map:{pg_session_id}")
+}
+
+/// Persist `user_sessions.id -> tower_session_id` so terminate can later find
+/// and kill the live tower-sessions record. TTLs with the session max-age.
+/// `pub(crate)` so the Google-OAuth login path records the same mapping.
+pub(crate) async fn record_session_mapping(
+    redis_pool: &tower_sessions_redis_store::fred::prelude::Pool,
+    pg_session_id: i32,
+    tower_session_id: &str,
+) {
+    use tower_sessions_redis_store::fred::interfaces::KeysInterface;
+
+    let key = session_mapping_key(pg_session_id);
+    let set_result: Result<(), _> = redis_pool
+        .set::<(), _, _>(
+            key,
+            tower_session_id.to_string(),
+            Some(fred::types::Expiration::EX(
+                crate::services::auth::SESSION_MAX_AGE_SECS,
+            )),
+            None,
+            false,
+        )
+        .await;
+    if let Err(e) = set_result {
+        warn!(error = %e, "Failed to record tower-session mapping");
+    }
+}
+
+/// Look up the tower-session id previously recorded for a `user_sessions.id`.
+/// Returns `None` if the mapping is absent (pre-fix rows, or expired).
+async fn lookup_session_mapping(
+    redis_pool: &tower_sessions_redis_store::fred::prelude::Pool,
+    pg_session_id: i32,
+) -> Option<String> {
+    use tower_sessions_redis_store::fred::interfaces::KeysInterface;
+
+    let key = session_mapping_key(pg_session_id);
+    match redis_pool.get::<Option<String>, _>(key).await {
+        Ok(Some(sid)) => Some(sid),
+        Ok(None) => None,
+        Err(e) => {
+            warn!(
+                error = %e,
+                session_id = pg_session_id,
+                "Failed to look up tower-session mapping; live record cannot be DEL'd (revoked_at is audit-only)"
+            );
+            None
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::session_mapping_key;
+
+    /// V-HIGH-2: the PG-row → tower-session-id mapping key must be a stable,
+    /// namespaced function of the integer `user_sessions.id` so terminate can
+    /// recover the exact key login wrote.
+    #[test]
+    fn session_mapping_key_is_stable_and_namespaced() {
+        assert_eq!(session_mapping_key(1), "rux:sid_map:1");
+        assert_eq!(session_mapping_key(42), "rux:sid_map:42");
+        assert_eq!(
+            session_mapping_key(7),
+            format!("rux:sid_map:{}", 7),
+            "key must be the pg id under the rux namespace"
+        );
     }
 }

@@ -245,63 +245,27 @@ pub async fn reset(
             .with_message("Password and confirm password do not match"));
     }
 
-    // Resolve the account whose password is changing via one of two paths:
-    //  (a) reset_token — the preferred path issued by `verify`. By the time one
-    //      of these exists the emailed code has already been consumed, so this is
-    //      the only valid credential after verify. Atomically single-use (GETDEL).
-    //  (b) legacy code+email — for a client that resets WITHOUT first calling
-    //      `verify` (the code row must still be present). Kept so older clients
-    //      keep working; the new `verify`→`reset` flow never reaches it.
-    let user_id = if let Some(token) = payload.reset_token.as_deref() {
-        match reset_token::take(&state, token).await? {
-            Some(id) => id,
-            None => {
-                warn!("Reset attempted with an unknown or already-used reset token");
-                return Err(ErrorResponse::new(ErrorCode::InvalidInput)
-                    .with_message("Reset token is invalid or has expired"));
-            }
+    // V-HIGH-4: the password can ONLY be changed through the one-time
+    // `reset_token` issued by `verify`. That token is bound to a user and is
+    // atomically consumed here (single-use `GETDEL`). There is NO fallback to a
+    // raw emailed `code` + `email`: `/request`, `/verify` and `/reset` are
+    // independently-reachable routes, so accepting the emailed code at `/reset`
+    // would let an attacker who merely intercepted the reset email skip
+    // `/verify` entirely and take over the account. The `reset_token` is a
+    // required (non-optional) field on `V1ResetPayload`, so a tokenless request
+    // fails at deserialization before reaching this handler.
+    let user_id = match reset_token::take(&state, &payload.reset_token).await? {
+        Some(id) => id,
+        None => {
+            warn!("Reset attempted with an unknown or already-used reset token");
+            return Err(ErrorResponse::new(ErrorCode::InvalidInput)
+                .with_message("Reset token is invalid or has expired"));
         }
-    } else {
-        let code = match payload.code.as_deref() {
-            Some(c) => c,
-            None => {
-                warn!("Reset attempted without a reset token or a code");
-                return Err(ErrorResponse::new(ErrorCode::InvalidInput)
-                    .with_message("Either a reset token or a verification code is required"));
-            }
-        };
-        let email = payload.email.as_deref().ok_or_else(|| {
-            warn!("Reset via legacy code path without an email");
-            ErrorResponse::new(ErrorCode::InvalidInput)
-                .with_message("Email is required when using a verification code")
-        })?;
-
-        let code_hash = crate::utils::code_hash::hash_code(&state.secret_key, code);
-        let verification = match forgot_password::Entity::find_query(
-            &state.sea_db,
-            None,
-            Some(email),
-            Some(&code_hash),
-        )
-        .await
-        {
-            Ok(v) => {
-                if v.is_expired() {
-                    warn!("Expired code during reset");
-                    return Err(ErrorResponse::new(ErrorCode::InvalidInput)
-                        .with_message("The verification code has expired"));
-                }
-                v
-            }
-            Err(err) => {
-                warn!("Invalid code during reset");
-                return Err(err);
-            }
-        };
-        verification.user_id
     };
 
-    // Reset password in PostgreSQL (also deletes any remaining code row).
+    // Reset password in PostgreSQL. `reset` runs in a transaction that deletes
+    // any remaining code row for the user before updating the password, so the
+    // row is consumed as part of this flow even if a stale one lingered.
     match forgot_password::Entity::reset(&state.sea_db, user_id, payload.password.clone()).await {
         Ok(_) => {
             info!(user_id, "Password reset in PostgreSQL");

@@ -146,10 +146,17 @@ pub fn router(state: AppState) -> Router<AppState> {
         .layer(middleware::from_fn(request_id_middleware))
         .layer(middleware::from_fn(http_metrics::track_metrics))
         .layer(
-            // Do NOT capture headers in spans/responses: Cookie, Authorization, and
-            // csrf-token would otherwise ship to OTLP at INFO. See plan Phase 2b.
+            // Do NOT capture headers in spans/responses: Cookie, Authorization,
+            // csrf-token, and webhook-signature would otherwise ship to OTLP at
+            // INFO. `include_headers(false)` is the tower-http default but is set
+            // explicitly here so the safety property is self-documenting and not
+            // contingent on knowing the library default. See plan Phase 2b / V-MED-7.
             TraceLayer::new_for_http()
-                .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
+                .make_span_with(
+                    DefaultMakeSpan::new()
+                        .level(Level::INFO)
+                        .include_headers(false),
+                )
                 .on_response(
                     DefaultOnResponse::new()
                         .level(Level::INFO)

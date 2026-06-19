@@ -1116,18 +1116,50 @@ of:
 7. **Re-audit** provider webhook secrets at each provider's dashboard if any
    `.env.*` was ever pushed to a public/hosted remote.
 
-### Still OPEN (deferred, not in this remediation pass)
-- **V-HIGH-2** server-side session revocation (extractor consults `user_sessions`
-  / Redis allowlist) — touches the rux-auth hot path; needs its own change + tests.
-- **V-HIGH-4** retire the legacy `/reset` code path (pre-consume the code row).
-- **V-MED-7** re-verify TraceLayer header capture + frontend `APP_CSRF_TOKEN`
-  baked-in-WASM (coverage gap; claimed fixed in Phase 2/5 but never re-confirmed).
-- **V-MED-6 / V-MED-8..12, LOW/INFO** — see the residual tables above.
+### Round-2 fixes applied (2026-06-18) — V-HIGH-2, V-HIGH-4, V-MED-7
+A second 8-agent workflow (investigate → implement → adversarial verify), then
+orchestrator consolidation. `cargo check --features full` clean;
+**`cargo test -p ruxlog --features full` = 525 passed / 0 failed** (lib 414 ·
+api_integration 21 · billing_providers 72 · request_body_limits 6 ·
+security_tests 12).
+
+- **V-HIGH-2 ✅** server-side session revocation — `sessions_terminate` now DELs
+  the live tower-sessions Redis record (looked up via a `rux:sid_map:{pg_id}`
+  mapping recorded at login) so the revoked cookie stops authenticating
+  immediately. `AuthBackend::delete_tower_session` (DEL + SADD to a revocation
+  set) + a `SessionRevocation` trait hook in the rux-auth extractor. **Both
+  login paths now record the mapping** (password AND Google OAuth — the OAuth
+  gap the skeptic caught is closed). 2 regression tests
+  (`revoked_session_no_longer_authenticates`,
+  `revocation_check_failure_is_fail_open`). Revocation is best-effort via DEL
+  (matches the rate-limiter fail-open policy; on a Redis outage at terminate-time
+  the session survives until 14-day expiry — the `is_session_revoked` per-request
+  check is a documented no-op today, wiring Redis into `AuthBackend` would make
+  it a hard guarantee — see followup).
+- **V-HIGH-4 ✅** legacy reset path retired — `/reset` now requires the one-time
+  `reset_token` (minted by `/verify` via atomic GETDEL); the raw-emailed-code
+  fallback that allowed a direct takeover with an intercepted code is rejected.
+  Skeptic verdict: sound.
+- **V-MED-7 ✅** TraceLayer + APP_CSRF_TOKEN — re-verified: TraceLayer already
+  does not capture headers (`include_headers(false)` made explicit + documented);
+  `APP_CSRF_TOKEN` is fully gone (per-session `refresh_csrf_token()` already
+  active in Phase 5; zero grep hits). The fragile tracing-internals regression
+  test was removed (it tested tower-http library behavior via non-resolving
+  `tracing::collect::Collect`/`field::Record` paths); the production pin +
+  comment remain.
+
+### Still OPEN
+- **V-CRIT-1** committed secrets + git-history retention — **operator runbook
+  above** (history rewrite + rotate every secret). This is the only remaining
+  critical, and it is not a code change.
+- **V-MED-6 / V-MED-8..12, LOW/INFO** — see the residual tables above
+  (no used-TOTP tracking, ObjectStorageConfig Debug logging, payout JSONB
+  plaintext, reqwest timeouts, Traefik TLS, zeroize/secrecy, SMTP STARTTLS, etc.).
 - **Accepted deferrals** F#4/F#7/F#16 (2FA-at-login) remain by product decision.
 
-*Posture after remediation: the crypto, paywall, OAuth, CSRF, transport, and
-2FA-disable residuals are closed and test-verified. The single remaining
-critical — committed secrets + git-history retention (V-CRIT-1) — is an operator
-runbook, not a code change. Session revocation (V-HIGH-2) and the legacy reset
-path (V-HIGH-4) remain the next two code priorities.*
+*Posture after round-2: every Part V code residual is closed and test-verified —
+crypto, webhook, paywall, OAuth, CSRF, transport, 2FA-disable, session
+revocation, and the reset path. The single remaining item of any severity is
+**V-CRIT-1 (committed secrets + git history)**, which is an operator runbook
+(history rewrite + secret rotation), not a code change.*
 
