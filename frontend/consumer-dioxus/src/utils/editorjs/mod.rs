@@ -234,7 +234,7 @@ mod tests {
 
     #[test]
     fn sanitize_strips_javascript_urls() {
-        let cleaned = sanitize_html(r#"<a href="javascript:alert(1)">x</a>");
+        let cleaned = sanitize_html(r#"<a href="javascript:alert(1)">x</a>"#);
         assert!(!cleaned.contains("javascript:"));
         assert!(!cleaned.contains("alert"));
     }
