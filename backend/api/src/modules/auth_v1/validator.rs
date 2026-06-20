@@ -64,6 +64,20 @@ pub struct V1TwoFADisablePayload {
     pub code: Option<String>,
 }
 
+/// Payload for the second step of the two-step login flow (F#4/F#7/F#16).
+///
+/// `totp_token` is the short-lived, single-use pending credential issued by
+/// `log_in` when the authenticating user has 2FA enrolled (stored in Redis at
+/// `auth:login_totp:{token}`). It authenticates ONLY the TOTP step — it is not
+/// itself a session and grants nothing else. `code` is the 6-digit TOTP code.
+#[derive(Debug, Deserialize, Serialize, Validate)]
+pub struct V1LoginTotpPayload {
+    #[validate(length(min = 64, max = 64))]
+    pub totp_token: String,
+    #[validate(length(min = 6, max = 6))]
+    pub code: String,
+}
+
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1TerminateSessionPath {
     pub id: i32,
@@ -259,5 +273,59 @@ mod tests {
             "login and register must apply the same password max-length bound"
         );
         assert!(login.is_err());
+    }
+
+    // ── V1LoginTotpPayload validation (two-step login, F#4/F#7/F#16) ──────
+    // The pending TOTP credential is a 256-bit hex string (64 chars) and the
+    // TOTP code is exactly 6 digits. Rejecting wrong-length inputs here keeps
+    // them out of the Redis lookup and the TOTP verify.
+
+    fn valid_totp_token() -> String {
+        "a".repeat(64)
+    }
+
+    #[test]
+    fn login_totp_payload_valid() {
+        let payload = V1LoginTotpPayload {
+            totp_token: valid_totp_token(),
+            code: "123456".to_string(),
+        };
+        assert!(payload.validate().is_ok());
+    }
+
+    #[test]
+    fn login_totp_payload_short_token_rejected() {
+        let payload = V1LoginTotpPayload {
+            totp_token: "a".repeat(63),
+            code: "123456".to_string(),
+        };
+        assert!(payload.validate().is_err());
+    }
+
+    #[test]
+    fn login_totp_payload_long_token_rejected() {
+        let payload = V1LoginTotpPayload {
+            totp_token: "a".repeat(65),
+            code: "123456".to_string(),
+        };
+        assert!(payload.validate().is_err());
+    }
+
+    #[test]
+    fn login_totp_payload_short_code_rejected() {
+        let payload = V1LoginTotpPayload {
+            totp_token: valid_totp_token(),
+            code: "12345".to_string(),
+        };
+        assert!(payload.validate().is_err());
+    }
+
+    #[test]
+    fn login_totp_payload_long_code_rejected() {
+        let payload = V1LoginTotpPayload {
+            totp_token: valid_totp_token(),
+            code: "1234567".to_string(),
+        };
+        assert!(payload.validate().is_err());
     }
 }

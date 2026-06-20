@@ -6,7 +6,15 @@ use axum::{middleware, routing::post, Router};
 use crate::{middlewares::auth_guard, AppState};
 
 pub fn routes() -> Router<AppState> {
-    let mut public = Router::<AppState>::new().route("/log_in", post(controller::log_in));
+    let mut public = Router::<AppState>::new()
+        .route("/log_in", post(controller::log_in))
+        // Second step of the two-step 2FA-at-login flow (F#4/F#7/F#16): a
+        // correct password no longer yields a full session for 2FA-enrolled
+        // users — they get a short-lived `totp_token` and must POST it here
+        // with a valid TOTP code. Public (the token IS the auth for this step);
+        // brute-force on the 6-digit code is bounded by the `totp:{user_id}`
+        // abuse-limiter bucket invoked inside the handler.
+        .route("/login/totp", post(controller::login_totp));
 
     #[cfg(feature = "user-management")]
     {

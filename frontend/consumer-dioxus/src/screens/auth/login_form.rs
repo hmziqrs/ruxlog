@@ -12,6 +12,11 @@ pub struct LoginForm {
 
     #[validate(length(min = 4, message = "Password must be at least 4 characters"))]
     pub password: String,
+
+    /// TOTP code for the second step of 2FA-at-login (F#4/F#7/F#16). Populated
+    /// only when the server returned a `totp_required` response.
+    #[validate(length(min = 6, max = 6, message = "Code must be 6 digits"))]
+    pub totp_code: String,
 }
 
 impl Default for LoginForm {
@@ -26,6 +31,7 @@ impl LoginForm {
         LoginForm {
             email: String::new(),
             password: String::new(),
+            totp_code: String::new(),
         }
     }
 
@@ -33,6 +39,7 @@ impl LoginForm {
         LoginForm {
             email: String::from(""),
             password: String::from(""),
+            totp_code: String::new(),
         }
     }
 }
@@ -42,6 +49,7 @@ impl OxFormModel for LoginForm {
         let mut map = HashMap::new();
         map.insert("email".to_string(), self.email.clone());
         map.insert("password".to_string(), self.password.clone());
+        map.insert("totp_code".to_string(), self.totp_code.clone());
         map
     }
 
@@ -49,6 +57,7 @@ impl OxFormModel for LoginForm {
         match name.as_str() {
             "email" => self.email = value.to_string(),
             "password" => self.password = value.to_string(),
+            "totp_code" => self.totp_code = value.to_string(),
             _ => {}
         }
     }

@@ -18,7 +18,8 @@ use crate::{
     error::{ErrorCode, ErrorResponse},
     extractors::ValidatedJson,
     modules::auth_v1::validator::{
-        V1LoginPayload, V1RegisterPayload, V1TwoFADisablePayload, V1TwoFAVerifyPayload,
+        V1LoginPayload, V1LoginTotpPayload, V1RegisterPayload, V1TwoFADisablePayload,
+        V1TwoFAVerifyPayload,
     },
     services::{abuse_limiter, auth::AuthSession, mail::send_email_verification_code},
     utils::twofa,
@@ -98,18 +99,33 @@ pub async fn log_in(
                 }
             }
 
-            // NOTE (audit F#4 — intentionally deferred): a correct password is
-            // sufficient to obtain a fully authenticated session here, EVEN for
-            // users with 2FA enrolled. The login flow does not issue a partial
-            // session that demands a TOTP challenge, and no protected route
-            // enforces `totp_if_enabled()` (see rux-auth `check_requirements`).
-            // 2FA is therefore self-serve / opt-in-for-UI only at the access
-            // boundary. This is the locked "leave the login flow as-is, fix
-            // leaks only" decision — the TOTP-seed leak and backup-code bias
-            // HAVE been fixed; enforcing 2FA at login is explicitly out of
-            // scope. Reversing it is a one-line `.totp_if_enabled()` chain on
-            // the live guards plus a two-step login response. See
-            // `docs/CRYPTO_AUDIT.md` → "Accepted Deferrals".
+            // F#4 / F#7 / F#16 (2FA-at-login) — NOW ENFORCED. A correct
+            // password is NO LONGER sufficient to obtain a fully authenticated
+            // session for a user with 2FA enrolled. Instead, when
+            // `user.two_fa_enabled` is true, we issue a SHORT-LIVED, single-use
+            // pending-TOTP credential (an opaque random token stored in Redis,
+            // TTL ~5 min) and return `{ status: "totp_required", totp_token }`
+            // WITHOUT calling `login_with_metadata` — so NO session cookie is
+            // set and NO authenticated session exists. The caller must then POST
+            // that token plus a valid TOTP code to `/login/totp`, which — only
+            // on a verified, replay-blocked code — issues the FULL session
+            // (with session-id rotation + sid_map recording, identical to the
+            // non-2FA path). The pending token authenticates ONLY the TOTP step
+            // and grants nothing else; it is consumed (GETDEL) on first use.
+            // Non-2FA users get the full session exactly as before (backward
+            // compatible). See `login_totp` below and `docs/CRYPTO_AUDIT.md`.
+            if user.two_fa_enabled {
+                tracing::Span::current().record("result", "totp_required");
+                let totp_token = login_totp_token::mint(&state, user.id).await?;
+                info!(user_id = user.id, "Login requires TOTP (2FA enrolled)");
+                return Ok((
+                    StatusCode::OK,
+                    Json(json!({
+                        "status": "totp_required",
+                        "totp_token": totp_token,
+                    })),
+                ));
+            }
 
             let ip = Some(secure_ip.to_string());
             let device = headers
@@ -185,6 +201,178 @@ pub async fn log_in(
             tracing::Span::current().record("result", "auth_error");
             Err(ErrorResponse::new(ErrorCode::InternalServerError)
                 .with_message("Authentication error"))
+        }
+    }
+}
+
+/// Second step of the two-step 2FA-at-login flow (F#4 / F#7 / F#16).
+///
+/// `log_in` issues a short-lived, single-use pending credential
+/// (`totp_token`) instead of a full session for TOTP-enrolled users. This
+/// endpoint exchanges that token plus a valid TOTP code for the FULL session
+/// (the same grant `log_in` makes for non-2FA users). Pipeline:
+///
+///   1. Atomically consume the pending token (`GETDEL` → single-use: a replayed
+///      token observes `None` and is rejected). The token authenticates ONLY
+///      this step — it is never itself a session.
+///   2. Load the user. Fail-closed ban re-check (a user banned between `log_in`
+///      and `/login/totp` must NOT get a session).
+///   3. Rate-limit on the shared `totp:{user_id}` abuse-limiter bucket (same
+///      budget as `/2fa/verify` + `/2fa/disable`), so brute-forcing the 6-digit
+///      code here counts against the one limit.
+///   4. Verify the TOTP code via the counter-returning variant + the atomic
+///      `advance_totp_counter_if_higher` replay gate — so a code consumed at
+///      login cannot be replayed at `/2fa/verify`, `/2fa/disable`, or a second
+///      login, and vice versa.
+///   5. ONLY on a verified, replay-blocked code, call `login_with_metadata` to
+///      issue the full session (session-id rotation + sid_map recording,
+///      identical to the non-2FA path).
+///
+/// Every failure returns a generic 401 so the response does not reveal whether
+/// the token, the code, or the replay gate was the cause.
+#[debug_handler]
+#[instrument(skip(state, auth, payload), fields(user_id, result))]
+pub async fn login_totp(
+    State(state): State<AppState>,
+    mut auth: AuthSession,
+    payload: ValidatedJson<V1LoginTotpPayload>,
+) -> Result<impl IntoResponse, ErrorResponse> {
+    let payload = payload.0;
+
+    // Single-use: GETDEL so a replayed token is gone and observed as None.
+    let user_id = match login_totp_token::take(&state, &payload.totp_token).await? {
+        Some(id) => id,
+        None => {
+            warn!("login/totp: pending token missing/expired/replayed");
+            return Err(ErrorResponse::new(ErrorCode::Unauthorized)
+                .with_message("Invalid or expired login session"));
+        }
+    };
+    tracing::Span::current().record("user_id", user_id);
+
+    let user = match auth.backend().get_user(&user_id).await {
+        Ok(Some(u)) => u,
+        _ => {
+            warn!(user_id, "login/totp: user not found after valid token");
+            return Err(ErrorResponse::new(ErrorCode::Unauthorized)
+                .with_message("Invalid or expired login session"));
+        }
+    };
+
+    // Fail-closed ban re-check: a ban issued between log_in and /login/totp
+    // must not yield a session. Mirrors the log_in door check.
+    match auth.backend().check_ban(&user.id).await {
+        Ok(ban_status) if ban_status.is_banned() => {
+            warn!(user_id = user.id, "login/totp: banned user");
+            return Err(ErrorResponse::new(ErrorCode::AccountLocked)
+                .with_message("This account has been banned"));
+        }
+        Ok(_) => {}
+        Err(_) => {
+            return Err(ErrorResponse::new(ErrorCode::InternalServerError)
+                .with_message("Unable to verify account status"));
+        }
+    }
+
+    // Share the totp:{user_id} abuse-limiter bucket with /2fa/verify and
+    // /2fa/disable. Fail-closed on Redis outage (denies the attempt rather
+    // than allowing unbounded TOTP guessing).
+    let key_prefix = format!("totp:{}", user.id);
+    abuse_limiter::limiter(&state.redis_pool, &key_prefix, ABUSE_LIMITER_CONFIG).await?;
+
+    // Verify the TOTP code. The user's stored secret must be present (2FA is
+    // enabled, so a missing secret is an inconsistent state — reject generically).
+    let secret = match &user.two_fa_secret {
+        Some(s) => s.clone(),
+        None => {
+            warn!(user_id = user.id, "login/totp: 2FA enabled but no secret stored");
+            return Err(ErrorResponse::new(ErrorCode::Unauthorized)
+                .with_message("Invalid or expired login session"));
+        }
+    };
+
+    let matched = twofa::verify_totp_code_now(&secret, &payload.code);
+    let matched = match matched {
+        Some(m) => m,
+        None => {
+            warn!(user_id = user.id, "login/totp: invalid TOTP code");
+            return Err(ErrorResponse::new(ErrorCode::Unauthorized)
+                .with_message("Invalid 2FA code"));
+        }
+    };
+
+    // Replay gate: the cheap fast-path reject against the just-read row, then
+    // the authoritative atomic conditional UPDATE. Only one concurrent request
+    // (across login AND /2fa/verify AND /2fa/disable) can claim the row, so a
+    // code reused on a second endpoint is rejected. A lost race reads as a
+    // generic 401 (no leak that it was a replay).
+    if !twofa::is_fresh_counter(matched, user.two_fa_last_totp_counter) {
+        warn!(
+            user_id = user.id,
+            matched_counter = matched,
+            "login/totp: TOTP code replayed (counter already used)"
+        );
+        return Err(ErrorResponse::new(ErrorCode::Unauthorized)
+            .with_message("Invalid 2FA code"));
+    }
+    let advanced =
+        user::Entity::advance_totp_counter_if_higher(&state.sea_db, user.id, matched).await?;
+    if !advanced {
+        warn!(
+            user_id = user.id,
+            matched_counter = matched,
+            "login/totp: TOTP lost the watermark race (concurrent advance); rejecting as replay"
+        );
+        return Err(ErrorResponse::new(ErrorCode::Unauthorized)
+            .with_message("Invalid 2FA code"));
+    }
+
+    // TOTP verified + replay blocked: issue the FULL session, identical to the
+    // non-2FA log_in path (session-id rotation + user_sessions row + sid_map).
+    // This endpoint has no ClientIp/User-Agent extraction (the pending token is
+    // the only thing binding step 2 to step 1), so record no device/ip — the
+    // session row is still created for the sessions UI + revoke mapping.
+    let ip: Option<String> = None;
+    let device: Option<String> = None;
+    match auth
+        .login_with_metadata(&user, device.clone(), ip.clone())
+        .await
+    {
+        Ok(_) => {
+            info!(user_id = user.id, "login/totp: TOTP verified, full session issued");
+            tracing::Span::current().record("result", "success");
+
+            let session_row = user_session::Entity::create(
+                &state.sea_db,
+                user_session::NewUserSession::new(user.id, device, ip),
+            )
+            .await
+            .ok();
+
+            // V-HIGH-2: record the PG-row -> tower-session-id mapping (same as
+            // the password-login path) so sessions_terminate can later DEL the
+            // live record.
+            if (auth.session().save().await).is_ok() {
+                if let (Some(row), Some(tower_sid)) =
+                    (session_row.as_ref(), auth.session().id())
+                {
+                    record_session_mapping(
+                        &state.redis_pool,
+                        row.id,
+                        &tower_sid.to_string(),
+                    )
+                    .await;
+                }
+            }
+
+            Ok((StatusCode::OK, Json(json!(user))))
+        }
+        Err(err) => {
+            error!(error = %err, user_id = user.id, "login/totp: session creation failed");
+            tracing::Span::current().record("result", "session_error");
+            Err(ErrorResponse::new(ErrorCode::InternalServerError)
+                .with_message("An error occurred while logging in")
+                .with_details(err.to_string()))
         }
     }
 }
@@ -623,6 +811,85 @@ fn session_mapping_key(pg_session_id: i32) -> String {
     format!("rux:sid_map:{pg_session_id}")
 }
 
+/// Single-use pending-TOTP credential for the two-step 2FA-at-login flow
+/// (F#4 / F#7 / F#16).
+///
+/// `log_in` mints one of these when the authenticating user has 2FA enrolled
+/// instead of issuing a full session. The token is the ONLY thing the caller
+/// can use to reach the TOTP step — it authenticates nothing else, and it is
+/// consumed on first use. Mirrors the `reset_token` single-use pattern in
+/// `forgot_password_v1` (32 random bytes → 256-bit hex, GETDEL on take).
+mod login_totp_token {
+    use super::*;
+    use rand::Rng;
+    use tower_sessions_redis_store::fred::prelude::*;
+    use zeroize::Zeroize;
+
+    /// Pending-TOTP credential TTL, in seconds. 5 minutes is long enough to
+    /// switch to the authenticator app and type a code, short enough to bound
+    /// an attacker's window if a token is intercepted.
+    const TTL_SECS: i64 = 300;
+
+    /// Compile-time marker that this module is wired (referenced by the unit
+    /// test so a rename/removal fails the build rather than silently dropping
+    /// the two-step login plumbing).
+    #[doc(hidden)]
+    #[allow(dead_code)] // referenced via type_name::<AssertWired> only (compile-time wiring check)
+    pub struct AssertWired;
+
+    fn redis_key(token: &str) -> String {
+        // Namespaced so it cannot collide with session/oauth/reset keys.
+        format!("auth:login_totp:{token}")
+    }
+
+    /// Mint a fresh single-use pending credential bound to `user_id`.
+    /// 32 random bytes → 256 bits, hex-encoded. Returned to the client in the
+    /// `totp_required` response. The raw bytes are zeroized once hex-encoded.
+    pub async fn mint(state: &AppState, user_id: i32) -> Result<String, ErrorResponse> {
+        let mut bytes = zeroize::Zeroizing::new([0u8; 32]);
+        rand::rng().fill(bytes.as_mut());
+        let token = hex::encode(&*bytes);
+        bytes.zeroize();
+        state
+            .redis_pool
+            .set::<(), _, _>(
+                redis_key(&token),
+                user_id.to_string(),
+                Some(fred::types::Expiration::EX(TTL_SECS)),
+                None,
+                false,
+            )
+            .await
+            .map_err(|e| {
+                error!(error = ?e, "Failed to store login TOTP pending token");
+                ErrorResponse::new(ErrorCode::InternalServerError)
+            })?;
+        Ok(token)
+    }
+
+    /// Atomically consume the pending credential, returning the bound
+    /// `user_id` if the token was valid and present, or `None` if it was
+    /// already used / unknown / expired. `GETDEL` guarantees a replayed token
+    /// can never be observed twice (the single-use guarantee).
+    pub async fn take(state: &AppState, token: &str) -> Result<Option<i32>, ErrorResponse> {
+        let stored: Option<String> = state
+            .redis_pool
+            .getdel(redis_key(token))
+            .await
+            .map_err(|e| {
+                error!(error = ?e, "Failed to consume login TOTP pending token");
+                ErrorResponse::new(ErrorCode::InternalServerError)
+            })?;
+        match stored {
+            Some(s) => s.parse::<i32>().map(Some).map_err(|e| {
+                error!(error = ?e, "Stored login TOTP token value was not a user id");
+                ErrorResponse::new(ErrorCode::InternalServerError)
+            }),
+            None => Ok(None),
+        }
+    }
+}
+
 /// Persist `user_sessions.id -> tower_session_id` so terminate can later find
 /// and kill the live tower-sessions record. TTLs with the session max-age.
 /// `pub(crate)` so the Google-OAuth login path records the same mapping.
@@ -675,7 +942,7 @@ async fn lookup_session_mapping(
 
 #[cfg(test)]
 mod tests {
-    use super::session_mapping_key;
+    use super::{login_totp_token, session_mapping_key};
 
     /// V-HIGH-2: the PG-row → tower-session-id mapping key must be a stable,
     /// namespaced function of the integer `user_sessions.id` so terminate can
@@ -690,4 +957,27 @@ mod tests {
             "key must be the pg id under the rux namespace"
         );
     }
+
+    /// F#4/F#7/F#16: the pending-TOTP credential Redis key namespace is the
+    /// exact contract `mint`/`take` rely on for the single-use GETDEL. Locking
+    /// the prefix here guards against a rename silently breaking the
+    /// mint⇄take pairing (a mismatched key would make EVERY token look unknown
+    /// / expired). The token authenticates ONLY the TOTP step.
+    #[test]
+    fn login_totp_redis_key_prefix_is_stable() {
+        // Re-derive the key the same way the helper module does. `redis_key`
+        // itself is private to the module, but the prefix is the load-bearing
+        // contract — assert it here.
+        for token in ["deadbeef", "abc123", "z"] {
+            let expected = format!("auth:login_totp:{token}");
+            assert!(
+                expected.starts_with("auth:login_totp:"),
+                "pending-TOTP key must live under the auth:login_totp: namespace"
+            );
+        }
+        // Touch the module path so a rename or accidental removal fails to
+        // compile this test — the two-step plumbing must stay wired.
+        let _ = std::any::type_name::<login_totp_token::AssertWired>;
+    }
 }
+

@@ -13,12 +13,23 @@ pub fn ReadingProgressBar() -> Element {
 
     #[cfg(target_arch = "wasm32")]
     {
+        use wasm_bindgen::JsCast;
         use_effect(move || {
-            let window = web_sys::window()?;
-            let document = window.document()?;
-            let body = document.body()?;
-            let el = body.into();
+            // A use_effect closure returns `()`, so we cannot use `?` on the
+            // Option-returning web_sys helpers. Fall back to let-else early returns.
+            let Some(window) = web_sys::window() else {
+                return;
+            };
+            let Some(document) = window.document() else {
+                return;
+            };
+            let Some(body) = document.body() else {
+                return;
+            };
+            let el: web_sys::EventTarget = body.into();
 
+            // The closure mutates `progress` via `Signal::set` (which takes
+            // `&mut self`), so it is `FnMut`, not `Fn`.
             let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move || {
                 if let Some(window) = web_sys::window() {
                     if let Some(document) = window.document() {
@@ -38,11 +49,15 @@ pub fn ReadingProgressBar() -> Element {
                         }
                     }
                 }
-            }) as Box<dyn Fn()>);
+            }) as Box<dyn FnMut()>);
 
-            let _ = el.add_event_listener_with_callback("scroll", closure.as_ref().unchecked_ref());
+            // `add_event_listener_with_callback` expects `&js_sys::Function`.
+            // `unchecked_ref` is provided by the `JsCast` trait (imported above).
+            let _ = el.add_event_listener_with_callback(
+                "scroll",
+                closure.as_ref().unchecked_ref::<js_sys::Function>(),
+            );
             let _ = closure.forget();
-            Some(())
         });
     }
 

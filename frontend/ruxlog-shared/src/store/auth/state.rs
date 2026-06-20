@@ -17,6 +17,15 @@ pub struct AuthState {
     pub init_status: GlobalSignal<StateFrame>,
     pub two_factor: GlobalSignal<StateFrame<Option<TwoFactorSetup>>>,
     pub sessions: GlobalSignal<StateFrame<Vec<UserSession>>>,
+
+    /// Two-step 2FA-at-login (F#4/F#7/F#16). When `login()` receives a
+    /// `{ status: "totp_required", totp_token }` response (the user has 2FA
+    /// enrolled, so a correct password is NOT enough for a full session), the
+    /// opaque pending token is stored here as `data`. The login screen then
+    /// shows a TOTP code input; `verify_login_totp(code)` exchanges the token
+    /// + code at `/auth/v1/login/totp` for the full session and clears this.
+    /// `data == None` (or a non-success frame) means no TOTP step is pending.
+    pub login_totp: GlobalSignal<StateFrame<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,6 +86,15 @@ pub struct TwoFactorSetup {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TwoFactorVerifyPayload {
+    pub code: String,
+}
+
+/// Second step of the two-step 2FA-at-login flow. `totp_token` is the opaque
+/// pending credential from `login()`'s `totp_required` response; `code` is the
+/// 6-digit TOTP code from the user's authenticator.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct LoginTotpPayload {
+    pub totp_token: String,
     pub code: String,
 }
 

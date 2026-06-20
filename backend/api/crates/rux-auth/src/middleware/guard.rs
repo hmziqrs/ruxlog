@@ -153,19 +153,25 @@ pub async fn check_requirements<B: AuthBackend>(
 
     // Check TOTP requirement
     //
-    // NOTE (audit F#4 / F#7 — intentionally not enforced): this check, the
-    // `.totp_verified()` / `.totp_if_enabled()` builders, the matching
-    // `reauth_within` step-up check below, and the session-state fields they
-    // read (`totp_verified_at`, `reauthenticated_at`, via `mark_totp_verified`
-    // / `mark_reauthenticated`) are **wired to nothing**: no route layer or
-    // handler in the app composes these requirements. Per the project decision
-    // "leave the login flow as-is, fix leaks only", login does not issue a
-    // partial session that demands a TOTP challenge, and there is no step-up
-    // (re-enter-password) guard on sensitive routes. The infrastructure is kept
-    // so a future login-time 2FA challenge can be switched on by chaining
-    // `.totp_if_enabled()` onto the live guards — but until that decision is
-    // reversed, 2FA enrollment has no effect on the access decision. See
-    // `docs/CRYPTO_AUDIT.md` → "Accepted Deferrals".
+    // NOTE (audit F#4 / F#7 — RESOLVED, login-time 2FA is now ENFORCED): the
+    // F#4/F#7 deferral is reversed. 2FA-at-login is enforced via a TWO-STEP
+    // login flow rather than via this per-request guard: `auth_v1::log_in`
+    // issues a short-lived, single-use pending-TOTP credential (NOT a session)
+    // for `two_fa_enabled` users, and only `auth_v1::login_totp` — after a
+    // replay-protected TOTP verification — calls `login_with_metadata` to grant
+    // the full session. So a correct password alone can no longer yield an
+    // authenticated session for a TOTP-enrolled user; they MUST supply a valid
+    // code. The success criterion of F#4/F#7/F#16 is therefore met at the
+    // login boundary.
+    //
+    // What remains OPTIONAL (not enforced, by design): the per-route
+    // `.totp_verified()` / `.totp_if_enabled()` builders below, the
+    // `reauth_within` step-up check, and the session-state fields they read
+    // (`totp_verified_at`, `reauthenticated_at`). These guard individual
+    // sensitive ROUTES within an already-authenticated session (step-up /
+    // transaction re-auth), which is a separate concern from gating login. The
+    // infrastructure is retained for a future step-up requirement; no route
+    // composes it today. See `docs/CRYPTO_AUDIT.md`.
     if let Some(strict) = requirements.totp_verified {
         if strict {
             // Strict mode: must have TOTP verified this session
@@ -182,10 +188,12 @@ pub async fn check_requirements<B: AuthBackend>(
 
     // Check reauth requirement
     //
-    // NOTE (audit F#7): step-up / re-authentication. Same status as the TOTP
-    // check above — the machinery exists but no route composes it, by the same
-    // "leave the login flow as-is" decision. It is dead code pending that
-    // decision being reversed.
+    // NOTE (audit F#7): step-up / re-authentication. The login-time 2FA gate
+    // (F#4) is now enforced (see the TOTP-requirement note above), but this
+    // per-route step-up check — re-entering a password before a sensitive
+    // action within an already-authenticated session — is still OPTIONAL
+    // infrastructure that no route composes today. It remains available for a
+    // future transaction-level step-up requirement.
     if let Some(duration) = requirements.reauth_within {
         if !state.reauth_within(duration) {
             return Err(AuthError::new(AuthErrorCode::ReauthRequired)
