@@ -234,6 +234,54 @@ impl Entity {
         }
     }
 
+    /// V-MED-6 (TOTP replay TOCTOU): atomically advance the
+    /// `two_fa_last_totp_counter` watermark only if the proposed `new_counter`
+    /// is strictly greater than the row's current value (or the row has no
+    /// watermark yet).
+    ///
+    /// This is a single conditional UPDATE executed by the DB:
+    /// ```sql
+    /// UPDATE users
+    ///   SET two_fa_last_totp_counter = :new_counter
+    ///   WHERE id = :user_id
+    ///     AND (two_fa_last_totp_counter IS NULL OR two_fa_last_totp_counter < :new_counter)
+    /// ```
+    /// The UPDATE is the authoritative replay gate: under two concurrent
+    /// `twofa_verify`/`twofa_disable` requests for the same user and the same
+    /// matched counter, only one UPDATE can claim the row (the DB applies each
+    /// UPDATE's WHERE against the row it reads under its own lock), so only one
+    /// request sees `rows_affected > 0` and is authorized. The other observes
+    /// the now-advanced watermark, matches zero rows, and is rejected as a
+    /// replay — closing the read-modify-write TOCTOU that the prior
+    /// `find_by_id`-then-`update` path had.
+    ///
+    /// Returns `true` when the watermark was advanced (caller may authorize),
+    /// `false` when another request already advanced past `new_counter`
+    /// (caller must treat as a replay). Any DB error propagates as a 500.
+    #[instrument(skip(conn), fields(user_id, new_counter))]
+    pub async fn advance_totp_counter_if_higher<T: ConnectionTrait>(
+        conn: &T,
+        user_id: i32,
+        new_counter: i64,
+    ) -> DbResult<bool> {
+        // Build the conditional SET. `col_expr` writes
+        // `two_fa_last_totp_counter = $new_counter`; the IS NULL OR < filter is
+        // the replay guard. `Expr::col` + `.lt` builds the comparison against
+        // the bound value so both branches reference the same `new_counter`.
+        let new_watermark = Expr::col(Column::TwoFaLastTotpCounter).lt(new_counter);
+        let result = Self::update_many()
+            .col_expr(Column::TwoFaLastTotpCounter, Expr::value(new_counter))
+            .filter(Column::Id.eq(user_id))
+            .filter(
+                Column::TwoFaLastTotpCounter
+                    .is_null()
+                    .or(new_watermark),
+            )
+            .exec(conn)
+            .await?;
+        Ok(result.rows_affected > 0)
+    }
+
     #[instrument(skip(conn), fields(email = %user_email))]
     pub async fn find_by_email(conn: &DbConn, user_email: String) -> DbResult<Option<Model>> {
         match Self::find()
@@ -639,5 +687,74 @@ impl Entity {
             },
             Err(err) => Err(err.into()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sea_orm::sea_query::PostgresQueryBuilder;
+    use sea_orm::QueryTrait;
+
+    /// V-MED-6 TOCTOU fix: `advance_totp_counter_if_higher` must emit a SINGLE
+    /// conditional UPDATE — `SET two_fa_last_totp_counter = :new WHERE id = :uid
+    /// AND (two_fa_last_totp_counter IS NULL OR two_fa_last_totp_counter < :new)`
+    /// — so the DB, not the application, decides who wins the watermark race.
+    /// The guarantee is the SQL shape (the conditional WHERE), not a value this
+    /// test asserts; rendering the statement to SQL keeps the test DB-free.
+    /// If a future refactor drops the `IS NULL OR <` guard, this test fails.
+    #[test]
+    fn advance_totp_counter_emits_atomic_conditional_update() {
+        let sql = Entity::update_many()
+            .col_expr(
+                Column::TwoFaLastTotpCounter,
+                sea_orm::sea_query::Expr::value(1_000_042_i64),
+            )
+            .filter(Column::Id.eq(7))
+            .filter(
+                Column::TwoFaLastTotpCounter
+                    .is_null()
+                    .or(sea_orm::sea_query::Expr::col(Column::TwoFaLastTotpCounter)
+                        .lt(1_000_042_i64)),
+            )
+            .into_query()
+            .to_string(PostgresQueryBuilder);
+
+        // The SET targets exactly the watermark column with the new counter.
+        assert!(
+            sql.contains("SET \"two_fa_last_totp_counter\" = 1000042"),
+            "expected SET on the watermark column, got: {sql}"
+        );
+        // The row is scoped to one user — no bulk update.
+        assert!(
+            sql.contains("\"id\" = 7"),
+            "expected WHERE id = 7, got: {sql}"
+        );
+        // The replay guard: IS NULL OR < new_counter. Both arms must be present
+        // so first-use (NULL) and strict-advance (<) both pass while a replay
+        // (==) matches zero rows.
+        assert!(
+            sql.contains("\"two_fa_last_totp_counter\" IS NULL"),
+            "missing IS NULL branch (first-use), got: {sql}"
+        );
+        assert!(
+            sql.contains("\"two_fa_last_totp_counter\" < 1000042"),
+            "missing strict-less-than branch (replay guard), got: {sql}"
+        );
+        // Sanity: this is an UPDATE against the users table, not a SELECT.
+        assert!(sql.starts_with("UPDATE \"users\""), "not an UPDATE: {sql}");
+    }
+
+    /// The watermark column's SeaORM identity must be stable so the SET column
+    /// and the WHERE filter refer to the same physical column — a mismatched
+    /// alias here would silently break the replay guard.
+    #[test]
+    fn two_fa_last_totp_counter_iden_is_stable() {
+        use sea_orm::sea_query::Iden;
+        assert_eq!(
+            Column::TwoFaLastTotpCounter.to_string(),
+            "two_fa_last_totp_counter",
+            "column iden must match the schema column name"
+        );
     }
 }

@@ -127,6 +127,49 @@ pub(crate) fn uniform_success_response(
     )
 }
 
+/// A fixed, non-secret password used only to drive a dummy Argon2 hash on the
+/// unknown-email branch (see `equalize_unknown_email_work`). It is never stored,
+/// never verified, and never compared to anything — its only job is to feed
+/// `password_auth::generate_hash` a stable input so the Argon2 KDF does real
+/// work. Using a constant (rather than a fresh random value) keeps the input
+/// length fixed, so the hash cost is identical across requests and across the
+/// two branches.
+const DUMMY_HASH_PASSWORD: &str = "timing-equalization-dummy";
+
+/// SC-006 (timing-oracle hardening): perform a dummy Argon2id hash on a fixed
+/// input and discard the result.
+///
+/// `generate`'s known-email branch does meaningful CPU work that the
+/// unknown-email branch does not — at minimum the reset-code generation and a
+/// keyed hash, and in sibling auth flows an Argon2id password hash. The cheap
+/// CPU/timing signal from that asymmetry lets an attacker averaging request
+/// latency distinguish registered from unknown emails even though the HTTP
+/// *response* is byte-identical. This helper closes that CPU gap by making the
+/// unknown path run an Argon2 KDF too, so the CPU-cost distributions of the two
+/// branches overlap. Argon2id is memory-hard and dominates the local CPU cost,
+/// which is exactly the signal we are equalizing.
+///
+/// Contract:
+///   - touches NO database, NO Redis, NO mailer;
+///   - returns the hash only so it is not optimized away — the caller drops it;
+///   - is pure / deterministic for a given input, so it is unit-testable without
+///     a server or a DB.
+///
+/// Residual risk (documented, not fixable locally): the known-email branch also
+/// performs an SMTP network round-trip, whose latency we deliberately do NOT
+/// try to match — a fixed sleep would itself become an oracle and a DoS vector.
+/// A determined attacker who can average out the SMTP network hop can still
+/// infer account existence from that residual signal; this helper only closes
+/// the cheap, deterministic CPU/timing oracle. The `abuse_limiter` already
+/// bounds request frequency, so the added per-request CPU is bounded too.
+fn equalize_unknown_email_work() -> String {
+    // `password_auth::generate_hash` uses the same Argon2id parameters as the
+    // rest of the codebase (it is the wrapper used by `twofa` and the user
+    // model), so the CPU cost here approximates the CPU cost of the known-email
+    // path's hashing work.
+    password_auth::generate_hash(DUMMY_HASH_PASSWORD)
+}
+
 #[debug_handler]
 #[instrument(skip(state, payload), fields(email = %payload.email, client_ip = %secure_ip))]
 pub async fn generate(
@@ -158,6 +201,24 @@ pub async fn generate(
         Ok(Some(user)) => user,
         Ok(None) => {
             warn!("Forgot password requested for non-existent email; returning uniform response");
+            // SC-006 (timing-oracle hardening): equalize the CPU work between
+            // the known- and unknown-email branches. The known path does real
+            // hashing work (code generation + keyed hash, and in sibling flows
+            // an Argon2id hash); without this dummy hash the unknown path's
+            // markedly lower CPU cost is itself an enumeration oracle even
+            // though the HTTP response is byte-identical. The Argon2 KDF is
+            // memory-hard and dominates local CPU cost — exactly the signal we
+            // are matching. Run it off the async worker (same pattern as the
+            // backup-code / password hashing in `auth_v1`) so we never block
+            // the executor. It touches no DB/Redis/mailer; the result is
+            // dropped. See `equalize_unknown_email_work` for the residual
+            // (unmatched SMTP network latency) and the abuse-limiter bound.
+            let _ = tokio::task::spawn_blocking(equalize_unknown_email_work)
+                .await
+                .map_err(|e| {
+                    error!("Dummy equalization hash task panicked: {e}");
+                    ErrorResponse::new(ErrorCode::InternalServerError)
+                })?;
             return Ok(uniform_success_response());
         }
         Err(err) => {
@@ -375,5 +436,78 @@ mod tests {
         let success = serde_json::to_value(&*body).unwrap();
         let leak_body = serde_json::to_value(&leak).unwrap_or(serde_json::Value::Null);
         assert_ne!(success, leak_body);
+    }
+
+    // SC-006 timing-oracle hardening: the unknown-email branch must now do an
+    // Argon2 hash so its CPU cost approximates the known-email branch. We can't
+    // measure "the handler ran a hash" without a server, but we CAN assert the
+    // pure helper exists, runs, produces a valid Argon2id PHC string (proving
+    // real KDF work happened — not a no-op), and is deterministic in shape —
+    // so the two branches' CPU distributions overlap modulo the SMTP residual.
+    #[test]
+    fn equalize_unknown_email_work_runs_real_argon2() {
+        let hash = equalize_unknown_email_work();
+
+        // A valid Argon2id PHC string starts with this prefix and is non-empty
+        // — proving generate_hash actually ran the KDF rather than short-
+        // circuiting. If someone replaces the body with a cheap no-op (e.g. a
+        // String::from), this fails.
+        assert!(
+            hash.starts_with("$argon2"),
+            "equalize_unknown_email_work must produce an Argon2 PHC string, got: {hash}"
+        );
+        assert!(!hash.is_empty());
+    }
+
+    // The dummy hash must use a CONSTANT input + constant Argon2 params so the
+    // per-request CPU cost is fixed (no input-length or param variance between
+    // requests). If a future edit switches it to a random-length password or
+    // changes the params per call, the cost — and thus the timing signal — would
+    // vary, partially reopening the oracle.
+    #[test]
+    fn dummy_hash_uses_constant_cost() {
+        // The OUTPUT PHC strings are NOT byte-identical: Argon2id uses a fresh
+        // RANDOM salt per hash, so only the salt+hash tail differs. The
+        // cost-defining params segment (m=,t=,p=) IS constant, which is what
+        // fixes the per-request CPU cost — assert that instead of full equality.
+        let a = equalize_unknown_email_work();
+        let b = equalize_unknown_email_work();
+        assert!(
+            a.starts_with("$argon2id$") && b.starts_with("$argon2id$"),
+            "dummy hash must be Argon2id PHC strings"
+        );
+        let params_a = a.split('$').nth(3).expect("PHC string has a params segment");
+        let params_b = b.split('$').nth(3).expect("PHC string has a params segment");
+        assert_eq!(
+            params_a, params_b,
+            "Argon2 cost params (m/t/p) must be constant so per-request CPU cost is fixed"
+        );
+        // The salt+hash tail MUST differ (proves a fresh random salt per call —
+        // a fixed salt would itself be a weakness).
+        assert_ne!(a, b, "two Argon2id hashes must differ due to the random salt");
+    }
+
+    // SC-006 end-to-end (no DB): the response returned to the caller is
+    // byte-identical regardless of which branch ran, AND both branches now
+    // perform a hash. We assert the response shape is unchanged by the added
+    // equalization work — the hash must never leak into the body.
+    #[test]
+    fn uniform_response_unaffected_by_equalization_work() {
+        // Simulate the unknown branch: run the equalizer, then build the
+        // uniform response exactly as the handler does.
+        let _ = equalize_unknown_email_work(); // result dropped, as in handler
+        let (status, body) = uniform_success_response();
+
+        assert_eq!(status, StatusCode::OK);
+        let v = serde_json::to_value(&*body).unwrap();
+        // The hash result must NOT appear anywhere in the response body.
+        let body_str = v.to_string();
+        assert!(
+            !body_str.contains("$argon2"),
+            "equalization hash must not leak into the uniform response body"
+        );
+        // Exactly one key, the conditional message — no existence signal added.
+        assert_eq!(v.as_object().unwrap().len(), 1);
+        assert!(v["message"].as_str().unwrap().contains("If an account exists"));
     }
 }
