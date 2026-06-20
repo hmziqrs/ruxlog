@@ -1,7 +1,11 @@
 target/
 node_modules/
 dist/
-.env
+# V-CRIT-1: ignore all real env files (they may carry secrets), but keep
+# example/template files tracked so they ship with the repo.
+.env*
+!.env.example
+!**/*.env.example
 .DS_Store
 *.log
 .DS_Store

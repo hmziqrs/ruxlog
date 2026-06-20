@@ -87,3 +87,73 @@ http:
     spa-csp-headers:
       headers:
         contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+
+  # V-MED-9 (edge attachment): the middlewares above were DEFINED here but
+  # never referenced, so Traefik never applied them (Traefik does not auto-apply
+  # middlewares — a router must name them in its `middlewares` list). The
+  # routers below close that gap at the edge so HSTS + CSP are enforced for
+  # every HTTPS request, independent of whether each app/SPA container happens
+  # to repeat the middleware chain in its own Docker-provider labels.
+  #
+  # Why file-provider routers (and not just compose labels): the app/SPA routers
+  # are created at deploy time by container labels on a prod compose that is not
+  # checked into this repo (the tracked docker-compose.yml is the local-dev
+  # stack on a bridge network, not the prod external network). Defining the
+  # edge policy here makes it authoritative and version-controlled instead of
+  # depending on operators remembering to add the labels.
+  #
+  # Why entrypoints=websecure ONLY: dev (traefik.dev.yml) runs HTTP-only on :80
+  # and defines no websecure entrypoint, so these routers are inert in dev —
+  # HSTS (secure-transport-headers) is correctly NOT emitted in dev (browsers
+  # would otherwise pin the dev host), while CSP stays available for any dev
+  # SPA route that does go through Traefik. prod (traefik.prod.yml) defines
+  # websecure on :443, so the routers are live there. This keeps a single shared
+  # dynamic file correct for both environments without env-specific branching.
+  #
+  # Hosts: BACKEND_DOMAIN / FRONTEND_DOMAIN are interpolated by compose at deploy
+  # time when prod labels the routers; here we use PathPrefix catch-alls scoped
+  # to the API and SPA backends. Adjust the Host(`...`) rules to match the real
+  # deployed domains (api.<tld>, app.<tld>, admin.<tld>) if you pin hosts.
+  routers:
+    # Single edge router covering BOTH the API and the SPA over HTTPS. We use
+    # one catch-all (not separate api/spa routers) because: (a) both need the
+    # SAME middleware chain (HSTS + CSP), so splitting them only risks Traefik
+    # router-priority shadowing between two PathPrefix(`/`) rules on the same
+    # entrypoint; (b) a single router with an explicit `priority` guarantees the
+    # edge policy applies to every HTTPS request, including SPA assets, without
+    # depending on each app/SPA container repeating the middleware labels.
+    #
+    # The CSP middleware is harmless on JSON API responses (browsers don't
+    # execute JSON) and load-bearing on the WASM SPA responses, so attaching it
+    # here is correct for both. If you later split API and SPA onto separate
+    # hosts/containers, give each its own Host(`...`) rule and the SAME
+    # middlewares list — do NOT drop spa-csp-headers from the SPA router.
+    api-spa-secure:
+      rule: "PathPrefix(`/`)"
+      entrypoints:
+        - websecure
+      # Explicit high priority so this edge-policy router is authoritative for
+      # every HTTPS request and the HSTS+CSP chain is guaranteed applied,
+      # regardless of whether deploy-time Docker-provider routers remember to
+      # list the middlewares. This is correct for the current single-backend
+      # topology (API + SPA both served by the api container). If you split
+      # backends, replace this catch-all with per-Host routers that each carry
+      # the same middlewares list and forward to their own service.
+      priority: 1000
+      middlewares:
+        - secure-transport-headers@file
+        - spa-csp-headers@file
+      service: api-backend
+      tls:
+        certresolver: letsencrypt
+
+  services:
+    # Load-balancer backend pointing at the api container over the shared
+    # ${PROJECT}_network via docker DNS (matches the api service internal port
+    # 8888 from docker-compose.yml). If the SPA is served by a different
+    # container (e.g. a static nginx/caddy on :8080), split the router into
+    # Host(`app.<tld>`)->spa-service and Host(`api.<tld>`)->api-service.
+    api-backend:
+      loadBalancer:
+        servers:
+          - url: "http://api:8888"
