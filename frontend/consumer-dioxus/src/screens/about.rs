@@ -1,9 +1,5 @@
 use crate::config::BRAND;
-<<<<<<< Updated upstream
 use crate::seo::{breadcrumb_schema, use_static_seo, SeoHead, StructuredData};
-=======
-use crate::seo::{use_static_seo, SeoHead};
->>>>>>> Stashed changes
 use dioxus::prelude::*;
 use hmziq_dioxus_free_icons::icons::ld_icons::{
     LdBolt, LdCode, LdGlobe, LdHeart, LdShield, LdTrendingUp,
@@ -23,7 +19,6 @@ pub fn AboutScreen() -> Element {
             ])
         }
 
-<<<<<<< Updated upstream
         div { class: "min-h-screen",
             div { class: "container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-4xl",
                 // Hero section
@@ -98,33 +93,10 @@ pub fn AboutScreen() -> Element {
                     h2 { class: "text-2xl font-bold mb-3", "Open Source" }
                     p { class: "text-muted-foreground mb-6 max-w-xl mx-auto",
                         "{BRAND.app_name} is open source. Read the code, file issues, or contribute."
-=======
-        div { class: "min-h-screen bg-background",
-            div { class: "container mx-auto px-4 py-8 md:py-12 lg:py-16 max-w-6xl",
-                h1 { class: "text-4xl font-bold mb-6", "About Ruxlog" }
-                div { class: "prose dark:prose-invert max-w-none",
-                    p { class: "text-lg mb-4",
-                        "Ruxlog is a Rust-first blogging platform built from scratch for speed, clarity, and control."
-                    }
-                    h2 { "What it is" }
-                    p {
-                        "Ruxlog is a full-stack Rust monorepo that powers a consumer-facing blog and an admin interface. The consumer app focuses on fast, readable pages with server-side rendering in mind, while the admin app stays a lean SPA with heavier tooling."
-                    }
-                    h2 { "How it’s built" }
-                    ul {
-                        li { "Backend: Axum API with Rust-first data models and migrations." }
-                        li { "Frontend: two Dioxus apps (consumer + admin) with shared crates for UI, forms, state, and utilities." }
-                        li { "Cross-platform: runs on web, desktop, and mobile; web-only features stay in the web builds." }
-                    }
-                    h2 { "Open source" }
-                    p {
-                        "The project is open-source and evolves in public. You can explore the repository and follow progress on GitHub."
->>>>>>> Stashed changes
                     }
                     a {
                         href: "{BRAND.repo_url}",
                         target: "_blank",
-<<<<<<< Updated upstream
                         rel: "noopener noreferrer",
                         class: "inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity",
                         "View on GitHub"
@@ -150,10 +122,6 @@ pub fn AboutScreen() -> Element {
                                 "Building things with Rust"
                             }
                         }
-=======
-                        rel: "noopener",
-                        "View the repo"
->>>>>>> Stashed changes
                     }
                 }
             }
