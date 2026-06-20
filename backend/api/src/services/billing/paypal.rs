@@ -8,6 +8,11 @@ use super::provider::{
     BillingError, BillingProvider, CheckoutSession, ParsedWebhook, SubscriptionInfo, WebhookEvent,
 };
 
+// V-MED-10: every outbound PayPal call goes through this client (built once in
+// `new` with timeouts, or overridden via `with_http_client` with the shared
+// AppState client). Never a bare `reqwest::Client::new()`.
+use crate::state::build_http_client;
+
 /// PayPal Commerce billing provider.
 pub struct PayPalProvider {
     pub client_id: String,
@@ -20,6 +25,7 @@ pub struct PayPalProvider {
     /// compatibility and is not used for verification.)
     pub webhook_id: Option<String>,
     pub base_url: String,
+    pub http_client: reqwest::Client,
 }
 
 impl PayPalProvider {
@@ -33,6 +39,7 @@ impl PayPalProvider {
             // PAYPAL_API_BASE_URL for development. See plan Phase 6f.
             base_url: std::env::var("PAYPAL_API_BASE_URL")
                 .unwrap_or_else(|_| "https://api-m.paypal.com".to_string()),
+            http_client: build_http_client(),
         }
     }
 
@@ -46,12 +53,18 @@ impl PayPalProvider {
         self.webhook_id = Some(webhook_id);
         self
     }
+
+    /// V-MED-10: inject the shared, timeout-configured client from `AppState`.
+    pub fn with_http_client(mut self, client: reqwest::Client) -> Self {
+        self.http_client = client;
+        self
+    }
 }
 
 impl PayPalProvider {
     /// Get an OAuth access token from PayPal.
     async fn get_access_token(&self) -> Result<String, BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let resp = client
             .post(format!("{}/v1/oauth2/token", self.base_url))
             .header("Accept", "application/json")
@@ -88,7 +101,7 @@ impl PayPalProvider {
     /// field) → fail-closed (audit F#11 round-2).
     async fn fetch_subscription_period_end(&self, subscription_id: &str) -> Option<i64> {
         let token = self.get_access_token().await.ok()?;
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let url = format!(
             "{}/v1/billing/subscriptions/{}",
             self.base_url, subscription_id
@@ -125,7 +138,7 @@ impl BillingProvider for PayPalProvider {
         cancel_url: &str,
     ) -> Result<CheckoutSession, BillingError> {
         let token = self.get_access_token().await?;
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
 
         // Create a REAL PayPal billing subscription (not a one-time order) so the
         // `session_id` we store — and key the checkout intent by — is a
@@ -196,7 +209,7 @@ impl BillingProvider for PayPalProvider {
         immediately: bool,
     ) -> Result<(), BillingError> {
         let token = self.get_access_token().await?;
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let url = format!(
             "{}/v1/billing/subscriptions/{}/cancel",
             self.base_url, provider_subscription_id
@@ -230,7 +243,7 @@ impl BillingProvider for PayPalProvider {
         provider_subscription_id: &str,
     ) -> Result<SubscriptionInfo, BillingError> {
         let token = self.get_access_token().await?;
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let url = format!(
             "{}/v1/billing/subscriptions/{}",
             self.base_url, provider_subscription_id
@@ -316,7 +329,7 @@ impl BillingProvider for PayPalProvider {
             "webhook_event": webhook_event,
         });
 
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let resp = client
             .post(format!(
                 "{}/v1/notifications/verify-webhook-signature",

@@ -8,6 +8,10 @@ use validator::Validate;
 // literals, so a shared const can't be used in the attribute. See Phase 3d/3e.
 const CODE_LEN: u64 = 8;
 const PASSWORD_MIN: u64 = 12;
+// CWE-400: an Argon2 memory/CPU DoS ceiling. Multi-megabyte passwords force
+// expensive hashing; this bound is generous for passphrases yet bounded enough
+// to prevent abuse. Kept in sync with auth_v1's PASSWORD_MAX.
+const PASSWORD_MAX: u64 = 256;
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1GeneratePayload {
@@ -49,9 +53,9 @@ pub struct V1ResetPayload {
     /// so a tokenless request never reaches the handler.
     #[validate(length(min = 1))]
     pub reset_token: String,
-    #[validate(length(min = PASSWORD_MIN))]
+    #[validate(length(min = PASSWORD_MIN, max = PASSWORD_MAX))]
     pub password: String,
-    #[validate(length(min = PASSWORD_MIN))]
+    #[validate(length(min = PASSWORD_MIN, max = PASSWORD_MAX))]
     pub confirm_password: String,
 }
 
@@ -135,5 +139,50 @@ mod tests {
         });
         let payload = serde_json::from_value::<V1ResetPayload>(raw).unwrap();
         assert!(payload.validate().is_err(), "empty reset_token must fail even if code is present");
+    }
+
+    // ── password max-length bound (CWE-400: Argon2 memory DoS) ───────────
+    // Both `password` and `confirm_password` are capped at PASSWORD_MAX (256),
+    // so an oversized input is rejected at validation (400) before it reaches
+    // the hashing layer.
+
+    #[test]
+    fn reset_payload_max_length_password_validates() {
+        let long = "a".repeat(PASSWORD_MAX as usize);
+        let payload = V1ResetPayload {
+            reset_token: "deadbeefcafebabe".to_string(),
+            password: long.clone(),
+            confirm_password: long,
+        };
+        assert!(
+            payload.validate().is_ok(),
+            "a 256-char password (PASSWORD_MAX) must validate"
+        );
+    }
+
+    #[test]
+    fn reset_payload_over_max_password_rejected() {
+        let over = "a".repeat((PASSWORD_MAX + 1) as usize);
+        let payload = V1ResetPayload {
+            reset_token: "deadbeefcafebabe".to_string(),
+            password: over.clone(),
+            confirm_password: over,
+        };
+        assert!(
+            payload.validate().is_err(),
+            "passwords longer than PASSWORD_MAX must be rejected (CWE-400)"
+        );
+    }
+
+    // An oversized `confirm_password` alone (with a valid `password`) is also
+    // rejected — the cap is on every password-bearing field, not just one.
+    #[test]
+    fn reset_payload_over_max_confirm_password_rejected() {
+        let payload = V1ResetPayload {
+            reset_token: "deadbeefcafebabe".to_string(),
+            password: STRONG_PW.to_string(),
+            confirm_password: "a".repeat((PASSWORD_MAX + 1) as usize),
+        };
+        assert!(payload.validate().is_err());
     }
 }

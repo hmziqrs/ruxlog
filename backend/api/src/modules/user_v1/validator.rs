@@ -7,13 +7,20 @@ use crate::db::sea_models::user::{
 };
 use crate::utils::SortParam;
 
+/// Password length bounds (CWE-400): reject oversized passwords at validation
+/// (400) before they reach Argon2id, which would otherwise be forced to hash an
+/// unbounded input. Mirrors the bound in `auth_v1` / `forgot_password_v1` so the
+/// limit is uniform across every password-bearing field.
+const PASSWORD_MIN: u64 = 12;
+const PASSWORD_MAX: u64 = 256;
+
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct V1UpdateProfilePayload {
     #[validate(length(min = 1))]
     pub name: Option<String>,
     #[validate(email)]
     pub email: Option<String>,
-    #[validate(length(min = 12))]
+    #[validate(length(min = PASSWORD_MIN, max = PASSWORD_MAX))]
     pub password: Option<String>,
 }
 
@@ -33,7 +40,7 @@ pub struct V1AdminCreateUserPayload {
     pub name: String,
     #[validate(email)]
     pub email: String,
-    #[validate(length(min = 12))]
+    #[validate(length(min = PASSWORD_MIN, max = PASSWORD_MAX))]
     pub password: String,
     #[serde(default = "default_role")]
     #[validate(custom(function = "validate_role"))]
@@ -74,7 +81,7 @@ pub struct V1AdminUpdateUserPayload {
     #[validate(email)]
     pub email: Option<String>,
     pub avatar_id: Option<i32>,
-    #[validate(length(min = 12))]
+    #[validate(length(min = PASSWORD_MIN, max = PASSWORD_MAX))]
     pub password: Option<String>,
     pub is_verified: Option<bool>,
     #[validate(custom(function = "validate_role"))]
@@ -97,7 +104,7 @@ impl V1AdminUpdateUserPayload {
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct AdminChangePassword {
-    #[validate(length(min = 12))]
+    #[validate(length(min = PASSWORD_MIN, max = PASSWORD_MAX))]
     pub password: String,
 }
 

@@ -10,6 +10,19 @@ entryPoints:
     # IP_SOURCE-configured axum_client_ip, not raw headers — plan Phase 6b.)
     forwardedHeaders:
       trustedIPs: []
+    # V-MED-9: force every :80 request to :443 at the edge so the first
+    # plaintext request (the ssl-strip window) still ends on TLS. Without this
+    # the HSTS header — emitted only over the app layer — can never protect the
+    # initial HTTP hit. permanent: true issues a 301 (cacheable, the correct
+    # semantics for a TLS promotion that must never revert). ACME httpchallenge
+    # still works: Traefik serves /.well-known/acme-challenge/* on :80 before
+    # the redirect applies, so certificate issuance/renewal is unaffected.
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
   websecure:
     address: ":443"
     forwardedHeaders:
@@ -23,4 +36,14 @@ accessLog: {}
 providers:
   docker:
     exposedByDefault: false
+    watch: true
+  # V-MED-9 / M-8: file provider for centralized TLS options and headers
+  # middlewares (HSTS + SPA Content-Security-Policy). tls.options and
+  # http.middlewares are dynamic configuration in Traefik v3 and cannot live in
+  # this static file — they are loaded from dynamic/traefik-dynamic.yml. The
+  # `default` TLS option is applied automatically to every websecure router
+  # that does not override tls.options; the middlewares are referenced from the
+  # app containers' `traefik.http.routers.*.middlewares` labels.
+  file:
+    filename: /etc/traefik/dynamic/traefik-dynamic.yml
     watch: true

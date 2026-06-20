@@ -13,7 +13,7 @@ use ruxlog::utils::cors::get_allowed_origins;
 use ruxlog::{
     db, middlewares, router,
     services::{self, redis::init_redis_store},
-    state::{AppState, ObjectStorageConfig},
+    state::{validate_cookie_key, AppState, ObjectStorageConfig},
     utils::telemetry,
 };
 
@@ -82,17 +82,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     telemetry::init_pool_metrics();
 
     let cookie_key_str = env::var("COOKIE_KEY").expect("COOKIE_KEY must be set");
-    // Fail fast with a clear message instead of an opaque panic deep inside the
-    // cookie crate's Key::derive_from (which panics on <32-byte master material).
-    // Enforces minimum strength: >=32 bytes of CSPRNG output (e.g. openssl rand
-    // -hex 32 yields 64 hex chars / 32 bytes). See CRYPTO_AUDIT.md V-HIGH-3/V-CRIT-1.
-    assert!(
-        cookie_key_str.len() >= 32,
-        "COOKIE_KEY must be >= 32 bytes of CSPRNG output (got {}). \
-          Generate with: openssl rand -hex 32. \
-          See CRYPTO_AUDIT.md Part V V-HIGH-3/V-CRIT-1.",
-        cookie_key_str.len()
-    );
+    // V-CRIT-1: refuse the known committed placeholder, empty/whitespace, and
+    // sub-32-byte keys BEFORE Key::derive_from. The previous length-only guard
+    // passed for the placeholder because it is >32 bytes, so production could
+    // boot on a publicly-known key. Panicking here is intentional — booting on
+    // a weak/known cookie key is worse than failing to boot. See
+    // CRYPTO_AUDIT.md V-CRIT-1 / V-HIGH-3.
+    if let Err(reason) = validate_cookie_key(&cookie_key_str) {
+        panic!("{}", reason);
+    }
 
     let sea_db = db::sea_connect::get_sea_connection().await;
 
@@ -132,8 +130,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         endpoint,
     };
 
-    tracing::debug!("Object Storage Config: {:?}", object_storage);
-
+    // V-MED-8: do NOT log the raw ObjectStorageConfig — even with the manual
+    // Debug impl redacting access_key/secret_key, emitting the whole struct at
+    // debug level is unnecessary surface. Log only the non-secret fields that
+    // are useful for diagnosing startup wiring.
+    tracing::debug!(
+        bucket = %object_storage.bucket,
+        region = %object_storage.region,
+        endpoint = %object_storage.endpoint,
+        public_url = %object_storage.public_url,
+        "Object Storage configured (access_key/secret_key redacted)"
+    );
     let s3_config = aws_config::from_env()
         .endpoint_url(&object_storage.endpoint)
         .credentials_provider(aws_sdk_s3::config::Credentials::new(
@@ -175,6 +182,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         default_webp_quality: env_u8("OPTIMIZER_WEBP_QUALITY_DEFAULT", 80),
     };
 
+    // V-MED-10: ONE shared, timeout-configured reqwest::Client for all outbound
+    // billing + Google HTTP calls. Built once here so a slow/hanging upstream
+    // can never pin a handler thread indefinitely (CWE-400/CWE-770). Cloned
+    // cheaply (it is internally an `Arc`) into each provider and the Google
+    // userinfo/JWKS fetch. See `state::build_http_client`.
+    let http_client = ruxlog::state::build_http_client();
+
     #[cfg(feature = "billing")]
     let billing_router: std::sync::Arc<BillingRouter> = {
         use ruxlog::services::billing::{
@@ -183,6 +197,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             paddle::PaddleProvider, paypal::PayPalProvider, polar::PolarProvider,
             razorpay::RazorpayProvider, revolut::RevolutProvider, stripe::StripeProvider,
         };
+        // Each provider receives the shared client so it never falls back to
+        // constructing its own `reqwest::Client::new()`.
+        let http_client = http_client.clone();
 
         fn try_init<F>(name: &str, init: F) -> Option<(String, std::sync::Arc<dyn BillingProvider>)>
         where
@@ -210,7 +227,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some((k, v)) = try_init("stripe", || {
             let secret = env::var("STRIPE_SECRET_KEY").ok()?;
             let wh = env::var("STRIPE_WEBHOOK_SECRET").ok()?;
-            Some(std::sync::Arc::new(StripeProvider::new(secret, wh))
+            Some(std::sync::Arc::new(
+                StripeProvider::new(secret, wh).with_http_client(http_client.clone()),
+            )
                 as std::sync::Arc<dyn BillingProvider>)
         }) {
             providers.insert(k, v);
@@ -220,7 +239,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some((k, v)) = try_init("polar", || {
             let token = env::var("POLAR_ACCESS_TOKEN").ok()?;
             let wh = env::var("POLAR_WEBHOOK_SECRET").ok()?;
-            Some(std::sync::Arc::new(PolarProvider::new(token, wh))
+            Some(std::sync::Arc::new(
+                PolarProvider::new(token, wh).with_http_client(http_client.clone()),
+            )
                 as std::sync::Arc<dyn BillingProvider>)
         }) {
             providers.insert(k, v);
@@ -234,7 +255,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let wh = env::var("LEMONSQUEEZY_WEBHOOK_SECRET").ok()?;
             let store_id = env::var("LEMONSQUEEZY_STORE_ID").ok()?;
             Some(
-                std::sync::Arc::new(LemonSqueezyProvider::new(api_key, wh, store_id))
+                std::sync::Arc::new(
+                    LemonSqueezyProvider::new(api_key, wh, store_id)
+                        .with_http_client(http_client.clone()),
+                )
                     as std::sync::Arc<dyn BillingProvider>,
             )
         }) {
@@ -246,7 +270,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some((k, v)) = try_init("paddle", || {
             let client_token = env::var("PADDLE_CLIENT_TOKEN").ok()?;
             let wh = env::var("PADDLE_WEBHOOK_SECRET").ok()?;
-            let mut provider = PaddleProvider::new(client_token, wh);
+            let mut provider = PaddleProvider::new(client_token, wh)
+                .with_http_client(http_client.clone());
             match env::var("PADDLE_PUBLIC_KEY") {
                 Ok(hex_key) if !hex_key.trim().is_empty() => {
                     provider = provider.with_public_key(&hex_key).ok()?;
@@ -268,7 +293,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let api_key = env::var("CRYPTO_API_KEY").unwrap_or_else(|_| String::new());
             let currency = env::var("CRYPTO_CURRENCY").unwrap_or_else(|_| "BTC".to_string());
             Some(
-                std::sync::Arc::new(CryptoProvider::new(wallet, api_url, api_key, currency))
+                std::sync::Arc::new(
+                    CryptoProvider::new(wallet, api_url, api_key, currency)
+                        .with_http_client(http_client.clone()),
+                )
                     as std::sync::Arc<dyn BillingProvider>,
             )
         }) {
@@ -277,8 +305,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Crypto (multi-chain)
         if let Some((k, v)) = try_init("crypto_multi", || {
-            let provider =
-                ruxlog::services::billing::crypto::MultiChainCryptoProvider::from_env().ok()?;
+            let provider = ruxlog::services::billing::crypto::MultiChainCryptoProvider::from_env()
+                .ok()?
+                .with_http_client(http_client.clone());
             Some(std::sync::Arc::new(provider) as std::sync::Arc<dyn BillingProvider>)
         }) {
             providers.insert(k, v);
@@ -290,7 +319,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let key_secret = env::var("RAZORPAY_KEY_SECRET").ok()?;
             let wh = env::var("RAZORPAY_WEBHOOK_SECRET").ok()?;
             Some(
-                std::sync::Arc::new(RazorpayProvider::new(key_id, key_secret, wh))
+                std::sync::Arc::new(
+                    RazorpayProvider::new(key_id, key_secret, wh)
+                        .with_http_client(http_client.clone()),
+                )
                     as std::sync::Arc<dyn BillingProvider>,
             )
         }) {
@@ -302,7 +334,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let access_token = env::var("MERCADO_PAGO_ACCESS_TOKEN").ok()?;
             let wh = env::var("MERCADO_PAGO_WEBHOOK_SECRET").ok()?;
             Some(
-                std::sync::Arc::new(MercadoPagoProvider::new(access_token, wh))
+                std::sync::Arc::new(
+                    MercadoPagoProvider::new(access_token, wh)
+                        .with_http_client(http_client.clone()),
+                )
                     as std::sync::Arc<dyn BillingProvider>,
             )
         }) {
@@ -315,7 +350,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let api_key = env::var("AIRWALLEX_API_KEY").ok()?;
             let wh = env::var("AIRWALLEX_WEBHOOK_SECRET").ok()?;
             Some(
-                std::sync::Arc::new(AirwallexProvider::new(client_id, api_key, wh))
+                std::sync::Arc::new(
+                    AirwallexProvider::new(client_id, api_key, wh)
+                        .with_http_client(http_client.clone()),
+                )
                     as std::sync::Arc<dyn BillingProvider>,
             )
         }) {
@@ -326,7 +364,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some((k, v)) = try_init("revolut", || {
             let api_key = env::var("REVOLUT_API_KEY").ok()?;
             let wh = env::var("REVOLUT_WEBHOOK_SECRET").ok()?;
-            Some(std::sync::Arc::new(RevolutProvider::new(api_key, wh))
+            Some(std::sync::Arc::new(
+                RevolutProvider::new(api_key, wh).with_http_client(http_client.clone()),
+            )
                 as std::sync::Arc<dyn BillingProvider>)
         }) {
             providers.insert(k, v);
@@ -339,7 +379,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let client_id = env::var("PAYPAL_CLIENT_ID").ok()?;
             let client_secret = env::var("PAYPAL_CLIENT_SECRET").ok()?;
             let wh = env::var("PAYPAL_WEBHOOK_SECRET").ok()?;
-            let mut provider = PayPalProvider::new(client_id, client_secret, wh);
+            let mut provider = PayPalProvider::new(client_id, client_secret, wh)
+                .with_http_client(http_client.clone());
             if let Ok(id) = env::var("PAYPAL_WEBHOOK_ID") {
                 if !id.is_empty() {
                     provider = provider.with_webhook_id(id);
@@ -375,9 +416,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         object_storage,
         s3_client,
         secret_key: cookie_key_str.as_bytes().to_vec(),
+        field_enc_key: ruxlog::state::load_field_enc_key(),
         #[cfg(feature = "image-optimization")]
         optimizer,
         meter: telemetry::global_meter(),
+        http_client,
         #[cfg(feature = "billing")]
         billing_router,
     };
@@ -522,10 +565,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Clone the database connection for the Extension layer (used by auth middleware)
     let db_extension = Extension(state.sea_db.clone());
+    // V-HIGH-2: also provide the Redis pool as an Extension so the auth guards
+    // can build `AuthBackend` with the Redis handle required for the
+    // per-request session-revocation `SISMEMBER`.
+    let redis_extension = Extension(state.redis_pool.clone());
 
     let mut app = router::router(state.clone())
         .layer(ip_source.into_extension())
         .layer(db_extension)
+        .layer(redis_extension)
         // NOTE: `session_layer` is applied *after* `csrf_guard` below so that it
         // is the OUTER layer. Order matters: later `.layer()` calls wrap the
         // earlier ones, so a request flows session_layer → csrf_guard → router.

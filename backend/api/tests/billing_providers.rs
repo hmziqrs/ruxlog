@@ -5,6 +5,7 @@
 
 #[cfg(feature = "billing")]
 mod billing_mock_tests {
+    use base64::Engine;
     use hmac::{Hmac, Mac};
     use ruxlog::services::billing::crypto::CryptoProvider;
     use ruxlog::services::billing::provider::{BillingError, BillingProvider, WebhookEvent};
@@ -38,6 +39,20 @@ mod billing_mock_tests {
         hex::encode(mac.finalize().into_bytes())
     }
 
+    /// Derive the raw HMAC key from a Polar / Standard Webhooks secret
+    /// (`whsec_<base64>` → strip prefix → base64-decode → raw key). This mirrors
+    /// the Standard Webhooks spec the SAME way `webhook_util::standard_webhooks_key`
+    /// does, implemented locally so the helper is a genuine independent signer
+    /// (not a call into the verifier under test). Misconfigured / non-base64
+    /// secrets fall back to the raw bytes, matching the verifier's fail-closed
+    /// behaviour at the signature check.
+    fn polar_webhooks_key(secret: &str) -> Vec<u8> {
+        let trimmed = secret.strip_prefix("whsec_").unwrap_or(secret);
+        base64::engine::general_purpose::STANDARD
+            .decode(trimmed)
+            .unwrap_or_else(|_| trimmed.as_bytes().to_vec())
+    }
+
     fn now_secs() -> i64 {
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -46,13 +61,19 @@ mod billing_mock_tests {
     }
 
     /// Build a `WebhookEvent` carrying the correctly-signed header for each
-    /// provider's CURRENT verification scheme (Phase 1 rebuild). Each branch
-    /// mirrors exactly what the provider's `verify_webhook` recomputes, so a
-    /// genuine event parses and a tampered one is rejected. Paddle (Ed25519)
-    /// and PayPal (outbound verify API) are handled in their own tests.
+    /// provider's CURRENT verification scheme. Each branch mirrors exactly what
+    /// the provider's `verify_webhook` recomputes, so a genuine event parses and
+    /// a tampered one is rejected. Paddle (Ed25519) and PayPal (outbound verify
+    /// API) are handled in their own tests.
     fn signed_event(provider: &str, payload: &[u8], secret: &str) -> WebhookEvent {
+        signed_event_at(provider, payload, secret, now_secs())
+    }
+
+    /// Same as `signed_event` but with a caller-supplied `now_secs`, so a tamper
+    /// test can sign a body and then present a DIFFERENT body under the original
+    /// signature — the verifier must reject it.
+    fn signed_event_at(provider: &str, payload: &[u8], secret: &str, now: i64) -> WebhookEvent {
         let mut headers = axum::http::HeaderMap::new();
-        let now = now_secs();
         let body_hex = sign_payload(secret, payload);
         // Mercado Pago's data.id arrives via the URL query string (V-CRIT-2).
         let mut query: Option<String> = None;
@@ -77,7 +98,35 @@ mod billing_mock_tests {
                 headers.insert("X-Signature", body_hex.parse().unwrap());
             }
             "polar" => {
-                headers.insert("X-Polar-Signature", body_hex.parse().unwrap());
+                // Polar.sh follows the Standard Webhooks spec (what
+                // `verify_standard_webhooks` recomputes): the signed message is
+                // `"{webhook_id}.{webhook_timestamp}.{body}"`, keyed by the raw
+                // bytes derived from the `whsec_<base64>` secret, and the digest
+                // is transmitted base64-encoded in `webhook-signature` as
+                // `v1,<base64>` alongside the required `webhook-id` and
+                // `webhook-timestamp` (unix seconds) headers. This mirrors the
+                // spec, NOT the verifier, so the test exercises a genuine
+                // end-to-end check (CRYP-HMAC-004). The previous branch signed
+                // the non-existent `X-Polar-Signature` with `hex(HMAC(secret,
+                // body))`, which the rewritten verifier never reads — circular
+                // and stale.
+                let webhook_id = "evt_polar_test";
+                let ts_str = now.to_string();
+                let key = polar_webhooks_key(secret);
+                let mut mac = HmacSha256::new_from_slice(&key).expect("HMAC key");
+                mac.update(webhook_id.as_bytes());
+                mac.update(b".");
+                mac.update(ts_str.as_bytes());
+                mac.update(b".");
+                mac.update(payload);
+                let sig = base64::engine::general_purpose::STANDARD
+                    .encode(mac.finalize().into_bytes());
+                headers.insert("webhook-id", webhook_id.parse().unwrap());
+                headers.insert("webhook-timestamp", ts_str.parse().unwrap());
+                headers.insert(
+                    "webhook-signature",
+                    format!("v1,{sig}").parse().unwrap(),
+                );
             }
             "mercado_pago" => {
                 // Official scheme (V-CRIT-2): x-signature: ts=<ms>,v1=<HMAC(
@@ -506,17 +555,48 @@ mod billing_mock_tests {
 
         #[tokio::test]
         async fn verify_webhook() {
-            let provider = PolarProvider::new("tok".into(), "sec".into());
+            // A genuine 32-byte key, base64-encoded and prefixed with `whsec_`
+            // — exactly how Polar ships the signing secret. The shared
+            // `signed_event("polar", …)` helper now derives this key and signs
+            // the Standard Webhooks message `{id}.{ts}.{body}`, so a real-shape
+            // request verifies end-to-end.
+            let raw_key = [42u8; 32];
+            let secret = format!(
+                "whsec_{}",
+                base64::engine::general_purpose::STANDARD.encode(raw_key)
+            );
+            let provider = PolarProvider::new("tok".into(), secret.clone());
             let payload = json!({
                 "type": "subscription.created",
                 "data": { "customer_id": "cus_pol", "subscription_id": "sub_pol3", "order_id": "ord_1" }
             });
             let bytes = serde_json::to_vec(&payload).unwrap();
             let parsed = provider
-                .verify_webhook(signed_event("polar", &bytes, "sec"))
+                .verify_webhook(signed_event("polar", &bytes, &secret))
                 .await
-                .expect("should verify");
+                .expect("a correctly signed Standard Webhooks request must verify");
             assert_eq!(parsed.event_type, "subscription.created");
+            assert_eq!(parsed.customer_id, "cus_pol");
+            assert_eq!(parsed.subscription_id.as_deref(), Some("sub_pol3"));
+            assert_eq!(parsed.payment_id.as_deref(), Some("ord_1"));
+        }
+
+        #[tokio::test]
+        async fn verify_webhook_rejects_tampered_body() {
+            // Sign one body, then present a different body under the same
+            // signature — the bound body in the Standard Webhooks message must
+            // cause the recomputed digest to mismatch.
+            let raw_key = [7u8; 32];
+            let secret = format!(
+                "whsec_{}",
+                base64::engine::general_purpose::STANDARD.encode(raw_key)
+            );
+            let provider = PolarProvider::new("tok".into(), secret.clone());
+            let original = br#"{"type":"subscription.created","data":{"id":"sub_x"}}"#;
+            let mut evt = signed_event("polar", original, &secret);
+            evt.payload = br#"{"type":"subscription.created","data":{"id":"sub_EVIL"}}"#.to_vec();
+            let err = provider.verify_webhook(evt).await.expect_err("tampered body must be rejected");
+            assert!(matches!(err, BillingError::WebhookVerification(_)));
         }
 
         #[test]

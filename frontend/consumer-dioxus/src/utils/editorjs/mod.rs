@@ -1,6 +1,18 @@
 use dioxus::prelude::*;
 use ruxlog_shared::store::{EditorJsBlock, PostContent};
 
+// M-9 (defense-in-depth XSS): the server already strips dangerous markup from
+// post content with ammonia on write, but every `dangerous_inner_html` sink is
+// an XSS hole if ANY unsanitized string ever reaches the client (a buggy
+// migration, a stale cache, a future code path that bypasses sanitization, a
+// contributor post from before sanitization shipped). Sanitize again, on the
+// client, immediately before injection. Ammonia's conservative default strips
+// <script>, event-handler attributes, javascript: URLs, etc. This is the same
+// library the server uses, so the two layers agree on what is safe.
+fn sanitize_html(html: &str) -> String {
+    ammonia::clean(html)
+}
+
 // ============================================================================
 // EditorJS Block Renderers
 // ============================================================================
@@ -26,12 +38,15 @@ fn render_header_block(block: &EditorJsBlock) -> Element {
 
 fn render_paragraph_block(block: &EditorJsBlock) -> Element {
     if let EditorJsBlock::Paragraph { data, .. } = block {
-        let text = data
+        // Decode entities, THEN sanitize — ammonia must see the real markup so
+        // it can strip anything the server layer missed.
+        let decoded = data
             .text
             .replace("&nbsp;", " ")
             .replace("&lt;", "<")
             .replace("&gt;", ">")
             .replace("&amp;", "&");
+        let text = sanitize_html(&decoded);
 
         rsx! {
             p { class: "mb-4 leading-7", dangerous_inner_html: "{text}" }
@@ -81,7 +96,10 @@ fn render_quote_block(block: &EditorJsBlock) -> Element {
 
 fn render_list_block(block: &EditorJsBlock) -> Element {
     if let EditorJsBlock::List { data, .. } = block {
-        let list_items = data.items.clone();
+        // EditorJS list items may carry inline markup (<b>, <a>, ...); sanitize
+        // each before it hits the inner-HTML sink.
+        let list_items: Vec<String> =
+            data.items.iter().map(|item| sanitize_html(item)).collect();
         let is_ordered = data.style == "ordered";
 
         if is_ordered {
@@ -142,8 +160,11 @@ fn render_delimiter_block(_block: &EditorJsBlock) -> Element {
 
 fn render_raw_block(block: &EditorJsBlock) -> Element {
     if let EditorJsBlock::Raw { data, .. } = block {
+        // The raw block is the highest-risk sink: it is arbitrary HTML by
+        // definition. Sanitize unconditionally before injection.
+        let html = sanitize_html(&data.html);
         rsx! {
-            div { class: "my-6", dangerous_inner_html: "{data.html}" }
+            div { class: "my-6", dangerous_inner_html: "{html}" }
         }
     } else {
         rsx! {}
@@ -173,7 +194,7 @@ pub fn render_editorjs_content(content: &PostContent) -> Element {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ruxlog_shared::store::RawBlock;
+    use ruxlog_shared::store::{ListBlock, ParagraphBlock, RawBlock};
 
     #[test]
     fn raw_block_render_path_does_not_panic() {
@@ -189,5 +210,79 @@ mod tests {
         };
 
         let _ = render_editorjs_content(&content);
+    }
+
+    // M-9: the sanitize_html helper is the client-side XSS gate for every
+    // dangerous_inner_html sink. Assert that each dangerous markup class the
+    // server strips is also stripped here, so a stale/migrated/un-sanitized
+    // payload can never execute in the browser.
+
+    #[test]
+    fn sanitize_strips_script_tags() {
+        let cleaned = sanitize_html("<p>hi</p><script>alert(1)</script>");
+        assert!(!cleaned.contains("<script>"));
+        assert!(!cleaned.contains("alert"));
+        assert!(cleaned.contains("<p>hi</p>"));
+    }
+
+    #[test]
+    fn sanitize_strips_event_handler_attributes() {
+        let cleaned = sanitize_html(r#"<img src="x" onerror="alert(1)">"#);
+        assert!(!cleaned.contains("onerror"));
+        assert!(!cleaned.contains("alert"));
+    }
+
+    #[test]
+    fn sanitize_strips_javascript_urls() {
+        let cleaned = sanitize_html(r#"<a href="javascript:alert(1)">x</a>");
+        assert!(!cleaned.contains("javascript:"));
+        assert!(!cleaned.contains("alert"));
+    }
+
+    #[test]
+    fn sanitize_preserves_safe_inline_markup() {
+        // Safe formatting tags survive so legit rich text still renders.
+        let cleaned = sanitize_html("<b>bold</b> <i>italic</i> <a href=\"https://example.com\">link</a>");
+        assert!(cleaned.contains("<b>bold</b>"));
+        assert!(cleanly_contains_link(&cleaned));
+    }
+
+    fn cleanly_contains_link(cleaned: &str) -> bool {
+        cleaned.contains("<a") && cleaned.contains("example.com") && !cleaned.contains("javascript:")
+    }
+
+    #[test]
+    fn paragraph_block_sanitizes_script_payload() {
+        // A paragraph whose decoded text carries a <script> must not pass it
+        // through to the inner-HTML sink. We exercise the renderer indirectly
+        // via the shared helper to avoid rendering a full Element in a unit
+        // test; the renderer calls the same helper.
+        let malicious = "<script>alert('xss')</script><p>ok</p>";
+        assert!(!sanitize_html(malicious).contains("script"));
+    }
+
+    #[test]
+    fn list_items_are_each_sanitized() {
+        // Mirror render_list_block's per-item sanitization contract.
+        let items = vec![
+            "<b>one</b><script>x</script>".to_string(),
+            "two<script>y</script>".to_string(),
+        ];
+        let cleaned: Vec<String> = items.iter().map(|i| sanitize_html(i)).collect();
+        assert!(cleaned.iter().all(|c| !c.contains("<script>")));
+        assert!(cleaned[0].contains("<b>one</b>"));
+    }
+
+    // Confirm the block data shapes compile against the renderers (catches
+    // silent struct drift that would skip sanitization).
+    #[test]
+    fn list_and_paragraph_block_shapes_match_renderers() {
+        let _list = ListBlock {
+            style: "ordered".to_string(),
+            items: vec!["<i>x</i>".to_string()],
+        };
+        let _para = ParagraphBlock {
+            text: "plain".to_string(),
+        };
     }
 }

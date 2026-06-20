@@ -127,8 +127,21 @@ uuid = { version = "1.16.0", features = ["v4", "fast-rng"] }
 base32 = "0.5.1"
 hmac = "0.12.1"
 sha1 = "0.10.6"
+# AES-256-GCM for field-level encryption at rest (payout_accounts.metadata,
+# CWE-312). Pulled in transitively by other crates; declared explicitly so the
+# field-crypto util owns a stable version. See utils::field_crypto (V-MED-11).
+aes-gcm = "0.10.3"
 # Constant-time comparison used by every webhook verifier + 2FA. See plan 1c.
 subtle = "2.6.1"
+# Best-effort in-memory secret hygiene (CWE-316/459). `zeroize` scrubs the
+# transient field-encryption key arrays (nonce / packed ciphertext / decrypted
+# bytes) on drop so they are not left in heap/stack memory longer than
+# necessary. The process-wide master key lives in a `static OnceLock` whose
+# payload is `Zeroizing`, so it is scrubbed if the cell is ever dropped locally
+# (note: Rust does not run `Drop` for statics at process exit, so teardown-time
+# scrubbing of the master key is best-effort, not guaranteed — the OS reclaims
+# the pages). See utils::field_crypto (GAP-016).
+zeroize = { version = "1", features = ["derive"] }
 # Paddle Billing signs webhooks with Ed25519. See plan 1b (Paddle).
 ed25519-dalek = { version = "2.1.1", default-features = false }
 # HTML allowlist sanitizer for stored post content (EditorJS blocks). Renders the

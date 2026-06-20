@@ -9685,6 +9685,7 @@ dependencies = [
 name = "ruxlog"
 version = "0.1.0"
 dependencies = [
+ "aes-gcm",
  "ammonia",
  "async-trait",
  "aws-config",
@@ -9759,6 +9760,7 @@ dependencies = [
  "uuid",
  "validator",
  "wiremock",
+ "zeroize",
 ]
 
 [[package]]

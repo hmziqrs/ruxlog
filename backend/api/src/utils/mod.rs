@@ -3,6 +3,7 @@
 pub mod code_hash;
 pub mod color;
 pub mod cors;
+pub mod field_crypto;
 pub mod sanitize;
 pub mod sort;
 pub mod telemetry;

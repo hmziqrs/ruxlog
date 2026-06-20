@@ -242,14 +242,15 @@ fn empty_string_not_accepted_as_totp_code() {
     use ruxlog::utils::twofa;
 
     let secret = twofa::generate_secret_base32(20).expect("CSPRNG available");
-    assert!(!twofa::verify_totp_code_at(
+    assert!(twofa::verify_totp_code_at(
         &secret,
         "",
         chrono::Utc::now().fixed_offset(),
         twofa::DEFAULT_TOTP_STEP,
         twofa::DEFAULT_TOTP_DIGITS,
         1,
-    ));
+    )
+    .is_none());
 }
 
 #[test]
@@ -257,14 +258,15 @@ fn non_numeric_totp_code_rejected() {
     use ruxlog::utils::twofa;
 
     let secret = twofa::generate_secret_base32(20).expect("CSPRNG available");
-    assert!(!twofa::verify_totp_code_at(
+    assert!(twofa::verify_totp_code_at(
         &secret,
         "abcdef",
         chrono::Utc::now().fixed_offset(),
         twofa::DEFAULT_TOTP_STEP,
         twofa::DEFAULT_TOTP_DIGITS,
         1,
-    ));
+    )
+    .is_none());
 }
 
 #[test]
@@ -272,14 +274,15 @@ fn wrong_length_totp_code_rejected() {
     use ruxlog::utils::twofa;
 
     let secret = twofa::generate_secret_base32(20).expect("CSPRNG available");
-    assert!(!twofa::verify_totp_code_at(
+    assert!(twofa::verify_totp_code_at(
         &secret,
         "12345", // 5 digits instead of 6
         chrono::Utc::now().fixed_offset(),
         twofa::DEFAULT_TOTP_STEP,
         twofa::DEFAULT_TOTP_DIGITS,
         1,
-    ));
+    )
+    .is_none());
 }
 
 #[test]
@@ -316,6 +319,7 @@ fn user_json_never_leaks_secret_fields() {
         two_fa_enabled: true,
         two_fa_secret: Some("JBSWY3DPEHPK3PXP".into()),
         two_fa_backup_codes: Some(serde_json::json!(["$argon2id$dummy"])),
+        two_fa_last_totp_counter: None,
         google_id: None,
         oauth_provider: None,
         created_at: now,

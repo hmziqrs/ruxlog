@@ -79,8 +79,18 @@ pub fn generate_totp_code_now(secret_base32: &str, digits: u32) -> Option<String
     )
 }
 
-/// Verifies a TOTP code allowing a sliding window of steps (to account for clock skew).
+/// Verifies a TOTP code allowing a sliding window of steps (to account for
+/// clock skew) and returns the RFC 6238 time-step counter that matched.
+///
 /// - window: number of steps to check before/after current (e.g., 1 checks [-1, 0, +1])
+///
+/// Returns `Some(counter)` when a candidate within the window matched, where
+/// `counter` is the matched RFC 6238 counter = `floor(unix_seconds / step) + i`
+/// for the matched step offset `i`. Returns `None` when nothing matched.
+///
+/// Callers that must block code replay (V-MED-6) read this counter, compare it
+/// against the user's stored `two_fa_last_totp_counter`, and only accept +
+/// persist counters strictly greater than the last-used one.
 pub fn verify_totp_code_at(
     secret_base32: &str,
     code: &str,
@@ -88,39 +98,42 @@ pub fn verify_totp_code_at(
     step: u64,
     digits: u32,
     window: i64,
-) -> bool {
+) -> Option<i64> {
     // Require numeric ASCII and correct length
     if code.len() != digits as usize || !code.chars().all(|c| c.is_ascii_digit()) {
-        return false;
+        return None;
     }
 
     let secret = match data_encoding::BASE32_NOPAD.decode(secret_base32.as_bytes()) {
         Ok(s) => s,
-        Err(_) => return false,
+        Err(_) => return None,
     };
 
     let current_counter = now.timestamp().div_euclid(step as i64);
 
     for i in -window..=window {
-        let counter = (current_counter + i) as u64;
+        let counter = current_counter + i;
 
         let mut msg = [0u8; 8];
-        for (idx, b) in counter.to_be_bytes().iter().enumerate() {
+        for (idx, b) in (counter as u64).to_be_bytes().iter().enumerate() {
             msg[idx] = *b;
         }
 
         if let Some(candidate) = hmac_truncate_to_digits(&secret, &msg, digits) {
             if constant_time_eq(code.as_bytes(), candidate.as_bytes()) {
-                return true;
+                return Some(counter);
             }
         }
     }
 
-    false
+    None
 }
 
 /// Convenience: verify TOTP code for current time using defaults (step=30s, digits=6, window=1)
-pub fn verify_totp_code_now(secret_base32: &str, code: &str) -> bool {
+/// and return the matched counter (V-MED-6). Callers that persist the
+/// last-used counter MUST use this variant; callers that only need the boolean
+/// can use [`verify_totp_code_now_bool`].
+pub fn verify_totp_code_now(secret_base32: &str, code: &str) -> Option<i64> {
     verify_totp_code_at(
         secret_base32,
         code,
@@ -129,6 +142,32 @@ pub fn verify_totp_code_now(secret_base32: &str, code: &str) -> bool {
         DEFAULT_TOTP_DIGITS,
         1,
     )
+}
+
+/// Boolean convenience wrapper over [`verify_totp_code_now`] for callers that
+/// do not track the last-used counter (e.g. login-time only checks).
+pub fn verify_totp_code_now_bool(secret_base32: &str, code: &str) -> bool {
+    verify_totp_code_now(secret_base32, code).is_some()
+}
+
+/// Pure decision: is a freshly matched TOTP counter acceptable given the
+/// last-used counter persisted for this user?
+///
+/// A counter is fresh when the user has never consumed one (`last == None` —
+/// first-ever verify) OR when it is strictly greater than the last consumed
+/// counter. `counter <= last` is a replay of an already-used code (V-MED-6).
+pub fn is_fresh_counter(matched: i64, last: Option<i64>) -> bool {
+    match last {
+        None => true,
+        Some(prev) => matched > prev,
+    }
+}
+
+/// Returns the value to persist as the new last-used counter after accepting
+/// `matched`. Always the matched counter itself — replay protection only ever
+/// advances the watermark forward.
+pub fn next_last(matched: i64, _last: Option<i64>) -> i64 {
+    matched
 }
 
 /// Generate human-friendly backup codes.
@@ -264,6 +303,7 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::TimeZone;
 
     #[test]
     fn test_secret_generation_is_base32() {
@@ -276,7 +316,82 @@ mod tests {
     fn test_totp_roundtrip_now() {
         let secret = generate_secret_base32(20).expect("CSPRNG available");
         let code = generate_totp_code_now(&secret, DEFAULT_TOTP_DIGITS).unwrap();
-        assert!(verify_totp_code_now(&secret, &code));
+        // verify_totp_code_now returns the matched counter on success.
+        assert!(verify_totp_code_now(&secret, &code).is_some());
+        assert!(verify_totp_code_now_bool(&secret, &code));
+    }
+
+    // ---- V-MED-6: counter math + replay decision ----
+
+    #[test]
+    fn test_verify_returns_current_counter_on_match() {
+        // A code generated at a fixed instant must verify against that instant
+        // and report the RFC 6238 counter = floor(unix_seconds / step).
+        let secret = generate_secret_base32(20).expect("CSPRNG available");
+        let now = Utc.timestamp_opt(1_700_000_045, 0).unwrap().fixed_offset(); // 45s
+        let code =
+            generate_totp_code_at(&secret, now, DEFAULT_TOTP_STEP, DEFAULT_TOTP_DIGITS).unwrap();
+        let matched =
+            verify_totp_code_at(&secret, &code, now, DEFAULT_TOTP_STEP, DEFAULT_TOTP_DIGITS, 1)
+                .expect("code should verify at its own instant");
+        // 1_700_000_045 / 30 = 56_666_668 (floor); the matched step is exactly that.
+        assert_eq!(matched, 1_700_000_045_i64 / 30);
+    }
+
+    #[test]
+    fn test_verify_returns_none_on_wrong_code() {
+        let secret = generate_secret_base32(20).expect("CSPRNG available");
+        let now = Utc.timestamp_opt(1_700_000_045, 0).unwrap().fixed_offset();
+        assert!(verify_totp_code_at(
+            &secret,
+            "000000",
+            now,
+            DEFAULT_TOTP_STEP,
+            DEFAULT_TOTP_DIGITS,
+            1
+        )
+        .is_none());
+    }
+
+    // Pure replay-decision helpers — no DB needed.
+
+    #[test]
+    fn test_first_ever_verify_accepts_any_counter() {
+        // last == None → any valid in-window counter is accepted (first use).
+        assert!(is_fresh_counter(1_000_000, None));
+        assert!(is_fresh_counter(0, None));
+        assert!(is_fresh_counter(i64::MAX, None));
+    }
+
+    #[test]
+    fn test_replay_of_used_counter_is_rejected() {
+        // (a) A counter accepted once sets last_used.
+        let last_after_first = next_last(1_000_000, None);
+        assert_eq!(last_after_first, 1_000_000);
+
+        // (b) The SAME counter submitted again within the window is rejected.
+        assert!(!is_fresh_counter(1_000_000, Some(last_after_first)));
+        // And so is an earlier one.
+        assert!(!is_fresh_counter(999_999, Some(last_after_first)));
+    }
+
+    #[test]
+    fn test_higher_counter_is_accepted_after_step_advances() {
+        // (c) After the step advances, a fresh code at a higher counter is accepted.
+        let last = Some(1_000_000_i64);
+        assert!(is_fresh_counter(1_000_001, last));
+        assert!(is_fresh_counter(1_000_500, last));
+        assert!(is_fresh_counter(i64::MAX, last));
+        // next_last advances the watermark forward to the matched value.
+        assert_eq!(next_last(1_000_001, last), 1_000_001);
+    }
+
+    #[test]
+    fn test_next_last_always_matches_accepted_counter() {
+        // The watermark only ever moves to the freshly-accepted counter.
+        assert_eq!(next_last(5, None), 5);
+        assert_eq!(next_last(7, Some(5)), 7);
+        assert_eq!(next_last(42, Some(100)), 42);
     }
 
     #[test]

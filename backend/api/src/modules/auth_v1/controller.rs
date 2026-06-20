@@ -333,14 +333,37 @@ pub async fn twofa_verify(
     };
 
     // If code matches TOTP, enable 2FA. Otherwise, try backup code consumption.
-    let totp_ok = twofa::verify_totp_code_now(&secret, &payload.code);
+    //
+    // V-MED-6 (TOTP replay): the previously stateless verify let an accepted
+    // 6-digit code be replayed for ~90s (window=1 → 3 steps of 30s). Now we
+    // read the user's last consumed RFC 6238 counter BEFORE accepting and
+    // reject any matched counter that is not strictly greater than it
+    // (`is_fresh_counter`). Only on a fresh counter do we enable 2FA and
+    // advance the watermark. The last-used counter is read from the loaded row
+    // above (`existing`) so the decision uses the DB's current value.
+    let totp_counter = twofa::verify_totp_code_now(&secret, &payload.code);
 
-    if totp_ok {
-        let mut active: user::ActiveModel = existing.into();
-        active.two_fa_enabled = sea_orm::Set(true);
-        active.updated_at = sea_orm::Set(chrono::Utc::now().fixed_offset());
-        let updated = active.update(&state.sea_db).await?;
-        return Ok((StatusCode::OK, Json(json!(updated))));
+    if let Some(matched) = totp_counter {
+        if twofa::is_fresh_counter(matched, existing.two_fa_last_totp_counter) {
+            let new_last = twofa::next_last(matched, existing.two_fa_last_totp_counter);
+            let mut active: user::ActiveModel = existing.into();
+            active.two_fa_enabled = sea_orm::Set(true);
+            active.two_fa_last_totp_counter = sea_orm::Set(Some(new_last));
+            active.updated_at = sea_orm::Set(chrono::Utc::now().fixed_offset());
+            let updated = active.update(&state.sea_db).await?;
+            return Ok((StatusCode::OK, Json(json!(updated))));
+        } else {
+            // Replay of an already-used counter within the window. Count it
+            // against the abuse limiter budget (already consumed above) and
+            // reject as an invalid token — do NOT reveal that it was a replay.
+            warn!(
+                user_id = user.id,
+                matched_counter = matched,
+                "TOTP code replayed (counter already used); rejecting"
+            );
+            return Err(ErrorResponse::new(ErrorCode::InvalidToken)
+                .with_message("Invalid 2FA code"));
+        }
     }
 
     // Try backup code if provided
@@ -396,15 +419,35 @@ pub async fn twofa_disable(
 
     let existing = user::Entity::find_by_id_with_404(&state.sea_db, user.id).await?;
 
+    // V-MED-6: if disable is authorized via a fresh TOTP counter, we advance
+    // the watermark before clearing secrets. Declared out here so the
+    // persistence block below can read it regardless of which branch ran.
+    let mut fresh_counter: Option<i64> = None;
+
     // If 2FA is enabled and a code is provided, verify it; allow disable with valid code or backup code
     if existing.two_fa_enabled {
         if let Some(code) = payload.code.clone() {
             let secret = existing.two_fa_secret.clone().unwrap_or_default();
-            let totp_ok = if secret.is_empty() {
-                false
+            // V-MED-6 (TOTP replay): use the counter-returning variant and reject
+            // a counter that is not strictly greater than the last used one.
+            let totp_matched = if secret.is_empty() {
+                None
             } else {
                 twofa::verify_totp_code_now(&secret, &code)
             };
+            let totp_ok = match totp_matched {
+                Some(matched) => {
+                    twofa::is_fresh_counter(matched, existing.two_fa_last_totp_counter)
+                }
+                None => false,
+            };
+            // Remember the fresh counter so we advance the watermark on a
+            // successful disable (only set when the TOTP path is what authorized
+            // the disable — backup-code consumption does not move the TOTP
+            // watermark).
+            if totp_ok {
+                fresh_counter = totp_matched;
+            }
 
             let mut backup_ok = false;
             if !totp_ok {
@@ -440,11 +483,21 @@ pub async fn twofa_disable(
         }
     }
 
-    // Disable and clear secrets
+    // Disable and clear secrets.
+    //
+    // V-MED-6: if authorization came from a fresh TOTP counter, advance the
+    // watermark before clearing secrets — so a replay of that same code cannot
+    // re-authorize anything while the row still exists (and the secret is
+    // already cleared, so a future re-enroll starts from NULL anyway). We do
+    // NOT touch the counter on a backup-code disable (backup codes are
+    // single-use via Argon2id + consume, and the TOTP secret is being wiped).
     let mut active: user::ActiveModel = existing.into();
     active.two_fa_enabled = sea_orm::Set(false);
     active.two_fa_secret = sea_orm::Set(None);
     active.two_fa_backup_codes = sea_orm::Set(None);
+    if let Some(matched) = fresh_counter {
+        active.two_fa_last_totp_counter = sea_orm::Set(Some(matched));
+    }
     active.updated_at = sea_orm::Set(chrono::Utc::now().fixed_offset());
     let updated = active.update(&state.sea_db).await?;
 

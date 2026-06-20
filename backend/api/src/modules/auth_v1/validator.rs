@@ -4,6 +4,14 @@ use validator::{Validate, ValidationError};
 
 use crate::db::sea_models::user::{NewUser, UserRole};
 
+// Password floor (CWE-521: weak password requirements) and ceiling (CWE-400:
+// Argon2 memory/CPU DoS via multi-megabyte inputs). `validator`'s
+// `length(min/max)` needs integer literals, so these are module-local consts
+// rather than a shared value; the SAME bound is applied to every
+// password-bearing field across auth_v1 / forgot_password_v1 for consistency.
+const PASSWORD_MIN: u64 = 12;
+const PASSWORD_MAX: u64 = 256;
+
 fn validate_email(email: &str) -> Result<(), ValidationError> {
     let email_regex = Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{1,}$").unwrap();
     if email_regex.is_match(email) {
@@ -17,7 +25,7 @@ fn validate_email(email: &str) -> Result<(), ValidationError> {
 pub struct V1LoginPayload {
     #[validate(email)]
     pub email: String,
-    #[validate(length(min = 12))]
+    #[validate(length(min = PASSWORD_MIN, max = PASSWORD_MAX))]
     pub password: String,
 }
 
@@ -27,7 +35,7 @@ pub struct V1RegisterPayload {
     pub name: String,
     #[validate(email, custom(function = "validate_email"))]
     pub email: String,
-    #[validate(length(min = 12))]
+    #[validate(length(min = PASSWORD_MIN, max = PASSWORD_MAX))]
     pub password: String,
 }
 
@@ -183,5 +191,73 @@ mod tests {
             password: "".to_string(),
         };
         assert!(payload.validate().is_err());
+    }
+
+    // ── password max-length bound (CWE-400: Argon2 memory DoS) ───────────
+    // PASSWORD_MIN (12) is accepted, PASSWORD_MAX (256) is accepted, and
+    // anything over the cap is rejected before it reaches the hashing layer.
+
+    #[test]
+    fn login_payload_min_length_password_validates() {
+        let payload = V1LoginPayload {
+            email: "user@host.com".to_string(),
+            password: "a".repeat(PASSWORD_MIN as usize),
+        };
+        assert!(payload.validate().is_ok());
+    }
+
+    #[test]
+    fn login_payload_max_length_password_validates() {
+        let payload = V1LoginPayload {
+            email: "user@host.com".to_string(),
+            password: "a".repeat(PASSWORD_MAX as usize),
+        };
+        assert!(payload.validate().is_ok());
+    }
+
+    #[test]
+    fn login_payload_over_max_password_rejected() {
+        let payload = V1LoginPayload {
+            email: "user@host.com".to_string(),
+            password: "a".repeat((PASSWORD_MAX + 1) as usize),
+        };
+        assert!(
+            payload.validate().is_err(),
+            "passwords longer than PASSWORD_MAX must be rejected (CWE-400)"
+        );
+    }
+
+    #[test]
+    fn register_payload_over_max_password_rejected() {
+        let payload = V1RegisterPayload {
+            name: "Bob".to_string(),
+            email: "bob@test.com".to_string(),
+            password: "a".repeat((PASSWORD_MAX + 1) as usize),
+        };
+        assert!(payload.validate().is_err());
+    }
+
+    // The SAME bound is enforced on every password-bearing payload, so the
+    // ceiling can't drift between login and registration.
+    #[test]
+    fn password_bound_is_uniform_across_payloads() {
+        let over_max = "a".repeat((PASSWORD_MAX + 1) as usize);
+        let login = V1LoginPayload {
+            email: "user@host.com".to_string(),
+            password: over_max.clone(),
+        }
+        .validate();
+        let register = V1RegisterPayload {
+            name: "Bob".to_string(),
+            email: "bob@test.com".to_string(),
+            password: over_max,
+        }
+        .validate();
+        assert_eq!(
+            login.is_err(),
+            register.is_err(),
+            "login and register must apply the same password max-length bound"
+        );
+        assert!(login.is_err());
     }
 }

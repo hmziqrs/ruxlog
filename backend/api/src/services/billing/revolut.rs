@@ -8,11 +8,17 @@ use super::provider::{
     BillingError, BillingProvider, CheckoutSession, ParsedWebhook, SubscriptionInfo, WebhookEvent,
 };
 
+// V-MED-10: every outbound Revolut call goes through this client (built once
+// in `new` with timeouts, or overridden via `with_http_client` with the shared
+// AppState client). Never a bare `reqwest::Client::new()`.
+use crate::state::build_http_client;
+
 /// Revolut Pay billing provider.
 pub struct RevolutProvider {
     pub api_key: String,
     pub webhook_secret: String,
     pub base_url: String,
+    pub http_client: reqwest::Client,
 }
 
 impl RevolutProvider {
@@ -24,11 +30,18 @@ impl RevolutProvider {
             // REVOLUT_API_BASE_URL for development. See plan Phase 6f.
             base_url: std::env::var("REVOLUT_API_BASE_URL")
                 .unwrap_or_else(|_| "https://merchant.revolut.com/api/1.0".to_string()),
+            http_client: build_http_client(),
         }
     }
 
     pub fn with_base_url(mut self, url: String) -> Self {
         self.base_url = url;
+        self
+    }
+
+    /// V-MED-10: inject the shared, timeout-configured client from `AppState`.
+    pub fn with_http_client(mut self, client: reqwest::Client) -> Self {
+        self.http_client = client;
         self
     }
 }
@@ -47,7 +60,7 @@ impl BillingProvider for RevolutProvider {
         success_url: &str,
         cancel_url: &str,
     ) -> Result<CheckoutSession, BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
 
         let body = serde_json::json!({
             "amount": plan_slug.parse::<i64>().unwrap_or(9999),
@@ -95,7 +108,7 @@ impl BillingProvider for RevolutProvider {
         provider_subscription_id: &str,
         _immediately: bool,
     ) -> Result<(), BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let url = format!(
             "{}/subscriptions/{}/cancel",
             self.base_url, provider_subscription_id
@@ -120,7 +133,7 @@ impl BillingProvider for RevolutProvider {
         &self,
         provider_subscription_id: &str,
     ) -> Result<SubscriptionInfo, BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let url = format!(
             "{}/subscriptions/{}",
             self.base_url, provider_subscription_id

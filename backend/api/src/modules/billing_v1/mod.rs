@@ -2,12 +2,13 @@ pub mod controller;
 pub mod validator;
 
 use axum::{
+    extract::DefaultBodyLimit,
     middleware,
     routing::{get, post},
     Router,
 };
 
-use crate::{middlewares::auth_guard, AppState};
+use crate::{config, middlewares::auth_guard, AppState};
 
 pub fn routes() -> Router<AppState> {
     let admin = Router::<AppState>::new()
@@ -75,5 +76,13 @@ pub fn routes() -> Router<AppState> {
         // Webhook receiver (per-provider path)
         .route("/webhook/{provider}", post(controller::webhook_receiver));
 
-    public.merge(authenticated).merge(admin)
+    // Cap request bodies across every billing route. The PUBLIC webhook receiver
+    // (/webhook/{provider}) is the key surface: axum 0.8 applies no default body
+    // limit, so without this an attacker could POST an unbounded body to exhaust
+    // handler memory (CWE-400). 64 KiB is generous for provider webhooks and
+    // billing JSON, which are all small.
+    public
+        .merge(authenticated)
+        .merge(admin)
+        .layer(DefaultBodyLimit::max(config::body_limits::DEFAULT))
 }

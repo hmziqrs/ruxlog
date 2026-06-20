@@ -9,6 +9,11 @@ use super::provider::{
     BillingError, BillingProvider, CheckoutSession, ParsedWebhook, SubscriptionInfo, WebhookEvent,
 };
 
+// V-MED-10: the crypto provider currently fail-closes on webhooks and makes no
+// outbound HTTP call, but it holds the same shared, timeout-configured client
+// as the other providers so any future on-chain fetch is already bounded.
+use crate::state::build_http_client;
+
 /// Crypto billing provider.
 pub struct CryptoProvider {
     /// Wallet address to receive payments
@@ -19,6 +24,9 @@ pub struct CryptoProvider {
     pub api_key: String,
     /// Supported currency symbol (e.g., "BTC", "ETH", "XMR", "SOL")
     pub currency: String,
+    /// V-MED-10: shared timeout-configured client (unused today — the provider
+    /// fail-closes — but held so a future on-chain fetch is bounded by default).
+    pub http_client: reqwest::Client,
 }
 
 impl CryptoProvider {
@@ -28,7 +36,14 @@ impl CryptoProvider {
             api_url,
             api_key,
             currency: currency.to_uppercase(),
+            http_client: build_http_client(),
         }
+    }
+
+    /// V-MED-10: inject the shared, timeout-configured client from `AppState`.
+    pub fn with_http_client(mut self, client: reqwest::Client) -> Self {
+        self.http_client = client;
+        self
     }
 
     /// Generate a BIP-21 (BTC), EIP-681 (ETH), or chain-specific payment URI.
@@ -265,6 +280,15 @@ impl MultiChainCryptoProvider {
         let mut c: Vec<&str> = self.chains.keys().map(|s| s.as_str()).collect();
         c.sort();
         c
+    }
+
+    /// V-MED-10: inject the shared, timeout-configured client from `AppState`
+    /// into every inner [`CryptoProvider`].
+    pub fn with_http_client(mut self, client: reqwest::Client) -> Self {
+        for chain in self.chains.values_mut() {
+            chain.http_client = client.clone();
+        }
+        self
     }
 }
 

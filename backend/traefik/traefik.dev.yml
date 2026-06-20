@@ -1,6 +1,11 @@
 entryPoints:
   web:
     address: ":80"
+    # forwardedHeaders.trustedIPs: list ONLY the egress IPs of an upstream
+    # reverse proxy / CDN that fronts this Traefik (if any). Leave EMPTY when
+    # Traefik is the public edge — same rationale as traefik.prod.yml.
+    forwardedHeaders:
+      trustedIPs: []
 
 log:
   level: INFO
@@ -10,4 +15,17 @@ accessLog: {}
 providers:
   docker:
     exposedByDefault: false
+    watch: true
+  # V-MED-9 / M-8: file provider mirrors prod so the SPA CSP middleware
+  # (dynamic/traefik-dynamic.yml) is available if dev routes the WASM frontends
+  # through Traefik. NOTE: the prod-only hardening is intentionally NOT applied
+  # to dev:
+  #   * No entryPoints.web.http.redirections.entryPoint: dev runs HTTP-only on
+  #     :80 with no websecure/:443, so a :80->:443 redirect would break it.
+  #   * No tls.options.default: dev terminates no TLS.
+  #   * secure-transport-headers (HSTS) is omitted: browsers cache HSTS for
+  #     years and ignore it on localhost anyway, but emitting it from a dev
+  #     edge would pin the dev host. HSTS is prod-only.
+  file:
+    filename: /etc/traefik/dynamic/traefik-dynamic.yml
     watch: true

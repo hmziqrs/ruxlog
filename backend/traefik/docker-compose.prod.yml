@@ -18,6 +18,10 @@ services:
       - "443:443"
     volumes:
       - ./traefik.prod.yml:/etc/traefik/traefik.yml:ro
+      # V-MED-9 / M-8: centralized TLS options + headers middlewares (HSTS, SPA
+      # CSP) live in dynamic/traefik-dynamic.yml; mount the dir read-only so
+      # the file provider declared in traefik.prod.yml can load them.
+      - ./dynamic:/etc/traefik/dynamic:ro
       - ./data:/var/lib/traefik
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:

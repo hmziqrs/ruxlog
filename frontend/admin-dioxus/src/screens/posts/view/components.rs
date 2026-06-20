@@ -9,6 +9,16 @@ use ruxlog_shared::store::{use_post, EditorJsBlock, PostContent};
 #[cfg(debug_assertions)]
 use std::{cell::Cell, rc::Rc};
 
+// M-9 (defense-in-depth XSS): the server already strips dangerous markup from
+// post content with ammonia on write, but every `dangerous_inner_html` sink is
+// an XSS hole if ANY unsanitized string ever reaches the client (a buggy
+// migration, a stale cache, a future bypass). Sanitize again, on the client,
+// immediately before injection. Same library the server uses → the two layers
+// agree on what is safe.
+fn sanitize_html(html: &str) -> String {
+    ammonia::clean(html)
+}
+
 // ============================================================================
 // EditorJS Block Renderers
 // ============================================================================
@@ -34,13 +44,15 @@ fn render_header_block(block: &EditorJsBlock) -> Element {
 
 fn render_paragraph_block(block: &EditorJsBlock) -> Element {
     if let EditorJsBlock::Paragraph { data, .. } = block {
-        // Simple HTML entity decode for &nbsp; etc.
-        let text = data
+        // Decode entities, THEN sanitize — ammonia must see the real markup so
+        // it can strip anything the server layer missed.
+        let decoded = data
             .text
             .replace("&nbsp;", " ")
             .replace("&lt;", "<")
             .replace("&gt;", ">")
             .replace("&amp;", "&");
+        let text = sanitize_html(&decoded);
 
         rsx! {
             p { class: "mb-4 leading-7", dangerous_inner_html: "{text}" }
@@ -290,7 +302,9 @@ fn render_attaches_block(block: &EditorJsBlock) -> Element {
 
 fn render_raw_block(block: &EditorJsBlock) -> Element {
     if let EditorJsBlock::Raw { data, .. } = block {
-        let html = data.html.clone();
+        // The raw block is the highest-risk sink: arbitrary HTML by definition.
+        // Sanitize unconditionally before injection.
+        let html = sanitize_html(&data.html);
         rsx! {
             div { class: "my-4", dangerous_inner_html: "{html}" }
         }
@@ -582,5 +596,52 @@ pub fn PostsViewScreen(id: i32) -> Element {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // M-9: the sanitize_html helper is the client-side XSS gate for the
+    // paragraph + raw inner-HTML sinks. Assert each dangerous markup class the
+    // server strips is also stripped here, so an un-sanitized payload can never
+    // execute in the browser.
+
+    #[test]
+    fn sanitize_strips_script_tags() {
+        let cleaned = sanitize_html("<p>hi</p><script>alert(1)</script>");
+        assert!(!cleaned.contains("<script>"));
+        assert!(!cleaned.contains("alert"));
+        assert!(cleaned.contains("<p>hi</p>"));
+    }
+
+    #[test]
+    fn sanitize_strips_event_handler_attributes() {
+        let cleaned = sanitize_html(r#"<img src="x" onerror="alert(1)">"#);
+        assert!(!cleaned.contains("onerror"));
+        assert!(!cleaned.contains("alert"));
+    }
+
+    #[test]
+    fn sanitize_strips_javascript_urls() {
+        let cleaned = sanitize_html(r#"<a href="javascript:alert(1)">x</a>");
+        assert!(!cleaned.contains("javascript:"));
+        assert!(!cleaned.contains("alert"));
+    }
+
+    #[test]
+    fn sanitize_preserves_safe_inline_markup() {
+        let cleaned = sanitize_html("<b>bold</b> <a href=\"https://example.com\">link</a>");
+        assert!(cleaned.contains("<b>bold</b>"));
+        assert!(cleaned.contains("example.com"));
+        assert!(!cleaned.contains("javascript:"));
+    }
+
+    #[test]
+    fn sanitize_handles_empty_and_plain_text() {
+        assert_eq!(sanitize_html(""), "");
+        let cleaned = sanitize_html("just text, no markup");
+        assert!(cleaned.contains("just text"));
     }
 }

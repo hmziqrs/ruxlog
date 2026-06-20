@@ -6,11 +6,17 @@ use super::provider::{
     BillingError, BillingProvider, CheckoutSession, ParsedWebhook, SubscriptionInfo, WebhookEvent,
 };
 
+// V-MED-10: every outbound Stripe call goes through this client (built once in
+// `new` with timeouts, or overridden via `with_http_client` with the shared
+// AppState client). Never a bare `reqwest::Client::new()`.
+use crate::state::build_http_client;
+
 /// Stripe billing provider.
 pub struct StripeProvider {
     pub secret_key: String,
     pub webhook_secret: String,
     pub base_url: String,
+    pub http_client: reqwest::Client,
 }
 
 impl StripeProvider {
@@ -22,11 +28,20 @@ impl StripeProvider {
             // STRIPE_API_BASE_URL for development. See plan Phase 6f.
             base_url: std::env::var("STRIPE_API_BASE_URL")
                 .unwrap_or_else(|_| "https://api.stripe.com".to_string()),
+            http_client: build_http_client(),
         }
     }
 
     pub fn with_base_url(mut self, url: String) -> Self {
         self.base_url = url;
+        self
+    }
+
+    /// V-MED-10: inject the shared, timeout-configured client from `AppState`
+    /// so this provider participates in connection pooling and never pins a
+    /// handler thread on a hanging upstream.
+    pub fn with_http_client(mut self, client: reqwest::Client) -> Self {
+        self.http_client = client;
         self
     }
 
@@ -37,7 +52,7 @@ impl StripeProvider {
     /// `None` on any failure (network, non-2xx, missing field) → fail-closed
     /// (audit F#11 round-2).
     async fn fetch_subscription_period_end(&self, subscription_id: &str) -> Option<i64> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let url = format!("{}/v1/subscriptions/{}", self.base_url, subscription_id);
         let resp = client
             .get(&url)
@@ -67,7 +82,7 @@ impl BillingProvider for StripeProvider {
         success_url: &str,
         cancel_url: &str,
     ) -> Result<CheckoutSession, BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let params = [
             ("mode", "subscription"),
             ("payment_method_types[0]", "card"),
@@ -136,7 +151,7 @@ impl BillingProvider for StripeProvider {
             ("metadata[post_id]", &post_id_s),
         ];
 
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let resp = client
             .post(format!("{}/v1/checkout/sessions", self.base_url))
             .header("Authorization", format!("Bearer {}", self.secret_key))
@@ -166,7 +181,7 @@ impl BillingProvider for StripeProvider {
         provider_subscription_id: &str,
         immediately: bool,
     ) -> Result<(), BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let url = format!(
             "{}/v1/subscriptions/{}",
             self.base_url, provider_subscription_id
@@ -200,7 +215,7 @@ impl BillingProvider for StripeProvider {
         &self,
         provider_subscription_id: &str,
     ) -> Result<SubscriptionInfo, BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let url = format!(
             "{}/v1/subscriptions/{}",
             self.base_url, provider_subscription_id
@@ -339,7 +354,7 @@ impl BillingProvider for StripeProvider {
         provider_customer_id: &str,
         return_url: &str,
     ) -> Result<String, BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let params = [
             ("customer", provider_customer_id),
             ("return_url", return_url),

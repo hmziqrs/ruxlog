@@ -6,6 +6,11 @@ use super::provider::{
     BillingError, BillingProvider, CheckoutSession, ParsedWebhook, SubscriptionInfo, WebhookEvent,
 };
 
+// V-MED-10: every outbound Paddle call goes through this client (built once in
+// `new` with timeouts, or overridden via `with_http_client` with the shared
+// AppState client). Never a bare `reqwest::Client::new()`.
+use crate::state::build_http_client;
+
 /// Paddle billing provider.
 pub struct PaddleProvider {
     pub client_token: String,
@@ -14,6 +19,7 @@ pub struct PaddleProvider {
     /// from `PADDLE_PUBLIC_KEY` (hex). `None` ⇒ verification fails closed.
     pub public_key: Option<[u8; 32]>,
     pub base_url: String,
+    pub http_client: reqwest::Client,
 }
 
 impl PaddleProvider {
@@ -26,6 +32,7 @@ impl PaddleProvider {
             // PADDLE_API_BASE_URL for development. See plan Phase 6f.
             base_url: std::env::var("PADDLE_API_BASE_URL")
                 .unwrap_or_else(|_| "https://api.paddle.com".to_string()),
+            http_client: build_http_client(),
         }
     }
 
@@ -38,6 +45,12 @@ impl PaddleProvider {
     pub fn with_public_key(mut self, hex_key: &str) -> Result<Self, BillingError> {
         self.public_key = Some(decode_paddle_public_key(hex_key)?);
         Ok(self)
+    }
+
+    /// V-MED-10: inject the shared, timeout-configured client from `AppState`.
+    pub fn with_http_client(mut self, client: reqwest::Client) -> Self {
+        self.http_client = client;
+        self
     }
 
     pub fn from_env() -> Result<Self, BillingError> {
@@ -66,7 +79,7 @@ impl PaddleProvider {
         &self,
         subscription_id: &str,
     ) -> Option<serde_json::Value> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let url = format!("{}/subscriptions/{}", self.base_url, subscription_id);
         let resp = client
             .get(&url)
@@ -114,7 +127,7 @@ impl BillingProvider for PaddleProvider {
         success_url: &str,
         cancel_url: &str,
     ) -> Result<CheckoutSession, BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let body = serde_json::json!({
             "items": [{ "price_id": plan_slug, "quantity": 1 }],
             "custom_data": { "user_id": user_id.to_string() },
@@ -157,7 +170,7 @@ impl BillingProvider for PaddleProvider {
         provider_subscription_id: &str,
         immediately: bool,
     ) -> Result<(), BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let url = format!(
             "{}/subscriptions/{}",
             self.base_url, provider_subscription_id
@@ -189,7 +202,7 @@ impl BillingProvider for PaddleProvider {
         &self,
         provider_subscription_id: &str,
     ) -> Result<SubscriptionInfo, BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let url = format!(
             "{}/subscriptions/{}",
             self.base_url, provider_subscription_id

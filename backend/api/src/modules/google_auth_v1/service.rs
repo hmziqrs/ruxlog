@@ -126,48 +126,90 @@ pub fn get_google_oauth_client() -> Result<GoogleClient, ErrorResponse> {
 /// access token Google issued for the (PKCE-bound) authorization code. Verifying
 /// the `id_token` additionally binds the `sub`/`email` cryptographically to
 /// Google's signing key and validates `aud` (our client id), `iss`, and `exp`.
+///
+/// R-5: Google rotates its signing keys roughly daily. If a token arrives
+/// signed by a `kid` that is not in our (cached) JWKS, the cache may simply be
+/// stale — a brand-new key published within the TTL. Rather than reject (which
+/// would lock users out for up to `JWKS_TTL` after each rotation), we force
+/// exactly ONE bypass-cache JWKS re-fetch and retry the kid lookup once before
+/// rejecting. There is no retry loop: at most one re-fetch per verification.
 pub async fn verify_google_id_token(
     id_token: &str,
     expected_aud: &str,
 ) -> Result<GoogleIdTokenClaims, ErrorResponse> {
+    // First attempt against the (possibly cached) JWKS.
     let keys = fetch_google_jwks().await?;
-    verify_id_token_with_keys(id_token, &keys, expected_aud, &GOOGLE_ISSUERS)
+    match verify_id_token_with_keys_core(id_token, &keys, expected_aud, &GOOGLE_ISSUERS) {
+        Ok(claims) => Ok(claims),
+        Err(err) => {
+            // Only the "unknown signer kid" failure is retry-worthy. Every other
+            // failure (bad alg, bad aud/iss/exp, malformed token, bad signature
+            // against a *known* key) is deterministic and must NOT trigger a
+            // re-fetch — that would just amplify load on a reject path.
+            if err.unknown_signer {
+                warn!(
+                    "id_token kid not in cached JWKS; forcing one bypass-cache re-fetch (R-5)"
+                );
+                let refreshed = fetch_google_jwks_bypass_cache().await?;
+                // Single retry against the freshly-fetched key set. If the kid is
+                // still absent after a fresh fetch, the token is genuinely
+                // untrusted; map the flag-bearing `IdTokenError` into the API
+                // `ErrorResponse` the caller expects. NB: call `_core` (which
+                // carries the `unknown_signer` flag), NOT the public wrapper
+                // `verify_id_token_with_keys` (which strips it — reading
+                // `.unknown_signer` off an `ErrorResponse` does not compile).
+                verify_id_token_with_keys_core(id_token, &refreshed, expected_aud, &GOOGLE_ISSUERS)
+                    .map_err(|e| e.response)
+            } else {
+                Err(err.response)
+            }
+        }
+    }
 }
 
 /// Pure verification core (no network), kept separate so tests can exercise the
 /// signature/claims validation with a known key without hitting Google.
-fn verify_id_token_with_keys(
+///
+/// Returns an `IdTokenError` whose `unknown_signer` flag lets the network-aware
+/// wrapper (`verify_google_id_token`) decide whether a JWKS re-fetch could
+/// possibly help. The public `verify_id_token_with_keys` entry point below maps
+/// this into the API's `ErrorResponse`.
+fn verify_id_token_with_keys_core(
     id_token: &str,
     keys: &[GoogleJwkKey],
     expected_aud: &str,
     expected_iss: &[&str],
-) -> Result<GoogleIdTokenClaims, ErrorResponse> {
+) -> Result<GoogleIdTokenClaims, IdTokenError> {
     // Read the JOSE header first to select the signing key by `kid` and to pin
     // the algorithm. Pinning RS256 is mandatory: an "alg confusion" attack would
     // otherwise let a token signed with the public key as an HMAC secret pass.
     let header = decode_header(id_token).map_err(|e| {
         warn!(error = ?e, "Google id_token header decode failed");
-        ErrorResponse::new(ErrorCode::InvalidToken).with_message("Malformed id_token header")
+        IdTokenError::malformed("Malformed id_token header")
     })?;
     if header.alg != Algorithm::RS256 {
         warn!(alg = ?header.alg, "Rejecting id_token with non-RS256 alg");
-        return Err(ErrorResponse::new(ErrorCode::InvalidToken)
-            .with_message("Unsupported id_token algorithm"));
+        return Err(IdTokenError::malformed("Unsupported id_token algorithm"));
     }
 
-    let signing_key = header
+    let signing_key = match header
         .kid
         .as_deref()
         .and_then(|kid| keys.iter().find(|k| k.kid.as_deref() == Some(kid)))
-        .ok_or_else(|| {
+    {
+        Some(k) => k,
+        // Distinguish "no key for this kid" from other failures so the wrapper
+        // can attempt a single JWKS re-fetch (R-5).
+        None => {
             warn!("No matching Google signing key for id_token kid");
-            ErrorResponse::new(ErrorCode::InvalidToken).with_message("Untrusted id_token signer")
-        })?;
+            return Err(IdTokenError::unknown_signer());
+        }
+    };
 
     let decoding_key =
         DecodingKey::from_rsa_components(&signing_key.n, &signing_key.e).map_err(|e| {
             error!(error = ?e, "Failed to build RSA decoding key from Google JWKS");
-            ErrorResponse::new(ErrorCode::InternalServerError).with_message("Invalid signing key")
+            IdTokenError::internal("Invalid signing key")
         })?;
 
     let mut validation = Validation::new(Algorithm::RS256);
@@ -178,11 +220,68 @@ fn verify_id_token_with_keys(
     let token_data = decode::<GoogleIdTokenClaims>(id_token, &decoding_key, &validation).map_err(
         |e| {
             warn!(error = ?e, "Google id_token verification failed");
-            ErrorResponse::new(ErrorCode::InvalidToken).with_message("Invalid id_token")
+            IdTokenError::invalid("Invalid id_token")
         },
     )?;
 
     Ok(token_data.claims)
+}
+
+/// Internal verification outcome that distinguishes the retry-worthy
+/// "unknown signer kid" case from terminal failures. Only the network-aware
+/// wrapper consumes the `unknown_signer` flag.
+#[derive(Debug)]
+struct IdTokenError {
+    response: ErrorResponse,
+    unknown_signer: bool,
+}
+
+impl IdTokenError {
+    fn unknown_signer() -> Self {
+        Self {
+            response: ErrorResponse::new(ErrorCode::InvalidToken)
+                .with_message("Untrusted id_token signer"),
+            unknown_signer: true,
+        }
+    }
+
+    fn malformed(msg: &str) -> Self {
+        Self {
+            response: ErrorResponse::new(ErrorCode::InvalidToken).with_message(msg),
+            unknown_signer: false,
+        }
+    }
+
+    fn invalid(msg: &str) -> Self {
+        Self {
+            response: ErrorResponse::new(ErrorCode::InvalidToken).with_message(msg),
+            unknown_signer: false,
+        }
+    }
+
+    fn internal(msg: &str) -> Self {
+        Self {
+            response: ErrorResponse::new(ErrorCode::InternalServerError).with_message(msg),
+            unknown_signer: false,
+        }
+    }
+}
+
+/// Test-only entry: pure verification against caller-supplied keys, mapping the
+/// flag-bearing [`IdTokenError`] into the API [`ErrorResponse`]. The original
+/// (pre-R-5) tests supply their own keys and never exercise the JWKS re-fetch,
+/// so they go through this thin wrapper; production + the R-5 retry path use
+/// [`verify_id_token_with_keys_core`] directly. `#[cfg(test)]` keeps it out of
+/// the non-test build (where it would otherwise be dead code).
+#[cfg(test)]
+fn verify_id_token_with_keys(
+    id_token: &str,
+    keys: &[GoogleJwkKey],
+    expected_aud: &str,
+    expected_iss: &[&str],
+) -> Result<GoogleIdTokenClaims, ErrorResponse> {
+    verify_id_token_with_keys_core(id_token, keys, expected_aud, expected_iss)
+        .map_err(|e| e.response)
 }
 
 async fn fetch_google_jwks() -> Result<Vec<GoogleJwkKey>, ErrorResponse> {
@@ -200,8 +299,23 @@ async fn fetch_google_jwks() -> Result<Vec<GoogleJwkKey>, ErrorResponse> {
         }
     }
 
+    // Cache miss / stale: fetch and refresh the cache.
+    fetch_google_jwks_bypass_cache().await
+}
+
+/// Fetch Google's JWKS, unconditionally bypassing the cache and overwriting it.
+///
+/// Used by the R-5 re-fetch path: when a token's `kid` is absent from the
+/// cached set (Google rotated a key within our TTL), we must see the freshest
+/// set rather than the stale cache entry that just failed us.
+async fn fetch_google_jwks_bypass_cache() -> Result<Vec<GoogleJwkKey>, ErrorResponse> {
     let http_client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
+        // V-MED-10: bound the JWKS fetch so a wedged Google endpoint can't pin
+        // the login handler thread indefinitely (CWE-400/CWE-770).
+        .connect_timeout(std::time::Duration::from_secs(5))
+        .timeout(std::time::Duration::from_secs(15))
+        .pool_idle_timeout(std::time::Duration::from_secs(30))
         .build()
         .map_err(|e| {
             error!(error = ?e, "Failed to build JWKS HTTP client");
@@ -363,5 +477,97 @@ JX3Efq+lIpLs6bXvFyKzuRc=\n-----END PRIVATE KEY-----";
         let token = sign_token(&claims, Some(TEST_KID));
         let result = verify_id_token_with_keys(&token, &test_keys(), TEST_AUD, &GOOGLE_ISSUERS);
         assert!(result.is_err(), "expired token must be rejected");
+    }
+
+    // R-5: the network-aware wrapper retries a JWKS fetch ONLY for the
+    // "unknown signer kid" outcome. That decision hinges on the pure core
+    // flagging `unknown_signer` distinctly from every terminal failure. This
+    // test pins that predicate directly, without a live network call.
+    #[test]
+    fn unknown_kid_is_the_only_retry_worthy_failure() {
+        // Unknown kid -> retry-worthy.
+        let token = sign_token(&valid_claims(), Some("not-a-known-kid"));
+        let err = verify_id_token_with_keys_core(
+            &token,
+            &test_keys(),
+            TEST_AUD,
+            &GOOGLE_ISSUERS,
+        )
+        .expect_err("unknown kid must error");
+        assert!(err.unknown_signer, "unknown kid must be flagged retry-worthy");
+
+        // Tampered signature against a KNOWN key -> terminal (a re-fetch cannot
+        // help; the key is already present and the signature is wrong).
+        let token = sign_token(&valid_claims(), Some(TEST_KID));
+        let parts: Vec<&str> = token.rsplitn(2, '.').collect();
+        let mut sig_bytes = parts[0].as_bytes().to_vec();
+        if let Some(b) = sig_bytes.last_mut() {
+            *b = if *b == b'A' { b'B' } else { b'A' };
+        }
+        let tampered = format!(
+            "{}.{}",
+            parts[1],
+            String::from_utf8(sig_bytes).unwrap()
+        );
+        let err = verify_id_token_with_keys_core(
+            &tampered,
+            &test_keys(),
+            TEST_AUD,
+            &GOOGLE_ISSUERS,
+        )
+        .expect_err("tampered token must error");
+        assert!(
+            !err.unknown_signer,
+            "tampered token must NOT trigger a re-fetch"
+        );
+
+        // Wrong audience against a KNOWN key -> terminal.
+        let token = sign_token(&valid_claims(), Some(TEST_KID));
+        let err = verify_id_token_with_keys_core(
+            &token,
+            &test_keys(),
+            "other-client-id",
+            &GOOGLE_ISSUERS,
+        )
+        .expect_err("wrong-audience token must error");
+        assert!(
+            !err.unknown_signer,
+            "wrong-audience token must NOT trigger a re-fetch"
+        );
+    }
+
+    // R-5: simulate the exact retry sequence the wrapper runs when Google
+    // rotates a key within our cache TTL. The first attempt uses a "stale" key
+    // set that lacks the token's kid; the re-fetched set contains it. The
+    // second attempt must succeed — i.e. a valid token is no longer rejected
+    // just because the cache was stale. This exercises the orchestration
+    // shape (one retry, then succeed) without hitting the network.
+    #[test]
+    fn stale_jwks_then_refresh_recovers_rotated_kid() {
+        let token = sign_token(&valid_claims(), Some(TEST_KID));
+
+        // "Stale" cached set: empty -> kid lookup misses.
+        let stale_keys: Vec<GoogleJwkKey> = vec![];
+        let first = verify_id_token_with_keys_core(
+            &token,
+            &stale_keys,
+            TEST_AUD,
+            &GOOGLE_ISSUERS,
+        );
+        assert!(
+            first.as_ref().err().map(|e| e.unknown_signer).unwrap_or(false),
+            "stale JWKS must fail with the retry-worthy unknown_signer flag"
+        );
+
+        // "Refreshed" set: contains the rotated kid -> the single retry succeeds.
+        let refreshed_keys = test_keys();
+        let second = verify_id_token_with_keys_core(
+            &token,
+            &refreshed_keys,
+            TEST_AUD,
+            &GOOGLE_ISSUERS,
+        )
+        .expect("refreshed JWKS must verify the rotated-kid token");
+        assert_eq!(second.sub, "google-sub-123");
     }
 }

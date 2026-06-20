@@ -9,12 +9,18 @@ use super::provider::{
     BillingError, BillingProvider, CheckoutSession, ParsedWebhook, SubscriptionInfo, WebhookEvent,
 };
 
+// V-MED-10: every outbound Razorpay call goes through this client (built once
+// in `new` with timeouts, or overridden via `with_http_client` with the shared
+// AppState client). Never a bare `reqwest::Client::new()`.
+use crate::state::build_http_client;
+
 /// Razorpay billing provider.
 pub struct RazorpayProvider {
     pub key_id: String,
     pub key_secret: String,
     pub webhook_secret: String,
     pub base_url: String,
+    pub http_client: reqwest::Client,
 }
 
 impl RazorpayProvider {
@@ -27,11 +33,18 @@ impl RazorpayProvider {
             // RAZORPAY_API_BASE_URL for development. See plan Phase 6f.
             base_url: std::env::var("RAZORPAY_API_BASE_URL")
                 .unwrap_or_else(|_| "https://api.razorpay.com/v1".to_string()),
+            http_client: build_http_client(),
         }
     }
 
     pub fn with_base_url(mut self, url: String) -> Self {
         self.base_url = url;
+        self
+    }
+
+    /// V-MED-10: inject the shared, timeout-configured client from `AppState`.
+    pub fn with_http_client(mut self, client: reqwest::Client) -> Self {
+        self.http_client = client;
         self
     }
 }
@@ -53,7 +66,7 @@ impl BillingProvider for RazorpayProvider {
         _success_url: &str,
         _cancel_url: &str,
     ) -> Result<CheckoutSession, BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
 
         // Create a REAL Razorpay subscription (not a one-time payment link) so
         // the `session_id` we store — and key the checkout intent by — is a
@@ -123,7 +136,7 @@ impl BillingProvider for RazorpayProvider {
         provider_subscription_id: &str,
         immediately: bool,
     ) -> Result<(), BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
 
         if immediately {
             let url = format!(
@@ -182,7 +195,7 @@ impl BillingProvider for RazorpayProvider {
         &self,
         provider_subscription_id: &str,
     ) -> Result<SubscriptionInfo, BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let url = format!(
             "{}/subscriptions/{}",
             self.base_url, provider_subscription_id

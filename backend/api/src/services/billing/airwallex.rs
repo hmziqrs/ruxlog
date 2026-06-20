@@ -8,6 +8,11 @@ use super::provider::{
     BillingError, BillingProvider, CheckoutSession, ParsedWebhook, SubscriptionInfo, WebhookEvent,
 };
 
+// V-MED-10: every outbound Airwallex call goes through this client (built once
+// in `new` with timeouts, or overridden via `with_http_client` with the shared
+// AppState client). Never a bare `reqwest::Client::new()`.
+use crate::state::build_http_client;
+
 /// Airwallex billing provider.
 pub struct AirwallexProvider {
     pub client_id: String,
@@ -20,6 +25,7 @@ pub struct AirwallexProvider {
     /// development. See plan Phase 6f — this was previously hardcoded to the
     /// demo host, which sent production shoppers to the sandbox checkout.
     pub checkout_base_url: String,
+    pub http_client: reqwest::Client,
 }
 
 impl AirwallexProvider {
@@ -36,6 +42,7 @@ impl AirwallexProvider {
             // (Phase 6f: previously hardcoded to the demo/sandbox host.)
             checkout_base_url: std::env::var("AIRWALLEX_CHECKOUT_BASE_URL")
                 .unwrap_or_else(|_| "https://checkout.airwallex.com".to_string()),
+            http_client: build_http_client(),
         }
     }
 
@@ -43,12 +50,18 @@ impl AirwallexProvider {
         self.base_url = url;
         self
     }
+
+    /// V-MED-10: inject the shared, timeout-configured client from `AppState`.
+    pub fn with_http_client(mut self, client: reqwest::Client) -> Self {
+        self.http_client = client;
+        self
+    }
 }
 
 impl AirwallexProvider {
     /// Authenticate and get a bearer token from Airwallex.
     async fn get_access_token(&self) -> Result<String, BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let resp = client
             .post(format!("{}/authentication/login", self.base_url))
             .header("x-client-id", &self.client_id)
@@ -89,7 +102,7 @@ impl BillingProvider for AirwallexProvider {
         cancel_url: &str,
     ) -> Result<CheckoutSession, BillingError> {
         let token = self.get_access_token().await?;
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
 
         // Create a PaymentIntent first
         let body = serde_json::json!({
@@ -150,7 +163,7 @@ impl BillingProvider for AirwallexProvider {
         _immediately: bool,
     ) -> Result<(), BillingError> {
         let token = self.get_access_token().await?;
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let url = format!(
             "{}/pa/subscriptions/{}/cancel",
             self.base_url, provider_subscription_id
@@ -176,7 +189,7 @@ impl BillingProvider for AirwallexProvider {
         provider_subscription_id: &str,
     ) -> Result<SubscriptionInfo, BillingError> {
         let token = self.get_access_token().await?;
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let url = format!(
             "{}/pa/subscriptions/{}",
             self.base_url, provider_subscription_id

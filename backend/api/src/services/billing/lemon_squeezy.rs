@@ -6,12 +6,18 @@ use super::provider::{
     BillingError, BillingProvider, CheckoutSession, ParsedWebhook, SubscriptionInfo, WebhookEvent,
 };
 
+// V-MED-10: every outbound LemonSqueezy call goes through this client (built
+// once in `new` with timeouts, or overridden via `with_http_client` with the
+// shared AppState client). Never a bare `reqwest::Client::new()`.
+use crate::state::build_http_client;
+
 /// LemonSqueezy billing provider.
 pub struct LemonSqueezyProvider {
     pub api_key: String,
     pub webhook_secret: String,
     pub store_id: String,
     pub base_url: String,
+    pub http_client: reqwest::Client,
 }
 
 impl LemonSqueezyProvider {
@@ -25,11 +31,18 @@ impl LemonSqueezyProvider {
             // LEMONSQUEEZY_API_BASE_URL for development. See plan Phase 6f.
             base_url: std::env::var("LEMONSQUEEZY_API_BASE_URL")
                 .unwrap_or_else(|_| "https://api.lemonsqueezy.com".to_string()),
+            http_client: build_http_client(),
         }
     }
 
     pub fn with_base_url(mut self, url: String) -> Self {
         self.base_url = url;
+        self
+    }
+
+    /// V-MED-10: inject the shared, timeout-configured client from `AppState`.
+    pub fn with_http_client(mut self, client: reqwest::Client) -> Self {
+        self.http_client = client;
         self
     }
 
@@ -59,7 +72,7 @@ impl BillingProvider for LemonSqueezyProvider {
         success_url: &str,
         cancel_url: &str,
     ) -> Result<CheckoutSession, BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let body = serde_json::json!({
             "data": {
                 "type": "checkouts",
@@ -113,7 +126,7 @@ impl BillingProvider for LemonSqueezyProvider {
         provider_subscription_id: &str,
         _immediately: bool,
     ) -> Result<(), BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let url = format!(
             "{}/v1/subscriptions/{}",
             self.base_url, provider_subscription_id
@@ -148,7 +161,7 @@ impl BillingProvider for LemonSqueezyProvider {
         &self,
         provider_subscription_id: &str,
     ) -> Result<SubscriptionInfo, BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let url = format!(
             "{}/v1/subscriptions/{}",
             self.base_url, provider_subscription_id

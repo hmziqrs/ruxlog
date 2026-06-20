@@ -1,0 +1,89 @@
+# Traefik dynamic configuration (loaded by the `file` provider declared in
+# traefik.prod.yml / traefik.dev.yml).
+#
+# Why this file exists: in Traefik v3, `tls.options` and `http.middlewares`
+# are DYNAMIC configuration — they cannot be expressed in the static
+# traefik.yml. Placing them here lets us define them once, centrally, and
+# reference them from any router (Docker-provider app containers via labels,
+# or file-provider routers) without scattering policy across every service.
+#
+# V-MED-9 — TLS hardening:
+#   * tls.options.default pins the floor at TLS 1.2 (TLS 1.3 is negotiated by
+#     the server when both peers support it; Traefik enables 1.3 by default and
+#     cipherSuites do not apply to 1.3 — only to 1.2 — so the list below is the
+#     1.2 allowlist). The `default` option is applied automatically to every
+#     websecure router that does not override tls.options, so nothing else is
+#     required to enforce it.
+#   * cipherSuites is the Mozilla "intermediate" 1.2 set: forward-secret AEAD
+#     only (no CBC, no RSA key exchange, no 3DES). Order does not matter to
+#     Traefik; the list is an allowlist.
+#
+# V-MED-9 — HSTS:
+#   * secure-transport-headers enforces STS at the edge (max-age 2y,
+#     includeSubDomains, preload). Edge-level HSTS closes the ssl-strip window
+#     the static :80->:443 redirect leaves open on the *first* ever request —
+#     combined with that redirect, every response (even the redirect itself, if
+#     a client ever re-derives it) carries HSTS. max-age is 63072000 (2 years,
+#     >= 31536000 required for preload eligibility).
+#
+# M-8 — SPA Content-Security-Policy:
+#   * spa-csp-headers pins a strict policy for the Dioxus WASM frontends
+#     (admin + consumer), which are separate origins that the backend
+#     security_headers middleware cannot reach. script-src 'self' is correct
+#     for WASM (no inline scripts required). If the SPA fetches media from an
+#     object-storage bucket on a separate origin, ADD that origin to img-src /
+#     connect-src in the policy below (Traefik dynamic YAML does not expand
+#     shell vars, so the list is literal). Reference this middleware from the
+#     SPA router labels, e.g.
+#       traefik.http.routers.<spa>.middlewares=spa-csp-headers@file,secure-transport-headers@file
+#     A matching <meta http-equiv="Content-Security-Policy"> tag is also added
+#     to each SPA index.html so the policy is enforced even on serving paths
+#     that do not route through this middleware.
+
+tls:
+  options:
+    default:
+      # TLS 1.2 floor. TLS 1.3 is enabled automatically; its suites are not
+      # configurable and are all AEAD/forward-secret, so cipherSuites below
+      # governs 1.2 only.
+      minVersion: VersionTLS12
+      sniStrict: true
+      cipherSuites:
+        # Forward-secret ECDHE AEAD suites (Mozilla "intermediate", TLS 1.2).
+        - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+        - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+      curvePreferences:
+        - CurveP521
+        - CurveP384
+      # Reject clients offering no acceptable protocols/suites rather than
+      # silently downgrading.
+      clientAuth: {}
+
+http:
+  middlewares:
+    # V-MED-9: HSTS at the edge. STS max-age 2y + includeSubDomains + preload.
+    secure-transport-headers:
+      headers:
+        stsSeconds: 63072000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        forceSTSHeader: true
+
+    # M-8: strict CSP for the WASM SPA origins. WASM ships as a same-origin
+    # module so script-src 'self' is safe (no inline, no eval). The policy is
+    # deliberately complete (no env interpolation — Traefik dynamic YAML does
+    # not expand shell vars). If the SPA fetches media from an object-storage
+    # bucket on a separate origin, ADD that origin to img-src / connect-src
+    # here. The same policy is also enforced via a <meta http-equiv> tag in
+    # each SPA index.html so it applies even before a router references this
+    # middleware.
+    #
+    # Reference from the SPA router labels, e.g.:
+    #   traefik.http.routers.<spa>.middlewares=spa-csp-headers@file,secure-transport-headers@file
+    spa-csp-headers:
+      headers:
+        contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"

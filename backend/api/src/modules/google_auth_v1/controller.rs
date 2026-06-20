@@ -205,7 +205,7 @@ async fn finish_google_login(
             }
         };
 
-    let user_info = fetch_google_user_info(access_token).await?;
+    let user_info = fetch_google_user_info(&state.http_client, access_token).await?;
     info!(google_id = %user_info.id, email = %user_info.email, "Retrieved user info from Google");
 
     // Cross-check the verified id_token identity against the userinfo payload.
@@ -298,8 +298,17 @@ struct StoredState {
     v: String,
 }
 
-/// Look up and DELETE the session-bound state, returning the PKCE verifier.
-/// Fails closed if the state is missing, expired, or belongs to another session.
+/// Atomically look up AND delete the session-bound state, returning the PKCE
+/// verifier. Fails closed if the state is missing, expired, or belongs to
+/// another session.
+///
+/// V-MED-5: this used to be a non-atomic `GET` followed by `DEL`, which left a
+/// TOCTOU window — two concurrent callbacks presenting the same state could
+/// each observe the stored verifier before the `DEL` landed, defeating the
+/// single-use guarantee. `GETDEL` returns the value and deletes it in a single
+/// round-trip, so a replayed state observes `None` (already consumed) and is
+/// rejected. This is the same atomic-take pattern used for the forgot-password
+/// reset token.
 async fn consume_oauth_state(
     state: &AppState,
     session_id: &str,
@@ -307,17 +316,16 @@ async fn consume_oauth_state(
 ) -> Result<PkceCodeVerifier, ErrorResponse> {
     let key = format!("oauth:state:{}:{}", session_id, state_secret);
 
-    let stored: Option<String> = state.redis_pool.get(&key).await.map_err(|e| {
-        error!(error = ?e, "Failed to retrieve OAuth state");
+    // Atomic GETDEL: returns the stored payload AND removes the key in one
+    // command. `Ok(None)` means the state was never written, expired, or has
+    // already been consumed by a prior callback — all are treated as invalid.
+    let stored: Option<String> = state.redis_pool.getdel(&key).await.map_err(|e| {
+        error!(error = ?e, "Failed to consume OAuth state");
         ErrorResponse::new(ErrorCode::InternalServerError).with_message("Failed to verify OAuth state")
     })?;
 
-    // Delete first so the state is single-use even if parsing/verification below
-    // were to fail — a replayed state must never succeed.
-    let _: () = state.redis_pool.del(&key).await.unwrap_or(());
-
     let stored = stored.ok_or_else(|| {
-        warn!("Invalid, expired, or session-mismatched OAuth state");
+        warn!("Invalid, expired, already-consumed, or session-mismatched OAuth state");
         ErrorResponse::new(ErrorCode::InvalidToken).with_message("Invalid OAuth state")
     })?;
 
@@ -329,9 +337,13 @@ async fn consume_oauth_state(
     Ok(PkceCodeVerifier::new(parsed.v))
 }
 
-async fn fetch_google_user_info(access_token: &str) -> Result<GoogleUserInfo, ErrorResponse> {
-    let client = reqwest::Client::new();
-    client
+async fn fetch_google_user_info(
+    // V-MED-10: use the shared, timeout-configured client from `AppState` so a
+    // hanging Google userinfo endpoint can never pin this handler thread.
+    http_client: &reqwest::Client,
+    access_token: &str,
+) -> Result<GoogleUserInfo, ErrorResponse> {
+    http_client
         .get("https://www.googleapis.com/oauth2/v2/userinfo")
         .bearer_auth(access_token)
         .send()

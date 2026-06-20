@@ -7,6 +7,7 @@
 //! computation, and the Ed25519 verification Paddle needs. See plan Phase 1c.
 
 use axum::http::HeaderMap;
+use base64::Engine;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 
@@ -57,6 +58,107 @@ pub fn header_str(headers: &HeaderMap, name: &str) -> Option<String> {
 /// the server's current time the same way. Returns `true` if within budget.
 pub fn timestamp_fresh(ts_secs: i64, now_secs: i64) -> bool {
     ts_secs.saturating_sub(now_secs).abs() <= MAX_SKEW_SECS
+}
+
+/// Decode a Polar / Standard Webhooks secret into the raw HMAC key.
+///
+/// Polar webhook secrets are issued as `whsec_<base64>`; the `whsec_` prefix is
+/// the textual marker and the base64 portion decodes to the 32-byte signing key
+/// (Standard Webhooks spec, standardwebhooks.com). We strip a leading `whsec_`
+/// when present, then try to base64-decode the remainder. If decoding fails —
+/// e.g. the stored value is already a raw 32-byte key, or a non-canonical
+/// string was configured — we fall back to the raw bytes so a misconfigured
+/// secret fails at the signature check rather than at key derivation. The
+/// base64 path is preferred because that is how Polar ships the secret.
+pub fn standard_webhooks_key(secret: &str) -> Vec<u8> {
+    use base64::Engine;
+    let trimmed = secret.strip_prefix("whsec_").unwrap_or(secret);
+    match base64::engine::general_purpose::STANDARD.decode(trimmed) {
+        Ok(key) => key,
+        // Not valid base64 — use the raw bytes as-is (raw 32-byte key path).
+        Err(_) => trimmed.as_bytes().to_vec(),
+    }
+}
+
+/// Verify a Standard Webhooks (polar.sh / standardwebhooks.com) signature.
+///
+/// The signed message is `"{webhook_id}.{webhook_timestamp}.{body}"`, signed
+/// with HMAC-SHA256 using the raw key derived from the `whsec_<base64>` secret,
+/// and transmitted base64-encoded. The `webhook-signature` header may carry
+/// multiple whitespace-separated `v1,<base64>` entries (key rotation); we accept
+/// if ANY entry matches the recomputed digest, compared in constant time. The
+/// `webhook-timestamp` header (unix seconds) is bound into the signed message
+/// AND independently checked against a 5-minute replay window.
+///
+/// Returns `true` only when all three headers are present, the timestamp is
+/// fresh, and at least one `v1` signature entry matches.
+pub fn verify_standard_webhooks(
+    headers: &HeaderMap,
+    secret: &str,
+    body: &[u8],
+    now_secs: i64,
+) -> bool {
+    // Fail-closed on any missing header. The Standard Webhooks spec requires all
+    // three; accepting a request with a missing signature header would bypass
+    // authentication entirely.
+    let webhook_id = match header_str(headers, "webhook-id") {
+        Some(v) => v,
+        None => return false,
+    };
+    let webhook_ts = match header_str(headers, "webhook-timestamp") {
+        Some(v) => v,
+        None => return false,
+    };
+    let webhook_sig = match header_str(headers, "webhook-signature") {
+        Some(v) => v,
+        None => return false,
+    };
+
+    // Replay window. `webhook-timestamp` is ASCII unix seconds; if it is not a
+    // valid integer the request is malformed → reject (fail-closed).
+    let ts_secs: i64 = match webhook_ts.parse() {
+        Ok(n) => n,
+        Err(_) => return false,
+    };
+    if !timestamp_fresh(ts_secs, now_secs) {
+        return false;
+    }
+
+    // Derive the key and compute the expected base64 digest over the signed
+    // message id.timestamp.body.
+    let key = standard_webhooks_key(secret);
+    let mut mac = match HmacSha256::new_from_slice(&key) {
+        Ok(m) => m,
+        // HMAC accepts any non-empty key length; an empty key is rejected by the
+        // crate. Treat it as a verification failure rather than panicking.
+        Err(_) => return false,
+    };
+    mac.update(webhook_id.as_bytes());
+    mac.update(b".");
+    mac.update(webhook_ts.as_bytes());
+    mac.update(b".");
+    mac.update(body);
+    let expected = base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes());
+
+    // The signature header is a list of `v{version},{sig}` ENTRIES separated by
+    // WHITESPACE (the real Standard Webhooks wire format that Polar uses), where
+    // each entry uses a comma between the version and the signature itself —
+    // i.e. `v1,<base64>` and, under key rotation, `v1,<sigA> v1,<sigB>`. (Splitting
+    // on comma instead of whitespace corrupts the multi-entry rotation case, so
+    // we must split on whitespace, then strip the `v1,`/`v1=` prefix per entry.)
+    // Some emitters use `v1=` instead of `v1,`; we accept either prefix. Accept
+    // the request if ANY entry's v1 signature matches the recomputed digest
+    // (constant time). Only v1 is supported; entries lacking a recognised
+    // version prefix are ignored (fail-closed on malformed headers).
+    for entry in webhook_sig.split_whitespace() {
+        let candidate = entry.strip_prefix("v1,").or_else(|| entry.strip_prefix("v1="));
+        if let Some(sig) = candidate {
+            if ct_eq(sig.as_bytes(), expected.as_bytes()) {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 /// Verify a Paddle Billing webhook signature (Ed25519).
@@ -162,6 +264,84 @@ mod tests {
             Some("t=1,v1=abc")
         );
         assert!(header_str(&h, "Missing").is_none());
+    }
+
+    // ── Standard Webhooks (Polar) ─────────────────────────────────────────
+
+    #[test]
+    fn standard_webhooks_key_decodes_whsec_prefix() {
+        let raw = [0x11u8; 32];
+        let secret = format!(
+            "whsec_{}",
+            base64::engine::general_purpose::STANDARD.encode(raw)
+        );
+        assert_eq!(standard_webhooks_key(&secret), raw.to_vec());
+    }
+
+    #[test]
+    fn standard_webhooks_key_accepts_bare_base64() {
+        // No whsec_ prefix but still valid base64 → decode to the raw key.
+        let raw = [0x22u8; 32];
+        let secret = base64::engine::general_purpose::STANDARD.encode(raw);
+        assert_eq!(standard_webhooks_key(&secret), raw.to_vec());
+    }
+
+    #[test]
+    fn standard_webhooks_key_falls_back_to_raw_bytes() {
+        // Not valid base64 and not a whsec_ secret → use the literal bytes.
+        let s = "not-base64!!";
+        assert_eq!(standard_webhooks_key(s), s.as_bytes().to_vec());
+    }
+
+    #[test]
+    fn standard_webhooks_verifies_and_rejects() {
+        use base64::engine::general_purpose::STANDARD;
+        let raw_key = [7u8; 32];
+        let secret = format!("whsec_{}", STANDARD.encode(raw_key));
+        let now = 1_700_000_000i64;
+        let id = "evt_1";
+        let body = br#"{"type":"x"}"#;
+
+        // Sign id.ts.body with HMAC-SHA256, base64-encode, set the 3 headers.
+        let mut mac = HmacSha256::new_from_slice(&raw_key).unwrap();
+        mac.update(format!("{id}.{now}.").as_bytes());
+        mac.update(body);
+        let sig = STANDARD.encode(mac.finalize().into_bytes());
+
+        let mut h = HeaderMap::new();
+        h.insert("webhook-id", id.parse().unwrap());
+        h.insert("webhook-timestamp", now.to_string().parse().unwrap());
+        h.insert("webhook-signature", format!("v1,{sig}").parse().unwrap());
+
+        assert!(verify_standard_webhooks(&h, &secret, body, now));
+        assert!(verify_standard_webhooks(&h, &secret, body, now + MAX_SKEW_SECS));
+
+        // Outside the replay window → reject.
+        assert!(!verify_standard_webhooks(&h, &secret, body, now + MAX_SKEW_SECS + 1));
+
+        // Tampered body → reject.
+        assert!(!verify_standard_webhooks(&h, &secret, b"{\"type\":\"y\"}", now));
+
+        // Missing signature header → reject (fail-closed).
+        let mut h2 = h.clone();
+        h2.remove("webhook-signature");
+        assert!(!verify_standard_webhooks(&h2, &secret, body, now));
+
+        // Rotation: two v1 entries, second matches.
+        let mut mac2 = HmacSha256::new_from_slice(&[9u8; 32]).unwrap();
+        mac2.update(format!("{id}.{now}.").as_bytes());
+        mac2.update(body);
+        let sig2 = STANDARD.encode(mac2.finalize().into_bytes());
+        let mut h3 = HeaderMap::new();
+        h3.insert("webhook-id", id.parse().unwrap());
+        h3.insert("webhook-timestamp", now.to_string().parse().unwrap());
+        h3.insert(
+            "webhook-signature",
+            // Standard Webhooks SPACE-separates rotation entries; the comma lives
+            // INSIDE each `v1,<sig>` entry. Mirror the real wire format here.
+            format!("v1,{sig2} v1,{sig}").parse().unwrap(),
+        );
+        assert!(verify_standard_webhooks(&h3, &secret, body, now));
     }
 
     // ── Ed25519 (Paddle) ─────────────────────────────────────────────────

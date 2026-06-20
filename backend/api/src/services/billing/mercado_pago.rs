@@ -8,11 +8,17 @@ use super::provider::{
     BillingError, BillingProvider, CheckoutSession, ParsedWebhook, SubscriptionInfo, WebhookEvent,
 };
 
+// V-MED-10: every outbound Mercado Pago call goes through this client (built
+// once in `new` with timeouts, or overridden via `with_http_client` with the
+// shared AppState client). Never a bare `reqwest::Client::new()`.
+use crate::state::build_http_client;
+
 /// Mercado Pago billing provider.
 pub struct MercadoPagoProvider {
     pub access_token: String,
     pub webhook_secret: String,
     pub base_url: String,
+    pub http_client: reqwest::Client,
 }
 
 /// Extract a parameter from a raw URL query string, returning the first match.
@@ -65,6 +71,22 @@ fn hex_nibble(b: u8) -> Option<u8> {
     }
 }
 
+/// Normalise the ambiguous `ts=` value from `x-signature` to whole seconds
+/// (V-CRIT-2 residual). Mercado Pago's documented example uses a 10-digit
+/// SECONDS value (ts=1704908010); some integrations emit a 13-digit
+/// millisecond value. Any value larger than 10_000_000_000 (≈ year 2286 in
+/// seconds) is assumed to be milliseconds and divided by 1000; otherwise it is
+/// treated as seconds verbatim. Picking 10_000_000_000 as the threshold keeps
+/// genuine seconds values (which will not exceed it for centuries) intact
+/// while correctly collapsing millisecond timestamps.
+fn ts_unit_to_secs(ts: i64) -> i64 {
+    if ts > 10_000_000_000 {
+        ts / 1000
+    } else {
+        ts
+    }
+}
+
 impl MercadoPagoProvider {
     pub fn new(access_token: String, webhook_secret: String) -> Self {
         Self {
@@ -74,11 +96,18 @@ impl MercadoPagoProvider {
             // MERCADO_PAGO_API_BASE_URL for development. See plan Phase 6f.
             base_url: std::env::var("MERCADO_PAGO_API_BASE_URL")
                 .unwrap_or_else(|_| "https://api.mercadopago.com".to_string()),
+            http_client: build_http_client(),
         }
     }
 
     pub fn with_base_url(mut self, url: String) -> Self {
         self.base_url = url;
+        self
+    }
+
+    /// V-MED-10: inject the shared, timeout-configured client from `AppState`.
+    pub fn with_http_client(mut self, client: reqwest::Client) -> Self {
+        self.http_client = client;
         self
     }
 }
@@ -97,7 +126,7 @@ impl BillingProvider for MercadoPagoProvider {
         success_url: &str,
         cancel_url: &str,
     ) -> Result<CheckoutSession, BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
 
         let body = serde_json::json!({
             "items": [
@@ -151,7 +180,7 @@ impl BillingProvider for MercadoPagoProvider {
         provider_subscription_id: &str,
         _immediately: bool,
     ) -> Result<(), BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let url = format!("{}/preapproval/{}", self.base_url, provider_subscription_id);
 
         let resp = client
@@ -175,7 +204,7 @@ impl BillingProvider for MercadoPagoProvider {
         &self,
         provider_subscription_id: &str,
     ) -> Result<SubscriptionInfo, BillingError> {
-        let client = reqwest::Client::new();
+        let client = self.http_client.clone();
         let url = format!("{}/preapproval/{}", self.base_url, provider_subscription_id);
 
         let resp = client
@@ -208,10 +237,53 @@ impl BillingProvider for MercadoPagoProvider {
     }
 
     async fn verify_webhook(&self, event: WebhookEvent) -> Result<ParsedWebhook, BillingError> {
-        // Mercado Pago signs with x-signature: "ts=<ms>,v1=<hmac-sha256>". The
+        // Production path: pin "now" to the wall clock. Tests call
+        // `verify_webhook_at` with a fixed `now_secs` so they are deterministic
+        // (V-CRIT-2 residuals: ts-unit disambiguation + data.id verbatim).
+        self.verify_webhook_at(event, chrono::Utc::now().timestamp())
+            .await
+    }
+
+    async fn create_portal_session(
+        &self,
+        provider_customer_id: &str,
+        return_url: &str,
+    ) -> Result<String, BillingError> {
+        // Mercado Pago doesn't have a native portal — redirect to customer management
+        Ok(format!(
+            "https://www.mercadopago.com.br/subscriptions#c/{}/{}",
+            provider_customer_id,
+            urlencoding::encode(return_url)
+        ))
+    }
+}
+
+/// Inherent helpers for [`MercadoPagoProvider`].
+///
+/// `verify_webhook_at` is split out of the `BillingProvider` impl so tests can
+/// pin `now_secs` (production pins it to the wall clock via the trait's
+/// `verify_webhook` above). It is an inherent method because `BillingProvider`
+/// only declares `verify_webhook` — defining it inside the trait impl block is
+/// not valid Rust.
+impl MercadoPagoProvider {
+    pub async fn verify_webhook_at(
+        &self,
+        event: WebhookEvent,
+        now_secs: i64,
+    ) -> Result<ParsedWebhook, BillingError> {
+        // Mercado Pago signs with x-signature: "ts=<ts>,v1=<hmac-sha256>". The
         // tag is HMAC-SHA256(secret, "id:{data.id};request-id:{x-request-id};ts:{ts};")
         // (V-CRIT-2), built from the URL query data.id + x-request-id header +
-        // the ts= parsed below. ts is in ms.
+        // the ts= parsed below.
+        //
+        // ts UNIT (V-CRIT-2 residual): Mercado Pago's own documentation example
+        // uses a 10-digit SECONDS value (ts=1704908010 ≈ 2024-01-10). Older
+        // integrations have also been observed sending 13-digit millisecond
+        // values. To be robust to both, we disambiguate by magnitude: a value
+        // past 10_000_000_000 (year ~2286 in seconds) is treated as ms and
+        // divided by 1000; otherwise it is treated as seconds verbatim. Without
+        // this, a production webhook sending seconds would always be flagged
+        // stale (fail-closed DoS). See `ts_unit_to_secs`.
         let sig_header = super::webhook_util::header_str(&event.headers, "x-signature")
             .ok_or_else(|| {
                 BillingError::WebhookVerification("Missing x-signature header".into())
@@ -234,14 +306,15 @@ impl BillingProvider for MercadoPagoProvider {
             BillingError::WebhookVerification("x-signature missing v1=".into())
         })?;
 
-        // Replay protection (ts is in milliseconds).
-        let ts_ms: i64 = ts.parse().map_err(|_| {
+        // Replay protection. The `ts=` value's unit is ambiguous (see note
+        // above): normalise to seconds before the freshness check.
+        let ts_raw: i64 = ts.parse().map_err(|_| {
             BillingError::WebhookVerification("Mercado Pago ts not an integer".into())
         })?;
-        let now_ms = chrono::Utc::now().timestamp_millis();
-        if !super::webhook_util::timestamp_fresh(ts_ms / 1000, now_ms / 1000) {
+        let ts_secs = ts_unit_to_secs(ts_raw);
+        if !super::webhook_util::timestamp_fresh(ts_secs, now_secs) {
             return Err(BillingError::WebhookVerification(format!(
-                "Mercado Pago timestamp outside tolerance (ts_ms={ts_ms})"
+                "Mercado Pago timestamp outside tolerance (ts_raw={ts_raw}, ts_secs={ts_secs})"
             )));
         }
 
@@ -265,8 +338,14 @@ impl BillingProvider for MercadoPagoProvider {
                 "Mercado Pago webhook query missing data.id".into(),
             )
         })?;
-        // The official scheme lowercases data.id when it is alphanumeric.
-        let data_id = if data_id.chars().all(|c| c.is_ascii_alphanumeric()) {
+        // Per the official Mercado Pago spec the manifest's `data.id` MUST be
+        // the LOWERCASED form when the value is alphanumeric: MP returns
+        // data.id in UPPERCASE in the webhook query but SIGNS the lowercase
+        // form ("if data.id is alphanumeric, it must be sent in lowercase").
+        // Using the raw value verbatim would therefore reject every legitimate
+        // webhook whose data.id contains uppercase letters (V-CRIT-2 residual
+        // — confirmed against MP docs).
+        let data_id_signed = if data_id.chars().all(|c| c.is_ascii_alphanumeric()) {
             data_id.to_ascii_lowercase()
         } else {
             data_id
@@ -275,7 +354,7 @@ impl BillingProvider for MercadoPagoProvider {
             .ok_or_else(|| {
                 BillingError::WebhookVerification("Missing x-request-id header".into())
             })?;
-        let manifest = format!("id:{};request-id:{};ts:{};", data_id, x_request_id, ts);
+        let manifest = format!("id:{};request-id:{};ts:{};", data_id_signed, x_request_id, ts);
         if !super::webhook_util::verify_hmac_sha256_hex(
             self.webhook_secret.as_bytes(),
             manifest.as_bytes(),
@@ -344,19 +423,6 @@ impl BillingProvider for MercadoPagoProvider {
             data,
         })
     }
-
-    async fn create_portal_session(
-        &self,
-        provider_customer_id: &str,
-        return_url: &str,
-    ) -> Result<String, BillingError> {
-        // Mercado Pago doesn't have a native portal — redirect to customer management
-        Ok(format!(
-            "https://www.mercadopago.com.br/subscriptions#c/{}/{}",
-            provider_customer_id,
-            urlencoding::encode(return_url)
-        ))
-    }
 }
 
 #[cfg(test)]
@@ -396,10 +462,20 @@ mod tests {
 
     /// Sign a Mercado Pago webhook with the CORRECT manifest and return a
     /// `WebhookEvent` carrying the matching query string + x-request-id header.
-    /// `ts` is in milliseconds (matches the freshness-window parse). (V-CRIT-2)
-    fn signed_mp(payload: &[u8], ts_ms: i64, secret: &str, data_id: &str) -> WebhookEvent {
-        let ts_str = ts_ms.to_string();
-        let manifest = format!("id:{data_id};request-id:{TEST_REQUEST_ID};ts:{ts_str};");
+    /// `ts_raw` is the literal value placed in both `x-signature`'s `ts=` and
+    /// the manifest — it may be in seconds OR milliseconds; the verifier's
+    /// `ts_unit_to_secs` normalises it. Per the MP spec the manifest is signed
+    /// over the LOWERCASED alphanumeric `data.id`, even though the webhook
+    /// query carries the ORIGINAL (often uppercase) value — so we sign the
+    /// lowercased form here and put the original case in the query. (V-CRIT-2)
+    fn signed_mp(payload: &[u8], ts_raw: i64, secret: &str, data_id: &str) -> WebhookEvent {
+        let ts_str = ts_raw.to_string();
+        let signed_data_id = if data_id.chars().all(|c| c.is_ascii_alphanumeric()) {
+            data_id.to_ascii_lowercase()
+        } else {
+            data_id.to_string()
+        };
+        let manifest = format!("id:{signed_data_id};request-id:{TEST_REQUEST_ID};ts:{ts_str};");
         let v1 = webhook_util::hmac_sha256_hex(secret.as_bytes(), manifest.as_bytes());
         let mut headers = axum::http::HeaderMap::new();
         headers.insert(
@@ -414,6 +490,9 @@ mod tests {
             provider: "mercado_pago".into(),
             payload: payload.to_vec(),
             headers,
+            // Query carries the ORIGINAL case (MP returns uppercase); the
+            // verifier lowercases an alphanumeric value before rebuilding the
+            // manifest, so it matches the lowercased signature above.
             query: Some(format!("data.id={data_id}")),
         }
     }
@@ -426,7 +505,10 @@ mod tests {
     #[tokio::test]
     async fn verify_webhook_normalizes_native_events_to_canonical() {
         let provider = MercadoPagoProvider::new("token".into(), "whsec".into());
-        let now_ms = chrono::Utc::now().timestamp_millis();
+        // Pin "now" to a fixed point so the test never depends on the wall
+        // clock (V-CRIT-2 residuals). The signed ts is in milliseconds.
+        let now_ms: i64 = 1_700_000_000_000;
+        let now_secs = now_ms / 1000;
 
         let cases: &[(&str, &str)] = &[
             // Thin payment notification (the typical MP shape).
@@ -444,7 +526,10 @@ mod tests {
             // The URL query data.id is the canonical manifest source (V-CRIT-2);
             // it is independent of the body's resource id.
             let evt = signed_mp(body.as_bytes(), now_ms, "whsec", TEST_DATA_ID);
-            let parsed = provider.verify_webhook(evt).await.expect("must verify");
+            let parsed = provider
+                .verify_webhook_at(evt, now_secs)
+                .await
+                .expect("must verify");
             assert_eq!(parsed.event_type, *expected, "body={body}");
         }
 
@@ -455,7 +540,7 @@ mod tests {
             "whsec",
             TEST_DATA_ID,
         );
-        let parsed = provider.verify_webhook(evt).await.unwrap();
+        let parsed = provider.verify_webhook_at(evt, now_secs).await.unwrap();
         assert_eq!(parsed.subscription_id.as_deref(), Some("preap_1"));
         assert_eq!(parsed.checkout_session_id.as_deref(), Some("preap_1"));
         assert_eq!(parsed.subscription_status.as_deref(), Some("authorized"));
@@ -472,13 +557,16 @@ mod tests {
     #[tokio::test]
     async fn verify_webhook_uses_official_manifest() {
         let provider = MercadoPagoProvider::new("token".into(), "whsec".into());
-        let now_ms = chrono::Utc::now().timestamp_millis();
+        // Pin "now" so the freshness window never depends on the wall clock
+        // (V-CRIT-2 residuals). The signed ts is in milliseconds.
+        let now_ms: i64 = 1_700_000_000_000;
+        let now_secs = now_ms / 1000;
         let body = br#"{"type":"payment","data":{"id":"1234567890"}}"#;
 
         // Positive: manifest signed exactly as the spec dictates verifies.
         let evt = signed_mp(body, now_ms, "whsec", TEST_DATA_ID);
         provider
-            .verify_webhook(evt)
+            .verify_webhook_at(evt, now_secs)
             .await
             .expect("spec-correct manifest must verify");
 
@@ -501,14 +589,17 @@ mod tests {
             headers: h,
             query: Some(format!("data.id={TEST_DATA_ID}")),
         };
-        let err = provider.verify_webhook(evt).await.expect_err("legacy manifest must be rejected");
+        let err = provider
+            .verify_webhook_at(evt, now_secs)
+            .await
+            .expect_err("legacy manifest must be rejected");
         assert!(err.to_string().to_lowercase().contains("mismatch"));
 
         // Negative: missing query string → fail closed.
         let mut evt = signed_mp(body, now_ms, "whsec", TEST_DATA_ID);
         evt.query = None;
         provider
-            .verify_webhook(evt)
+            .verify_webhook_at(evt, now_secs)
             .await
             .expect_err("missing query must fail closed");
 
@@ -516,7 +607,7 @@ mod tests {
         let mut evt = signed_mp(body, now_ms, "whsec", TEST_DATA_ID);
         evt.headers.remove("x-request-id");
         provider
-            .verify_webhook(evt)
+            .verify_webhook_at(evt, now_secs)
             .await
             .expect_err("missing x-request-id must fail closed");
 
@@ -524,9 +615,103 @@ mod tests {
         let mut evt = signed_mp(body, now_ms, "whsec", TEST_DATA_ID);
         evt.query = Some("data.id=0000000000".into());
         provider
-            .verify_webhook(evt)
+            .verify_webhook_at(evt, now_secs)
             .await
             .expect_err("data.id mismatch must fail closed");
+    }
+
+    /// V-CRIT-2 residual (ts UNIT): Mercado Pago's documentation example uses
+    /// a 10-digit SECONDS ts (ts=1704908010 ≈ 2024-01-10 16:13:30Z). A
+    /// seconds-shaped ts MUST verify (the old code divided by 1000 unconditionally
+    /// and would flag every seconds-based webhook as stale — a fail-closed DoS).
+    /// "now" is pinned to within 300s of the doc ts so the test is deterministic
+    /// and does not call `Utc::now()` on the assertion path.
+    #[tokio::test]
+    async fn verify_webhook_accepts_seconds_shaped_ts() {
+        let provider = MercadoPagoProvider::new("token".into(), "whsec".into());
+        // The literal value from Mercado Pago's webhook docs.
+        const TS_SECS: i64 = 1_704_908_010;
+        // Pin "now" within the 300s tolerance (MAX_SKEW_SECS = 300) of the doc ts.
+        // 60s after the doc ts — comfortably inside the window and deterministic.
+        let now_secs = TS_SECS + 60;
+        assert!(
+            (now_secs - TS_SECS).abs() <= 300,
+            "now must be within 300s of the doc ts for a deterministic freshness window"
+        );
+        let body = br#"{"type":"payment","data":{"id":"1234567890"}}"#;
+
+        let evt = signed_mp(body, TS_SECS, "whsec", TEST_DATA_ID);
+        provider
+            .verify_webhook_at(evt, now_secs)
+            .await
+            .expect("seconds-shaped ts (doc value) must verify");
+
+        // Sanity: a seconds-shaped ts that is genuinely stale must still be
+        // rejected (the disambiguation must not silently widen the window).
+        let stale_now = TS_SECS + 300 + 1; // one second past the tolerance
+        let evt = signed_mp(body, TS_SECS, "whsec", TEST_DATA_ID);
+        let err = provider
+            .verify_webhook_at(evt, stale_now)
+            .await
+            .expect_err("stale seconds-shaped ts must be rejected");
+        assert!(
+            err.to_string()
+                .to_lowercase()
+                .contains("outside tolerance"),
+            "stale ts should be rejected as outside tolerance, got: {err}"
+        );
+    }
+
+    /// V-CRIT-2 residual (data.id LOWERCASING, per the MP spec): Mercado Pago
+    /// returns `data.id` in UPPERCASE in the webhook query but SIGNS the
+    /// LOWERCASED form. The verifier must lowercase an alphanumeric query value
+    /// before building the manifest; using it verbatim would reject every
+    /// legitimate webhook whose data.id contains uppercase letters (the exact
+    /// regression this guards — verified against the MP docs).
+    #[tokio::test]
+    async fn verify_webhook_lowercases_alphanumeric_data_id() {
+        let provider = MercadoPagoProvider::new("token".into(), "whsec".into());
+        let now_ms: i64 = 1_700_000_000_000;
+        let now_secs = now_ms / 1000;
+        // A purely-alphanumeric UPPERCASE data.id (the shape MP uppercases).
+        const UPPER_DATA_ID: &str = "PAYIDABC123";
+        let body = br#"{"type":"payment","data":{"id":"PAYIDABC123"}}"#;
+
+        // signed_mp signs the LOWERCASED form but puts the UPPERCASE value in
+        // the query — mirroring MP. The verifier must lowercase the query to
+        // match the signed manifest.
+        let evt = signed_mp(body, now_ms, "whsec", UPPER_DATA_ID);
+        assert_eq!(evt.query.as_deref(), Some("data.id=PAYIDABC123"));
+        provider
+            .verify_webhook_at(evt, now_secs)
+            .await
+            .expect("verifier must lowercase the uppercase data.id query to match MP's lowercased signature");
+
+        // Negative: an unrelated data.id in the query must fail closed even
+        // after lowercasing (the verifier cannot invent a match).
+        let mut evt2 = signed_mp(body, now_ms, "whsec", UPPER_DATA_ID);
+        evt2.query = Some("data.id=ZZZ999".into());
+        provider
+            .verify_webhook_at(evt2, now_secs)
+            .await
+            .expect_err("an unrelated data.id must fail closed");
+    }
+
+    /// `ts_unit_to_secs` collapses milliseconds to seconds and leaves seconds
+    /// untouched (V-CRIT-2 residual). The threshold is 10_000_000_000.
+    #[test]
+    fn ts_unit_to_secs_disambiguates_by_magnitude() {
+        // The MP doc example (seconds) — left verbatim.
+        assert_eq!(ts_unit_to_secs(1_704_908_010), 1_704_908_010);
+        // A 13-digit millisecond value — divided by 1000.
+        assert_eq!(ts_unit_to_secs(1_704_908_010_000), 1_704_908_010);
+        // Exactly at the threshold (10_000_000_000) is treated as seconds.
+        assert_eq!(ts_unit_to_secs(10_000_000_000), 10_000_000_000);
+        // One past the threshold is treated as milliseconds.
+        assert_eq!(ts_unit_to_secs(10_000_000_001), 10_000_000);
+        // Zero and negatives pass through unchanged.
+        assert_eq!(ts_unit_to_secs(0), 0);
+        assert_eq!(ts_unit_to_secs(-1), -1);
     }
 
     /// `extract_query_param` parses `data.id` out of a realistic MP query

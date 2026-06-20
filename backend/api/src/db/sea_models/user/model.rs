@@ -22,6 +22,11 @@ pub struct Model {
     pub two_fa_secret: Option<String>,
     #[serde(skip_serializing)]
     pub two_fa_backup_codes: Option<Json>,
+    // V-MED-6 (TOTP replay): highest accepted RFC 6238 time-step counter. NULL
+    // means "no code consumed yet" (first-time use accepts any valid counter).
+    // Never serialize — leaking it is unnecessary and it's auth state.
+    #[serde(skip_serializing)]
+    pub two_fa_last_totp_counter: Option<i64>,
     pub google_id: Option<String>,
     pub oauth_provider: Option<String>,
     pub created_at: DateTimeWithTimeZone,

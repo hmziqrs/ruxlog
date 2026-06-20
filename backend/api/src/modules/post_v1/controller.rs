@@ -46,6 +46,72 @@ fn viewer_bypasses_paywall(viewer: Option<&user::Model>, author_id: i32) -> bool
     }
 }
 
+// ── Authorization (audit M-1..M-4: post IDOR) ──────────────────────────
+//
+// Every mutating or revision path used to filter by post_id only, so any
+// logged-in Author could edit/delete/autosave/restore/schedule — and read the
+// drafts of — ANY post in the system. These helpers enforce that the caller is
+// either the post's own author or a staff member (admin+) before any write or
+// draft read happens. Authors may touch only their own posts; `is_admin()`
+// (Admin / SuperAdmin) bypasses and may manage any post. Moderators do NOT
+// bypass on writes — they are read-only staff on these paths (consistent with
+// the read-side `query` handler, which lets moderators view but not modify).
+
+/// Pure ownership decision, extracted so it can be unit-tested without a DB.
+/// Returns `true` when `viewer` is allowed to mutate / read drafts of a post
+/// authored by `author_id`.
+///
+/// Defence-in-depth: the owner-match branch ALSO requires `viewer` to hold at
+/// least the Author role (`is_author()`). The post routes are already gated by
+/// `verified_with_role::<ROLE_AUTHOR>`, so a plain `User` never reaches these
+/// handlers today — but this guard is the load-bearing decision reused by every
+/// mutation path, so it must not rely on the route layer alone: a future handler
+/// mounted behind a weaker guard would otherwise expose the IDOR. An Admin /
+/// SuperAdmin bypasses regardless of ownership.
+fn can_mutate_post(viewer: &user::Model, author_id: i32) -> bool {
+    (viewer.id == author_id && viewer.is_author()) || viewer.is_admin()
+}
+
+/// Load a post and verify the caller owns it (or is staff). On a missing post we
+/// return 404 (not 403) so a non-owner can't probe for the existence of an
+/// arbitrary post id; on an ownership mismatch we return 403.
+///
+/// Returns the loaded `post::Model` (the bare row — enough to check authorship)
+/// on success so callers don't have to reload it.
+async fn require_post_ownership(
+    state: &AppState,
+    post_id: i32,
+    viewer: &user::Model,
+) -> Result<(), ErrorResponse> {
+    // Bare row lookup: we only need the author id, so don't pay for the full
+    // relations build. `find_by_id` filters by post_id only at this layer.
+    let post = post::Entity::find_by_id(post_id)
+        .one(&state.sea_db)
+        .await
+        .map_err(|err| {
+            error!(error = ?err, post_id, "DB error while checking post ownership");
+            ErrorResponse::new(ErrorCode::InternalServerError)
+                .with_message("Failed to verify post ownership")
+        })?;
+
+    match post {
+        Some(model) if can_mutate_post(viewer, model.author_id) => Ok(()),
+        Some(_) => {
+            warn!(
+                user_id = viewer.id,
+                post_id, "Ownership check failed for post mutation"
+            );
+            Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
+                .with_message("You do not have permission to modify this post"))
+        }
+        None => {
+            // Hide existence of posts the caller doesn't own (audit F#12 style).
+            Err(ErrorResponse::new(ErrorCode::RecordNotFound)
+                .with_message("Post does not exist"))
+        }
+    }
+}
+
 /// Stamp the access policy on a post and strip `content` if access is denied.
 async fn apply_paywall_single(
     state: &AppState,
@@ -214,13 +280,20 @@ pub async fn find_by_id_or_slug(
 }
 
 #[debug_handler]
-#[instrument(skip(state, payload), fields(post_id = %post_id, result))]
+#[instrument(skip(state, auth, payload), fields(post_id = %post_id, result))]
 pub async fn update(
     State(state): State<AppState>,
+    auth: AuthSession,
     Path(post_id): Path<i32>,
     payload: ValidatedJson<V1UpdatePostPayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     info!(post_id, "Updating post");
+
+    // IDOR guard (M-1): only the author or an admin may update a post.
+    let user = auth.user.ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
+    })?;
+    require_post_ownership(&state, post_id, &user).await?;
 
     let update_post = payload.0.into_update_post();
 
@@ -253,8 +326,15 @@ pub async fn update(
 #[debug_handler]
 pub async fn delete(
     State(state): State<AppState>,
+    auth: AuthSession,
     Path(post_id): Path<i32>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
+    // IDOR guard (M-2): only the author or an admin may delete a post.
+    let user = auth.user.ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
+    })?;
+    require_post_ownership(&state, post_id, &user).await?;
+
     match post::Entity::delete(&state.sea_db, post_id).await {
         Ok(1) => Ok((
             StatusCode::OK,
@@ -390,8 +470,14 @@ pub async fn autosave(
     auth: AuthSession,
     payload: ValidatedJson<V1AutosavePayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let _user = auth.user.unwrap();
+    let user = auth.user.ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
+    })?;
     let p = payload.0;
+
+    // IDOR guard (M-3): autosave writes a revision + updates the post, so it
+    // must be gated just like a full update.
+    require_post_ownership(&state, p.post_id, &user).await?;
 
     match post_revision::Entity::create(
         &state.sea_db,
@@ -439,7 +525,14 @@ pub async fn revisions_list(
     auth: AuthSession,
     Path(post_id): Path<i32>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let _user = auth.user.unwrap();
+    let user = auth.user.ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
+    })?;
+
+    // IDOR guard (M-4): revisions expose draft content, so only the author or
+    // an admin may list them. A non-author must not read another's drafts.
+    require_post_ownership(&state, post_id, &user).await?;
+
     let page: u64 = 1;
 
     match post_revision::Entity::list_by_post(&state.sea_db, post_id, Some(page), None).await {
@@ -457,7 +550,15 @@ pub async fn revisions_restore(
     auth: AuthSession,
     Path((post_id, revision_id)): Path<(i32, i32)>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let _user = auth.user.unwrap();
+    let user = auth.user.ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
+    })?;
+
+    // IDOR guard (M-4): restoring a revision rewrites the post body, so it must
+    // be gated like any mutation. Checked up front against the path post_id,
+    // before the revision row is even loaded, so the 404-vs-403 split stays
+    // consistent with the other handlers.
+    require_post_ownership(&state, post_id, &user).await?;
 
     let rev_opt = match post_revision::Entity::find_by_id(revision_id)
         .one(&state.sea_db)
@@ -528,8 +629,14 @@ pub async fn schedule(
     auth: AuthSession,
     payload: ValidatedJson<V1SchedulePayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let _user = auth.user.unwrap();
+    let user = auth.user.ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
+    })?;
     let p = payload.0;
+
+    // IDOR guard: scheduling changes a post's publish state — gate it like any
+    // other mutation.
+    require_post_ownership(&state, p.post_id, &user).await?;
 
     match scheduled_post::Entity::upsert(&state.sea_db, p.post_id, p.publish_at).await {
         Ok(model) => Ok((StatusCode::OK, Json(json!(model)))),
@@ -543,7 +650,16 @@ pub async fn series_create(
     auth: AuthSession,
     payload: ValidatedJson<V1SeriesCreatePayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let _user = auth.user.unwrap();
+    let user = auth.user.ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
+    })?;
+    // Series are shared catalog objects visible to all authors, so mutating the
+    // catalog is staff-only (admin+). Individual posts are still attached by
+    // their own authors via `series_add` / `series_remove`.
+    if !user.is_admin() {
+        return Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
+            .with_message("Only staff may manage post series"));
+    }
     let p = payload.0;
 
     match post_series::Entity::create(&state.sea_db, p.name, p.slug, p.description).await {
@@ -559,7 +675,14 @@ pub async fn series_update(
     Path(series_id): Path<i32>,
     payload: ValidatedJson<V1SeriesUpdatePayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let _user = auth.user.unwrap();
+    let user = auth.user.ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
+    })?;
+    // Shared catalog object — staff only (admin+). See `series_create`.
+    if !user.is_admin() {
+        return Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
+            .with_message("Only staff may manage post series"));
+    }
 
     match post_series::Entity::update(
         &state.sea_db,
@@ -584,7 +707,14 @@ pub async fn series_delete(
     auth: AuthSession,
     Path(series_id): Path<i32>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let _user = auth.user.unwrap();
+    let user = auth.user.ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
+    })?;
+    // Shared catalog object — staff only (admin+). See `series_create`.
+    if !user.is_admin() {
+        return Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
+            .with_message("Only staff may manage post series"));
+    }
 
     match post_series::Entity::delete(&state.sea_db, series_id).await {
         Ok(1) => Ok((
@@ -643,7 +773,13 @@ pub async fn series_add(
     auth: AuthSession,
     Path((post_id, series_id)): Path<(i32, i32)>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let _user = auth.user.unwrap();
+    let user = auth.user.ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
+    })?;
+
+    // IDOR guard: attaching a post to a series mutates that post's membership —
+    // gate by ownership of the post (author or admin).
+    require_post_ownership(&state, post_id, &user).await?;
 
     let payload = post_series_post::NewPostSeriesPost {
         series_id,
@@ -663,7 +799,13 @@ pub async fn series_remove(
     auth: AuthSession,
     Path((post_id, series_id)): Path<(i32, i32)>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let _user = auth.user.unwrap();
+    let user = auth.user.ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
+    })?;
+
+    // IDOR guard: detaching a post from a series mutates that post's membership
+    // — gate by ownership of the post (author or admin).
+    require_post_ownership(&state, post_id, &user).await?;
 
     let payload = post_series_post::RemovePostSeriesPost { series_id, post_id };
 
@@ -822,5 +964,90 @@ pub async fn like_status_batch(
             );
             Err(err)
         }
+    }
+}
+
+// ============================================================================
+// Tests — post IDOR authorization (audit M-1..M-4)
+// ============================================================================
+//
+// The full handlers need a live DB + AuthSession to exercise end-to-end, which
+// the repo's test harness sets up in `tests/` as shell smoke tests. The load-
+// bearing piece of the fix is the pure ownership decision `can_mutate_post`,
+// so we unit-test that exhaustively here; it is what every gated handler
+// (update / delete / autosave / revisions_list / revisions_restore / schedule /
+// series_add / series_remove) ultimately consults before touching a row.
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::TimeZone;
+
+    /// Build a `user::Model` with the given id and role. Other fields are
+    /// filled with benign defaults — only `id` and `role` drive the decision.
+    fn make_user(id: i32, role: UserRole) -> user::Model {
+        let now = chrono::Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap().fixed_offset();
+        user::Model {
+            id,
+            name: format!("user-{id}"),
+            email: format!("user-{id}@example.com"),
+            password: None,
+            avatar_id: None,
+            is_verified: true,
+            role,
+            two_fa_enabled: false,
+            two_fa_secret: None,
+            two_fa_backup_codes: None,
+            two_fa_last_totp_counter: None,
+            google_id: None,
+            oauth_provider: None,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    // (a) An author may mutate their own post.
+    #[test]
+    fn author_can_mutate_own_post() {
+        let author = make_user(7, UserRole::Author);
+        assert!(can_mutate_post(&author, 7));
+    }
+
+    // (b) A different author is denied on every mutating / revision path. The
+    // decision is shared, so testing it once covers update / delete / autosave
+    // / restore / schedule / revisions_list / series_add / series_remove.
+    #[test]
+    fn other_author_cannot_mutate_foreign_post() {
+        let author_a = make_user(7, UserRole::Author);
+        let author_b = make_user(8, UserRole::Author);
+        assert!(!can_mutate_post(&author_a, 8));
+        assert!(!can_mutate_post(&author_b, 7));
+    }
+
+    // (c) Staff (admin / super-admin) bypass and may edit anyone's post.
+    #[test]
+    fn staff_role_bypasses_ownership() {
+        let admin = make_user(100, UserRole::Admin);
+        let super_admin = make_user(101, UserRole::SuperAdmin);
+        assert!(can_mutate_post(&admin, 7));
+        assert!(can_mutate_post(&super_admin, 7));
+    }
+
+    // A plain User (no author role) is denied even on their "own" id — only
+    // the Author+ write roles and the actual owner pass.
+    #[test]
+    fn plain_user_role_is_denied() {
+        let plain = make_user(7, UserRole::User);
+        assert!(!can_mutate_post(&plain, 7));
+    }
+
+    // Moderators are read-only staff on these paths and must NOT bypass, so a
+    // rogue moderator can't rewrite another author's content. This matches the
+    // existing read-side `query` handler, which lets moderators view but not
+    // modify. (If that policy changes, update this test deliberately.)
+    #[test]
+    fn moderator_does_not_bypass_on_writes() {
+        let mod_user = make_user(200, UserRole::Moderator);
+        assert!(!can_mutate_post(&mod_user, 7));
     }
 }

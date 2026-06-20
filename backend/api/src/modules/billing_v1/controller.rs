@@ -703,6 +703,24 @@ pub async fn webhook_receiver(
     }
 }
 
+/// Resolve the checkout-intent key for a webhook event, in the order the
+/// dispatch arms trust: `checkout_session_id` (the exact round-trip id the
+/// provider returned at create-checkout), then `payment_id`, then
+/// `subscription_id` as defense-in-depth. Returns `""` when none is present,
+/// which the dispatch treats as "no intent ⇒ refuse". Pure (no I/O) so it can
+/// be unit-tested directly — the session-id resolution is the input to the
+/// intent gate, and locking it keeps the V-MED-12 fail-closed guarantee.
+#[cfg(feature = "billing")]
+fn resolve_intent_session_id(event: &ParsedWebhook) -> &str {
+    event
+        .checkout_session_id
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .or_else(|| event.payment_id.as_deref().filter(|s| !s.is_empty()))
+        .or_else(|| event.subscription_id.as_deref().filter(|s| !s.is_empty()))
+        .unwrap_or("")
+}
+
 #[cfg(feature = "billing")]
 async fn process_webhook_event(
     state: &AppState,
@@ -724,6 +742,10 @@ async fn process_webhook_event(
             // deferral). The atomic GETDEL means only the first delivery to hit
             // the right key consumes the intent — trying multiple candidates is
             // safe (a miss returns None).
+            // Same resolution order as `resolve_intent_session_id` but with the
+            // checkout arm's documented fallback priority (subscription_id
+            // before payment_id — see the block comment above). Kept inline to
+            // avoid changing the long-standing order this arm depends on.
             let session_id = event
                 .checkout_session_id
                 .as_deref()
@@ -1145,42 +1167,107 @@ async fn process_webhook_event(
             tracing::info!(user_id, amount, "Payment recorded from invoice webhook");
         }
         "payment.confirmed" | "payment.pending" => {
-            // Crypto payments — extract user_id from memo (rux-{user_id}-{uuid})
-            let memo = event.data["memo"].as_str().unwrap_or("");
-            let user_id: i32 = memo
-                .strip_prefix("rux-")
+            // IDOR hardening (audit V-MED-12): the old code parsed `user_id`
+            // from `event.data["memo"]` (`rux-{user_id}-{uuid}`) and hardcoded
+            // `provider = "crypto"`. The memo is attacker-shapeable event data,
+            // so a provider whose native event normalizes to `payment.confirmed`
+            // could be used to attribute a payment (and, via any future
+            // paywall/treatment keyed on the `payments` row) to an arbitrary
+            // user with no server-side authorization. That arm is unreachable
+            // today (crypto `verify_webhook` fail-closes), but it is a latent
+            // landmine the moment any provider lands here. We make it
+            // safe-by-construction exactly like `checkout.session.completed`:
+            // the `user_id` is derived ONLY from a server-bound checkout intent
+            // (atomic GETDEL), and the recorded provider is the dispatched
+            // `provider_name`, never a hardcoded literal.
+            let session_id = resolve_intent_session_id(event);
+
+            let intent = if !session_id.is_empty() {
+                checkout_intent::take(state, session_id)
+                    .await
+                    .unwrap_or_else(|e| {
+                        tracing::warn!(error = ?e, "Failed to read checkout intent");
+                        None
+                    })
+            } else {
+                None
+            };
+
+            // Diagnostic only — the provider-normalized payer id, kept for the
+            // refusal log. NEVER used to attribute the payment row.
+            let memo_user_id: i32 = event
+                .data
+                .get("memo")
+                .and_then(|v| v.as_str())
+                .and_then(|m| m.strip_prefix("rux-"))
                 .and_then(|rest| rest.split('-').next())
                 .and_then(|id| id.parse().ok())
                 .unwrap_or(0);
 
-            let amount_crypto = event.data["amount"].as_f64().unwrap_or(0.0);
-            let currency = event.data["currency"].as_str().unwrap_or("BTC");
+            let intent = match intent {
+                Some(i) => i,
+                None => {
+                    // No resolvable server-bound intent ⇒ fail-closed: record
+                    // nothing, attribute nothing. Do NOT insert a `payments`
+                    // row from the memo, mirroring the F#2/F#10 refusal on the
+                    // checkout-completed arm.
+                    tracing::warn!(
+                        memo_user_id,
+                        session_id,
+                        provider = provider_name,
+                        "{} with no resolvable server-bound intent; refusing to \
+                         record payment (audit V-MED-12)",
+                        event.event_type,
+                    );
+                    return Ok(());
+                }
+            };
+            let user_id = intent.user_id;
 
-            let status = if event.event_type == "payment.confirmed" {
+            if user_id == 0 {
+                tracing::warn!(
+                    "{} with resolvable intent but no user_id",
+                    event.event_type
+                );
+                return Ok(());
+            }
+
+            let status = if event.event_type == canonical::PAYMENT_CONFIRMED {
                 payment::model::PaymentStatus::Completed
             } else {
                 payment::model::PaymentStatus::Pending
             };
 
-            // Store crypto amount as cents (amount * 100 as rough conversion)
-            // In production you'd convert to fiat at current rate
-            let amount_cents = (amount_crypto * 100.0) as i32;
+            // Authoritative amount/currency come from the server-bound intent;
+            // fall back to the structured (never JSON-path) event fields, and
+            // finally to a benign 0/"usd" so a missing amount cannot be used to
+            // fabricate a favorable record.
+            let amount_cents: i32 = intent
+                .amount_cents
+                .or_else(|| event.amount_cents.map(|c| c as i32))
+                .unwrap_or(0);
+            let currency = intent
+                .currency
+                .clone()
+                .or_else(|| event.currency.clone())
+                .unwrap_or_else(|| "usd".to_string());
 
             // Idempotency (plan 1d): dedup on (provider, provider_payment_id)
-            // before inserting. (This branch is currently unreachable because
-            // crypto webhooks fail-closed in verify_webhook, but the guard stays
-            // correct for when on-chain confirmation polling lands.)
+            // before inserting, using the ACTUAL dispatched provider — not a
+            // hardcoded "crypto". A row is only attributed to the user who owns
+            // the consumed checkout intent.
             if let Some(pid) = event.payment_id.as_deref().filter(|p| !p.is_empty()) {
                 let dup = payment::Entity::find()
-                    .filter(payment::Column::Provider.eq("crypto"))
+                    .filter(payment::Column::Provider.eq(provider_name))
                     .filter(payment::Column::ProviderPaymentId.eq(pid))
                     .one(&state.sea_db)
                     .await
                     .map_err(|_| ErrorResponse::new(ErrorCode::QueryError))?;
                 if dup.is_some() {
                     tracing::info!(
+                        provider = provider_name,
                         payment_id = pid,
-                        "Crypto payment already recorded, skipping (idempotent)"
+                        "Payment already recorded, skipping (idempotent)"
                     );
                     return Ok(());
                 }
@@ -1189,15 +1276,15 @@ async fn process_webhook_event(
             let active_model = payment::ActiveModel {
                 user_id: Set(user_id),
                 subscription_id: Set(None),
-                plan_id: Set(None),
-                provider: Set("crypto".to_string()),
+                plan_id: Set(intent.plan_id),
+                provider: Set(provider_name.to_string()),
                 provider_payment_id: Set(event.payment_id.clone()),
                 amount_cents: Set(amount_cents),
-                currency: Set(currency.to_string()),
+                currency: Set(currency.clone()),
                 status: Set(status),
                 description: Set(Some(format!(
-                    "Crypto payment: {} {}",
-                    amount_crypto, currency
+                    "Payment via {}: {} {}",
+                    provider_name, amount_cents, currency
                 ))),
                 metadata: Set(Some(event.data.clone())),
                 ..Default::default()
@@ -1209,10 +1296,11 @@ async fn process_webhook_event(
 
             tracing::info!(
                 user_id,
-                amount = amount_crypto,
-                currency,
+                amount_cents,
+                currency = %currency,
+                provider = provider_name,
                 status = %event.event_type,
-                "Crypto payment recorded from webhook"
+                "Payment recorded from webhook (server-bound intent)"
             );
         }
         _ => {
@@ -1368,5 +1456,71 @@ mod tests {
         // as a (possibly attacker-influenced) intent.
         let key = checkout_intent::CheckoutIntent::redis_key("cs_test_123");
         assert_eq!(key, "billing:checkout_intent:cs_test_123");
+    }
+
+    fn payment_confirmed_event_with_memo(memo: &str) -> ParsedWebhook {
+        // A payment.confirmed event whose memo embeds an arbitrary user_id
+        // (`rux-{user_id}-{uuid}`) — the attacker-shapeable shape the old code
+        // trusted. Structured intent-key fields are left empty so there is NO
+        // server-bound checkout intent to consume.
+        ParsedWebhook {
+            event_type: canonical::PAYMENT_CONFIRMED.to_string(),
+            customer_id: String::new(),
+            subscription_id: None,
+            payment_id: None,
+            current_period_end: None,
+            checkout_session_id: None,
+            subscription_status: None,
+            // The victim's id, planted by the sender — must NOT be honored.
+            user_id: None,
+            amount_cents: Some(4999),
+            currency: Some("usd".to_string()),
+            data: serde_json::json!({ "memo": memo }),
+        }
+    }
+
+    #[test]
+    fn payment_confirmed_with_memo_but_no_intent_is_refused() {
+        // V-MED-12 success criterion: a payment.confirmed event carrying a
+        // memo-embedded user_id but NO server-bound intent key resolves to an
+        // empty session id. The dispatch treats empty ⇒ "no intent ⇒ refuse",
+        // so no payment row is inserted and no attribution happens. We assert
+        // the gate INPUT here (the helper); the gate itself (take + insert) is
+        // unreachable from a pure test, and the empty-id short-circuit is the
+        // exact branch that refuses.
+        let event =
+            payment_confirmed_event_with_memo("rux-1337-deadbeef-uuid");
+        let session_id = resolve_intent_session_id(&event);
+        assert!(
+            session_id.is_empty(),
+            "a memo-only event must not resolve to an intent key (got {session_id:?})"
+        );
+    }
+
+    #[test]
+    fn payment_confirmed_with_intent_key_resolves_to_it() {
+        // The happy path: a real provider-supplied checkout_session_id (or its
+        // fallbacks) resolves to a key the dispatch can consume an intent with.
+        // Whichever structured field is present wins over the memo.
+        let mut event =
+            payment_confirmed_event_with_memo("rux-1337-deadbeef-uuid");
+        event.checkout_session_id = Some("cs_live_abc123".to_string());
+        assert_eq!(resolve_intent_session_id(&event), "cs_live_abc123");
+
+        // payment_id fallback when checkout_session_id is absent.
+        event.checkout_session_id = None;
+        event.payment_id = Some("pay_456".to_string());
+        assert_eq!(resolve_intent_session_id(&event), "pay_456");
+
+        // subscription_id is the last-resort fallback.
+        event.payment_id = None;
+        event.subscription_id = Some("sub_789".to_string());
+        assert_eq!(resolve_intent_session_id(&event), "sub_789");
+
+        // An empty checkout_session_id does not shadow the payment_id fallback.
+        event.subscription_id = None;
+        event.checkout_session_id = Some(String::new());
+        event.payment_id = Some("pay_000".to_string());
+        assert_eq!(resolve_intent_session_id(&event), "pay_000");
     }
 }

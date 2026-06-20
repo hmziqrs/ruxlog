@@ -615,6 +615,7 @@ mod tests {
     /// valid rather than mass-locking users on a store blip.
     #[tokio::test]
     async fn revocation_check_failure_is_fail_open() {
+        #[derive(Clone)]
         struct ErroringBackend;
         #[async_trait]
         impl AuthBackend for ErroringBackend {

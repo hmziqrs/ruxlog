@@ -13,6 +13,8 @@ services:
       - "80:80"
     volumes:
       - ./traefik.dev.yml:/etc/traefik/traefik.yml:ro
+      # V-MED-9 / M-8: SPA CSP middleware (dev-relevant); see traefik.dev.yml.
+      - ./dynamic:/etc/traefik/dynamic:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - external_network

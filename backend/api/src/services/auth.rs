@@ -14,15 +14,32 @@ use crate::{db::sea_models::user, db::sea_models::user_ban, utils::telemetry};
 /// Re-export the AuthSession from rux-auth
 pub type AuthSession = rux_auth::AuthSession<AuthBackend>;
 
-/// Authentication backend implementation
+/// Authentication backend implementation.
+///
+/// Holds BOTH the DB pool and the Redis pool. The Redis pool is required for
+/// the per-request session-revocation check (V-HIGH-2): on every authenticated
+/// request the extractor consults [`SessionRevocation::is_session_revoked`],
+/// which does a Redis `SISMEMBER` against [`revoked_set_key`] to see whether
+/// the live tower-session id was administratively revoked. Previously
+/// `AuthBackend` held only the DB pool, so `is_session_revoked` was a hard-coded
+/// `Ok(false)` and revocation worked only if the one-shot `DEL` at terminate
+/// time won the race against a concurrent session save.
 #[derive(Clone)]
 pub struct AuthBackend {
     pub pool: DatabaseConnection,
+    /// Same pool type as `AppState::redis_pool` / `delete_tower_session`.
+    pub redis_pool: tower_sessions_redis_store::fred::prelude::Pool,
 }
 
 impl AuthBackend {
-    pub fn new(pool: &DatabaseConnection) -> Self {
-        Self { pool: pool.clone() }
+    pub fn new(
+        pool: &DatabaseConnection,
+        redis_pool: tower_sessions_redis_store::fred::prelude::Pool,
+    ) -> Self {
+        Self {
+            pool: pool.clone(),
+            redis_pool,
+        }
     }
 
     /// Revoke a live tower-sessions record from Redis by its store key.
@@ -208,6 +225,7 @@ impl std::fmt::Debug for AuthBackend {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AuthBackend")
             .field("pool", &"Pool{...}")
+            .field("redis_pool", &"RedisPool{...}")
             .finish()
     }
 }
@@ -322,28 +340,49 @@ pub fn revoked_set_key() -> String {
 /// Used to TTL the revocation set so it cannot grow without bound.
 pub const SESSION_MAX_AGE_SECS: i64 = 14 * 24 * 60 * 60;
 
-/// V-HIGH-2 revocation enforcement.
+/// V-HIGH-2 real per-request session revocation.
 ///
-/// Revocation is enforced by [`AuthBackend::delete_tower_session`], which the
-/// `sessions_terminate` handler runs (it has `state.redis_pool`): it `DEL`s the
-/// live tower-sessions Redis key so the next request with that cookie finds no
-/// session and is anonymous, and `SADD`s the id to a revocation set as
-/// defense-in-depth.
+/// `AuthBackend::delete_tower_session` (run by the `sessions_terminate` handler)
+/// both `DEL`s the live tower-sessions key AND `SADD`s the id into
+/// [`revoked_set_key`] as defense-in-depth. This trait method is the
+/// per-request hook the extractor consults on every authenticated request: it
+/// runs a Redis `SISMEMBER` against [`revoked_set_key`] for the live
+/// tower-session id. If the id is a member, the extractor deletes the session
+/// and treats the caller as unauthenticated — so a revoked cookie stops
+/// authenticating on the *very next request* even if the terminate-time `DEL`
+/// raced a concurrent session save.
 ///
-/// This trait method is the per-request hook the extractor consults, but
-/// `AuthBackend` does NOT hold a Redis pool (its `FromRef`/middleware
-/// construction only provides the DB), so it returns `Ok(false)` today — i.e.
-/// there is no per-request revocation check. This is a deliberate best-effort
-/// tradeoff (mirrors the rate limiter's fail-open policy): revocation works as
-/// long as the `DEL` at terminate-time succeeds; if Redis is unavailable at
-/// that instant, the `revoked_at` stamp is audit/UI-only and does NOT enforce
-/// — the cookie stays valid until its 14-day inactivity expiry. A hard
-/// per-request guarantee would require plumbing a Redis pool into
-/// `AuthBackend` (state.rs `FromRef` + the `auth_guard` middleware) and
-/// overriding this to `SISMEMBER revoked_set_key()`.
+/// **Cost:** one extra Redis round-trip (`SISMEMBER`, O(1)) per authenticated
+/// request. This is acceptable and standard — `tower-sessions` already performs
+/// a per-request Redis `GET` to load the session, so this adds one more
+/// constant-time lookup.
+///
+/// **Fail-open policy (unchanged from the prior no-op):** on a Redis error we
+/// return `Ok(false)` and `warn!`. This mirrors the rate limiter's fail-open
+/// behavior and avoids a mass lockout during a transient Redis blip — at the
+/// cost of a revoked session briefly staying live until Redis recovers. The
+/// DB `revoked_at` stamp and the session's own 14-day inactivity expiry still
+/// bound the window.
 #[async_trait]
 impl SessionRevocation for AuthBackend {
-    async fn is_session_revoked(&self, _tower_session_id: &str) -> Result<bool, AuthError> {
-        Ok(false)
+    #[instrument(skip(self), level = "debug")]
+    async fn is_session_revoked(&self, tower_session_id: &str) -> Result<bool, AuthError> {
+        use tower_sessions_redis_store::fred::interfaces::SetsInterface;
+
+        let key = revoked_set_key();
+        match self.redis_pool.sismember::<bool, _, _>(key, tower_session_id).await {
+            Ok(is_member) => Ok(is_member),
+            Err(e) => {
+                // Fail-open: a Redis blip must not lock out every user. The
+                // `revoked_at` audit row, the terminate-time `DEL`, and the
+                // 14-day inactivity expiry still bound the revocation window.
+                warn!(
+                    error = %e,
+                    tower_session_id = %tower_session_id,
+                    "Revocation SISMEMBER failed (fail-open): session remains valid until Redis recovers"
+                );
+                Ok(false)
+            }
+        }
     }
 }
