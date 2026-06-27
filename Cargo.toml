@@ -21,12 +21,15 @@ exclude = [
 edition = "2021"
 
 [workspace.dependencies]
-dioxus = "0.7.3"
+dioxus = "0.8.0-alpha.0"
 futures = "0.3"
 tokio = { version = "1", features = ["full"] }
 
 [patch.crates-io]
 dioxus-time = { path = "frontend/dioxus_pkgs/sdk/packages/time", version = "0.7.3" }
+# hmziq-dioxus-free-icons 0.10.1 (upstream targets dioxus 0.7.x) — vendored and
+# bumped to dioxus 0.8.0-alpha.0 in place until an upstream 0.8 release exists.
+hmziq-dioxus-free-icons = { path = "frontend/dioxus_pkgs/free-icons", version = "0.10.1" }
 
 [profile.wasm-dev]
 inherits = "dev"

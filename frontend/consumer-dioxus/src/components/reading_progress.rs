@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 /// Renders a thin bar at the top of the viewport that fills as the user scrolls.
 #[component]
 pub fn ReadingProgressBar() -> Element {
-    let mut progress = use_signal(|| 0u8);
+    let progress = use_signal(|| 0u8);
 
     #[cfg(target_arch = "wasm32")]
     use_drop(move || {
