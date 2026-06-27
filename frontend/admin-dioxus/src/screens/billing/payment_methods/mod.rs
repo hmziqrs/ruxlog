@@ -15,25 +15,31 @@ fn configured_providers() -> Vec<ProviderInfo> {
         ProviderInfo {
             name: "Stripe".to_string(),
             slug: "stripe".to_string(),
-            description: "Accept credit cards, Apple Pay, Google Pay, and more via Stripe Checkout.".to_string(),
+            description:
+                "Accept credit cards, Apple Pay, Google Pay, and more via Stripe Checkout."
+                    .to_string(),
             env_key: "STRIPE_SECRET_KEY".to_string(),
         },
         ProviderInfo {
             name: "Polar".to_string(),
             slug: "polar".to_string(),
-            description: "All-in-one monetization platform for SaaS, digital products, and memberships.".to_string(),
+            description:
+                "All-in-one monetization platform for SaaS, digital products, and memberships."
+                    .to_string(),
             env_key: "POLAR_ACCESS_TOKEN".to_string(),
         },
         ProviderInfo {
             name: "Lemon Squeezy".to_string(),
             slug: "lemon_squeezy".to_string(),
-            description: "Global merchant of record with built-in tax compliance and licensing.".to_string(),
+            description: "Global merchant of record with built-in tax compliance and licensing."
+                .to_string(),
             env_key: "LEMONSQUEEZY_API_KEY".to_string(),
         },
         ProviderInfo {
             name: "Paddle".to_string(),
             slug: "paddle".to_string(),
-            description: "Complete payments, tax, and subscription management platform.".to_string(),
+            description: "Complete payments, tax, and subscription management platform."
+                .to_string(),
             env_key: "PADDLE_VENDOR_ID".to_string(),
         },
         ProviderInfo {

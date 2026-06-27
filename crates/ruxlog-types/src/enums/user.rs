@@ -9,7 +9,7 @@ use std::fmt;
     feature = "backend",
     sea_orm(rs_type = "String", db_type = "Enum", enum_name = "user_role")
 )]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum UserRole {
     #[cfg_attr(feature = "backend", sea_orm(string_value = "super-admin"))]
@@ -21,6 +21,7 @@ pub enum UserRole {
     #[cfg_attr(feature = "backend", sea_orm(string_value = "author"))]
     Author,
     #[cfg_attr(feature = "backend", sea_orm(string_value = "user"))]
+    #[default]
     User,
 }
 
@@ -80,8 +81,4 @@ impl From<UserRole> for i32 {
     }
 }
 
-impl Default for UserRole {
-    fn default() -> Self {
-        UserRole::User
-    }
-}
+// `Default` is derived on `UserRole` above (`#[default] User`).

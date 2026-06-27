@@ -1,6 +1,6 @@
-use dioxus::prelude::*;
-use crate::utils::sleep;
 use crate::components::{use_portal, PortalIn, PortalOut};
+use crate::utils::sleep;
+use dioxus::prelude::*;
 use std::collections::VecDeque;
 use std::time::Duration;
 

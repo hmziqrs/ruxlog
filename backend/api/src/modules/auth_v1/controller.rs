@@ -9,7 +9,7 @@ use axum_macros::debug_handler;
 use axum_client_ip::ClientIp;
 
 use rux_auth::AuthBackend as AuthBackendTrait;
-use sea_orm::ActiveModelTrait;
+use sea_orm::{ActiveModelTrait, EntityTrait};
 use serde_json::json;
 use tracing::{error, info, instrument, warn};
 
@@ -282,12 +282,24 @@ pub async fn login_totp(
 
     // Verify the TOTP code. The user's stored secret must be present (2FA is
     // enabled, so a missing secret is an inconsistent state — reject generically).
-    let secret = match &user.two_fa_secret {
-        Some(s) => s.clone(),
-        None => {
-            warn!(user_id = user.id, "login/totp: 2FA enabled but no secret stored");
+    // CRYP-2FA-002: `two_fa_secret` is encrypted at rest — decrypt via the
+    // accessor. A decrypt failure (tampered ciphertext / wrong key) fails
+    // closed: the user cannot complete the second factor rather than risk
+    // verifying the TOTP code against the opaque envelope bytes.
+    let secret = match user.two_fa_secret_plain() {
+        Ok(Some(s)) => s,
+        Ok(None) => {
+            warn!(
+                user_id = user.id,
+                "login/totp: 2FA enabled but no secret stored"
+            );
             return Err(ErrorResponse::new(ErrorCode::Unauthorized)
                 .with_message("Invalid or expired login session"));
+        }
+        Err(e) => {
+            warn!(user_id = user.id, error = %e, "login/totp: TOTP secret unreadable");
+            return Err(ErrorResponse::new(ErrorCode::InternalServerError)
+                .with_message("Unable to verify second factor"));
         }
     };
 
@@ -296,8 +308,9 @@ pub async fn login_totp(
         Some(m) => m,
         None => {
             warn!(user_id = user.id, "login/totp: invalid TOTP code");
-            return Err(ErrorResponse::new(ErrorCode::Unauthorized)
-                .with_message("Invalid 2FA code"));
+            return Err(
+                ErrorResponse::new(ErrorCode::Unauthorized).with_message("Invalid 2FA code")
+            );
         }
     };
 
@@ -312,8 +325,7 @@ pub async fn login_totp(
             matched_counter = matched,
             "login/totp: TOTP code replayed (counter already used)"
         );
-        return Err(ErrorResponse::new(ErrorCode::Unauthorized)
-            .with_message("Invalid 2FA code"));
+        return Err(ErrorResponse::new(ErrorCode::Unauthorized).with_message("Invalid 2FA code"));
     }
     let advanced =
         user::Entity::advance_totp_counter_if_higher(&state.sea_db, user.id, matched).await?;
@@ -323,8 +335,7 @@ pub async fn login_totp(
             matched_counter = matched,
             "login/totp: TOTP lost the watermark race (concurrent advance); rejecting as replay"
         );
-        return Err(ErrorResponse::new(ErrorCode::Unauthorized)
-            .with_message("Invalid 2FA code"));
+        return Err(ErrorResponse::new(ErrorCode::Unauthorized).with_message("Invalid 2FA code"));
     }
 
     // TOTP verified + replay blocked: issue the FULL session, identical to the
@@ -339,7 +350,10 @@ pub async fn login_totp(
         .await
     {
         Ok(_) => {
-            info!(user_id = user.id, "login/totp: TOTP verified, full session issued");
+            info!(
+                user_id = user.id,
+                "login/totp: TOTP verified, full session issued"
+            );
             tracing::Span::current().record("result", "success");
 
             let session_row = user_session::Entity::create(
@@ -353,15 +367,8 @@ pub async fn login_totp(
             // the password-login path) so sessions_terminate can later DEL the
             // live record.
             if (auth.session().save().await).is_ok() {
-                if let (Some(row), Some(tower_sid)) =
-                    (session_row.as_ref(), auth.session().id())
-                {
-                    record_session_mapping(
-                        &state.redis_pool,
-                        row.id,
-                        &tower_sid.to_string(),
-                    )
-                    .await;
+                if let (Some(row), Some(tower_sid)) = (session_row.as_ref(), auth.session().id()) {
+                    record_session_mapping(&state.redis_pool, row.id, &tower_sid.to_string()).await;
                 }
             }
 
@@ -447,11 +454,10 @@ pub async fn twofa_setup(
     // Generate base32 secret and backup codes, persist to user.
     // CSPRNG failures must surface as 500s — never silently produce a
     // predictable secret. See plan Phase 2f.
-    let secret_b32 = twofa::generate_secret_base32(20)
-        .ok_or_else(|| {
-            ErrorResponse::new(ErrorCode::InternalServerError)
-                .with_message("Failed to generate 2FA secret")
-        })?;
+    let secret_b32 = twofa::generate_secret_base32(20).ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::InternalServerError)
+            .with_message("Failed to generate 2FA secret")
+    })?;
     let otpauth_url = twofa::build_otpauth_url(
         &user.email,
         "Ruxlog",
@@ -460,11 +466,10 @@ pub async fn twofa_setup(
     );
 
     // Generate and hash backup codes (store Argon2id hashes only).
-    let backup_codes = twofa::generate_backup_codes(10)
-        .ok_or_else(|| {
-            ErrorResponse::new(ErrorCode::InternalServerError)
-                .with_message("Failed to generate backup codes")
-        })?;
+    let backup_codes = twofa::generate_backup_codes(10).ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::InternalServerError)
+            .with_message("Failed to generate backup codes")
+    })?;
     // Argon2id is memory-hard; hash off the async worker thread.
     let backup_hashes = {
         let codes_for_hash = backup_codes.clone();
@@ -500,10 +505,15 @@ pub async fn twofa_setup(
 #[debug_handler]
 pub async fn twofa_verify(
     State(state): State<AppState>,
-    auth: AuthSession,
+    mut auth: AuthSession,
     payload: ValidatedJson<V1TwoFAVerifyPayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let user = auth.user.unwrap();
+    // Borrow (do not move `auth.user`) so `auth.session()` stays callable for
+    // the F#16 trust-transition rotation below.
+    let user = auth
+        .user
+        .as_ref()
+        .expect("authenticated guard ensures user");
     let payload = payload.0;
 
     // Throttle brute-force attempts on the 2FA code. Fail-closed: a Redis
@@ -512,11 +522,17 @@ pub async fn twofa_verify(
     abuse_limiter::limiter(&state.redis_pool, &key_prefix, ABUSE_LIMITER_CONFIG).await?;
 
     let existing = user::Entity::find_by_id_with_404(&state.sea_db, user.id).await?;
-    let secret = match &existing.two_fa_secret {
-        Some(s) => s.clone(),
-        None => {
+    // CRYP-2FA-002: decrypt the at-rest secret via the accessor; fail closed on error.
+    let secret = match existing.two_fa_secret_plain() {
+        Ok(Some(s)) => s,
+        Ok(None) => {
             return Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
                 .with_message("2FA not initialized"))
+        }
+        Err(e) => {
+            warn!(user_id = existing.id, error = %e, "2fa/verify: TOTP secret unreadable");
+            return Err(ErrorResponse::new(ErrorCode::InternalServerError)
+                .with_message("Unable to verify second factor"));
         }
     };
 
@@ -544,20 +560,18 @@ pub async fn twofa_verify(
             // holds. A concurrent verify/disable that already advanced past
             // `matched` makes this UPDATE match zero rows → reject as a replay
             // (no leak — same generic InvalidToken as any bad code).
-            let advanced = user::Entity::advance_totp_counter_if_higher(
-                &state.sea_db,
-                user.id,
-                matched,
-            )
-            .await?;
+            let advanced =
+                user::Entity::advance_totp_counter_if_higher(&state.sea_db, user.id, matched)
+                    .await?;
             if !advanced {
                 warn!(
                     user_id = user.id,
                     matched_counter = matched,
                     "TOTP code lost the watermark race (concurrent advance); rejecting as replay"
                 );
-                return Err(ErrorResponse::new(ErrorCode::InvalidToken)
-                    .with_message("Invalid 2FA code"));
+                return Err(
+                    ErrorResponse::new(ErrorCode::InvalidToken).with_message("Invalid 2FA code")
+                );
             }
             // Watermark advanced; flip 2FA on. `two_fa_last_totp_counter` is
             // already persisted atomically above, so this UPDATE only sets the
@@ -567,6 +581,9 @@ pub async fn twofa_verify(
             active.two_fa_last_totp_counter = sea_orm::Unchanged(Some(matched));
             active.updated_at = sea_orm::Set(chrono::Utc::now().fixed_offset());
             let updated = active.update(&state.sea_db).await?;
+            // F#16: 2FA was just enabled — rotate the session id so the CSRF
+            // token rebinds to the post-enable trust level.
+            rotate_session_after_trust_change(&mut auth).await;
             return Ok((StatusCode::OK, Json(json!(updated))));
         } else {
             // Replay of an already-used counter within the window. Count it
@@ -577,8 +594,9 @@ pub async fn twofa_verify(
                 matched_counter = matched,
                 "TOTP code replayed (counter already used); rejecting"
             );
-            return Err(ErrorResponse::new(ErrorCode::InvalidToken)
-                .with_message("Invalid 2FA code"));
+            return Err(
+                ErrorResponse::new(ErrorCode::InvalidToken).with_message("Invalid 2FA code")
+            );
         }
     }
 
@@ -607,6 +625,9 @@ pub async fn twofa_verify(
                 active.two_fa_backup_codes = sea_orm::Set(Some(serde_json::json!(updated_hashes)));
                 active.updated_at = sea_orm::Set(chrono::Utc::now().fixed_offset());
                 let updated = active.update(&state.sea_db).await?;
+                // F#16: 2FA was just enabled via backup code — rotate the session
+                // id so the CSRF token rebinds.
+                rotate_session_after_trust_change(&mut auth).await;
                 return Ok((StatusCode::OK, Json(json!(updated))));
             }
         }
@@ -619,10 +640,15 @@ pub async fn twofa_verify(
 #[debug_handler]
 pub async fn twofa_disable(
     State(state): State<AppState>,
-    auth: AuthSession,
+    mut auth: AuthSession,
     payload: ValidatedJson<V1TwoFADisablePayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
-    let user = auth.user.unwrap();
+    // Borrow (do not move `auth.user`) so `auth.session()` stays callable for
+    // the F#16 trust-transition rotation below.
+    let user = auth
+        .user
+        .as_ref()
+        .expect("authenticated guard ensures user");
     let payload = payload.0;
 
     // Throttle brute-force attempts on the 2FA code (audit V-MED-4): without
@@ -648,7 +674,18 @@ pub async fn twofa_disable(
     // If 2FA is enabled and a code is provided, verify it; allow disable with valid code or backup code
     if existing.two_fa_enabled {
         if let Some(code) = payload.code.clone() {
-            let secret = existing.two_fa_secret.clone().unwrap_or_default();
+            // CRYP-2FA-002: decrypt the at-rest secret via the accessor. A
+            // decrypt error is logged and treated as no-usable-secret so the
+            // backup-code fallback still applies; disable is never granted
+            // without a valid second factor either way.
+            let secret = match existing.two_fa_secret_plain() {
+                Ok(Some(s)) => s,
+                Ok(None) => String::new(),
+                Err(e) => {
+                    warn!(user_id = existing.id, error = %e, "2fa/disable: TOTP secret unreadable");
+                    String::new()
+                }
+            };
             // V-MED-6 (TOTP replay): use the counter-returning variant and reject
             // a counter that is not strictly greater than the last used one.
             // `is_fresh_counter` is the cheap fast-path reject against the
@@ -673,12 +710,9 @@ pub async fn twofa_disable(
                 // replay (generic InvalidToken, no leak). Only if the gate
                 // succeeds is the disable TOTP-authorized.
                 let matched = totp_matched.expect("totp_matched is Some when totp_fresh");
-                let advanced = user::Entity::advance_totp_counter_if_higher(
-                    &state.sea_db,
-                    user.id,
-                    matched,
-                )
-                .await?;
+                let advanced =
+                    user::Entity::advance_totp_counter_if_higher(&state.sea_db, user.id, matched)
+                        .await?;
                 if !advanced {
                     warn!(
                         user_id = user.id,
@@ -745,6 +779,12 @@ pub async fn twofa_disable(
     active.updated_at = sea_orm::Set(chrono::Utc::now().fixed_offset());
     let updated = active.update(&state.sea_db).await?;
 
+    // F#16: 2FA was just disabled — rotate the session id so the CSRF token
+    // rebinds to the post-disable trust level (an attacker who stole the old
+    // session + its CSRF token can no longer reuse them against the now-lowered
+    // auth posture).
+    rotate_session_after_trust_change(&mut auth).await;
+
     Ok((StatusCode::OK, Json(json!(updated))))
 }
 
@@ -776,39 +816,88 @@ pub async fn sessions_terminate(
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let user_id = auth.user.as_ref().map(|u| u.id).unwrap_or(0);
-    let result = user_session::Entity::revoke(&state.sea_db, id).await?;
-    match result {
-        Some(session) if session.user_id == user_id => {
-            // V-HIGH-2: actually invalidate the live tower-sessions record.
-            // `Entity::revoke` only stamps `user_sessions.revoked_at` (audit/
-            // UI-only — nothing on the auth path reads it); the tower-sessions
-            // Redis key remains, so the cookie keeps authenticating. Look up the
-            // tower-session id captured at login and DEL it from Redis (plus
-            // add it to a revocation set as defense-in-depth). A missing mapping
-            // (a session whose login path didn't record one, or a pre-fix row)
-            // means we CANNOT DEL the live record — the cookie then stays valid
-            // until its 14-day inactivity expiry. `revoked_at` does NOT enforce
-            // that window; it is audit-only.
-            if let Some(tower_sid) = lookup_session_mapping(&state.redis_pool, id).await {
-                auth.backend()
-                    .delete_tower_session(&state.redis_pool, &tower_sid)
-                    .await;
-            } else {
-                warn!(
-                    session_id = id,
-                    "No tower-session mapping for session; live record could not be DEL'd — cookie valid until 14-day expiry (revoked_at is audit-only)"
-                );
-            }
-            Ok((StatusCode::OK, Json(json!({ "message": "Session terminated" }))))
+
+    // V-LOW-IDOR: verify ownership BEFORE any mutation. The previous code
+    // called `Entity::revoke` first (which stamps `revoked_at`) and only then
+    // inspected the returned row's `user_id` to decide 401-vs-200 — so a
+    // cross-user terminate request still mutated (revoked) the victim's
+    // `user_sessions` row before being rejected. Resolve the row, reject on
+    // mismatch or not-found, and only then revoke. This keeps the authz gate
+    // ahead of the write.
+    // Ownership-gate resolve: the model is consumed only to assert
+    // `user_id` matches; `Entity::revoke` re-resolves the row itself, so the
+    // bound model is intentionally unused thereafter (`_` silences the dead
+    // binding). The point is the early-reject paths above — they must fire
+    // before any write.
+    let _existing = match user_session::Entity::find_by_id(id)
+        .one(&state.sea_db)
+        .await
+    {
+        Ok(Some(model)) if model.user_id == user_id => model,
+        Ok(Some(_)) => return Err(ErrorResponse::new(ErrorCode::Unauthorized)),
+        Ok(None) => return Err(ErrorResponse::new(ErrorCode::RecordNotFound)),
+        Err(err) => return Err(err.into()),
+    };
+    // Ownership confirmed; safe to mutate.
+    user_session::Entity::revoke(&state.sea_db, id).await?;
+
+    {
+        // V-HIGH-2: actually invalidate the live tower-sessions record.
+        // `Entity::revoke` only stamps `user_sessions.revoked_at` (audit/
+        // UI-only — nothing on the auth path reads it); the tower-sessions
+        // Redis key remains, so the cookie keeps authenticating. Look up the
+        // tower-session id captured at login and DEL it from Redis (plus
+        // add it to a revocation set as defense-in-depth). A missing mapping
+        // (a session whose login path didn't record one, or a pre-fix row)
+        // means we CANNOT DEL the live record — the cookie then stays valid
+        // until its 14-day inactivity expiry. `revoked_at` does NOT enforce
+        // that window; it is audit-only.
+        if let Some(tower_sid) = lookup_session_mapping(&state.redis_pool, id).await {
+            auth.backend()
+                .delete_tower_session(&state.redis_pool, &tower_sid)
+                .await;
+        } else {
+            warn!(
+                session_id = id,
+                "No tower-session mapping for session; live record could not be DEL'd — cookie valid until 14-day expiry (revoked_at is audit-only)"
+            );
         }
-        Some(_) => Err(ErrorResponse::new(ErrorCode::Unauthorized)),
-        None => Err(ErrorResponse::new(ErrorCode::RecordNotFound)),
+        Ok((
+            StatusCode::OK,
+            Json(json!({ "message": "Session terminated" })),
+        ))
     }
 }
 
 /// Redis key holding the tower-session id for a given `user_sessions.id`.
 fn session_mapping_key(pg_session_id: i32) -> String {
     format!("rux:sid_map:{pg_session_id}")
+}
+
+/// F#16 (CSRF re-rotation at trust transitions): rotate the session id after a
+/// privilege/trust change so the per-session CSRF token rebinds. The frontend
+/// already re-fetches its CSRF token per session (backend-only contract).
+///
+/// `cycle_id` preserves the in-memory record's data while arming a fresh id
+/// (the same primitive `login_with_metadata` uses on login); the
+/// `SessionManagerLayer` persists the rotated record at response time, so we
+/// save now only to materialize the cycled id deterministically. A failure to
+/// rotate is logged but non-fatal — the security gain is the rotation, and the
+/// request itself already succeeded (2FA toggled / password changed); surfacing
+/// a 500 here would mislead the client about an otherwise-complete operation.
+/// `auth` is taken by `&mut` only so the borrow checker allows a subsequent
+/// `auth.session()` call; the mutation is to interior session state.
+async fn rotate_session_after_trust_change(auth: &mut AuthSession) {
+    if let Err(err) = auth.session().cycle_id().await {
+        warn!(error = %err, "F#16: failed to re-rotate session id at trust transition; CSRF token NOT rebound");
+        return;
+    }
+    // Materialize the rotated id (login does the same — see log_in). Errors
+    // here are non-fatal for the same reason; the response-layer save is the
+    // fallback persistence path.
+    if let Err(err) = auth.session().save().await {
+        warn!(error = %err, "F#16: failed to persist rotated session id at trust transition");
+    }
 }
 
 /// Single-use pending-TOTP credential for the two-step 2FA-at-login flow
@@ -848,7 +937,7 @@ mod login_totp_token {
     pub async fn mint(state: &AppState, user_id: i32) -> Result<String, ErrorResponse> {
         let mut bytes = zeroize::Zeroizing::new([0u8; 32]);
         rand::rng().fill(bytes.as_mut());
-        let token = hex::encode(&*bytes);
+        let token = hex::encode(*bytes);
         bytes.zeroize();
         state
             .redis_pool
@@ -872,14 +961,15 @@ mod login_totp_token {
     /// already used / unknown / expired. `GETDEL` guarantees a replayed token
     /// can never be observed twice (the single-use guarantee).
     pub async fn take(state: &AppState, token: &str) -> Result<Option<i32>, ErrorResponse> {
-        let stored: Option<String> = state
-            .redis_pool
-            .getdel(redis_key(token))
-            .await
-            .map_err(|e| {
-                error!(error = ?e, "Failed to consume login TOTP pending token");
-                ErrorResponse::new(ErrorCode::InternalServerError)
-            })?;
+        let stored: Option<String> =
+            state
+                .redis_pool
+                .getdel(redis_key(token))
+                .await
+                .map_err(|e| {
+                    error!(error = ?e, "Failed to consume login TOTP pending token");
+                    ErrorResponse::new(ErrorCode::InternalServerError)
+                })?;
         match stored {
             Some(s) => s.parse::<i32>().map(Some).map_err(|e| {
                 error!(error = ?e, "Stored login TOTP token value was not a user id");
@@ -980,4 +1070,3 @@ mod tests {
         let _ = std::any::type_name::<login_totp_token::AssertWired>;
     }
 }
-

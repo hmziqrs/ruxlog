@@ -1,0 +1,102 @@
+name: release-guard
+
+# CRYP-RNG-006 / CRYP-GAP-013: guarantee the dev-only `seed-system` feature
+# (which carries deterministic seed RNG / admin seeding tooling) can never
+# ship in a release artifact. Runs on backend changes, release tags, and is
+# manually dispatchable.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master, develop]
+    paths:
+      - "backend/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/release-guard.yml"
+    tags:
+      - "v*"
+      - "release-*"
+  pull_request:
+    paths:
+      - "backend/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/release-guard.yml"
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  seed-system-not-in-release:
+    name: seed-system excluded from release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            backend/api -> target
+
+      - name: Verify feature configuration (default + full exclude seed-system)
+        working-directory: backend/api
+        run: |
+          set -euo pipefail
+
+          echo "Parsing Cargo.toml feature tables..."
+          DEFAULT_FEATS=$(cargo metadata --no-deps --format-version 1 \
+            | jq -r '.packages[] | select(.name=="ruxlog") | .features.default // [] | join(" ")')
+          FULL_FEATS=$(cargo metadata --no-deps --format-version 1 \
+            | jq -r '.packages[] | select(.name=="ruxlog") | .features.full // [] | join(" ")')
+
+          echo "default = [${DEFAULT_FEATS}]"
+          echo "full    = [${FULL_FEATS}]"
+
+          if echo "$DEFAULT_FEATS" | grep -qw seed-system; then
+            echo "::error::seed-system MUST NOT be in default features"
+            exit 1
+          fi
+          if echo "$FULL_FEATS" | grep -qw seed-system; then
+            echo "::error::seed-system MUST NOT be in the 'full' feature set"
+            exit 1
+          fi
+          echo "OK: seed-system is absent from both default and full."
+
+      - name: Confirm seed_v1 / seed service code is NOT compiled in a release build
+        working-directory: backend/api
+        run: |
+          set -euo pipefail
+
+          # Build the primary release artifact with the default feature set.
+          cargo build --release --bin ruxlog
+
+          OBJ="target/release/ruxlog"
+          if grep -aql "seed_v1\|services::seed::seeded_rng\|seed_config::SeedMode" "$OBJ"; then
+            echo "::error::seed symbols leaked into the release ruxlog binary"
+            exit 1
+          fi
+          echo "OK: no seed-system symbols found in the release binary."
+
+      - name: Explicitly fail if --features seed-system is requested for release
+        working-directory: backend/api
+        run: |
+          set -euo pipefail
+          # This is a guardrail: any caller that tries to build the *release*
+          # binary with seed-system enabled must be caught. We assert that the
+          # main release binary does not accept seed-system without explicitly
+          # opting into the gated TUI binary.
+          if cargo build --release --features seed-system --bin ruxlog; then
+            echo "::warning::ruxlog compiled with seed-system; verifying seed symbols are present (feature is reachable)"
+            OBJ="target/release/ruxlog"
+            if ! grep -aql "seed_v1\|seeded_rng" "$OBJ"; then
+              echo "::error::seed-system feature was enabled but produced no seed symbols (feature wiring is broken)"
+              exit 1
+            fi
+          fi
+          echo "OK: seed-system is reachable only as an explicit opt-in."

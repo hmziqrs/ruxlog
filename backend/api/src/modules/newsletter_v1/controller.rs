@@ -97,8 +97,16 @@ pub async fn subscribe(
             info!(email = %email, "Newsletter subscription created");
             let site_url =
                 std::env::var("SITE_URL").unwrap_or_else(|_| "http://localhost:8888".to_string());
+
+            // CRYP-GAP-012 / CRYP-RNG-005: do NOT carry the secret token in the
+            // URL query string (`?token=`), where it leaks into access logs,
+            // proxy logs, and the Referer header. Put it in the URL *fragment*
+            // (`#token=`) instead — fragments are never transmitted to servers.
+            // The client reads the fragment and POSTs `{email, token}` in the
+            // JSON body (the /confirm endpoint already accepts a JSON body).
+            // Token strength is unchanged: 122 bits of UUIDv4 entropy.
             let confirm_url = format!(
-                "{}/newsletter/confirm?email={}&token={}",
+                "{}/newsletter/confirm#email={}&token={}",
                 site_url.trim_end_matches('/'),
                 urlencoding::encode(&email),
                 urlencoding::encode(&token)
@@ -112,18 +120,10 @@ pub async fn subscribe(
             // Best-effort email; do not fail subscription on send error
             let _ = send_mail(&state.mailer, &email, subject, Some(&html), None).await;
 
-            #[allow(unused_mut)]
-            let mut body =
-                json!({ "message": "Please check your email to confirm your subscription" });
-            #[cfg(debug_assertions)]
-            {
-                if let Some(obj) = body.as_object_mut() {
-                    obj.insert(
-                        "debug".to_string(),
-                        json!({ "token": token, "confirm_url": confirm_url }),
-                    );
-                }
-            }
+            // The token / confirm_url are intentionally NOT echoed in the
+            // response body, even in debug builds, to avoid leaking the secret
+            // token into client logs.
+            let body = json!({ "message": "Please check your email to confirm your subscription" });
             Ok((StatusCode::CREATED, Json(body)))
         }
         Err(err) => {

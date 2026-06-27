@@ -17,15 +17,17 @@ fn payment_providers() -> Vec<PaymentProvider> {
     vec![
         PaymentProvider {
             name: "Stripe".to_string(),
-            description: "Accept credit cards, Apple Pay, Google Pay, and more via Stripe Checkout."
-                .to_string(),
+            description:
+                "Accept credit cards, Apple Pay, Google Pay, and more via Stripe Checkout."
+                    .to_string(),
             env_key: "STRIPE_SECRET_KEY".to_string(),
             webhook_path: "/billing/v1/webhooks/stripe".to_string(),
         },
         PaymentProvider {
             name: "Polar".to_string(),
-            description: "All-in-one monetization platform for SaaS, digital products, and memberships."
-                .to_string(),
+            description:
+                "All-in-one monetization platform for SaaS, digital products, and memberships."
+                    .to_string(),
             env_key: "POLAR_ACCESS_TOKEN".to_string(),
             webhook_path: "/billing/v1/webhooks/polar".to_string(),
         },
@@ -38,7 +40,8 @@ fn payment_providers() -> Vec<PaymentProvider> {
         },
         PaymentProvider {
             name: "Paddle".to_string(),
-            description: "Complete payments, tax, and subscription management platform.".to_string(),
+            description: "Complete payments, tax, and subscription management platform."
+                .to_string(),
             env_key: "PADDLE_VENDOR_ID".to_string(),
             webhook_path: "/billing/v1/webhooks/paddle".to_string(),
         },

@@ -317,10 +317,7 @@ mod tests {
         let body = r#"{"type":"Validation","message":"Name is required","status":422}"#;
         frame.set_api_error(422, body.to_string());
         assert!(frame.is_failed());
-        assert_eq!(
-            frame.error_message(),
-            Some("Name is required".to_string())
-        );
+        assert_eq!(frame.error_message(), Some("Name is required".to_string()));
         assert_eq!(frame.error_type(), Some("Validation"));
         assert_eq!(frame.error_status(), Some(422));
     }
@@ -414,7 +411,10 @@ mod tests {
         let mut frame: StateFrame<()> = StateFrame::new();
         frame.set_transport_error(TransportErrorKind::Offline, None);
         assert!(frame.is_failed());
-        assert_eq!(frame.transport_error_kind(), Some(TransportErrorKind::Offline));
+        assert_eq!(
+            frame.transport_error_kind(),
+            Some(TransportErrorKind::Offline)
+        );
         assert!(frame.is_offline());
     }
 

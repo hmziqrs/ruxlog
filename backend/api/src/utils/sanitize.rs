@@ -174,9 +174,15 @@ mod tests {
         sanitize_editorjs_content(&mut c);
         let items = c["blocks"][0]["data"]["items"].as_array().unwrap();
         let first = items[0].as_str().unwrap();
-        assert!(!first.contains("onerror"), "onerror must be dropped, got: {first}");
+        assert!(
+            !first.contains("onerror"),
+            "onerror must be dropped, got: {first}"
+        );
         let second = items[1].as_str().unwrap();
-        assert!(second.contains("<i>safe</i>"), "benign markup survives: {second}");
+        assert!(
+            second.contains("<i>safe</i>"),
+            "benign markup survives: {second}"
+        );
     }
 
     #[test]
@@ -263,12 +269,13 @@ mod tests {
         });
 
         #[derive(serde::Serialize)]
-        struct Wrap<'a>(
-            #[serde(serialize_with = "serialize_sanitized_content")] &'a Value,
-        );
+        struct Wrap<'a>(#[serde(serialize_with = "serialize_sanitized_content")] &'a Value);
 
         let serialized = serde_json::to_string(&Wrap(&value)).unwrap();
-        assert!(!serialized.contains("<script"), "serialized output is clean");
+        assert!(
+            !serialized.contains("<script"),
+            "serialized output is clean"
+        );
         assert!(serialized.contains("ok"));
         // The original value is unmutated (sanitization-on-read, not in place).
         assert!(
@@ -293,13 +300,14 @@ mod tests {
         .unwrap();
 
         #[derive(serde::Serialize)]
-        struct Wrap<'a>(
-            #[serde(serialize_with = "serialize_sanitized_content_string")] &'a String,
-        );
+        struct Wrap<'a>(#[serde(serialize_with = "serialize_sanitized_content_string")] &'a String);
 
         let serialized = serde_json::to_string(&Wrap(&raw)).unwrap();
         assert!(!serialized.contains("<script"), "script must be stripped");
-        assert!(!serialized.contains("onclick"), "event handler must be stripped");
+        assert!(
+            !serialized.contains("onclick"),
+            "event handler must be stripped"
+        );
         assert!(serialized.contains("hi"));
         assert!(serialized.contains("<i>ok</i>"), "benign markup survives");
         // Source string left unmutated.
@@ -311,9 +319,7 @@ mod tests {
         // Non-JSON string must round-trip verbatim (not corrupted, not dropped).
         let raw = String::from("plain text, not json <script>x</script>");
         #[derive(serde::Serialize)]
-        struct Wrap<'a>(
-            #[serde(serialize_with = "serialize_sanitized_content_string")] &'a String,
-        );
+        struct Wrap<'a>(#[serde(serialize_with = "serialize_sanitized_content_string")] &'a String);
         let serialized = serde_json::to_string(&Wrap(&raw)).unwrap();
         assert!(
             serialized.contains("<script>"),

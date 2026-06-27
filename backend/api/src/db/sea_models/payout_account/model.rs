@@ -82,18 +82,13 @@ impl ActiveModelBehavior for ActiveModel {
         // column does not re-encrypt — and so a row that is already an encrypted
         // envelope on disk is not treated as plaintext and double-wrapped.
         // `Set(Some(json))` is the plaintext write path we must wrap.
-        match self.metadata.clone() {
-            sea_orm::ActiveValue::Set(Some(plaintext_json)) => {
-                let envelope = encrypt_metadata(&plaintext_json).map_err(|err| {
-                    DbErr::Custom(format!(
-                        "payout_account.metadata encryption failed: {err}"
-                    ))
-                })?;
-                self.metadata = sea_orm::ActiveValue::Set(Some(envelope));
-            }
-            // `Set(None)` clears metadata — nothing to encrypt, persist as NULL.
-            // `Unchanged` / `NotSet` — leave the active value alone.
-            _ => {}
+        // `Set(None)` clears metadata — nothing to encrypt, persist as NULL.
+        // `Unchanged` / `NotSet` — leave the active value alone.
+        if let sea_orm::ActiveValue::Set(Some(plaintext_json)) = self.metadata.clone() {
+            let envelope = encrypt_metadata(&plaintext_json).map_err(|err| {
+                DbErr::Custom(format!("payout_account.metadata encryption failed: {err}"))
+            })?;
+            self.metadata = sea_orm::ActiveValue::Set(Some(envelope));
         }
         Ok(self)
     }
@@ -113,9 +108,8 @@ pub fn encrypt_metadata(plaintext: &Json) -> Result<Json, field_crypto::FieldCry
         return Ok(plaintext.clone());
     }
     // Compact JSON string of the real metadata — what gets encrypted.
-    let plaintext_str = serde_json::to_string(plaintext).map_err(|_| {
-        field_crypto::FieldCryptoError::Encrypt
-    })?;
+    let plaintext_str =
+        serde_json::to_string(plaintext).map_err(|_| field_crypto::FieldCryptoError::Encrypt)?;
     let ciphertext = field_crypto::encrypt(&plaintext_str)?;
     Ok(serde_json::json!({ ENC_KEY: ciphertext }))
 }
@@ -156,8 +150,8 @@ pub fn decrypt_metadata(
             .and_then(|v| v.as_str())
             .expect("is_encrypted_envelope guarantees a string `enc` value");
         let plaintext_str = field_crypto::decrypt(ciphertext)?;
-        let plaintext_json: Json =
-            serde_json::from_str(&plaintext_str).map_err(|_| field_crypto::FieldCryptoError::Decode)?;
+        let plaintext_json: Json = serde_json::from_str(&plaintext_str)
+            .map_err(|_| field_crypto::FieldCryptoError::Decode)?;
         return Ok(Some(plaintext_json));
     }
 
@@ -299,7 +293,9 @@ mod tests {
     fn is_encrypted_envelope_detector() {
         assert!(is_encrypted_envelope(&serde_json::json!({"enc": "YWJj"})));
         // Not an envelope: extra keys.
-        assert!(!is_encrypted_envelope(&serde_json::json!({"enc": "YWJj", "extra": 1})));
+        assert!(!is_encrypted_envelope(
+            &serde_json::json!({"enc": "YWJj", "extra": 1})
+        ));
         // Not an envelope: single key but wrong name (legacy plaintext).
         assert!(!is_encrypted_envelope(&serde_json::json!({"iban": "DE00"})));
         // Not an envelope: enc present but not a string.

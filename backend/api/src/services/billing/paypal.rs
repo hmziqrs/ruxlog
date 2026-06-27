@@ -3,6 +3,7 @@
 //! Supports PayPal, Venmo, credit/debit cards, and subscriptions.
 
 use async_trait::async_trait;
+use secrecy::{ExposeSecret, SecretString};
 
 use super::provider::{
     BillingError, BillingProvider, CheckoutSession, ParsedWebhook, SubscriptionInfo, WebhookEvent,
@@ -14,10 +15,15 @@ use super::provider::{
 use crate::state::build_http_client;
 
 /// PayPal Commerce billing provider.
+///
+/// CRYP-ENC-012: `client_secret` and `webhook_secret` are held in
+/// `secrecy::SecretString` (redacting `Debug`, opt-in `expose_secret()`).
+/// `client_id` is PayPal's public client identifier (not a secret) and stays a
+/// plain `String`.
 pub struct PayPalProvider {
     pub client_id: String,
-    pub client_secret: String,
-    pub webhook_secret: String,
+    pub client_secret: SecretString,
+    pub webhook_secret: SecretString,
     /// PayPal webhook ID (the identifier PayPal issues when you register the
     /// webhook). Required by the verify-webhook-signature API. `None` ⇒
     /// verification fails closed. (PayPal does not use a shared HMAC secret; the
@@ -32,8 +38,8 @@ impl PayPalProvider {
     pub fn new(client_id: String, client_secret: String, webhook_secret: String) -> Self {
         Self {
             client_id,
-            client_secret,
-            webhook_secret,
+            client_secret: client_secret.into(),
+            webhook_secret: webhook_secret.into(),
             webhook_id: None,
             // Production by default; override with the sandbox host via
             // PAYPAL_API_BASE_URL for development. See plan Phase 6f.
@@ -70,7 +76,7 @@ impl PayPalProvider {
             .header("Accept", "application/json")
             .header("Accept-Language", "en_US")
             .form(&[("grant_type", "client_credentials")])
-            .basic_auth(&self.client_id, Some(&self.client_secret))
+            .basic_auth(&self.client_id, Some(self.client_secret.expose_secret()))
             .send()
             .await
             .map_err(|e| BillingError::ProviderApi(e.to_string()))?;
@@ -120,6 +126,21 @@ impl PayPalProvider {
             data.get("billing_info")
                 .and_then(|b| b.get("next_billing_time")),
         )
+    }
+}
+
+// CRYP-ENC-012: manual redacting `Debug`. Credential fields are always
+// `<redacted>`; only the non-secret wiring is shown. No tracing/error path
+// logs the whole struct.
+impl std::fmt::Debug for PayPalProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PayPalProvider")
+            .field("client_id", &self.client_id)
+            .field("client_secret", &"<redacted>")
+            .field("webhook_secret", &"<redacted>")
+            .field("webhook_id", &self.webhook_id)
+            .field("base_url", &self.base_url)
+            .finish_non_exhaustive()
     }
 }
 
@@ -292,9 +313,8 @@ impl BillingProvider for PayPalProvider {
             )
         })?;
 
-        let header = |name: &str| {
-            super::webhook_util::header_str(&event.headers, name).unwrap_or_default()
-        };
+        let header =
+            |name: &str| super::webhook_util::header_str(&event.headers, name).unwrap_or_default();
         let transmission_id = header("PAYPAL-TRANSMISSION-ID");
         let transmission_time = header("PAYPAL-TRANSMISSION-TIME");
         let cert_url = header("PAYPAL-CERT-URL");
@@ -377,9 +397,7 @@ impl BillingProvider for PayPalProvider {
         .to_string();
         let resource = &webhook_event["resource"];
         let resource_id = resource["id"].as_str().map(String::from);
-        let billing_agreement_id = resource["billing_agreement_id"]
-            .as_str()
-            .map(String::from);
+        let billing_agreement_id = resource["billing_agreement_id"].as_str().map(String::from);
 
         // For a SALE/CAPTURE payment the `resource` IS the sale, so `resource.id`
         // is the SALE id (`S-…`) — NOT the subscription. The linked recurring
@@ -442,16 +460,18 @@ impl BillingProvider for PayPalProvider {
             // PayPal status (ACTIVE/CANCELLED/SUSPENDED/EXPIRED…) folds to our
             // vocabulary via canonical_subscription_status.
             subscription_status: resource["status"].as_str().map(String::from),
-            user_id: resource["custom_id"]
-                .as_str()
-                .and_then(|s| s.parse().ok()),
+            user_id: resource["custom_id"].as_str().and_then(|s| s.parse().ok()),
             amount_cents: resource["amount"]["total"]
                 .as_str()
                 .and_then(|s| {
                     // PayPal money is a decimal string; store as minor units.
                     s.parse::<f64>().ok().map(|f| (f * 100.0) as i64)
                 })
-                .or_else(|| resource["amount"]["value"].as_str().and_then(|s| s.parse().ok())),
+                .or_else(|| {
+                    resource["amount"]["value"]
+                        .as_str()
+                        .and_then(|s| s.parse().ok())
+                }),
             currency: resource["amount"]["currency_code"]
                 .as_str()
                 .map(String::from),
@@ -498,8 +518,8 @@ mod tests {
             "whsec_test".into(),
         );
         assert_eq!(provider.client_id, "AWx_test_client_id");
-        assert_eq!(provider.client_secret, "test_secret_key");
-        assert_eq!(provider.webhook_secret, "whsec_test");
+        assert_eq!(provider.client_secret.expose_secret(), "test_secret_key");
+        assert_eq!(provider.webhook_secret.expose_secret(), "whsec_test");
         assert_eq!(provider.base_url, "https://api-m.paypal.com");
     }
 

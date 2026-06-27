@@ -54,6 +54,7 @@ mod m20260617_000048_create_post_purchases_table;
 mod m20260618_000049_subscriptions_provider_sub_id_unique;
 mod m20260620_000050_add_totp_last_used_counter;
 mod m20260620_000051_payout_account_metadata_encryption_runbook;
+mod m20260627_000052_alter_user_add_session_auth_secret_and_encrypt_fields;
 
 pub struct Migrator;
 
@@ -115,6 +116,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20260618_000049_subscriptions_provider_sub_id_unique::Migration),
             Box::new(m20260620_000050_add_totp_last_used_counter::Migration),
             Box::new(m20260620_000051_payout_account_metadata_encryption_runbook::Migration),
+            Box::new(
+                m20260627_000052_alter_user_add_session_auth_secret_and_encrypt_fields::Migration,
+            ),
         ]
     }
 }

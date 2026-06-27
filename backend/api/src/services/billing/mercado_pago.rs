@@ -3,6 +3,7 @@
 //! Supports PIX, OXXO, credit cards, and Checkout Pro.
 
 use async_trait::async_trait;
+use secrecy::{ExposeSecret, SecretString};
 
 use super::provider::{
     BillingError, BillingProvider, CheckoutSession, ParsedWebhook, SubscriptionInfo, WebhookEvent,
@@ -14,9 +15,12 @@ use super::provider::{
 use crate::state::build_http_client;
 
 /// Mercado Pago billing provider.
+///
+/// CRYP-ENC-012: `access_token` and `webhook_secret` are held in
+/// `secrecy::SecretString` (redacting `Debug`, opt-in `expose_secret()`).
 pub struct MercadoPagoProvider {
-    pub access_token: String,
-    pub webhook_secret: String,
+    pub access_token: SecretString,
+    pub webhook_secret: SecretString,
     pub base_url: String,
     pub http_client: reqwest::Client,
 }
@@ -45,9 +49,9 @@ fn url_decode(s: &str) -> String {
         match bytes[i] {
             b'+' => out.push(b' '),
             b'%' if i + 2 < bytes.len() => {
-                if let Some(b) = hex_nibble(bytes[i + 1]).and_then(|hi| {
-                    hex_nibble(bytes[i + 2]).map(|lo| (hi << 4) | lo)
-                }) {
+                if let Some(b) = hex_nibble(bytes[i + 1])
+                    .and_then(|hi| hex_nibble(bytes[i + 2]).map(|lo| (hi << 4) | lo))
+                {
                     out.push(b);
                     i += 2;
                 } else {
@@ -90,8 +94,8 @@ fn ts_unit_to_secs(ts: i64) -> i64 {
 impl MercadoPagoProvider {
     pub fn new(access_token: String, webhook_secret: String) -> Self {
         Self {
-            access_token,
-            webhook_secret,
+            access_token: access_token.into(),
+            webhook_secret: webhook_secret.into(),
             // Production by default; override with the sandbox host via
             // MERCADO_PAGO_API_BASE_URL for development. See plan Phase 6f.
             base_url: std::env::var("MERCADO_PAGO_API_BASE_URL")
@@ -109,6 +113,19 @@ impl MercadoPagoProvider {
     pub fn with_http_client(mut self, client: reqwest::Client) -> Self {
         self.http_client = client;
         self
+    }
+}
+
+// CRYP-ENC-012: manual redacting `Debug`. Credential fields are always
+// `<redacted>`; only the non-secret wiring is shown. No tracing/error path
+// logs the whole struct.
+impl std::fmt::Debug for MercadoPagoProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MercadoPagoProvider")
+            .field("access_token", &"<redacted>")
+            .field("webhook_secret", &"<redacted>")
+            .field("base_url", &self.base_url)
+            .finish_non_exhaustive()
     }
 }
 
@@ -152,7 +169,10 @@ impl BillingProvider for MercadoPagoProvider {
 
         let resp = client
             .post(format!("{}/checkout/preferences", self.base_url))
-            .header("Authorization", format!("Bearer {}", self.access_token))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.access_token.expose_secret()),
+            )
             .header("Content-Type", "application/json")
             .json(&body)
             .send()
@@ -185,7 +205,10 @@ impl BillingProvider for MercadoPagoProvider {
 
         let resp = client
             .put(&url)
-            .header("Authorization", format!("Bearer {}", self.access_token))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.access_token.expose_secret()),
+            )
             .header("Content-Type", "application/json")
             .json(&serde_json::json!({ "status": "cancelled" }))
             .send()
@@ -209,7 +232,10 @@ impl BillingProvider for MercadoPagoProvider {
 
         let resp = client
             .get(&url)
-            .header("Authorization", format!("Bearer {}", self.access_token))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.access_token.expose_secret()),
+            )
             .send()
             .await
             .map_err(|e| BillingError::ProviderApi(e.to_string()))?;
@@ -299,12 +325,10 @@ impl MercadoPagoProvider {
                 _ => {}
             }
         }
-        let ts = ts.ok_or_else(|| {
-            BillingError::WebhookVerification("x-signature missing ts=".into())
-        })?;
-        let v1 = v1.ok_or_else(|| {
-            BillingError::WebhookVerification("x-signature missing v1=".into())
-        })?;
+        let ts =
+            ts.ok_or_else(|| BillingError::WebhookVerification("x-signature missing ts=".into()))?;
+        let v1 =
+            v1.ok_or_else(|| BillingError::WebhookVerification("x-signature missing v1=".into()))?;
 
         // Replay protection. The `ts=` value's unit is ambiguous (see note
         // above): normalise to seconds before the freshness check.
@@ -334,9 +358,7 @@ impl MercadoPagoProvider {
             )
         })?;
         let data_id = extract_query_param(query, "data.id").ok_or_else(|| {
-            BillingError::WebhookVerification(
-                "Mercado Pago webhook query missing data.id".into(),
-            )
+            BillingError::WebhookVerification("Mercado Pago webhook query missing data.id".into())
         })?;
         // Per the official Mercado Pago spec the manifest's `data.id` MUST be
         // the LOWERCASED form when the value is alphanumeric: MP returns
@@ -354,9 +376,12 @@ impl MercadoPagoProvider {
             .ok_or_else(|| {
                 BillingError::WebhookVerification("Missing x-request-id header".into())
             })?;
-        let manifest = format!("id:{};request-id:{};ts:{};", data_id_signed, x_request_id, ts);
+        let manifest = format!(
+            "id:{};request-id:{};ts:{};",
+            data_id_signed, x_request_id, ts
+        );
         if !super::webhook_util::verify_hmac_sha256_hex(
-            self.webhook_secret.as_bytes(),
+            self.webhook_secret.expose_secret().as_bytes(),
             manifest.as_bytes(),
             v1,
         ) {
@@ -365,7 +390,7 @@ impl MercadoPagoProvider {
             ));
         }
 
-        let data: serde_json::Value = serde_json::from_str(&payload_str)
+        let data: serde_json::Value = serde_json::from_str(payload_str)
             .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
 
         // Normalize Mercado Pago's native event taxonomy to the canonical
@@ -410,7 +435,9 @@ impl MercadoPagoProvider {
             // is the payment id and won't match — the checkout arm refuses.
             checkout_session_id: data["data"]["preapproval_id"].as_str().map(String::from),
             // Mercado Pago preapprovals expose `next_payment_date` when set.
-            current_period_end: super::provider::period_end_to_unix(data["data"].get("next_payment_date")),
+            current_period_end: super::provider::period_end_to_unix(
+                data["data"].get("next_payment_date"),
+            ),
             subscription_status: data["data"]["status"].as_str().map(String::from),
             user_id: data["data"]["external_reference"]
                 .as_str()
@@ -438,8 +465,8 @@ mod tests {
     #[test]
     fn test_mercado_pago_new() {
         let provider = MercadoPagoProvider::new("APP_USR-abc123".into(), "whsec_def".into());
-        assert_eq!(provider.access_token, "APP_USR-abc123");
-        assert_eq!(provider.webhook_secret, "whsec_def");
+        assert_eq!(provider.access_token.expose_secret(), "APP_USR-abc123");
+        assert_eq!(provider.webhook_secret.expose_secret(), "whsec_def");
         assert_eq!(provider.base_url, "https://api.mercadopago.com");
     }
 
@@ -482,10 +509,7 @@ mod tests {
             "x-signature",
             format!("ts={ts_str},v1={v1}").parse().unwrap(),
         );
-        headers.insert(
-            "x-request-id",
-            TEST_REQUEST_ID.parse().unwrap(),
-        );
+        headers.insert("x-request-id", TEST_REQUEST_ID.parse().unwrap());
         WebhookEvent {
             provider: "mercado_pago".into(),
             payload: payload.to_vec(),
@@ -512,7 +536,10 @@ mod tests {
 
         let cases: &[(&str, &str)] = &[
             // Thin payment notification (the typical MP shape).
-            (r#"{"type":"payment","data":{"id":"pay_1"}}"#, "checkout.session.completed"),
+            (
+                r#"{"type":"payment","data":{"id":"pay_1"}}"#,
+                "checkout.session.completed",
+            ),
             // A preapproval lifecycle event carries the preapproval id (= stored
             // session_id), so the UPDATE arm can find the row.
             (
@@ -520,7 +547,10 @@ mod tests {
                 "customer.subscription.updated",
             ),
             // Unmapped → passthrough.
-            (r#"{"type":"merchant_order","data":{"id":"mo_1"}}"#, "merchant_order"),
+            (
+                r#"{"type":"merchant_order","data":{"id":"mo_1"}}"#,
+                "merchant_order",
+            ),
         ];
         for (body, expected) in cases {
             // The URL query data.id is the canonical manifest source (V-CRIT-2);
@@ -655,9 +685,7 @@ mod tests {
             .await
             .expect_err("stale seconds-shaped ts must be rejected");
         assert!(
-            err.to_string()
-                .to_lowercase()
-                .contains("outside tolerance"),
+            err.to_string().to_lowercase().contains("outside tolerance"),
             "stale ts should be rejected as outside tolerance, got: {err}"
         );
     }
@@ -725,7 +753,10 @@ mod tests {
         // Leading `?` from a full query string should be tolerated (the pair
         // starting with `?data.id` won't match `data.id` — the caller strips
         // any leading `?`; here we just confirm a plain match works).
-        assert_eq!(extract_query_param("data.id=abc", "data.id").as_deref(), Some("abc"));
+        assert_eq!(
+            extract_query_param("data.id=abc", "data.id").as_deref(),
+            Some("abc")
+        );
         // Percent-decoded + space-unescaped value.
         assert_eq!(
             extract_query_param("data.id=foo%20bar%2Bbaz&type=payment", "data.id").as_deref(),

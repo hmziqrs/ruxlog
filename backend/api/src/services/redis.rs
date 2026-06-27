@@ -48,7 +48,9 @@ fn redis_config() -> Config {
 
     // Optional override for the TLS ServerName when REDIS_HOST is not the name
     // on the certificate (e.g. an IP or internal alias).
-    let tls_server_name = env::var("REDIS_TLS_SERVER_NAME").ok().filter(|s| !s.is_empty());
+    let tls_server_name = env::var("REDIS_TLS_SERVER_NAME")
+        .ok()
+        .filter(|s| !s.is_empty());
 
     Config {
         username: Some(env::var("REDIS_USER").expect("REDIS_USER must be set")),

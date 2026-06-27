@@ -1,6 +1,7 @@
 //! LemonSqueezy billing provider integration.
 
 use async_trait::async_trait;
+use secrecy::{ExposeSecret, SecretString};
 
 use super::provider::{
     BillingError, BillingProvider, CheckoutSession, ParsedWebhook, SubscriptionInfo, WebhookEvent,
@@ -12,9 +13,12 @@ use super::provider::{
 use crate::state::build_http_client;
 
 /// LemonSqueezy billing provider.
+///
+/// CRYP-ENC-012: `api_key` and `webhook_secret` are held in
+/// `secrecy::SecretString` (redacting `Debug`, opt-in `expose_secret()`).
 pub struct LemonSqueezyProvider {
-    pub api_key: String,
-    pub webhook_secret: String,
+    pub api_key: SecretString,
+    pub webhook_secret: SecretString,
     pub store_id: String,
     pub base_url: String,
     pub http_client: reqwest::Client,
@@ -24,8 +28,8 @@ impl LemonSqueezyProvider {
     /// Create a new provider from explicit values.
     pub fn new(api_key: String, webhook_secret: String, store_id: String) -> Self {
         Self {
-            api_key,
-            webhook_secret,
+            api_key: api_key.into(),
+            webhook_secret: webhook_secret.into(),
             store_id,
             // Production by default; override with the sandbox host via
             // LEMONSQUEEZY_API_BASE_URL for development. See plan Phase 6f.
@@ -55,6 +59,20 @@ impl LemonSqueezyProvider {
         let store_id = std::env::var("LEMONSQUEEZY_STORE_ID")
             .map_err(|_| BillingError::Config("LEMONSQUEEZY_STORE_ID not set".to_string()))?;
         Ok(Self::new(api_key, webhook_secret, store_id))
+    }
+}
+
+// CRYP-ENC-012: manual redacting `Debug`. Credential fields are always
+// `<redacted>`; only the non-secret wiring is shown. No tracing/error path
+// logs the whole struct.
+impl std::fmt::Debug for LemonSqueezyProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LemonSqueezyProvider")
+            .field("api_key", &"<redacted>")
+            .field("webhook_secret", &"<redacted>")
+            .field("store_id", &self.store_id)
+            .field("base_url", &self.base_url)
+            .finish_non_exhaustive()
     }
 }
 
@@ -96,7 +114,10 @@ impl BillingProvider for LemonSqueezyProvider {
 
         let resp = client
             .post(format!("{}/v1/checkouts", self.base_url))
-            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.api_key.expose_secret()),
+            )
             .header("Accept", "application/vnd.api+json")
             .header("Content-Type", "application/vnd.api+json")
             .json(&body)
@@ -141,7 +162,10 @@ impl BillingProvider for LemonSqueezyProvider {
 
         let resp = client
             .patch(&url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.api_key.expose_secret()),
+            )
             .header("Accept", "application/vnd.api+json")
             .header("Content-Type", "application/vnd.api+json")
             .json(&body)
@@ -169,7 +193,10 @@ impl BillingProvider for LemonSqueezyProvider {
 
         let resp = client
             .get(&url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.api_key.expose_secret()),
+            )
             .header("Accept", "application/vnd.api+json")
             .send()
             .await
@@ -198,12 +225,12 @@ impl BillingProvider for LemonSqueezyProvider {
     async fn verify_webhook(&self, event: WebhookEvent) -> Result<ParsedWebhook, BillingError> {
         // LemonSqueezy signs the raw body with HMAC-SHA256(webhook_secret, body)
         // and sends the hex digest in X-Signature. No timestamp, no freshness.
-        let sig = super::webhook_util::header_str(&event.headers, "X-Signature")
-            .ok_or_else(|| {
+        let sig =
+            super::webhook_util::header_str(&event.headers, "X-Signature").ok_or_else(|| {
                 BillingError::WebhookVerification("Missing X-Signature header".into())
             })?;
         if !super::webhook_util::verify_hmac_sha256_hex(
-            self.webhook_secret.as_bytes(),
+            self.webhook_secret.expose_secret().as_bytes(),
             &event.payload,
             &sig,
         ) {
@@ -215,7 +242,7 @@ impl BillingProvider for LemonSqueezyProvider {
         let payload_str = std::str::from_utf8(&event.payload)
             .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
 
-        let data: serde_json::Value = serde_json::from_str(&payload_str)
+        let data: serde_json::Value = serde_json::from_str(payload_str)
             .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
 
         let obj = &data["data"]["attributes"];
@@ -309,8 +336,8 @@ mod tests {
     fn test_lemon_squeezy_new() {
         let provider =
             LemonSqueezyProvider::new("key_abc".into(), "secret_def".into(), "store_123".into());
-        assert_eq!(provider.api_key, "key_abc");
-        assert_eq!(provider.webhook_secret, "secret_def");
+        assert_eq!(provider.api_key.expose_secret(), "key_abc");
+        assert_eq!(provider.webhook_secret.expose_secret(), "secret_def");
         assert_eq!(provider.store_id, "store_123");
     }
 
@@ -347,8 +374,7 @@ mod tests {
     /// reaches the correct arm (not the old silent `_ =>` drop).
     #[tokio::test]
     async fn verify_webhook_normalizes_native_events_to_canonical() {
-        let provider =
-            LemonSqueezyProvider::new("k".into(), "whsec".into(), "store_1".into());
+        let provider = LemonSqueezyProvider::new("k".into(), "whsec".into(), "store_1".into());
 
         let mk = |event: &str| -> Vec<u8> {
             const TPL: &str = r#"{"meta":{"event_name":"__EV__"},"data":{"id":"ord_1","attributes":{"status":"active","customer_id":"ctm_1","custom_data":{"user_id":"42"},"total":1000,"currency":"USD","order_id":"ord_1","renews_at":"2026-12-31T00:00:00Z"}}}"#;

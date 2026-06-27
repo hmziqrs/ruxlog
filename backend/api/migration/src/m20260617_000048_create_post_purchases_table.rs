@@ -37,7 +37,11 @@ impl MigrationTrait for Migration {
                             .string_len(40)
                             .not_null(),
                     )
-                    .col(ColumnDef::new(PostPurchases::AmountCents).integer().not_null())
+                    .col(
+                        ColumnDef::new(PostPurchases::AmountCents)
+                            .integer()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(PostPurchases::Currency)
                             .string_len(3)

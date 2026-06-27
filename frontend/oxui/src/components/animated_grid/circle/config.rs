@@ -1,5 +1,5 @@
-use dioxus::prelude::*;
 use crate::utils::sleep;
+use dioxus::prelude::*;
 use std::{
     sync::atomic::{AtomicU64, Ordering},
     time::Duration,
@@ -7,7 +7,6 @@ use std::{
 
 use super::super::provider::{GridContext, GridData};
 use super::state::{Direction, GridCircle, SpawnEdge};
-
 
 pub const DEFAULT_CIRCLE_COUNT: usize = 16;
 const SIDE_STEP_PERCENT: u8 = 20;
@@ -21,8 +20,6 @@ pub static NEXT_CIRCLE_ID: AtomicU64 = AtomicU64::new(0);
 static RNG_STATE: AtomicU64 = AtomicU64::new(0x9e3779b97f4a7c15);
 
 pub type CircleSignal = Signal<GridCircle>;
-
-
 
 pub fn circle_step(mut circle_sig: CircleSignal, grid_ctx: GridContext) {
     let grid = grid_ctx.grid_data.read().clone();
@@ -211,7 +208,12 @@ pub fn spawn_circle_state_with_edge(id: u64, grid: &GridData, edge_index: u8) ->
     spawn_circle_state_with_edge_and_position(id, grid, edge_index, random_u64() as u8)
 }
 
-pub fn spawn_circle_state_with_edge_and_position(id: u64, grid: &GridData, edge_index: u8, position_index: u8) -> GridCircle {
+pub fn spawn_circle_state_with_edge_and_position(
+    id: u64,
+    grid: &GridData,
+    edge_index: u8,
+    position_index: u8,
+) -> GridCircle {
     let edge = match edge_index % 4 {
         0 => SpawnEdge::Left,
         1 => SpawnEdge::Right,
@@ -334,9 +336,11 @@ pub fn random_u64() -> u64 {
                         .unwrap()
                         .as_millis() as u64
                 };
-                now.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407)
+                now.wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407)
             } else {
-                prev.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407)
+                prev.wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407)
             };
             Some(state)
         })

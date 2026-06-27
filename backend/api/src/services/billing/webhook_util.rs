@@ -151,7 +151,9 @@ pub fn verify_standard_webhooks(
     // (constant time). Only v1 is supported; entries lacking a recognised
     // version prefix are ignored (fail-closed on malformed headers).
     for entry in webhook_sig.split_whitespace() {
-        let candidate = entry.strip_prefix("v1,").or_else(|| entry.strip_prefix("v1="));
+        let candidate = entry
+            .strip_prefix("v1,")
+            .or_else(|| entry.strip_prefix("v1="));
         if let Some(sig) = candidate {
             if ct_eq(sig.as_bytes(), expected.as_bytes()) {
                 return true;
@@ -314,13 +316,28 @@ mod tests {
         h.insert("webhook-signature", format!("v1,{sig}").parse().unwrap());
 
         assert!(verify_standard_webhooks(&h, &secret, body, now));
-        assert!(verify_standard_webhooks(&h, &secret, body, now + MAX_SKEW_SECS));
+        assert!(verify_standard_webhooks(
+            &h,
+            &secret,
+            body,
+            now + MAX_SKEW_SECS
+        ));
 
         // Outside the replay window → reject.
-        assert!(!verify_standard_webhooks(&h, &secret, body, now + MAX_SKEW_SECS + 1));
+        assert!(!verify_standard_webhooks(
+            &h,
+            &secret,
+            body,
+            now + MAX_SKEW_SECS + 1
+        ));
 
         // Tampered body → reject.
-        assert!(!verify_standard_webhooks(&h, &secret, b"{\"type\":\"y\"}", now));
+        assert!(!verify_standard_webhooks(
+            &h,
+            &secret,
+            b"{\"type\":\"y\"}",
+            now
+        ));
 
         // Missing signature header → reject (fail-closed).
         let mut h2 = h.clone();
@@ -348,7 +365,7 @@ mod tests {
 
     #[test]
     fn ed25519_accepts_valid_signature() {
-        use ed25519_dalek::{SigningKey, Signer};
+        use ed25519_dalek::{Signer, SigningKey};
 
         let seed = [7u8; 32]; // deterministic test key
         let sk = SigningKey::from_bytes(&seed);
@@ -360,7 +377,7 @@ mod tests {
 
     #[test]
     fn ed25519_rejects_tampered_message_and_wrong_key() {
-        use ed25519_dalek::{SigningKey, Signer};
+        use ed25519_dalek::{Signer, SigningKey};
 
         let sk = SigningKey::from_bytes(&[7u8; 32]);
         let vk = sk.verifying_key();

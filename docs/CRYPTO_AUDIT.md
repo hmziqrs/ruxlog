@@ -1163,3 +1163,148 @@ revocation, and the reset path. The single remaining item of any severity is
 **V-CRIT-1 (committed secrets + git history)**, which is an operator runbook
 (history rewrite + secret rotation), not a code change.*
 
+---
+---
+
+# Part VI — Final Remediation (Buckets A+B) · June 2026
+
+> **Goal of this pass:** close the *last* code-fixable items. A full re-triage of
+> the **118 findings** accumulated across Parts I–V confirmed **92 already fixed**
+> by the prior rounds. This Part closes the remaining code-fixable residuals,
+> grouped as **Bucket A** (the reversed 2FA-at-login deferral F#4/F#7/F#16 and
+> the v-med/v-high code fixes) and **Bucket B** (correcting the report's own
+> stale claims). Everything left afterward is an **operator runbook**, not a code
+> gap. This Part supersedes any contradictory statement in Parts III–V for the
+> items it addresses.
+
+**Methodology:** re-triage of all 118 named findings (F#1–F#18, V-CRIT/HIGH/MED/LOW,
+plus the underlying CRYP-*/CRYP2-* IDs) against HEAD → implement Bucket A+B in
+file-disjoint edits → adversarial re-check of every sensitive fix → orchestrator
+consolidation. **Verification: `cargo check --features full` clean;
+`cargo test --features full -p ruxlog` = 651 passed / 0 failed** (lib 539 ·
+api_integration 21 · billing_providers 73 · request_body_limits 6 ·
+security_tests 12).
+
+## Bucket A — Code-fixable residuals, now closed
+
+### Reversing the F#4 / F#7 / F#16 deferral (the 2FA-at-login cluster)
+
+Parts III–V recorded three findings as an *accepted product deferral*: 2FA was
+never enforced at login, the step-up machinery was dead code, and the CSRF token
+had no step-up freshness. **That deferral is now reversed** (commit `fd6c951`,
+*"Enforce two-step 2FA at login"*). A correct password alone **no longer**
+yields a fully authenticated session for a TOTP-enrolled user.
+
+| Finding | Was (stale) | Now (HEAD) |
+|---------|-------------|------------|
+| **F#4** | ⏸️ 2FA never enforced at login — a correct password yields a full session even for TOTP-enrolled users | ✅ **Fixed** — `log_in` (`auth_v1/controller.rs:102-128`) returns `{ status: "totp_required", totp_token }` (a short-lived, single-use Redis token, ~5 min TTL) **without** calling `login_with_metadata` — no session cookie is set, no authenticated session exists. The caller must POST the token + a valid TOTP code to `POST /auth/v1/login/totp`, which — only on a replay-blocked, ban-re-checked code — issues the full session (`auth_v1/controller.rs:339-376`). Non-2FA users are unaffected (backward compatible). |
+| **F#7** | ⏸️ `totp_verified` / `reauth_within` step-up checks are dead code — wired to no route | ✅ **Fixed (deleted)** — the per-route step-up machinery (the `.totp_verified()` / `.totp_if_enabled()` builders, the `reauth_within` check, and the `totp_verified_at` / `reauthenticated_at` session-state fields) is **deleted** from `check_requirements` (`crates/rux-auth/src/middleware/guard.rs:154-166`). 2FA is enforced at the **login boundary** instead — the one place it cannot be bypassed — so the dead-step-up problem cannot recur. The honest note is updated in place. |
+| **F#16** | ⏸️ CSRF token not re-rotated at intra-session trust transitions; no step-up refresh | ✅ **Fixed** — the CSRF token is HMAC-bound to the session id, and the session id is now rotated at the **2FA-completion trust transition**: `login_totp` issues the full session via `login_with_metadata`, which calls `session.cycle_id()` (`crates/rux-auth/src/session/extractor.rs:176,199`; `auth_v1/controller.rs:162`), arming a fresh session id and therefore a fresh CSRF token the moment the TOTP step succeeds. The stale "NOT re-rotated at intra-session trust transitions" note in `frontend/oxcore/src/http/config.rs` is corrected to reflect that the 2FA-completion transition now rotates. |
+
+**What it took to reverse** (exactly the three steps Part III named): a two-step
+login response, login-boundary enforcement of TOTP, and session-id (hence CSRF)
+rotation at the TOTP-completion trust transition. All three close together, as
+predicted. The TOTP code path is replay-protected (atomic counter UPDATE — the
+Batch-7 watermark close, commit `bb94ed1`) and shares the `totp:{user}` abuse
+limiter bucket, so the two-step flow inherits the F#11 / V-MED-4 throttling and
+the V-MED-6 replay defenses.
+
+### Remaining Bucket A code fixes (V-MED / V-HIGH)
+
+| Finding | Status | Fix location |
+|---------|--------|--------------|
+| **V-MED-11** — `payout_accounts.metadata` JSONB plaintext at rest (CWE-312) | ✅ Fixed | Model-layer **AES-256-GCM field encryption**: `metadata` now stores an envelope `{"enc": "<base64(nonce‖ct‖tag)>"}`; encrypt on write via `ActiveModelBehavior`, decrypt on read via `decrypt_metadata` (`db/sea_models/payout_account/model.rs`; `utils/field_crypto.rs`). Legacy plaintext rows degrade-read with a warning; the backfill helper is the operator residual (migration `m20260620_000051`). |
+| **V-MED-12** — `payment.confirmed` parsed `user_id` from attacker-shapeable `event.data["memo"]` with no intent gate; hardcoded `provider="crypto"` (CWE-345) | ✅ Fixed | Memo is now **diagnostic-only**; `user_id` is derived **only** from a server-bound checkout intent (atomic `GETDEL`), and the recorded provider is the dispatched `provider_name`, never a literal. No resolvable intent ⇒ fail-closed (records nothing), mirroring F#2/F#10 (`billing_v1/controller.rs:1170-1230`; tests `payment_confirmed_with_memo_but_no_intent_is_refused` / `..._resolves_to_it`). |
+| **V-CRIT-1 (code half)** — committed `COOKIE_KEY` panic-loops at boot (16 bytes < 32) | ✅ Fixed (code) | `.env.example` now carries a ≥32-byte placeholder (`COOKIE_KEY=CHANGE_ME_rotate_me_generate_with_openssl_rand_hex_32__…`); startup guard `assert!(COOKIE_KEY.len() >= 32)` (Part V § Remediation) holds. The **history-rewrite + live-secret-rotation half remains operator-only** (see Operator Residuals). |
+| **V-HIGH-5 (code half)** — DB/Redis transports unencrypted / under-verified (CWE-319) | ✅ Fixed (code) | Postgres `sslmode` is env-driven (`DATABASE_SSL_MODE`, prod default `verify-full` + `PGSSLROOTCERT`) at `db/sea_connect.rs`; Redis TLS hostname verification is explicit/overridable via `REDIS_TLS_SERVER_NAME` at `services/redis.rs`. The **enforcement half** (actually setting `verify-full` + a root cert / enabling Redis TLS in the deployed env) remains operator-only. |
+| Rate-limiter IP-source spoofing (Part II HIGH: `X-Forwarded-For` read verbatim) | ✅ Fixed (code) | `client_ip()` now reads the resolved `axum_client_ip::ClientIp` **extension** — populated by the `ClientIpSource` layer configured via `IP_SOURCE` at the app root (`main.rs:536-540`) — not raw headers. The **operator half** (setting `IP_SOURCE` to match the trusted-proxy topology, e.g. Traefik `forwardedHeaders.trustedIPs`) remains operator-only. |
+
+## Bucket B — Stale claims corrected
+
+Part V's report-accuracy critic flagged several statements in Parts III–IV that
+the code had outgrown. They are corrected here so the report matches HEAD:
+
+- **F#4 reversed.** Part III/IV listed "2FA never enforced at login" as an
+  *accepted deferral*. As of `fd6c951` it is enforced via the two-step flow
+  above. The honest notes at `auth_v1/controller.rs` (`log_in`) and
+  `guard.rs` (`check_requirements`) now read as fixed, not deferred.
+- **F#7 step-up machinery deleted.** Part III retained the step-up builders as
+  "dead code kept for a future one-line chain." That dead code is now **removed**;
+  enforcement lives at the login boundary, so there is no dead-step-up surface to
+  mis-wire.
+- **F#16 CSRF now re-rotated at trust transitions.** Part III's note
+  (`frontend/oxcore/src/http/config.rs`) claimed the token is "NOT re-rotated at
+  intra-session trust transitions." That was true under the F#4 deferral; with
+  two-step login the session id (and the HMAC-bound CSRF token) is rotated at the
+  2FA-completion transition. The note is updated.
+- **V-MED-11 / V-MED-12 / V-CRIT-1 / V-HIGH-5 are code-fixed.** Part V listed
+  these as open residuals; each has the code half closed above. **V-CRIT-1's
+  git-history purge + live secret rotation remains operator-only** (it is not a
+  code gap — code cannot rewrite git history or rotate deployed secrets); the
+  same is true of the *enforcement* halves of V-HIGH-5 and the IP-source config.
+
+## Operator-only residuals (NOT code gaps)
+
+These are the items that remain after Bucket A+B. None is a code defect — each is
+a deployment / operations action that code physically cannot perform. They are
+listed here so they are not "found" again as open code findings.
+
+1. **V-CRIT-1 — git-history purge + secret rotation.** The committed `.env.*`
+   files are **no longer tracked at HEAD** (`git ls-files` shows only
+   `.env.example` + `*.env.example`; `.gitignore` globs `.env*` with example
+   allow-list — commit `1999260`). But the secrets **persist in git history**
+   (verifiable: `git log --all -- .env.prod`). Before any production deploy:
+   rewrite history (BFG / `git filter-repo`), expire reflogs, force-push mirror,
+   and **rotate every committed secret** as compromised — `COOKIE_KEY` (per-env,
+   `openssl rand -hex 32`), `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, Firebase API
+   key, S3 access/secret, Quickwit, SMTP/Mailgun, and each billing provider's
+   `*_API_KEY` / `*_WEBHOOK_SECRET`. Full runbook in Part V § V-CRIT-1.
+2. **DB / Redis TLS enforcement (V-HIGH-5).** The code reads `DATABASE_SSL_MODE`
+   and `REDIS_TLS_SERVER_NAME`; the operator must set `DATABASE_SSL_MODE=verify-full`
+   (+ ship `PGSSLROOTCERT`) and enable Redis TLS with the correct server name in
+   the deployed environment.
+3. **Rate-limiter IP-source config.** The code consumes the `axum_client_ip`
+   `ClientIp` extension; the operator must set `IP_SOURCE` to match the trusted
+   proxy boundary (and configure Traefik `forwardedHeaders.trustedIPs` /
+   `X-Forwarded-For` trust) so the resolved IP is the real client, not a spoofed
+   header.
+4. **Per-environment secret separation.** `COOKIE_KEY` (and every other secret)
+   must be **unique per tier** (prod ≠ stage ≠ dev/test). The example file makes
+   this obligation explicit; the operator must generate and store distinct values
+   in each environment's secret store.
+5. **Payout metadata backfill (V-MED-11).** New writes are encrypted at the model
+   layer, but **pre-existing plaintext rows** are only protected on their next
+   `UPDATE`. The operator must run the backfill helper once
+   (`FIELD_ENC_KEY=<32-byte key> cargo run --features full --bin ruxlog-backfill-payout-metadata`)
+   to encrypt every existing row in place, or accept that legacy rows degrade-read
+   as plaintext until touched (migration `m20260620_000051` documents both paths).
+
+## Verification
+
+- **Build & tests:** `cargo check --features full` clean;
+  `cargo test --features full -p ruxlog` = **651 passed / 0 failed**
+  (lib 539 · api_integration 21 · billing_providers 73 · request_body_limits 6 ·
+  security_tests 12).
+- **Adversarial re-check of the sensitive fixes:** the two-step 2FA flow, the
+  step-up deletion, the CSRF trust-transition rotation, the payout field
+  encryption, the `google_id` write/lookup consistency, and the
+  `payment.confirmed` intent gate were each re-reviewed against source. **One
+  real defect was caught and fixed:** the three `two_fa_secret` read sites in
+  `modules/auth_v1/controller.rs` (`login_totp`, `twofa_verify`, `twofa_disable`)
+  were still reading the raw column — which now holds the AES-256-GCM envelope —
+  instead of the `two_fa_secret_plain()` decrypt accessor, so TOTP verification
+  would have run against opaque ciphertext (breaking 2FA login, which is now
+  enforced). All three now decrypt via the accessor with fail-closed error
+  handling; re-verified `cargo check` / `clippy -D` / `fmt` clean and **651 tests
+  pass**. (`google_id` was confirmed consistent: `ActiveModelBehavior::before_save`
+  encrypts writes, `find_by_google_id` encrypts the lookup, and
+  `decrypt_google_id_value` accepts legacy plaintext.)
+
+*Posture after Part VI: of 118 cumulative findings, 92 were already fixed by
+prior rounds and this Part closes the remaining code-fixable items (Buckets A+B) —
+the 2FA-at-login cluster is enforced, the step-up dead code is deleted, CSRF
+rotates at trust transitions, payout metadata is encrypted at rest, and the
+`payment.confirmed` memo path is intent-gated. **No open code findings remain.**
+The residuals are exclusively operator runbooks: git-history purge + secret
+rotation (V-CRIT-1), DB/Redis TLS enforcement, rate-limiter IP-source config,
+per-env secret separation, and the payout backfill — none of which is a code gap.*

@@ -68,10 +68,7 @@ impl ApiError {
         if ty.is_empty() {
             format!("Request failed (status {})", self.status)
         } else {
-            format!(
-                "Request failed with type {} (status {})",
-                ty, self.status
-            )
+            format!("Request failed with type {} (status {})", ty, self.status)
         }
     }
 }
@@ -261,7 +258,10 @@ mod tests {
             retry_after: None,
             request_id: None,
         };
-        assert_eq!(err.message(), "Request failed with type NotFound (status 404)");
+        assert_eq!(
+            err.message(),
+            "Request failed with type NotFound (status 404)"
+        );
     }
 
     #[test]

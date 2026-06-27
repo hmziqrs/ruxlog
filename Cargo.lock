@@ -9727,12 +9727,14 @@ dependencies = [
  "opentelemetry_sdk",
  "password-auth",
  "rand 0.9.4",
+ "rand_chacha 0.9.0",
  "ratatui",
  "regex",
  "reqwest 0.12.28",
  "rux-auth",
  "ruxlog-types",
  "sea-orm",
+ "secrecy",
  "serde",
  "serde_json",
  "sha1 0.10.6",
@@ -10064,6 +10066,15 @@ dependencies = [
  "generic-array",
  "pkcs8",
  "subtle",
+ "zeroize",
+]
+
+[[package]]
+name = "secrecy"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e891af845473308773346dc847b2c23ee78fe442e0472ac50e22a18a93d3ae5a"
+dependencies = [
  "zeroize",
 ]
 

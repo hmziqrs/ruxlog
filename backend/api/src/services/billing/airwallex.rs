@@ -3,6 +3,7 @@
 //! Supports multi-currency, cross-border payments, and subscriptions.
 
 use async_trait::async_trait;
+use secrecy::{ExposeSecret, SecretString};
 
 use super::provider::{
     BillingError, BillingProvider, CheckoutSession, ParsedWebhook, SubscriptionInfo, WebhookEvent,
@@ -14,10 +15,15 @@ use super::provider::{
 use crate::state::build_http_client;
 
 /// Airwallex billing provider.
+///
+/// CRYP-ENC-012: `api_key` and `webhook_secret` are held in
+/// `secrecy::SecretString` (redacting `Debug`, opt-in `expose_secret()`).
+/// `client_id` is Airwallex's public client identifier and stays a plain
+/// `String`.
 pub struct AirwallexProvider {
     pub client_id: String,
-    pub api_key: String,
-    pub webhook_secret: String,
+    pub api_key: SecretString,
+    pub webhook_secret: SecretString,
     pub base_url: String,
     /// Hosted-checkout / customer-portal base URL. Production by default
     /// (`https://checkout.airwallex.com`); override with the sandbox host
@@ -32,8 +38,8 @@ impl AirwallexProvider {
     pub fn new(client_id: String, api_key: String, webhook_secret: String) -> Self {
         Self {
             client_id,
-            api_key,
-            webhook_secret,
+            api_key: api_key.into(),
+            webhook_secret: webhook_secret.into(),
             // Production by default; override with the sandbox URL via
             // AIRWALLEX_API_BASE_URL for development. See plan Phase 6f.
             base_url: std::env::var("AIRWALLEX_API_BASE_URL")
@@ -65,7 +71,7 @@ impl AirwallexProvider {
         let resp = client
             .post(format!("{}/authentication/login", self.base_url))
             .header("x-client-id", &self.client_id)
-            .header("x-api-key", &self.api_key)
+            .header("x-api-key", self.api_key.expose_secret())
             .send()
             .await
             .map_err(|e| BillingError::ProviderApi(e.to_string()))?;
@@ -84,6 +90,21 @@ impl AirwallexProvider {
             .as_str()
             .map(String::from)
             .ok_or_else(|| BillingError::ProviderApi("No token in auth response".to_string()))
+    }
+}
+
+// CRYP-ENC-012: manual redacting `Debug`. Credential fields are always
+// `<redacted>`; only the non-secret wiring is shown. No tracing/error path
+// logs the whole struct.
+impl std::fmt::Debug for AirwallexProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AirwallexProvider")
+            .field("client_id", &self.client_id)
+            .field("api_key", &"<redacted>")
+            .field("webhook_secret", &"<redacted>")
+            .field("base_url", &self.base_url)
+            .field("checkout_base_url", &self.checkout_base_url)
+            .finish_non_exhaustive()
     }
 }
 
@@ -235,17 +256,25 @@ impl BillingProvider for AirwallexProvider {
         // header and expected a `<ts>.<hmac>` shape Airwallex never sends — so
         // every webhook died at this gate (audit F#11 round-2). Only the header
         // *names* were wrong; the digest construction below was already correct.
-        let ts = super::webhook_util::header_str(&event.headers, "x-timestamp")
-            .ok_or_else(|| BillingError::WebhookVerification("Missing x-timestamp header".into()))?;
-        let mac_hex = super::webhook_util::header_str(&event.headers, "x-signature")
-            .ok_or_else(|| BillingError::WebhookVerification("Missing x-signature header".into()))?;
+        let ts =
+            super::webhook_util::header_str(&event.headers, "x-timestamp").ok_or_else(|| {
+                BillingError::WebhookVerification("Missing x-timestamp header".into())
+            })?;
+        let mac_hex =
+            super::webhook_util::header_str(&event.headers, "x-signature").ok_or_else(|| {
+                BillingError::WebhookVerification("Missing x-signature header".into())
+            })?;
 
         // Replay protection. Airwallex sends epoch milliseconds; normalize to
         // seconds via the same magnitude heuristic as `period_end_to_unix`.
         let ts_raw: i64 = ts.trim().parse().map_err(|_| {
             BillingError::WebhookVerification("Airwallex timestamp not an integer".into())
         })?;
-        let ts_secs = if ts_raw > 1_000_000_000_000 { ts_raw / 1000 } else { ts_raw };
+        let ts_secs = if ts_raw > 1_000_000_000_000 {
+            ts_raw / 1000
+        } else {
+            ts_raw
+        };
         if !super::webhook_util::timestamp_fresh(ts_secs, chrono::Utc::now().timestamp()) {
             return Err(BillingError::WebhookVerification(format!(
                 "Airwallex timestamp outside tolerance (ts={ts_secs})"
@@ -259,7 +288,7 @@ impl BillingProvider for AirwallexProvider {
         manifest.extend_from_slice(ts.as_bytes());
         manifest.extend_from_slice(&event.payload);
         if !super::webhook_util::verify_hmac_sha256_hex(
-            self.webhook_secret.as_bytes(),
+            self.webhook_secret.expose_secret().as_bytes(),
             &manifest,
             &mac_hex,
         ) {
@@ -268,7 +297,7 @@ impl BillingProvider for AirwallexProvider {
             ));
         }
 
-        let data: serde_json::Value = serde_json::from_str(&payload_str)
+        let data: serde_json::Value = serde_json::from_str(payload_str)
             .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
 
         // Normalize Airwallex's native event taxonomy to the canonical vocabulary
@@ -398,8 +427,8 @@ mod tests {
             "whsec_test".into(),
         );
         assert_eq!(provider.client_id, "awx_test_client");
-        assert_eq!(provider.api_key, "awx_test_key");
-        assert_eq!(provider.webhook_secret, "whsec_test");
+        assert_eq!(provider.api_key.expose_secret(), "awx_test_key");
+        assert_eq!(provider.webhook_secret.expose_secret(), "whsec_test");
     }
 
     #[test]

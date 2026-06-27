@@ -362,10 +362,7 @@ impl AuthState {
                             let _ = http::refresh_csrf_token().await;
                         }
                         Err(e) => {
-                            eprintln!(
-                                "Failed to parse user data: {}\nResponse: {}",
-                                e, raw
-                            );
+                            eprintln!("Failed to parse user data: {}\nResponse: {}", e, raw);
                             self.login_status.write().set_decode_error(
                                 "user",
                                 format!("{}", e),

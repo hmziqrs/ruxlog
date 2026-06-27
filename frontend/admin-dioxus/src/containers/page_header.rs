@@ -138,11 +138,17 @@ pub fn PageHeader(props: PageHeaderProps) -> Element {
         ],
         #[cfg(feature = "billing")]
         Route::BillingSubscriptionsListScreen {} => {
-            vec![("billing".to_string(), None), ("subscriptions".to_string(), None)]
+            vec![
+                ("billing".to_string(), None),
+                ("subscriptions".to_string(), None),
+            ]
         }
         #[cfg(feature = "billing")]
         Route::BillingPaymentsListScreen {} => {
-            vec![("billing".to_string(), None), ("payments".to_string(), None)]
+            vec![
+                ("billing".to_string(), None),
+                ("payments".to_string(), None),
+            ]
         }
         #[cfg(feature = "billing")]
         Route::BillingPlanEditScreen { id } => vec![
@@ -153,7 +159,10 @@ pub fn PageHeader(props: PageHeaderProps) -> Element {
         ],
         #[cfg(feature = "billing")]
         Route::BillingInvoicesListScreen {} => {
-            vec![("billing".to_string(), None), ("invoices".to_string(), None)]
+            vec![
+                ("billing".to_string(), None),
+                ("invoices".to_string(), None),
+            ]
         }
         #[cfg(feature = "billing")]
         Route::PaymentMethodsScreen {} => {
@@ -165,7 +174,10 @@ pub fn PageHeader(props: PageHeaderProps) -> Element {
         }
         #[cfg(feature = "billing")]
         Route::BillingSettingsScreen {} => {
-            vec![("billing".to_string(), None), ("settings".to_string(), None)]
+            vec![
+                ("billing".to_string(), None),
+                ("settings".to_string(), None),
+            ]
         }
 
         Route::SystemHealthScreen {} => {
@@ -173,7 +185,10 @@ pub fn PageHeader(props: PageHeaderProps) -> Element {
         }
 
         Route::NotificationSettingsScreen {} => {
-            vec![("settings".to_string(), None), ("notifications".to_string(), None)]
+            vec![
+                ("settings".to_string(), None),
+                ("notifications".to_string(), None),
+            ]
         }
 
         Route::ImportExportScreen {} => {

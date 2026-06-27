@@ -16,9 +16,7 @@ pub mod controller {
     use crate::{
         db::sea_models::post::{self, Column as PostColumn, Entity as PostEntity, PostStatus},
         error::ErrorResponse,
-        services::paywall::{
-            load_post_access_map, PostAccessPolicy, PostAccessType,
-        },
+        services::paywall::{load_post_access_map, PostAccessPolicy, PostAccessType},
         AppState,
     };
 
@@ -45,8 +43,9 @@ pub mod controller {
                     (price as f64) / 100.0,
                     policy.currency.as_deref().unwrap_or("USD")
                 ),
-                None => "This post is available for purchase — visit the site to read it."
-                    .to_string(),
+                None => {
+                    "This post is available for purchase — visit the site to read it.".to_string()
+                }
             },
             // Unreachable for open posts (the caller only invokes this when the
             // policy is gated), but kept exhaustive.

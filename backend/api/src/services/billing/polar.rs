@@ -1,6 +1,7 @@
 //! Polar.sh billing provider integration.
 
 use async_trait::async_trait;
+use secrecy::{ExposeSecret, SecretString};
 
 use super::provider::{
     BillingError, BillingProvider, CheckoutSession, ParsedWebhook, SubscriptionInfo, WebhookEvent,
@@ -12,9 +13,12 @@ use super::provider::{
 use crate::state::build_http_client;
 
 /// Polar.sh billing provider.
+///
+/// CRYP-ENC-012: `access_token` and `webhook_secret` are held in
+/// `secrecy::SecretString` (redacting `Debug`, opt-in `expose_secret()`).
 pub struct PolarProvider {
-    pub access_token: String,
-    pub webhook_secret: String,
+    pub access_token: SecretString,
+    pub webhook_secret: SecretString,
     pub base_url: String,
     pub http_client: reqwest::Client,
 }
@@ -22,8 +26,8 @@ pub struct PolarProvider {
 impl PolarProvider {
     pub fn new(access_token: String, webhook_secret: String) -> Self {
         Self {
-            access_token,
-            webhook_secret,
+            access_token: access_token.into(),
+            webhook_secret: webhook_secret.into(),
             // Production by default; override with the sandbox host via
             // POLAR_API_BASE_URL for development. See plan Phase 6f.
             base_url: std::env::var("POLAR_API_BASE_URL")
@@ -54,7 +58,10 @@ impl PolarProvider {
         let url = format!("{}/v1/subscriptions/{}", self.base_url, subscription_id);
         let resp = client
             .get(&url)
-            .header("Authorization", format!("Bearer {}", self.access_token))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.access_token.expose_secret()),
+            )
             .send()
             .await
             .ok()?;
@@ -63,6 +70,19 @@ impl PolarProvider {
         }
         let data: serde_json::Value = resp.json().await.ok()?;
         super::provider::period_end_to_unix(data.get("current_period_end"))
+    }
+}
+
+// CRYP-ENC-012: manual redacting `Debug`. Credential fields are always
+// `<redacted>`; only the non-secret wiring is shown for diagnostics. No
+// tracing/error path logs the whole struct.
+impl std::fmt::Debug for PolarProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PolarProvider")
+            .field("access_token", &"<redacted>")
+            .field("webhook_secret", &"<redacted>")
+            .field("base_url", &self.base_url)
+            .finish_non_exhaustive()
     }
 }
 
@@ -91,7 +111,10 @@ impl BillingProvider for PolarProvider {
 
         let resp = client
             .post(format!("{}/v1/checkouts/", self.base_url))
-            .header("Authorization", format!("Bearer {}", self.access_token))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.access_token.expose_secret()),
+            )
             .json(&body)
             .send()
             .await
@@ -126,7 +149,10 @@ impl BillingProvider for PolarProvider {
 
         let resp = client
             .post(&url)
-            .header("Authorization", format!("Bearer {}", self.access_token))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.access_token.expose_secret()),
+            )
             .send()
             .await
             .map_err(|e| BillingError::ProviderApi(e.to_string()))?;
@@ -151,7 +177,10 @@ impl BillingProvider for PolarProvider {
 
         let resp = client
             .get(&url)
-            .header("Authorization", format!("Bearer {}", self.access_token))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.access_token.expose_secret()),
+            )
             .send()
             .await
             .map_err(|e| BillingError::ProviderApi(e.to_string()))?;
@@ -195,7 +224,7 @@ impl BillingProvider for PolarProvider {
         let now_secs = chrono::Utc::now().timestamp();
         if !super::webhook_util::verify_standard_webhooks(
             &event.headers,
-            &self.webhook_secret,
+            self.webhook_secret.expose_secret(),
             &event.payload,
             now_secs,
         ) {
@@ -237,13 +266,14 @@ impl BillingProvider for PolarProvider {
         // checkout (no period end), so fetch the linked subscription's
         // authoritative end. Without a real value the paywall fails closed
         // (audit F#11 round-2); fetch failures degrade to None.
-        let current_period_end = match super::provider::period_end_to_unix(obj.get("current_period_end")) {
-            Some(ts) => Some(ts),
-            None => match obj.get("subscription_id").and_then(|v| v.as_str()) {
-                Some(sub_id) => self.fetch_subscription_period_end(sub_id).await,
-                None => None,
-            },
-        };
+        let current_period_end =
+            match super::provider::period_end_to_unix(obj.get("current_period_end")) {
+                Some(ts) => Some(ts),
+                None => match obj.get("subscription_id").and_then(|v| v.as_str()) {
+                    Some(sub_id) => self.fetch_subscription_period_end(sub_id).await,
+                    None => None,
+                },
+            };
 
         Ok(ParsedWebhook {
             event_type,
@@ -294,8 +324,8 @@ mod tests {
     #[test]
     fn test_polar_new() {
         let provider = PolarProvider::new("access_tok_abc".into(), "whsec_xyz".into());
-        assert_eq!(provider.access_token, "access_tok_abc");
-        assert_eq!(provider.webhook_secret, "whsec_xyz");
+        assert_eq!(provider.access_token.expose_secret(), "access_tok_abc");
+        assert_eq!(provider.webhook_secret.expose_secret(), "whsec_xyz");
     }
 
     use crate::services::billing::webhook_util;
@@ -351,7 +381,10 @@ mod tests {
         // A genuine 32-byte key, base64-encoded and prefixed with whsec_ —
         // exactly how Polar ships the secret.
         let raw_key = [42u8; 32];
-        let secret = format!("whsec_{}", base64::engine::general_purpose::STANDARD.encode(raw_key));
+        let secret = format!(
+            "whsec_{}",
+            base64::engine::general_purpose::STANDARD.encode(raw_key)
+        );
         let provider = PolarProvider::new("tok".into(), secret.clone());
         let now = chrono::Utc::now().timestamp();
         let body = br#"{"type":"checkout.updated","data":{"id":"co_1","status":"succeeded","customer_id":"cus_1"}}"#;
@@ -364,7 +397,10 @@ mod tests {
 
     #[tokio::test]
     async fn verify_webhook_rejects_tampered_body() {
-        let secret = format!("whsec_{}", base64::engine::general_purpose::STANDARD.encode([7u8; 32]));
+        let secret = format!(
+            "whsec_{}",
+            base64::engine::general_purpose::STANDARD.encode([7u8; 32])
+        );
         let provider = PolarProvider::new("tok".into(), secret.clone());
         let now = chrono::Utc::now().timestamp();
         // Sign one body, then swap in a different one.
@@ -376,7 +412,10 @@ mod tests {
 
     #[tokio::test]
     async fn verify_webhook_rejects_stale_timestamp() {
-        let secret = format!("whsec_{}", base64::engine::general_purpose::STANDARD.encode([7u8; 32]));
+        let secret = format!(
+            "whsec_{}",
+            base64::engine::general_purpose::STANDARD.encode([7u8; 32])
+        );
         let provider = PolarProvider::new("tok".into(), secret.clone());
         // 6 minutes in the past — outside the 5-minute replay window.
         let stale = chrono::Utc::now().timestamp() - (webhook_util::MAX_SKEW_SECS + 60);
@@ -386,10 +425,14 @@ mod tests {
 
     #[tokio::test]
     async fn verify_webhook_rejects_wrong_signature() {
-        let secret =
-            format!("whsec_{}", base64::engine::general_purpose::STANDARD.encode([7u8; 32]));
-        let wrong_secret =
-            format!("whsec_{}", base64::engine::general_purpose::STANDARD.encode([99u8; 32]));
+        let secret = format!(
+            "whsec_{}",
+            base64::engine::general_purpose::STANDARD.encode([7u8; 32])
+        );
+        let wrong_secret = format!(
+            "whsec_{}",
+            base64::engine::general_purpose::STANDARD.encode([99u8; 32])
+        );
         let provider = PolarProvider::new("tok".into(), wrong_secret);
         let now = chrono::Utc::now().timestamp();
         // Signed with `secret`, verified with `wrong_secret` → mismatch.
@@ -399,7 +442,10 @@ mod tests {
 
     #[tokio::test]
     async fn verify_webhook_rejects_missing_signature_header() {
-        let secret = format!("whsec_{}", base64::engine::general_purpose::STANDARD.encode([7u8; 32]));
+        let secret = format!(
+            "whsec_{}",
+            base64::engine::general_purpose::STANDARD.encode([7u8; 32])
+        );
         let provider = PolarProvider::new("tok".into(), secret);
         let now = chrono::Utc::now().timestamp();
         // Build the event by hand WITHOUT the webhook-signature header.
@@ -414,8 +460,14 @@ mod tests {
     async fn verify_webhook_accepts_rotation_second_key() {
         // Key rotation: the webhook-signature header carries two v1 entries
         // (old + new secret). The verifier must accept if ANY entry matches.
-        let old = format!("whsec_{}", base64::engine::general_purpose::STANDARD.encode([1u8; 32]));
-        let new = format!("whsec_{}", base64::engine::general_purpose::STANDARD.encode([2u8; 32]));
+        let old = format!(
+            "whsec_{}",
+            base64::engine::general_purpose::STANDARD.encode([1u8; 32])
+        );
+        let new = format!(
+            "whsec_{}",
+            base64::engine::general_purpose::STANDARD.encode([2u8; 32])
+        );
         let provider = PolarProvider::new("tok".into(), new.clone());
         let now = chrono::Utc::now().timestamp();
         let body = br#"{"type":"checkout.updated","data":{"id":"co_1","status":"succeeded"}}"#;
@@ -459,8 +511,10 @@ mod tests {
     /// `open` update would consume the single-use intent and grant prematurely.
     #[tokio::test]
     async fn verify_webhook_normalizes_native_events_to_canonical() {
-        let secret =
-            format!("whsec_{}", base64::engine::general_purpose::STANDARD.encode([7u8; 32]));
+        let secret = format!(
+            "whsec_{}",
+            base64::engine::general_purpose::STANDARD.encode([7u8; 32])
+        );
         let provider = PolarProvider::new("tok".into(), secret.clone());
         let now = chrono::Utc::now().timestamp();
 

@@ -37,8 +37,15 @@ pub const ALLOWED_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp", "gif", "
 /// Returns true if `mime` (case-insensitive, parameters stripped) is on the
 /// allowlist.
 pub fn is_allowed_mime(mime: &str) -> bool {
-    let normalized = mime.split(';').next().unwrap_or("").trim().to_ascii_lowercase();
-    ALLOWED_MIME_TYPES.iter().any(|allowed| *allowed == normalized)
+    let normalized = mime
+        .split(';')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase();
+    ALLOWED_MIME_TYPES
+        .iter()
+        .any(|allowed| *allowed == normalized)
 }
 
 /// Returns the lowercased extension if it is on the allowlist, else `None`.
@@ -48,7 +55,10 @@ pub fn allowlisted_extension(ext: &str) -> Option<String> {
     if normalized.is_empty() {
         return None;
     }
-    if ALLOWED_EXTENSIONS.iter().any(|allowed| *allowed == normalized) {
+    if ALLOWED_EXTENSIONS
+        .iter()
+        .any(|allowed| *allowed == normalized)
+    {
         Some(normalized)
     } else {
         None
@@ -64,7 +74,13 @@ pub fn validate_upload(
     filename: Option<&str>,
 ) -> Result<(String, String), String> {
     let normalized_mime = mime
-        .map(|m| m.split(';').next().unwrap_or("").trim().to_ascii_lowercase())
+        .map(|m| {
+            m.split(';')
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_ascii_lowercase()
+        })
         .filter(|m| !m.is_empty());
 
     let normalized_mime = match normalized_mime {
@@ -78,9 +94,7 @@ pub fn validate_upload(
                 .filter(|e| !e.is_empty());
 
             match ext.as_deref() {
-                Some(e) if ALLOWED_EXTENSIONS.iter().any(|a| *a == e) => {
-                    mime_for_extension(e).to_string()
-                }
+                Some(e) if ALLOWED_EXTENSIONS.contains(&e) => mime_for_extension(e).to_string(),
                 _ => {
                     return Err(format!(
                         "Unsupported file type. Allowed: {}",

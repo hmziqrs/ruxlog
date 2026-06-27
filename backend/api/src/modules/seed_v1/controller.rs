@@ -17,11 +17,13 @@ use crate::{
         post_view, route_status, scheduled_post, tag, user::UserRole, user_session,
     },
     services::auth::AuthSession,
+    services::seed::seeded_rng,
+    services::seed_config::SeedMode,
     AppState,
 };
 
 use fake::Fake;
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::Rng;
 use sea_orm::{ActiveModelTrait, EntityTrait, Set};
 
 #[debug_handler(state = AppState)]
@@ -188,7 +190,7 @@ pub async fn seed_posts(State(state): State<AppState>, _auth: AuthSession) -> im
     }
 
     let mut slugs_set: HashSet<String> = HashSet::new();
-    let mut rng = StdRng::seed_from_u64(4999);
+    let mut rng = seeded_rng(Some(SeedMode::Static { value: 4999 }));
 
     for user in authors.iter() {
         let num_posts = rng.random_range(1..16);
@@ -330,7 +332,7 @@ pub async fn seed_post_comments(
                 .into_response();
         }
     };
-    let mut rng = StdRng::seed_from_u64(100);
+    let mut rng = seeded_rng(Some(SeedMode::Static { value: 100 }));
     for user in users {
         // Ensure we don't try to select more posts than available
         let posts_amount = if posts.len() <= 10 {
@@ -394,7 +396,7 @@ pub async fn seed_user_sessions(
         "Android · Chrome 125",
     ];
     let ip_addresses = ["192.168.1.100", "10.0.0.50", "172.16.0.25", "203.0.113.1"];
-    let mut rng = StdRng::seed_from_u64(999);
+    let mut rng = seeded_rng(Some(SeedMode::Static { value: 999 }));
 
     for user in users {
         let session_count = rng.random_range(1..4);
@@ -457,7 +459,7 @@ pub async fn seed_email_verifications(
         }
     };
 
-    let _rng = StdRng::seed_from_u64(1234);
+    let _rng = seeded_rng(Some(SeedMode::Static { value: 1234 }));
 
     for user in users.into_iter().take(20) {
         let plaintext = email_verification::Entity::generate_code();
@@ -510,7 +512,7 @@ pub async fn seed_forgot_passwords(
         }
     };
 
-    let _rng = StdRng::seed_from_u64(5678);
+    let _rng = seeded_rng(Some(SeedMode::Static { value: 5678 }));
 
     for user in users.into_iter().take(10) {
         let plaintext = forgot_password::Entity::generate_code();
@@ -564,7 +566,7 @@ pub async fn seed_post_revisions(
         }
     };
 
-    let mut rng = StdRng::seed_from_u64(3456);
+    let mut rng = seeded_rng(Some(SeedMode::Static { value: 3456 }));
 
     for post in posts.into_iter().take(30) {
         let revision_count = rng.random_range(1..5);
@@ -692,7 +694,7 @@ pub async fn seed_post_views(
         }
     };
 
-    let mut rng = StdRng::seed_from_u64(7890);
+    let mut rng = seeded_rng(Some(SeedMode::Static { value: 7890 }));
     let ip_addresses = ["192.168.1.100", "10.0.0.50", "172.16.0.25", "203.0.113.1"];
 
     for post in posts {
@@ -756,7 +758,7 @@ pub async fn seed_scheduled_posts(
         }
     };
 
-    let mut rng = StdRng::seed_from_u64(9999);
+    let mut rng = seeded_rng(Some(SeedMode::Static { value: 9999 }));
 
     for post in posts.into_iter().take(10) {
         let scheduled_post = scheduled_post::Model {
@@ -841,7 +843,7 @@ pub async fn seed_media(State(state): State<AppState>, _auth: AuthSession) -> im
         ),
     ];
 
-    let mut rng = StdRng::seed_from_u64(7777);
+    let mut rng = seeded_rng(Some(SeedMode::Static { value: 7777 }));
 
     for (i, (filename, mime_type, width, height, size)) in fake_files.iter().enumerate() {
         let new_media = media::Model {
@@ -926,7 +928,7 @@ pub async fn seed_media_variants(
         }
     };
 
-    let mut rng = StdRng::seed_from_u64(8888);
+    let mut rng = seeded_rng(Some(SeedMode::Static { value: 8888 }));
     let variant_types = ["thumbnail", "medium", "large", "webp"];
 
     for media_item in media_files {
@@ -1055,7 +1057,7 @@ pub async fn seed_media_usage(
         }
     };
 
-    let mut rng = StdRng::seed_from_u64(9999);
+    let mut rng = seeded_rng(Some(SeedMode::Static { value: 9999 }));
 
     for media_item in media_files {
         let usage_count = rng.random_range(1..4);
@@ -1140,7 +1142,7 @@ pub async fn seed_comment_flags(
         }
     };
 
-    let mut rng = StdRng::seed_from_u64(1111);
+    let mut rng = seeded_rng(Some(SeedMode::Static { value: 1111 }));
     let flag_reasons = ["spam", "inappropriate", "off-topic", "harassment"];
 
     for comment in comments.into_iter().take(10) {
@@ -1186,7 +1188,7 @@ pub async fn seed_newsletter_subscribers(
 ) -> impl IntoResponse {
     let mut subscribers: Vec<newsletter_subscriber::Model> = vec![];
     let mut emails_set: HashSet<String> = HashSet::new();
-    let mut rng = StdRng::seed_from_u64(2222);
+    let mut rng = seeded_rng(Some(SeedMode::Static { value: 2222 }));
 
     for _ in 0..100 {
         let email = SafeEmail().fake::<String>();

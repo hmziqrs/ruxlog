@@ -67,7 +67,7 @@ mod reset_token {
     pub async fn mint(state: &AppState, user_id: i32) -> Result<String, ErrorResponse> {
         let mut bytes = zeroize::Zeroizing::new([0u8; 32]);
         rand::rng().fill(bytes.as_mut());
-        let token = hex::encode(&*bytes);
+        let token = hex::encode(*bytes);
         bytes.zeroize();
         state
             .redis_pool
@@ -91,14 +91,15 @@ mod reset_token {
     /// `GETDEL` guarantees a replayed `reset` can never observe the same token
     /// twice (the same atomic-take guarantee used for checkout intents).
     pub async fn take(state: &AppState, token: &str) -> Result<Option<i32>, ErrorResponse> {
-        let stored: Option<String> = state
-            .redis_pool
-            .getdel(redis_key(token))
-            .await
-            .map_err(|e| {
-                error!(error = ?e, "Failed to consume reset token from Redis");
-                ErrorResponse::new(ErrorCode::InternalServerError)
-            })?;
+        let stored: Option<String> =
+            state
+                .redis_pool
+                .getdel(redis_key(token))
+                .await
+                .map_err(|e| {
+                    error!(error = ?e, "Failed to consume reset token from Redis");
+                    ErrorResponse::new(ErrorCode::InternalServerError)
+                })?;
         match stored {
             Some(s) => s.parse::<i32>().map(Some).map_err(|e| {
                 error!(error = ?e, "Stored reset token value was not a user id");
@@ -117,8 +118,7 @@ mod reset_token {
 ///
 /// Kept as a free function (rather than inlined) so a unit test can assert both
 /// code paths produce byte-identical output without a DB.
-pub(crate) fn uniform_success_response(
-) -> (StatusCode, Json<serde_json::Value>) {
+pub(crate) fn uniform_success_response() -> (StatusCode, Json<serde_json::Value>) {
     (
         StatusCode::OK,
         Json(json!({
@@ -315,10 +315,7 @@ pub async fn verify(
     let reset_token = reset_token::mint(&state, user_id).await?;
 
     info!(user_id, email = %payload.email, "Forgot password code verified and consumed; reset token issued");
-    Ok((
-        StatusCode::OK,
-        Json(V1VerifyResponse { reset_token }),
-    ))
+    Ok((StatusCode::OK, Json(V1VerifyResponse { reset_token })))
 }
 
 #[debug_handler]
@@ -427,8 +424,8 @@ mod tests {
     #[test]
     fn uniform_response_differs_from_old_record_not_found_leak() {
         let (status, body) = uniform_success_response();
-        let leak = ErrorResponse::new(ErrorCode::RecordNotFound)
-            .with_message("Email doesn't exist");
+        let leak =
+            ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Email doesn't exist");
 
         // The success status must not be the leak's status.
         assert_ne!(status, StatusCode::NOT_FOUND);
@@ -476,15 +473,24 @@ mod tests {
             a.starts_with("$argon2id$") && b.starts_with("$argon2id$"),
             "dummy hash must be Argon2id PHC strings"
         );
-        let params_a = a.split('$').nth(3).expect("PHC string has a params segment");
-        let params_b = b.split('$').nth(3).expect("PHC string has a params segment");
+        let params_a = a
+            .split('$')
+            .nth(3)
+            .expect("PHC string has a params segment");
+        let params_b = b
+            .split('$')
+            .nth(3)
+            .expect("PHC string has a params segment");
         assert_eq!(
             params_a, params_b,
             "Argon2 cost params (m/t/p) must be constant so per-request CPU cost is fixed"
         );
         // The salt+hash tail MUST differ (proves a fresh random salt per call —
         // a fixed salt would itself be a weakness).
-        assert_ne!(a, b, "two Argon2id hashes must differ due to the random salt");
+        assert_ne!(
+            a, b,
+            "two Argon2id hashes must differ due to the random salt"
+        );
     }
 
     // SC-006 end-to-end (no DB): the response returned to the caller is
@@ -508,6 +514,9 @@ mod tests {
         );
         // Exactly one key, the conditional message — no existence signal added.
         assert_eq!(v.as_object().unwrap().len(), 1);
-        assert!(v["message"].as_str().unwrap().contains("If an account exists"));
+        assert!(v["message"]
+            .as_str()
+            .unwrap()
+            .contains("If an account exists"));
     }
 }

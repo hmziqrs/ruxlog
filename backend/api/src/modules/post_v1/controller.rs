@@ -106,8 +106,7 @@ async fn require_post_ownership(
         }
         None => {
             // Hide existence of posts the caller doesn't own (audit F#12 style).
-            Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                .with_message("Post does not exist"))
+            Err(ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Post does not exist"))
         }
     }
 }
@@ -160,10 +159,7 @@ async fn apply_paywall_list(
             .get(&post.id)
             .cloned()
             .unwrap_or_else(PostAccessPolicy::free);
-        let bypass = is_staff
-            || viewer
-                .map(|u| u.id == post.author.id)
-                .unwrap_or(false);
+        let bypass = is_staff || viewer.map(|u| u.id == post.author.id).unwrap_or(false);
         let granted = paywall::decide_access(
             &policy,
             bypass,
@@ -257,8 +253,9 @@ pub async fn find_by_id_or_slug(
             let bypass = viewer_bypasses_paywall(auth.user.as_ref(), post.author.id);
             if !bypass && post.status != post::PostStatus::Published {
                 tracing::Span::current().record("result", "hidden_status");
-                return Err(ErrorResponse::new(ErrorCode::RecordNotFound)
-                    .with_message("Post not found"));
+                return Err(
+                    ErrorResponse::new(ErrorCode::RecordNotFound).with_message("Post not found")
+                );
             }
 
             // Enforce the server-side paywall: strip `content` for unentitled
@@ -986,7 +983,10 @@ mod tests {
     /// Build a `user::Model` with the given id and role. Other fields are
     /// filled with benign defaults — only `id` and `role` drive the decision.
     fn make_user(id: i32, role: UserRole) -> user::Model {
-        let now = chrono::Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap().fixed_offset();
+        let now = chrono::Utc
+            .with_ymd_and_hms(2026, 1, 1, 0, 0, 0)
+            .unwrap()
+            .fixed_offset();
         user::Model {
             id,
             name: format!("user-{id}"),
@@ -1001,6 +1001,7 @@ mod tests {
             two_fa_last_totp_counter: None,
             google_id: None,
             oauth_provider: None,
+            session_auth_secret: format!("test-secret-{id}"),
             created_at: now,
             updated_at: now,
         }

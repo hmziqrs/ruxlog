@@ -57,10 +57,9 @@ impl Response {
 
     pub async fn text(self) -> Result<String, Error> {
         String::from_utf8(self.body).map_err(|e| {
-            Error(gloo_net::Error::SerdeError(serde_json::Error::custom(format!(
-                "UTF-8 decode error: {}",
-                e
-            ))))
+            Error(gloo_net::Error::SerdeError(serde_json::Error::custom(
+                format!("UTF-8 decode error: {}", e),
+            )))
         })
     }
 

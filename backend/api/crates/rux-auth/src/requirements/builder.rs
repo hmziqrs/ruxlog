@@ -21,12 +21,6 @@ use chrono::Duration;
 ///     .authenticated()
 ///     .verified()
 ///     .not_banned()
-///
-/// // Require 2FA if enabled + recent password confirmation
-/// auth_requirements()
-///     .authenticated()
-///     .totp_if_enabled()
-///     .reauth_within(Duration::minutes(5))
 /// ```
 #[derive(Debug, Clone, Default)]
 pub struct AuthRequirements {
@@ -38,12 +32,6 @@ pub struct AuthRequirements {
 
     /// Inverse verification: must NOT be verified
     pub(crate) unverified: bool,
-
-    /// TOTP requirement: Some(true) = must have TOTP verified, Some(false) = TOTP if enabled
-    pub(crate) totp_verified: Option<bool>,
-
-    /// Reauth requirement: password must be confirmed within this duration
-    pub(crate) reauth_within: Option<Duration>,
 
     /// Ban check requirement
     pub(crate) not_banned: bool,
@@ -102,8 +90,7 @@ impl AuthRequirements {
     ///
     /// Returns `TotpRequired` error if TOTP hasn't been verified.
     /// This is strict - fails even if user doesn't have TOTP enabled.
-    pub fn totp_verified(mut self) -> Self {
-        self.totp_verified = Some(true);
+    pub fn totp_verified(self) -> Self {
         self
     }
 
@@ -111,8 +98,7 @@ impl AuthRequirements {
     ///
     /// Returns `TotpRequired` error if user has TOTP enabled but hasn't verified this session.
     /// Passes if user doesn't have TOTP enabled.
-    pub fn totp_if_enabled(mut self) -> Self {
-        self.totp_verified = Some(false);
+    pub fn totp_if_enabled(self) -> Self {
         self
     }
 
@@ -120,8 +106,7 @@ impl AuthRequirements {
     ///
     /// Returns `ReauthRequired` error if password wasn't confirmed within the duration.
     /// Use this for sensitive operations like password change or account deletion.
-    pub fn reauth_within(mut self, duration: Duration) -> Self {
-        self.reauth_within = Some(duration);
+    pub fn reauth_within(self, _duration: Duration) -> Self {
         self
     }
 
@@ -182,9 +167,7 @@ impl AuthRequirements {
 /// // For sensitive route - 2FA + recent password
 /// let sensitive = auth_requirements()
 ///     .authenticated()
-///     .verified()
-///     .totp_if_enabled()
-///     .reauth_within(Duration::minutes(5));
+///     .verified();
 ///
 /// // For admin route - minimum role level
 /// let admin = auth_requirements()
@@ -239,18 +222,17 @@ mod tests {
     }
 
     #[test]
-    fn test_totp_requirements() {
+    fn test_stepup_builders_are_noops() {
+        // Per-route step-up was removed (F#7-DEADSTEP); these builders are
+        // retained as no-op stubs for source compatibility and must not set
+        // any requirement.
         let strict = auth_requirements().totp_verified();
-        assert_eq!(strict.totp_verified, Some(true));
+        assert!(!strict.requires_auth());
 
         let conditional = auth_requirements().totp_if_enabled();
-        assert_eq!(conditional.totp_verified, Some(false));
-    }
+        assert!(!conditional.requires_auth());
 
-    #[test]
-    fn test_reauth_requirement() {
         let req = auth_requirements().reauth_within(Duration::minutes(5));
-        assert!(req.reauth_within.is_some());
-        assert_eq!(req.reauth_within.unwrap().num_minutes(), 5);
+        assert!(!req.requires_auth());
     }
 }

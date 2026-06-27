@@ -4,6 +4,7 @@
 //! Uses a configurable blockchain API (e.g., NowNodes, BlockCypher, or self-hosted).
 
 use async_trait::async_trait;
+use secrecy::SecretString;
 
 use super::provider::{
     BillingError, BillingProvider, CheckoutSession, ParsedWebhook, SubscriptionInfo, WebhookEvent,
@@ -15,13 +16,17 @@ use super::provider::{
 use crate::state::build_http_client;
 
 /// Crypto billing provider.
+///
+/// CRYP-ENC-012: `api_key` is held in `secrecy::SecretString` (redacting
+/// `Debug`, opt-in `expose_secret()`). `wallet_address` is a public receive
+/// address (intentionally visible to payers) and stays a plain `String`.
 pub struct CryptoProvider {
     /// Wallet address to receive payments
     pub wallet_address: String,
     /// Blockchain API base URL (e.g., "https://api.blockcypher.com/v1")
     pub api_url: String,
     /// API key for blockchain service
-    pub api_key: String,
+    pub api_key: SecretString,
     /// Supported currency symbol (e.g., "BTC", "ETH", "XMR", "SOL")
     pub currency: String,
     /// V-MED-10: shared timeout-configured client (unused today — the provider
@@ -34,7 +39,7 @@ impl CryptoProvider {
         Self {
             wallet_address,
             api_url,
-            api_key,
+            api_key: api_key.into(),
             currency: currency.to_uppercase(),
             http_client: build_http_client(),
         }
@@ -121,6 +126,20 @@ impl CryptoProvider {
             "LTC" => 6,
             _ => 6,
         }
+    }
+}
+
+// CRYP-ENC-012: manual redacting `Debug`. `api_key` is always `<redacted>`;
+// only the non-secret wiring is shown. `wallet_address` is intentionally
+// public (it is shown to payers). No tracing/error path logs the whole struct.
+impl std::fmt::Debug for CryptoProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CryptoProvider")
+            .field("wallet_address", &self.wallet_address)
+            .field("api_url", &self.api_url)
+            .field("api_key", &"<redacted>")
+            .field("currency", &self.currency)
+            .finish_non_exhaustive()
     }
 }
 

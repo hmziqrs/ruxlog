@@ -236,12 +236,11 @@ mod tests {
     #[test]
     fn client_ip_reads_resolved_extension() {
         // The middleware trusts the axum_client_ip layer, not raw headers.
-        let mut req = axum::http::Request::builder()
-            .body(())
-            .unwrap();
-        req.extensions_mut().insert(axum_client_ip::ClientIp(IpAddr::V4(
-            Ipv4Addr::new(203, 0, 113, 50),
-        )));
+        let mut req = axum::http::Request::builder().body(()).unwrap();
+        req.extensions_mut()
+            .insert(axum_client_ip::ClientIp(IpAddr::V4(Ipv4Addr::new(
+                203, 0, 113, 50,
+            ))));
         assert_eq!(client_ip(&req), "203.0.113.50");
     }
 

@@ -158,22 +158,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let s3_client = aws_sdk_s3::Client::new(&s3_config);
 
-    let list_buckets_output = s3_client.list_buckets().send().await?;
-
-    println!("Buckets:");
-    for bucket in list_buckets_output.buckets() {
-        println!(
-            "  - {}: {}",
-            bucket.name().unwrap_or_default(),
-            bucket.creation_date().map_or_else(
-                || "Unknown creation date".to_string(),
-                |date| date
-                    .fmt(aws_sdk_s3::primitives::DateTimeFormat::DateTime)
-                    .unwrap()
-            )
-        );
-    }
-
+    // V-LOW-PRINTLN: the previous boot-time `println!("Buckets:")` loop dumped
+    // every bucket name + creation date to stdout. That is unnecessary startup
+    // noise AND a minor information disclosure in shared/logged consoles (bucket
+    // names are sometimes sensitive). Bucket wiring is already logged in a
+    // redacted form just above (`tracing::debug!` of bucket/region/endpoint),
+    // so echoing the full S3 list adds nothing. Removed entirely.
     #[cfg(feature = "image-optimization")]
     let optimizer = OptimizerConfig {
         enabled: env_bool("OPTIMIZE_ON_UPLOAD", true),
@@ -229,8 +219,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let wh = env::var("STRIPE_WEBHOOK_SECRET").ok()?;
             Some(std::sync::Arc::new(
                 StripeProvider::new(secret, wh).with_http_client(http_client.clone()),
-            )
-                as std::sync::Arc<dyn BillingProvider>)
+            ) as std::sync::Arc<dyn BillingProvider>)
         }) {
             providers.insert(k, v);
         }
@@ -241,8 +230,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let wh = env::var("POLAR_WEBHOOK_SECRET").ok()?;
             Some(std::sync::Arc::new(
                 PolarProvider::new(token, wh).with_http_client(http_client.clone()),
-            )
-                as std::sync::Arc<dyn BillingProvider>)
+            ) as std::sync::Arc<dyn BillingProvider>)
         }) {
             providers.insert(k, v);
         }
@@ -254,13 +242,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let api_key = env::var("LEMONSQUEEZY_API_KEY").ok()?;
             let wh = env::var("LEMONSQUEEZY_WEBHOOK_SECRET").ok()?;
             let store_id = env::var("LEMONSQUEEZY_STORE_ID").ok()?;
-            Some(
-                std::sync::Arc::new(
-                    LemonSqueezyProvider::new(api_key, wh, store_id)
-                        .with_http_client(http_client.clone()),
-                )
-                    as std::sync::Arc<dyn BillingProvider>,
-            )
+            Some(std::sync::Arc::new(
+                LemonSqueezyProvider::new(api_key, wh, store_id)
+                    .with_http_client(http_client.clone()),
+            ) as std::sync::Arc<dyn BillingProvider>)
         }) {
             providers.insert(k, v);
         }
@@ -270,8 +255,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some((k, v)) = try_init("paddle", || {
             let client_token = env::var("PADDLE_CLIENT_TOKEN").ok()?;
             let wh = env::var("PADDLE_WEBHOOK_SECRET").ok()?;
-            let mut provider = PaddleProvider::new(client_token, wh)
-                .with_http_client(http_client.clone());
+            let mut provider =
+                PaddleProvider::new(client_token, wh).with_http_client(http_client.clone());
             match env::var("PADDLE_PUBLIC_KEY") {
                 Ok(hex_key) if !hex_key.trim().is_empty() => {
                     provider = provider.with_public_key(&hex_key).ok()?;
@@ -292,13 +277,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .unwrap_or_else(|_| "https://api.blockcypher.com/v1".to_string());
             let api_key = env::var("CRYPTO_API_KEY").unwrap_or_else(|_| String::new());
             let currency = env::var("CRYPTO_CURRENCY").unwrap_or_else(|_| "BTC".to_string());
-            Some(
-                std::sync::Arc::new(
-                    CryptoProvider::new(wallet, api_url, api_key, currency)
-                        .with_http_client(http_client.clone()),
-                )
-                    as std::sync::Arc<dyn BillingProvider>,
-            )
+            Some(std::sync::Arc::new(
+                CryptoProvider::new(wallet, api_url, api_key, currency)
+                    .with_http_client(http_client.clone()),
+            ) as std::sync::Arc<dyn BillingProvider>)
         }) {
             providers.insert(k, v);
         }
@@ -318,13 +300,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let key_id = env::var("RAZORPAY_KEY_ID").ok()?;
             let key_secret = env::var("RAZORPAY_KEY_SECRET").ok()?;
             let wh = env::var("RAZORPAY_WEBHOOK_SECRET").ok()?;
-            Some(
-                std::sync::Arc::new(
-                    RazorpayProvider::new(key_id, key_secret, wh)
-                        .with_http_client(http_client.clone()),
-                )
-                    as std::sync::Arc<dyn BillingProvider>,
-            )
+            Some(std::sync::Arc::new(
+                RazorpayProvider::new(key_id, key_secret, wh).with_http_client(http_client.clone()),
+            ) as std::sync::Arc<dyn BillingProvider>)
         }) {
             providers.insert(k, v);
         }
@@ -333,13 +311,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some((k, v)) = try_init("mercado_pago", || {
             let access_token = env::var("MERCADO_PAGO_ACCESS_TOKEN").ok()?;
             let wh = env::var("MERCADO_PAGO_WEBHOOK_SECRET").ok()?;
-            Some(
-                std::sync::Arc::new(
-                    MercadoPagoProvider::new(access_token, wh)
-                        .with_http_client(http_client.clone()),
-                )
-                    as std::sync::Arc<dyn BillingProvider>,
-            )
+            Some(std::sync::Arc::new(
+                MercadoPagoProvider::new(access_token, wh).with_http_client(http_client.clone()),
+            ) as std::sync::Arc<dyn BillingProvider>)
         }) {
             providers.insert(k, v);
         }
@@ -349,13 +323,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let client_id = env::var("AIRWALLEX_CLIENT_ID").ok()?;
             let api_key = env::var("AIRWALLEX_API_KEY").ok()?;
             let wh = env::var("AIRWALLEX_WEBHOOK_SECRET").ok()?;
-            Some(
-                std::sync::Arc::new(
-                    AirwallexProvider::new(client_id, api_key, wh)
-                        .with_http_client(http_client.clone()),
-                )
-                    as std::sync::Arc<dyn BillingProvider>,
-            )
+            Some(std::sync::Arc::new(
+                AirwallexProvider::new(client_id, api_key, wh)
+                    .with_http_client(http_client.clone()),
+            ) as std::sync::Arc<dyn BillingProvider>)
         }) {
             providers.insert(k, v);
         }
@@ -366,8 +337,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let wh = env::var("REVOLUT_WEBHOOK_SECRET").ok()?;
             Some(std::sync::Arc::new(
                 RevolutProvider::new(api_key, wh).with_http_client(http_client.clone()),
-            )
-                as std::sync::Arc<dyn BillingProvider>)
+            ) as std::sync::Arc<dyn BillingProvider>)
         }) {
             providers.insert(k, v);
         }
@@ -531,6 +501,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_same_site(SameSite::Lax)
         .with_secure(cookie_secure)
         .with_http_only(true)
+        // CRYP-SESS-006: pin the session cookie name to a constant. Letting the
+        // cookie name float (or derive from a configurable value) widens the
+        // surface for cookie-fixing / confused-deputy issues across deployments;
+        // a fixed, known name is what the CSRF guard and frontend expect.
+        .with_name("ruxlog.sid")
         .with_private(cookie_key);
 
     let compression = CompressionLayer::new();
