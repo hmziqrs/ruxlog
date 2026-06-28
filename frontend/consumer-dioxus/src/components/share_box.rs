@@ -15,7 +15,10 @@ use crate::analytics::tracker;
 pub fn ShareBox(show: Signal<bool>, post_id: String, title: String, url: String) -> Element {
     let mut search_query = use_signal(String::new);
     let mut show_more = use_signal(|| false);
-    let copy_success = use_signal(|| false);
+    // `mut` is required on wasm32 (mutated via `.set()` in the copy handler
+    // below); allowed on non-wasm where it is unused.
+    #[allow(unused_mut)]
+    let mut copy_success = use_signal(|| false);
 
     // Define all platforms
     let platforms = vec![
