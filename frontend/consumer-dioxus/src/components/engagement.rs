@@ -166,6 +166,9 @@ pub struct ActionBarProps {
 #[component]
 pub fn ActionBar(props: ActionBarProps) -> Element {
     let mut show_bookmark_hint = use_signal(|| false);
+    // `mut` is required on wasm32 (mutated via `.set()` inside the
+    // cfg(wasm32) share handler below); allowed on non-wasm where it is unused.
+    #[allow(unused_mut)]
     let mut feedback_message = use_signal(String::new);
     let mut show_share_modal = use_signal(|| false);
 

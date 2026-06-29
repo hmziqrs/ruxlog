@@ -8,9 +8,9 @@ edition = "2021"
 
 [dependencies]
 chrono = { version = "0.4.40", features = ["serde"] }
-dioxus = { version = "0.7.3", features = ["router", "fullstack"] }
-dioxus-ssr = { version = "0.7.3", optional = true }
-dioxus-liveview = { version = "0.7.3", optional = true }
+dioxus = { version = "0.8.0-alpha.0", features = ["router", "fullstack"] }
+dioxus-ssr = { version = "0.8.0-alpha.0", optional = true }
+dioxus-liveview = { version = "0.8.0-alpha.0", optional = true }
 dioxus-time = { version = "0.7.3" }
 serde = "1.0.219"
 serde_json = "1.0.140"
@@ -19,7 +19,6 @@ hmziq-dioxus-free-icons = { version = "0.10.1", features = [
     "simple-icons",
     "lucide",
 ] }
-dioxus-charts = "0.1.0"
 regex = "1.10.3"
 ammonia = "4.0.0"
 scraper = "0.20.0"

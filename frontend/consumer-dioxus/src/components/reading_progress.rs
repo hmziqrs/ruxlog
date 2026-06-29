@@ -4,6 +4,9 @@ use dioxus::prelude::*;
 /// Renders a thin bar at the top of the viewport that fills as the user scrolls.
 #[component]
 pub fn ReadingProgressBar() -> Element {
+    // `mut` is required on wasm32 (mutated via `.set()` in the scroll closure
+    // below); allowed on non-wasm where it is unused.
+    #[allow(unused_mut)]
     let mut progress = use_signal(|| 0u8);
 
     #[cfg(target_arch = "wasm32")]
