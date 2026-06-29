@@ -20,10 +20,7 @@ pub fn RefundsListScreen() -> Element {
     let is_failed = payments_list.is_failed();
 
     // Filter payments to only show refunded ones
-    let refunds: Vec<&Payment> = payments
-        .iter()
-        .filter(|p| p.status == "refunded")
-        .collect();
+    let refunds: Vec<&Payment> = payments.iter().filter(|p| p.status == "refunded").collect();
 
     rsx! {
         div { class: "space-y-6",

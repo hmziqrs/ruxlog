@@ -37,8 +37,8 @@ use crate::services::image_optimizer;
 use tracing::{debug, error, info, instrument, warn};
 
 use super::validator::{
-    allowlisted_extension, is_allowed_mime, validate_upload, MediaUploadMetadata,
-    V1MediaListQuery, V1MediaUsageQuery,
+    allowlisted_extension, is_allowed_mime, validate_upload, MediaUploadMetadata, V1MediaListQuery,
+    V1MediaUsageQuery,
 };
 
 #[derive(Debug, Serialize)]
@@ -239,8 +239,8 @@ pub async fn create(
     // `validate_upload` rejects SVG and any non-allowlisted content-type
     // outright, and resolves the final (mime, extension) pair from the
     // allowlist rather than trusting client-supplied headers.
-    let (declared_mime, declared_extension) = validate_upload(mime_type.as_deref(), original_name.as_deref())
-        .map_err(|msg| {
+    let (declared_mime, declared_extension) =
+        validate_upload(mime_type.as_deref(), original_name.as_deref()).map_err(|msg| {
             warn!(error = %msg, "Rejected upload: file type not on allowlist");
             ErrorResponse::new(ErrorCode::InvalidFileType).with_message(&msg)
         })?;
@@ -811,13 +811,15 @@ pub async fn delete(
     //   - null-owner (system) media: only moderator/staff+ may delete;
     //   - owned media: only the owner (or a moderator/staff+) may delete.
     if !can_delete_media(&uploader, media.uploader_id) {
-        return Err(ErrorResponse::new(ErrorCode::OperationNotAllowed).with_message(
-            if media.uploader_id.is_none() {
-                "Only staff may delete system media"
-            } else {
-                "You can only delete media you uploaded"
-            },
-        ));
+        return Err(
+            ErrorResponse::new(ErrorCode::OperationNotAllowed).with_message(
+                if media.uploader_id.is_none() {
+                    "Only staff may delete system media"
+                } else {
+                    "You can only delete media you uploaded"
+                },
+            ),
+        );
     }
 
     state
@@ -921,6 +923,7 @@ mod tests {
             two_fa_last_totp_counter: None,
             google_id: None,
             oauth_provider: None,
+            session_auth_secret: format!("test-secret-{id}"),
             created_at: now,
             updated_at: now,
         }
@@ -1001,7 +1004,10 @@ mod tests {
     // (d) SVG extension is stripped by infer_extension — never reaches the key.
     #[test]
     fn infer_extension_strips_svg() {
-        assert_eq!(infer_extension(Some("payload.svg"), Some("image/svg+xml")), None);
+        assert_eq!(
+            infer_extension(Some("payload.svg"), Some("image/svg+xml")),
+            None
+        );
     }
 
     // A junk extension falls back to the MIME subtype only when allowlisted.
@@ -1010,6 +1016,9 @@ mod tests {
         // svg+xml subtype is not allowlisted either, so still None.
         assert_eq!(infer_extension(Some("a.dat"), Some("image/svg+xml")), None);
         // png subtype is allowlisted.
-        assert_eq!(infer_extension(Some("a.dat"), Some("image/png")), Some("png".to_string()));
+        assert_eq!(
+            infer_extension(Some("a.dat"), Some("image/png")),
+            Some("png".to_string())
+        );
     }
 }

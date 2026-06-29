@@ -141,10 +141,7 @@ pub fn validate_cookie_key(key: &str) -> Result<(), String> {
         );
     }
 
-    if KNOWN_COOKIE_KEY_PLACEHOLDERS
-        .iter()
-        .any(|placeholder| key == *placeholder)
-    {
+    if KNOWN_COOKIE_KEY_PLACEHOLDERS.contains(&key) {
         return Err(
             "COOKIE_KEY is the known placeholder value shipped in committed .env files \
              — production must NOT boot on a publicly-known key. \
@@ -175,8 +172,7 @@ pub fn validate_cookie_key(key: &str) -> Result<(), String> {
 /// indicates a non-production profile. Do NOT rotate or obscure this value —
 /// its only purpose is "non-secret so tests pass"; obscurity would imply it is
 /// safe for production, which it is not.
-pub const FIELD_ENC_KEY_DEV_DEFAULT: &[u8] =
-    b"ruxlog_dev_field_enc_key_do_not_"; // exactly 32 bytes
+pub const FIELD_ENC_KEY_DEV_DEFAULT: &[u8] = b"ruxlog_dev_field_enc_key_do_not_"; // exactly 32 bytes
 
 /// Load the 32-byte field-encryption key from `FIELD_ENC_KEY` (raw bytes), with
 /// fail-fast behavior that mirrors `validate_cookie_key`:
@@ -248,11 +244,28 @@ pub fn derive_field_enc_key() -> [u8; 32] {
 /// install it into the process-wide [`utils::field_crypto`] slot so the SeaORM
 /// model layer can reach it. A conflicting prior install is a bug (key rotation
 /// mid-process); surface it rather than half-overwrite.
+///
+/// CRYP-KM-003: also installs the optional PREVIOUS key from
+/// `FIELD_ENC_KEY_PREV` (decrypt-only) for the rolling-rotation window. Unset or
+/// empty is the normal state on a first deploy / after a completed backfill — it
+/// is a benign no-op. A wrong-length value is an operator error and fails boot.
 pub fn load_field_enc_key() -> [u8; 32] {
     let arr = derive_field_enc_key();
     if let Err(reason) = crate::utils::field_crypto::set_key(&arr) {
         panic!("{}", reason);
     }
+
+    // CRYP-KM-003: best-effort install of the optional previous (decrypt-only)
+    // key. `None` (unset/empty) is valid and a no-op; a wrong length surfaces.
+    let prev_raw = std::env::var("FIELD_ENC_KEY_PREV")
+        .ok()
+        .filter(|s| !s.trim().is_empty());
+    if let Err(reason) =
+        crate::utils::field_crypto::set_previous_key(prev_raw.as_deref().map(|s| s.as_bytes()))
+    {
+        panic!("{}", reason);
+    }
+
     arr
 }
 
@@ -292,8 +305,16 @@ mod tests {
         );
         // Sanity: non-secret fields ARE printed (so redaction didn't nuke the
         // whole struct).
-        assert!(rendered.contains("my-bucket"), "non-secret field bucket missing: {}", rendered);
-        assert!(rendered.contains("<redacted>"), "redaction marker missing: {}", rendered);
+        assert!(
+            rendered.contains("my-bucket"),
+            "non-secret field bucket missing: {}",
+            rendered
+        );
+        assert!(
+            rendered.contains("<redacted>"),
+            "redaction marker missing: {}",
+            rendered
+        );
     }
 
     /// V-CRIT-1: the known committed placeholder must be rejected even though
@@ -313,7 +334,11 @@ mod tests {
     #[test]
     fn cookie_key_rejects_short() {
         let err = validate_cookie_key("shortkey").expect_err("short key must be rejected");
-        assert!(err.contains("32"), "error should mention the 32-byte minimum: {}", err);
+        assert!(
+            err.contains("32"),
+            "error should mention the 32-byte minimum: {}",
+            err
+        );
     }
 
     /// V-CRIT-1: empty / whitespace-only is rejected (not silently accepted as
@@ -336,7 +361,8 @@ mod tests {
     /// A 32-byte key that is exactly at the minimum boundary is accepted.
     #[test]
     fn cookie_key_accepts_exactly_32_bytes() {
-        validate_cookie_key("0123456789abcdef0123456789abcdef").expect("32-byte key must be accepted");
+        validate_cookie_key("0123456789abcdef0123456789abcdef")
+            .expect("32-byte key must be accepted");
     }
 
     /// V-MED-10: the shared HTTP client used by every outbound billing/Google

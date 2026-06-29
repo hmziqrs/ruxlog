@@ -173,7 +173,9 @@ struct CsrfTokenResponse {
 /// bootstrap) and, for a fresh client, also establishes the session cookie. Call
 /// on app boot and after any flow that rotates the session (e.g. login).
 pub async fn refresh_csrf_token() -> Result<(), Error> {
-    let resp = post("/csrf/v1/generate", &serde_json::json!({})).send().await?;
+    let resp = post("/csrf/v1/generate", &serde_json::json!({}))
+        .send()
+        .await?;
     let parsed: CsrfTokenResponse = resp.json().await?;
     super::config::set_csrf_token(parsed.token);
     Ok(())

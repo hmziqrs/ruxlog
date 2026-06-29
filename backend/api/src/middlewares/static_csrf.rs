@@ -88,8 +88,8 @@ fn csrf_signing_key() -> &'static [u8] {
 /// Pure and shared by `generate` (issue) and `csrf_guard` (verify), guaranteeing
 /// both sides use one algorithm.
 pub(crate) fn compute_csrf_token(session_id: &str) -> String {
-    let mut mac = HmacSha256::new_from_slice(csrf_signing_key())
-        .expect("HMAC accepts any key length");
+    let mut mac =
+        HmacSha256::new_from_slice(csrf_signing_key()).expect("HMAC accepts any key length");
     mac.update(session_id.as_bytes());
     BASE64_STANDARD.encode(mac.finalize().into_bytes())
 }
@@ -170,8 +170,7 @@ pub async fn csrf_guard(session: Session, req: Request, next: Next) -> Result<Re
 
     // Constant-time comparison. The expected length is fixed by the HMAC output,
     // so a length check leaks nothing; differing lengths simply cannot match.
-    let ok = provided.len() == expected.len()
-        && bool::from(provided.ct_eq(expected.as_bytes()));
+    let ok = provided.len() == expected.len() && bool::from(provided.ct_eq(expected.as_bytes()));
     if ok {
         debug!("CSRF token validated successfully");
         tracing::Span::current().record("result", "valid");
@@ -209,7 +208,10 @@ mod tests {
         let ikm = b"same-secret-cookie-key";
         let csrf = hkdf_sha256(ikm, b"ruxlog-csrf-v1");
         let cookie = hkdf_sha256(ikm, b"ruxlog-cookie-private-key");
-        assert_ne!(csrf, cookie, "distinct info labels must yield distinct keys");
+        assert_ne!(
+            csrf, cookie,
+            "distinct info labels must yield distinct keys"
+        );
 
         // Deterministic: the same (ikm, info) pair reproduces the same key.
         assert_eq!(csrf, hkdf_sha256(ikm, b"ruxlog-csrf-v1"));
@@ -276,7 +278,10 @@ mod middleware_tests {
 
     /// Call `/csrf/v1/generate` against the app, returning the bound CSRF token
     /// and the session cookie name+value (to carry on the next request).
-    async fn bootstrap(app: &Router, seed_cookie: Option<(&str, &str)>) -> (String, String, String) {
+    async fn bootstrap(
+        app: &Router,
+        seed_cookie: Option<(&str, &str)>,
+    ) -> (String, String, String) {
         let mut req = Request::builder()
             .method(Method::POST)
             .uri("/csrf/v1/generate")

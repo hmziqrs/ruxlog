@@ -331,9 +331,15 @@ mod tests {
         let now = Utc.timestamp_opt(1_700_000_045, 0).unwrap().fixed_offset(); // 45s
         let code =
             generate_totp_code_at(&secret, now, DEFAULT_TOTP_STEP, DEFAULT_TOTP_DIGITS).unwrap();
-        let matched =
-            verify_totp_code_at(&secret, &code, now, DEFAULT_TOTP_STEP, DEFAULT_TOTP_DIGITS, 1)
-                .expect("code should verify at its own instant");
+        let matched = verify_totp_code_at(
+            &secret,
+            &code,
+            now,
+            DEFAULT_TOTP_STEP,
+            DEFAULT_TOTP_DIGITS,
+            1,
+        )
+        .expect("code should verify at its own instant");
         // 1_700_000_045 / 30 = 56_666_668 (floor); the matched step is exactly that.
         assert_eq!(matched, 1_700_000_045_i64 / 30);
     }
@@ -408,7 +414,10 @@ mod tests {
         assert_eq!(hashes.len(), 5);
         for h in &hashes {
             // Argon2id PHC string (replaces bare 64-char SHA-256 hex). See plan 2f.
-            assert!(h.starts_with("$argon2"), "expected Argon2id PHC string, got: {h}");
+            assert!(
+                h.starts_with("$argon2"),
+                "expected Argon2id PHC string, got: {h}"
+            );
         }
 
         let updated = consume_backup_code(&hashes, &codes[0]);

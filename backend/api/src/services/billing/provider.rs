@@ -100,15 +100,19 @@ pub fn canonical_subscription_status(raw: Option<&str>) -> Option<&'static str> 
     let s = raw?.trim().to_ascii_lowercase();
     Some(match s.as_str() {
         // active
-        "active" | "activated" | "subscription_active" | "incomplete_active"
-        | "running" | "authorized" => "active",
+        "active"
+        | "activated"
+        | "subscription_active"
+        | "incomplete_active"
+        | "running"
+        | "authorized" => "active",
         // trialing
         "trialing" | "trialling" | "trial" | "in_trial" | "pending_trial" | "on_trial" => {
             "trialing"
         }
         // past_due / problem (revoke access but not terminal)
-        "past_due" | "pastdue" | "unpaid" | "problem" | "suspended" | "paused"
-        | "on_hold" | "incomplete" => "past_due",
+        "past_due" | "pastdue" | "unpaid" | "problem" | "suspended" | "paused" | "on_hold"
+        | "incomplete" => "past_due",
         // canceled
         "canceled" | "cancelled" | "subscription_cancelled" | "revoked" => "canceled",
         // expired / terminal-revoke. `completed` (Razorpay: subscription ran its
@@ -218,6 +222,7 @@ pub trait BillingProvider: Send + Sync {
     /// "not supported" so per-post purchases simply aren't offered until a
     /// provider implements it. The grant of `post_purchases` happens in the
     /// verified webhook from the server-bound checkout intent — not here.
+    #[allow(clippy::too_many_arguments)]
     async fn create_post_checkout(
         &self,
         _post_id: i32,
@@ -291,19 +296,28 @@ mod tests {
     #[test]
     fn period_end_handles_epoch_seconds_int() {
         // Stripe/Razorpay send Unix seconds as a JSON integer.
-        assert_eq!(period_end_to_unix(Some(&json!(1_700_000_000))), Some(1_700_000_000));
+        assert_eq!(
+            period_end_to_unix(Some(&json!(1_700_000_000))),
+            Some(1_700_000_000)
+        );
     }
 
     #[test]
     fn period_end_normalizes_milliseconds_int() {
         // Some providers send milliseconds; the magnitude disambiguates.
-        assert_eq!(period_end_to_unix(Some(&json!(1_700_000_000_000i64))), Some(1_700_000_000));
+        assert_eq!(
+            period_end_to_unix(Some(&json!(1_700_000_000_000i64))),
+            Some(1_700_000_000)
+        );
     }
 
     #[test]
     fn period_end_handles_epoch_string() {
         // Razorpay sometimes sends the epoch as a JSON string.
-        assert_eq!(period_end_to_unix(Some(&json!("1700000000"))), Some(1_700_000_000));
+        assert_eq!(
+            period_end_to_unix(Some(&json!("1700000000"))),
+            Some(1_700_000_000)
+        );
     }
 
     #[test]
@@ -343,7 +357,14 @@ mod tests {
 
     #[test]
     fn canonical_status_folds_trialing_vocabulary() {
-        for raw in ["trialing", "trialling", "trial", "in_trial", "pending_trial", "on_trial"] {
+        for raw in [
+            "trialing",
+            "trialling",
+            "trial",
+            "in_trial",
+            "pending_trial",
+            "on_trial",
+        ] {
             assert_eq!(
                 canonical_subscription_status(Some(raw)),
                 Some("trialing"),
@@ -354,8 +375,16 @@ mod tests {
 
     #[test]
     fn canonical_status_folds_past_due_vocabulary() {
-        for raw in ["past_due", "pastdue", "unpaid", "problem", "suspended", "paused", "on_hold", "incomplete"]
-        {
+        for raw in [
+            "past_due",
+            "pastdue",
+            "unpaid",
+            "problem",
+            "suspended",
+            "paused",
+            "on_hold",
+            "incomplete",
+        ] {
             assert_eq!(
                 canonical_subscription_status(Some(raw)),
                 Some("past_due"),

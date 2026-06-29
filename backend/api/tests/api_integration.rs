@@ -159,7 +159,13 @@ async fn post_list_published_returns_ok() {
     let client = client();
     skip_if_no_server!(client);
     let token = require_csrf(&client).await;
-    let resp = post_api(&client, "/post/v1/list/published", json!({"page": 1}), &token).await;
+    let resp = post_api(
+        &client,
+        "/post/v1/list/published",
+        json!({"page": 1}),
+        &token,
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
     let body: Value = resp.json().await.unwrap();
     assert!(
@@ -173,7 +179,13 @@ async fn post_view_with_invalid_slug_returns_not_found() {
     let client = client();
     skip_if_no_server!(client);
     let token = require_csrf(&client).await;
-    let resp = post_api(&client, "/post/v1/view/nonexistent-slug-xyz", json!({}), &token).await;
+    let resp = post_api(
+        &client,
+        "/post/v1/view/nonexistent-slug-xyz",
+        json!({}),
+        &token,
+    )
+    .await;
     assert!(
         resp.status() == StatusCode::NOT_FOUND,
         "expected 404 for nonexistent post slug, got {}",
@@ -401,7 +413,13 @@ async fn search_with_query_returns_ok() {
     let client = client();
     skip_if_no_server!(client);
     let token = require_csrf(&client).await;
-    let resp = post_api(&client, "/search/v1/search", json!({"query": "rust"}), &token).await;
+    let resp = post_api(
+        &client,
+        "/search/v1/search",
+        json!({"query": "rust"}),
+        &token,
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::OK);
 }
 

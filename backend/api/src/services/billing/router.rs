@@ -251,6 +251,7 @@ impl BillingRouter {
     /// [`create_checkout_for_ip`] but for single payments; providers that don't
     /// support one-time checkouts return `BillingError::Config` (per-post
     /// purchases are simply unavailable for those regions/providers).
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_post_checkout_for_ip(
         &self,
         client_ip: IpAddr,
@@ -776,7 +777,9 @@ mod tests {
         let geo = GeoRouter::new_for_test(vec![], "stripe".into());
         let router = BillingRouter::new(providers, geo);
 
-        let result = router.create_portal_session("cus_1", "https://app.com").await;
+        let result = router
+            .create_portal_session("cus_1", "https://app.com")
+            .await;
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), BillingError::ProviderApi(_)));
     }
@@ -792,7 +795,9 @@ mod tests {
         let router = BillingRouter::new(providers, geo);
 
         // Should route to revolut, not default (stripe which doesn't exist)
-        let result = router.cancel_subscription_for_provider("revolut", "sub_1", true).await;
+        let result = router
+            .cancel_subscription_for_provider("revolut", "sub_1", true)
+            .await;
         assert!(result.is_err()); // No server, but routed correctly
         assert!(matches!(result.unwrap_err(), BillingError::ProviderApi(_)));
     }
@@ -803,7 +808,9 @@ mod tests {
         let geo = GeoRouter::new_for_test(vec![], "stripe".into());
         let router = BillingRouter::new(providers, geo);
 
-        let result = router.cancel_subscription_for_provider("razorpay", "sub_1", true).await;
+        let result = router
+            .cancel_subscription_for_provider("razorpay", "sub_1", true)
+            .await;
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), BillingError::Config(_)));
     }

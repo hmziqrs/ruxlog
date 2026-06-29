@@ -63,8 +63,7 @@ fn hsts_header_value() -> Option<HeaderValue> {
 /// Resolve the CSP header value, honouring the `CONTENT_SECURITY_POLICY` env
 /// override.
 fn csp_header_value() -> Option<HeaderValue> {
-    let raw =
-        std::env::var("CONTENT_SECURITY_POLICY").unwrap_or_else(|_| DEFAULT_CSP.to_string());
+    let raw = std::env::var("CONTENT_SECURITY_POLICY").unwrap_or_else(|_| DEFAULT_CSP.to_string());
     if raw.is_empty() {
         return None;
     }

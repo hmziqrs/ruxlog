@@ -39,6 +39,11 @@ user-management = []
 image-optimization = ["image"]
 admin-acl = []
 admin-routes = []
+# CRYP-RNG-006 / CRYP-GAP-013: seed-system is dev/admin tooling only. It is
+# deliberately excluded from `default` and `full`, and the only binary that
+# requires it (ruxlog_tui) is gated by `required-features`. The
+# `.github/workflows/release-guard.yml` job fails any build where seed-system
+# is enabled, so no predictable seed RNG ships in a release binary.
 seed-system = []
 scheduler = []
 
@@ -111,6 +116,9 @@ sha2 = "0.10.8"
 axum_csrf = { version = "0.11.0", features = ["layer"] }
 base64 = "0.22.1"
 rand = "0.9"
+# CRYP-RNG-006: explicit ChaCha20 RNG so the seeders can pull from OS entropy
+# (ChaCha20Rng::from_os_rng) instead of a predictable StdRng::seed_from_u64.
+rand_chacha = "0.9"
 clap = { version = "4.5", features = ["derive"] }
 fred = { version = "10.1.0", features = ["sha-1", "i-scripts", "enable-rustls"] }
 axum-client-ip = "1.0.0"
@@ -142,6 +150,13 @@ subtle = "2.6.1"
 # scrubbing of the master key is best-effort, not guaranteed — the OS reclaims
 # the pages). See utils::field_crypto (GAP-016).
 zeroize = { version = "1", features = ["derive"] }
+# CRYP-ENC-012: best-effort secret hygiene for billing provider credentials
+# (api_key / client_secret / webhook_secret / access_token). Wrapping these in
+# `secrecy::SecretString` makes the secret opt-in to read (`.expose_secret()`)
+# and gives a redacting `Debug` by default, so a derived `Debug` or an
+# accidental `{:?}` of a provider struct never leaks a live credential.
+# See state::ObjectStorageConfig for the same redaction discipline.
+secrecy = "0.10"
 # Paddle Billing signs webhooks with Ed25519. See plan 1b (Paddle).
 ed25519-dalek = { version = "2.1.1", default-features = false }
 # HTML allowlist sanitizer for stored post content (EditorJS blocks). Renders the
@@ -190,3 +205,13 @@ path = "scripts/restore_changes.rs"
 name = "ruxlog_tui"
 path = "scripts/ruxlog_tui.rs"
 required-features = ["seed-system"]
+
+[[bin]]
+name = "ruxlog-backfill-user-field-crypto"
+path = "scripts/backfill_user_field_crypto.rs"
+required-features = ["full"]
+
+[[bin]]
+name = "ruxlog-backfill-payout-metadata"
+path = "scripts/backfill_payout_metadata.rs"
+required-features = ["full"]

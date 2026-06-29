@@ -1,6 +1,7 @@
 //! Paddle billing provider integration.
 
 use async_trait::async_trait;
+use secrecy::{ExposeSecret, SecretString};
 
 use super::provider::{
     BillingError, BillingProvider, CheckoutSession, ParsedWebhook, SubscriptionInfo, WebhookEvent,
@@ -12,9 +13,12 @@ use super::provider::{
 use crate::state::build_http_client;
 
 /// Paddle billing provider.
+///
+/// CRYP-ENC-012: `client_token` and `webhook_secret` are held in
+/// `secrecy::SecretString` (redacting `Debug`, opt-in `expose_secret()`).
 pub struct PaddleProvider {
-    pub client_token: String,
-    pub webhook_secret: String,
+    pub client_token: SecretString,
+    pub webhook_secret: SecretString,
     /// Ed25519 verifying key (32 bytes) for Paddle webhook signatures, parsed
     /// from `PADDLE_PUBLIC_KEY` (hex). `None` ⇒ verification fails closed.
     pub public_key: Option<[u8; 32]>,
@@ -25,8 +29,8 @@ pub struct PaddleProvider {
 impl PaddleProvider {
     pub fn new(client_token: String, webhook_secret: String) -> Self {
         Self {
-            client_token,
-            webhook_secret,
+            client_token: client_token.into(),
+            webhook_secret: webhook_secret.into(),
             public_key: None,
             // Production by default; override with the sandbox host via
             // PADDLE_API_BASE_URL for development. See plan Phase 6f.
@@ -83,7 +87,10 @@ impl PaddleProvider {
         let url = format!("{}/subscriptions/{}", self.base_url, subscription_id);
         let resp = client
             .get(&url)
-            .header("Authorization", format!("Bearer {}", self.client_token))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.client_token.expose_secret()),
+            )
             .send()
             .await
             .ok()?;
@@ -113,6 +120,20 @@ fn decode_paddle_public_key(hex_key: &str) -> Result<[u8; 32], BillingError> {
     Ok(arr)
 }
 
+// CRYP-ENC-012: manual redacting `Debug`. Credential fields are always
+// `<redacted>`; only the non-secret wiring is shown. No tracing/error path
+// logs the whole struct.
+impl std::fmt::Debug for PaddleProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PaddleProvider")
+            .field("client_token", &"<redacted>")
+            .field("webhook_secret", &"<redacted>")
+            .field("public_key_set", &self.public_key.is_some())
+            .field("base_url", &self.base_url)
+            .finish_non_exhaustive()
+    }
+}
+
 #[async_trait]
 impl BillingProvider for PaddleProvider {
     fn provider_name(&self) -> &'static str {
@@ -140,7 +161,10 @@ impl BillingProvider for PaddleProvider {
 
         let resp = client
             .post(format!("{}/transactions", self.base_url))
-            .header("Authorization", format!("Bearer {}", self.client_token))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.client_token.expose_secret()),
+            )
             .json(&body)
             .send()
             .await
@@ -184,7 +208,10 @@ impl BillingProvider for PaddleProvider {
 
         let resp = client
             .post(&url)
-            .header("Authorization", format!("Bearer {}", self.client_token))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.client_token.expose_secret()),
+            )
             .json(&body)
             .send()
             .await
@@ -210,7 +237,10 @@ impl BillingProvider for PaddleProvider {
 
         let resp = client
             .get(&url)
-            .header("Authorization", format!("Bearer {}", self.client_token))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.client_token.expose_secret()),
+            )
             .send()
             .await
             .map_err(|e| BillingError::ProviderApi(e.to_string()))?;
@@ -344,7 +374,7 @@ impl BillingProvider for PaddleProvider {
                 None => None,
             },
         };
-        let period_end_value = inline_end.or_else(|| fetched_end.as_ref());
+        let period_end_value = inline_end.or(fetched_end.as_ref());
 
         // `subscription_id`: on `transaction.*` events the object IS a
         // transaction, so its `id` is the txn id (the checkout intent key), NOT a
@@ -414,8 +444,8 @@ mod tests {
     #[test]
     fn test_paddle_new() {
         let provider = PaddleProvider::new("tok_abc".into(), "whsec_xyz".into());
-        assert_eq!(provider.client_token, "tok_abc");
-        assert_eq!(provider.webhook_secret, "whsec_xyz");
+        assert_eq!(provider.client_token.expose_secret(), "tok_abc");
+        assert_eq!(provider.webhook_secret.expose_secret(), "whsec_xyz");
     }
 
     #[test]
@@ -482,8 +512,7 @@ mod tests {
         assert!(provider.verify_webhook(tampered).await.is_err());
 
         // Stale timestamp → rejected (replay).
-        let stale =
-            signed_paddle_event(body, now - (webhook_util::MAX_SKEW_SECS + 60), &sk);
+        let stale = signed_paddle_event(body, now - (webhook_util::MAX_SKEW_SECS + 60), &sk);
         assert!(provider.verify_webhook(stale).await.is_err());
     }
 

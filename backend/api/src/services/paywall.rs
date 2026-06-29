@@ -10,12 +10,14 @@
 //! Entitlement sources:
 //! - `Free`           → always granted.
 //! - `Paid`           → a `post_purchases` row for `(user_id, post_id)` exists
-//!                      (one-time purchase, granted by the verified webhook).
+//!   (one-time purchase, granted by the verified webhook).
 //! - `SubscriberOnly` → the user has an active subscription.
 
 use std::collections::{HashMap, HashSet};
 
-use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter};
+use sea_orm::{
+    ColumnTrait, Condition, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::db::sea_models::{post_access, post_purchase, subscription};
@@ -100,7 +102,9 @@ pub async fn load_post_access_policy(
         .one(db)
         .await
         .map_err(|_| ErrorResponse::new(ErrorCode::QueryError))?;
-    Ok(row.map(PostAccessPolicy::from).unwrap_or_else(PostAccessPolicy::free))
+    Ok(row
+        .map(PostAccessPolicy::from)
+        .unwrap_or_else(PostAccessPolicy::free))
 }
 
 /// Batch-load policies for many posts (one query), used by list/feed endpoints.
@@ -164,10 +168,7 @@ pub async fn user_purchased_post_ids(
 
 /// True if `user_id` has an active subscription: status Active/Trialing and,
 /// when a period end is recorded, that end is still in the future.
-pub async fn user_has_active_subscription(
-    db: &DatabaseConnection,
-    user_id: i32,
-) -> DbResult<bool> {
+pub async fn user_has_active_subscription(db: &DatabaseConnection, user_id: i32) -> DbResult<bool> {
     use ruxlog_types::enums::SubscriptionStatus;
     let subs = subscription::Entity::find()
         .filter(subscription::Column::UserId.eq(user_id))

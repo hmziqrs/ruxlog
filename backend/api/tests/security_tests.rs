@@ -322,6 +322,7 @@ fn user_json_never_leaks_secret_fields() {
         two_fa_last_totp_counter: None,
         google_id: None,
         oauth_provider: None,
+        session_auth_secret: "test-secret".into(),
         created_at: now,
         updated_at: now,
     };

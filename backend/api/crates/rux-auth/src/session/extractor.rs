@@ -98,9 +98,7 @@ impl<B: AuthBackend + SessionRevocation> AuthSession<B> {
                     // Invalidate if the credential changed since login (password
                     // reset/change) or the user identity was swapped underneath us.
                     if !ct_eq(&state.session_auth_hash, user.session_auth_hash()) {
-                        tracing::warn!(
-                            "Session auth hash mismatch — invalidating stale session"
-                        );
+                        tracing::warn!("Session auth hash mismatch — invalidating stale session");
                         let _ = session.delete().await;
                         None
                     } else if is_revoked(&backend, &session).await {
@@ -218,28 +216,6 @@ impl<B: AuthBackend> AuthSession<B> {
         self.user = None;
         self.state = None;
 
-        Ok(())
-    }
-
-    /// Mark TOTP as verified for this session
-    ///
-    /// Call this after successful 2FA verification.
-    pub async fn mark_totp_verified(&mut self) -> Result<(), AuthError> {
-        if let Some(state) = &mut self.state {
-            state.mark_totp_verified();
-            self.session.insert(SESSION_KEY, state).await?;
-        }
-        Ok(())
-    }
-
-    /// Mark as recently re-authenticated
-    ///
-    /// Call this after the user confirms their password.
-    pub async fn mark_reauthenticated(&mut self) -> Result<(), AuthError> {
-        if let Some(state) = &mut self.state {
-            state.mark_reauthenticated();
-            self.session.insert(SESSION_KEY, state).await?;
-        }
         Ok(())
     }
 
@@ -364,9 +340,7 @@ where
                     // Invalidate if the credential changed since login (password
                     // reset/change). See `AuthUser::session_auth_hash`.
                     if !ct_eq(&state.session_auth_hash, user.session_auth_hash()) {
-                        tracing::warn!(
-                            "Session auth hash mismatch — invalidating stale session"
-                        );
+                        tracing::warn!("Session auth hash mismatch — invalidating stale session");
                         let _ = session.delete().await;
                         None
                     } else if is_revoked(&backend, &session).await {
@@ -588,7 +562,10 @@ mod tests {
             .expect("session id present after save")
             .to_string();
         // The session was live and authenticated.
-        assert!(auth.user.is_some(), "session must authenticate before revoke");
+        assert!(
+            auth.user.is_some(),
+            "session must authenticate before revoke"
+        );
 
         // Drop auth but keep the SAME session record (the cookie).
         let session_record = auth.session().clone();
@@ -601,8 +578,7 @@ mod tests {
         }
 
         // Next request: re-extract AuthSession from the same session record.
-        let next: AuthSession<RevocableBackend> =
-            AuthSession::new(backend, session_record).await;
+        let next: AuthSession<RevocableBackend> = AuthSession::new(backend, session_record).await;
 
         // The user MUST now be None — the cookie stopped authenticating.
         assert!(
@@ -635,10 +611,7 @@ mod tests {
         }
         #[async_trait]
         impl SessionRevocation for ErroringBackend {
-            async fn is_session_revoked(
-                &self,
-                _tower_session_id: &str,
-            ) -> Result<bool, AuthError> {
+            async fn is_session_revoked(&self, _tower_session_id: &str) -> Result<bool, AuthError> {
                 Err(AuthError::new(AuthErrorCode::BackendError)
                     .with_message("revocation store unavailable"))
             }

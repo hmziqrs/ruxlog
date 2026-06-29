@@ -136,8 +136,7 @@ pub fn AuditLogViewerScreen() -> Element {
                         .as_deref()
                         .map(|n| n.to_lowercase().contains(&s))
                         .unwrap_or(false)
-                        || e
-                            .user_id
+                        || e.user_id
                             .map(|id| id.to_string().contains(&s))
                             .unwrap_or(false);
                     if !matches {

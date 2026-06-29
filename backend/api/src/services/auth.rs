@@ -1,15 +1,38 @@
 use async_trait::async_trait;
 use password_auth::verify_password;
 use rux_auth::{
-    AuthBackend as RuxAuthBackend, AuthError, AuthErrorCode, AuthUser, BanStatus,
-    SessionRevocation,
+    AuthBackend as RuxAuthBackend, AuthError, AuthErrorCode, AuthUser, BanStatus, SessionRevocation,
 };
 use sea_orm::DatabaseConnection;
+use std::sync::LazyLock;
 use std::time::Instant;
 use tokio::task;
 use tracing::{error, info, instrument, warn};
 
 use crate::{db::sea_models::user, db::sea_models::user_ban, utils::telemetry};
+
+/// CRYP-SC-002 (login timing equalization): a fixed, non-secret Argon2id hash
+/// used to drive a DUMMY password verify on the user-not-found and
+/// OAuth-no-password branches of [`AuthBackend::authenticate_password`].
+///
+/// The valid-user / wrong-password branch performs a full Argon2id
+/// `verify_password` that dominates the request's CPU cost; the two early-return
+/// branches did none of that work, so an attacker averaging request latency
+/// could distinguish "valid user, wrong password" from "no such user" / "OAuth
+/// user". To close that timing oracle we run the SAME verify against THIS fixed
+/// hash before returning, so every login attempt pays the Argon2id cost
+/// regardless of branch. The input password is verified against a hash it can
+/// never match, so the result is always `false` — exactly the cost shape of a
+/// genuine wrong-password attempt.
+///
+/// This mirrors the existing `equalize_unknown_email_work` pattern from
+/// `modules/forgot_password_v1/controller.rs`. We compute the hash ONCE
+/// (process lifetime) via `LazyLock` rather than hard-coding a PHC string, so
+/// the Argon2 parameters always track the `password_auth` crate version used by
+/// the rest of the codebase (no drift between the dummy hash and real hashes).
+const DUMMY_VERIFY_PASSWORD: &str = "timing-equalization-dummy-fixture";
+static DUMMY_VERIFY_HASH: LazyLock<String> =
+    LazyLock::new(|| password_auth::generate_hash(DUMMY_VERIFY_PASSWORD));
 
 /// Re-export the AuthSession from rux-auth
 pub type AuthSession = rux_auth::AuthSession<AuthBackend>;
@@ -78,8 +101,9 @@ impl AuthBackend {
         //    a concurrent session save re-created the key. TTL matches the
         //    session max-age (14 days) so the set self-cleans.
         let revoked_key = revoked_set_key();
-        let sadd_result: Result<i64, _> =
-            redis_pool.sadd(revoked_key.clone(), vec![tower_session_id.to_string()]).await;
+        let sadd_result: Result<i64, _> = redis_pool
+            .sadd(revoked_key.clone(), vec![tower_session_id.to_string()])
+            .await;
         match sadd_result {
             Ok(_) => {}
             Err(e) => warn!(error = %e, "Failed to record revocation in Redis set"),
@@ -95,6 +119,36 @@ impl AuthBackend {
         verify_password(password, hash)
             .map(|_| true)
             .map_err(|_| AuthError::new(AuthErrorCode::InvalidCredentials))
+    }
+
+    /// CRYP-SC-002: run a DUMMY Argon2id verify of `password` against the fixed
+    /// [`DUMMY_VERIFY_HASH`]. The result is always false (the password can never
+    /// match the fixture hash) — the work is what matters, not the outcome.
+    /// Returns an error only on a genuine hashing failure, matching
+    /// [`check_password`]'s contract so the caller's error handling is uniform.
+    fn run_dummy_password_verify(password: String) -> Result<bool, AuthError> {
+        // `LazyLock` is initialized on first touch; safe to read from a blocking
+        // task. `as_str()` borrows the static backing storage, so the clone-free
+        // borrow is valid for the lifetime of the process.
+        let hash: &str = DUMMY_VERIFY_HASH.as_str();
+        verify_password(password, hash)
+            .map(|_| true)
+            .map_err(|_| AuthError::new(AuthErrorCode::InvalidCredentials))
+    }
+
+    /// CRYP-SC-002: run [`run_dummy_password_verify`] off the async executor, so
+    /// the memory-hard Argon2id KDF never blocks the Tokio runtime. Mirrors the
+    /// wrong-password branch's `spawn_blocking` around `check_password`. The
+    /// (always-false) result is dropped; only the CPU cost matters.
+    async fn run_blocking_dummy_verify(password: String) -> Result<(), AuthError> {
+        match task::spawn_blocking(move || Self::run_dummy_password_verify(password)).await {
+            Ok(_) => Ok(()),
+            Err(join_err) => {
+                error!(error = %join_err, "Dummy password verification task failed");
+                Err(AuthError::new(AuthErrorCode::InternalError)
+                    .with_message("Password verification failed"))
+            }
+        }
     }
 
     /// Authenticate with email and password
@@ -120,6 +174,13 @@ impl AuthBackend {
                     1,
                     &[opentelemetry::KeyValue::new("reason", "user_not_found")],
                 );
+                // CRYP-SC-002: equalize CPU with the valid-user / wrong-password
+                // branch, which pays a full Argon2id verify here. Without this
+                // dummy verify the markedly cheaper not-found path is a timing
+                // oracle for account existence. The result is always false (the
+                // password can never match the fixture hash); only the work
+                // matters. See [`DUMMY_VERIFY_HASH`].
+                Self::run_blocking_dummy_verify(password).await?;
                 return Ok(None);
             }
             Err(err) => {
@@ -141,6 +202,11 @@ impl AuthBackend {
                 metrics
                     .login_failure
                     .add(1, &[opentelemetry::KeyValue::new("reason", "oauth_user")]);
+                // CRYP-SC-002: same timing equalization as the not-found branch
+                // — an OAuth user (no password hash) would otherwise return far
+                // faster than a wrong-password attempt, leaking "this account
+                // exists but is OAuth-only". Run the dummy Argon2id verify.
+                Self::run_blocking_dummy_verify(password).await?;
                 return Ok(None);
             }
         };
@@ -239,10 +305,27 @@ impl AuthUser for user::Model {
     }
 
     fn session_auth_hash(&self) -> &[u8] {
-        // For OAuth users without passwords, use email as session hash
+        // CRYP-ENC-004: the per-session CSRF/session-auth binding is keyed on the
+        // server-random `session_auth_secret` column (added by the model layer /
+        // W3) rather than the raw `email`. Basing it on email meant an email
+        // change OR a sufficiently strong attacker who could observe the derived
+        // hash could recompute it from a public field; a per-user random secret
+        // is not derivable from any user-facing value. Rotating the secret (e.g.
+        // on credential change) invalidates prior sessions, which is the desired
+        // trust-transition behavior.
+        //
+        // Defense-in-depth fallback: if the secret column is unexpectedly absent
+        // (should not occur after the backfill migration writes a random secret
+        // per existing user), fall back to the password hash for password users
+        // rather than panic — this keeps the session functional while still
+        // avoiding the raw-email path. OAuth users without a secret have nothing
+        // stable to fall back to, so an empty hash forces session invalidation.
+        if !self.session_auth_secret.is_empty() {
+            return self.session_auth_secret.as_bytes();
+        }
         match &self.password {
             Some(password) => password.as_bytes(),
-            None => self.email.as_bytes(),
+            None => &[],
         }
     }
 
@@ -370,7 +453,11 @@ impl SessionRevocation for AuthBackend {
         use tower_sessions_redis_store::fred::interfaces::SetsInterface;
 
         let key = revoked_set_key();
-        match self.redis_pool.sismember::<bool, _, _>(key, tower_session_id).await {
+        match self
+            .redis_pool
+            .sismember::<bool, _, _>(key, tower_session_id)
+            .await
+        {
             Ok(is_member) => Ok(is_member),
             Err(e) => {
                 // Fail-open: a Redis blip must not lock out every user. The

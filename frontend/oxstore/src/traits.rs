@@ -1,4 +1,4 @@
-use crate::{PaginatedList, StateFrame, ListQuery};
+use crate::{ListQuery, PaginatedList, StateFrame};
 use dioxus::prelude::*;
 
 pub trait ListStore<T, Q>

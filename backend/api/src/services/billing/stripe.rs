@@ -1,6 +1,7 @@
 //! Stripe billing provider integration.
 
 use async_trait::async_trait;
+use secrecy::{ExposeSecret, SecretString};
 
 use super::provider::{
     BillingError, BillingProvider, CheckoutSession, ParsedWebhook, SubscriptionInfo, WebhookEvent,
@@ -12,9 +13,14 @@ use super::provider::{
 use crate::state::build_http_client;
 
 /// Stripe billing provider.
+///
+/// CRYP-ENC-012: `secret_key` and `webhook_secret` are held in
+/// `secrecy::SecretString` so they are never printed by a derived `Debug` (or
+/// an accidental `{:?}`/tracing call). Access is opt-in via `expose_secret()`.
+/// See the manual `Debug` impl below.
 pub struct StripeProvider {
-    pub secret_key: String,
-    pub webhook_secret: String,
+    pub secret_key: SecretString,
+    pub webhook_secret: SecretString,
     pub base_url: String,
     pub http_client: reqwest::Client,
 }
@@ -22,8 +28,8 @@ pub struct StripeProvider {
 impl StripeProvider {
     pub fn new(secret_key: String, webhook_secret: String) -> Self {
         Self {
-            secret_key,
-            webhook_secret,
+            secret_key: secret_key.into(),
+            webhook_secret: webhook_secret.into(),
             // Production by default; override with the sandbox/test host via
             // STRIPE_API_BASE_URL for development. See plan Phase 6f.
             base_url: std::env::var("STRIPE_API_BASE_URL")
@@ -56,7 +62,10 @@ impl StripeProvider {
         let url = format!("{}/v1/subscriptions/{}", self.base_url, subscription_id);
         let resp = client
             .get(&url)
-            .header("Authorization", format!("Bearer {}", self.secret_key))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.secret_key.expose_secret()),
+            )
             .send()
             .await
             .ok()?;
@@ -65,6 +74,21 @@ impl StripeProvider {
         }
         let data: serde_json::Value = resp.json().await.ok()?;
         super::provider::period_end_to_unix(data.get("current_period_end"))
+    }
+}
+
+// CRYP-ENC-012: manual redacting `Debug`. The secret fields are already
+// `SecretString` (which redacts on its own), but we mirror the
+// `ObjectStorageConfig` discipline explicitly so the rendered struct shows the
+// NON-secret wiring (base_url) for diagnostics while the credential fields are
+// always `<redacted>`. No tracing/error path logs the whole struct.
+impl std::fmt::Debug for StripeProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StripeProvider")
+            .field("secret_key", &"<redacted>")
+            .field("webhook_secret", &"<redacted>")
+            .field("base_url", &self.base_url)
+            .finish_non_exhaustive()
     }
 }
 
@@ -96,7 +120,10 @@ impl BillingProvider for StripeProvider {
 
         let resp = client
             .post(format!("{}/v1/checkout/sessions", self.base_url))
-            .header("Authorization", format!("Bearer {}", self.secret_key))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.secret_key.expose_secret()),
+            )
             .form(&params)
             .send()
             .await
@@ -144,7 +171,10 @@ impl BillingProvider for StripeProvider {
             ("line_items[0][quantity]", "1"),
             ("line_items[0][price_data][currency]", currency),
             ("line_items[0][price_data][unit_amount]", &unit_amount),
-            ("line_items[0][price_data][product_data][name]", &product_name),
+            (
+                "line_items[0][price_data][product_data][name]",
+                &product_name,
+            ),
             ("success_url", success_url),
             ("cancel_url", cancel_url),
             ("metadata[user_id]", &user_id_s),
@@ -154,7 +184,10 @@ impl BillingProvider for StripeProvider {
         let client = self.http_client.clone();
         let resp = client
             .post(format!("{}/v1/checkout/sessions", self.base_url))
-            .header("Authorization", format!("Bearer {}", self.secret_key))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.secret_key.expose_secret()),
+            )
             .form(&params)
             .send()
             .await
@@ -190,13 +223,19 @@ impl BillingProvider for StripeProvider {
         let resp = if immediately {
             client
                 .delete(&url)
-                .header("Authorization", format!("Bearer {}", self.secret_key))
+                .header(
+                    "Authorization",
+                    format!("Bearer {}", self.secret_key.expose_secret()),
+                )
                 .send()
                 .await
         } else {
             client
                 .post(&url)
-                .header("Authorization", format!("Bearer {}", self.secret_key))
+                .header(
+                    "Authorization",
+                    format!("Bearer {}", self.secret_key.expose_secret()),
+                )
                 .form(&[("cancel_at_period_end", "true")])
                 .send()
                 .await
@@ -223,7 +262,10 @@ impl BillingProvider for StripeProvider {
 
         let resp = client
             .get(&url)
-            .header("Authorization", format!("Bearer {}", self.secret_key))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.secret_key.expose_secret()),
+            )
             .send()
             .await
             .map_err(|e| BillingError::ProviderApi(e.to_string()))?;
@@ -290,7 +332,7 @@ impl BillingProvider for StripeProvider {
         signed.push(b'.');
         signed.extend_from_slice(&event.payload);
         if !super::webhook_util::verify_hmac_sha256_hex(
-            self.webhook_secret.as_bytes(),
+            self.webhook_secret.expose_secret().as_bytes(),
             &signed,
             v1,
         ) {
@@ -315,13 +357,14 @@ impl BillingProvider for StripeProvider {
         // the paywall fails closed (audit F#11 round-2); fetch failures degrade
         // to None. Only subscription checkouts carry a `subscription` to fetch —
         // one-time-payment (per-post) checkouts intentionally have None.
-        let current_period_end = match super::provider::period_end_to_unix(obj.get("current_period_end")) {
-            Some(ts) => Some(ts),
-            None => match obj.get("subscription").and_then(|v| v.as_str()) {
-                Some(sub_id) => self.fetch_subscription_period_end(sub_id).await,
-                None => None,
-            },
-        };
+        let current_period_end =
+            match super::provider::period_end_to_unix(obj.get("current_period_end")) {
+                Some(ts) => Some(ts),
+                None => match obj.get("subscription").and_then(|v| v.as_str()) {
+                    Some(sub_id) => self.fetch_subscription_period_end(sub_id).await,
+                    None => None,
+                },
+            };
 
         Ok(ParsedWebhook {
             // Stripe's event taxonomy IS the canonical vocabulary the dispatch
@@ -362,7 +405,10 @@ impl BillingProvider for StripeProvider {
 
         let resp = client
             .post(format!("{}/v1/billing_portal/sessions", self.base_url))
-            .header("Authorization", format!("Bearer {}", self.secret_key))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.secret_key.expose_secret()),
+            )
             .form(&params)
             .send()
             .await
@@ -400,8 +446,8 @@ mod tests {
     #[test]
     fn test_stripe_new() {
         let provider = StripeProvider::new("sk_live_abc123".into(), "whsec_def456".into());
-        assert_eq!(provider.secret_key, "sk_live_abc123");
-        assert_eq!(provider.webhook_secret, "whsec_def456");
+        assert_eq!(provider.secret_key.expose_secret(), "sk_live_abc123");
+        assert_eq!(provider.webhook_secret.expose_secret(), "whsec_def456");
         assert_eq!(provider.base_url, "https://api.stripe.com");
     }
 

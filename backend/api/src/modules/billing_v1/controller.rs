@@ -506,12 +506,12 @@ pub async fn create_checkout(
         };
         checkout_intent::store(&state, &session.session_id, &intent).await?;
 
-        return Ok(Json(json!({
+        Ok(Json(json!({
             "data": {
                 "session_id": session.session_id,
                 "checkout_url": session.checkout_url,
             }
-        })));
+        })))
     }
 
     #[cfg(not(feature = "billing"))]
@@ -598,17 +598,24 @@ pub async fn create_post_checkout(
         };
         checkout_intent::store(&state, &session.session_id, &intent).await?;
 
-        return Ok(Json(json!({
+        Ok(Json(json!({
             "data": {
                 "session_id": session.session_id,
                 "checkout_url": session.checkout_url,
             }
-        })));
+        })))
     }
 
     #[cfg(not(feature = "billing"))]
     {
-        let _ = (user_id, user_email, amount_cents, currency, success_url, cancel_url);
+        let _ = (
+            user_id,
+            user_email,
+            amount_cents,
+            currency,
+            success_url,
+            cancel_url,
+        );
         return Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
             .with_message("Billing is not enabled on this server"));
     }
@@ -803,10 +810,7 @@ async fn process_webhook_event(
             // initiate a real, server-recorded checkout for.
             if let Some(post_id) = intent.post_id {
                 let amount_cents = intent.amount_cents.unwrap_or(0);
-                let currency = intent
-                    .currency
-                    .clone()
-                    .unwrap_or_else(|| "usd".to_string());
+                let currency = intent.currency.clone().unwrap_or_else(|| "usd".to_string());
 
                 // Idempotent grant. The (user_id, post_id) unique index is the
                 // real backstop against a concurrent double-grant; the pre-check
@@ -972,7 +976,7 @@ async fn process_webhook_event(
                     // Capture the persisted period end BEFORE consuming the Model
                     // into an ActiveModel, so the forward-only guard below can
                     // compare against it (V-MED-2).
-                    let existing_period_end = existing.current_period_end.clone();
+                    let existing_period_end = existing.current_period_end;
                     let mut active: subscription::ActiveModel = existing.into();
 
                     // Status from the provider-normalized canonical value (audit
@@ -1074,10 +1078,7 @@ async fn process_webhook_event(
             }
 
             let amount = event.amount_cents.unwrap_or(0) as i32;
-            let currency = event
-                .currency
-                .clone()
-                .unwrap_or_else(|| "usd".to_string());
+            let currency = event.currency.clone().unwrap_or_else(|| "usd".to_string());
 
             // Idempotency (plan 1d / CWE-294): Stripe redelivers events on retry,
             // and a replayed request would otherwise insert a duplicate payment
@@ -1225,10 +1226,7 @@ async fn process_webhook_event(
             let user_id = intent.user_id;
 
             if user_id == 0 {
-                tracing::warn!(
-                    "{} with resolvable intent but no user_id",
-                    event.event_type
-                );
+                tracing::warn!("{} with resolvable intent but no user_id", event.event_type);
                 return Ok(());
             }
 
@@ -1488,8 +1486,7 @@ mod tests {
         // the gate INPUT here (the helper); the gate itself (take + insert) is
         // unreachable from a pure test, and the empty-id short-circuit is the
         // exact branch that refuses.
-        let event =
-            payment_confirmed_event_with_memo("rux-1337-deadbeef-uuid");
+        let event = payment_confirmed_event_with_memo("rux-1337-deadbeef-uuid");
         let session_id = resolve_intent_session_id(&event);
         assert!(
             session_id.is_empty(),
@@ -1502,8 +1499,7 @@ mod tests {
         // The happy path: a real provider-supplied checkout_session_id (or its
         // fallbacks) resolves to a key the dispatch can consume an intent with.
         // Whichever structured field is present wins over the memo.
-        let mut event =
-            payment_confirmed_event_with_memo("rux-1337-deadbeef-uuid");
+        let mut event = payment_confirmed_event_with_memo("rux-1337-deadbeef-uuid");
         event.checkout_session_id = Some("cs_live_abc123".to_string());
         assert_eq!(resolve_intent_session_id(&event), "cs_live_abc123");
 

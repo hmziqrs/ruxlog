@@ -1,8 +1,8 @@
 //! Sonner Single Toast View — Phase 2 minimal view + Phase 7 swipe/drag to dismiss
 
 use crate::hooks::use_unique_id;
-use dioxus::prelude::*;
 use crate::utils::sleep;
+use dioxus::prelude::*;
 use std::time::Duration;
 
 use super::icons::{icon_close, icon_error, icon_info, icon_success, icon_warning, loader_spinner};

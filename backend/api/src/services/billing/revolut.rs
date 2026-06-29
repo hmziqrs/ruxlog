@@ -3,6 +3,7 @@
 //! Supports fast bank transfers, card payments, and subscriptions.
 
 use async_trait::async_trait;
+use secrecy::{ExposeSecret, SecretString};
 
 use super::provider::{
     BillingError, BillingProvider, CheckoutSession, ParsedWebhook, SubscriptionInfo, WebhookEvent,
@@ -14,9 +15,12 @@ use super::provider::{
 use crate::state::build_http_client;
 
 /// Revolut Pay billing provider.
+///
+/// CRYP-ENC-012: `api_key` and `webhook_secret` are held in
+/// `secrecy::SecretString` (redacting `Debug`, opt-in `expose_secret()`).
 pub struct RevolutProvider {
-    pub api_key: String,
-    pub webhook_secret: String,
+    pub api_key: SecretString,
+    pub webhook_secret: SecretString,
     pub base_url: String,
     pub http_client: reqwest::Client,
 }
@@ -24,8 +28,8 @@ pub struct RevolutProvider {
 impl RevolutProvider {
     pub fn new(api_key: String, webhook_secret: String) -> Self {
         Self {
-            api_key,
-            webhook_secret,
+            api_key: api_key.into(),
+            webhook_secret: webhook_secret.into(),
             // Production by default; override with the sandbox URL via
             // REVOLUT_API_BASE_URL for development. See plan Phase 6f.
             base_url: std::env::var("REVOLUT_API_BASE_URL")
@@ -43,6 +47,19 @@ impl RevolutProvider {
     pub fn with_http_client(mut self, client: reqwest::Client) -> Self {
         self.http_client = client;
         self
+    }
+}
+
+// CRYP-ENC-012: manual redacting `Debug`. Credential fields are always
+// `<redacted>`; only the non-secret wiring is shown. No tracing/error path
+// logs the whole struct.
+impl std::fmt::Debug for RevolutProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RevolutProvider")
+            .field("api_key", &"<redacted>")
+            .field("webhook_secret", &"<redacted>")
+            .field("base_url", &self.base_url)
+            .finish_non_exhaustive()
     }
 }
 
@@ -77,7 +94,10 @@ impl BillingProvider for RevolutProvider {
 
         let resp = client
             .post(format!("{}/orders", self.base_url))
-            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.api_key.expose_secret()),
+            )
             .header("Content-Type", "application/json")
             .json(&body)
             .send()
@@ -116,7 +136,10 @@ impl BillingProvider for RevolutProvider {
 
         let resp = client
             .post(&url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.api_key.expose_secret()),
+            )
             .send()
             .await
             .map_err(|e| BillingError::ProviderApi(e.to_string()))?;
@@ -141,7 +164,10 @@ impl BillingProvider for RevolutProvider {
 
         let resp = client
             .get(&url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.api_key.expose_secret()),
+            )
             .send()
             .await
             .map_err(|e| BillingError::ProviderApi(e.to_string()))?;
@@ -179,8 +205,8 @@ impl BillingProvider for RevolutProvider {
         // sends, and matched a fabricated `ORDER.COMPLETED` event against a
         // nested `order` object that does not exist — so every real Revolut
         // webhook was rejected at this gate (audit F#11 round-2).
-        let sig_header =
-            super::webhook_util::header_str(&event.headers, "Revolut-Signature").ok_or_else(|| {
+        let sig_header = super::webhook_util::header_str(&event.headers, "Revolut-Signature")
+            .ok_or_else(|| {
                 BillingError::WebhookVerification("Missing Revolut-Signature header".into())
             })?;
         // The header may list several `v1=` schemes comma-separated (revolut
@@ -206,7 +232,11 @@ impl BillingProvider for RevolutProvider {
         let ts_raw: i64 = ts.trim().parse().map_err(|_| {
             BillingError::WebhookVerification("Revolut timestamp not an integer".into())
         })?;
-        let ts_secs = if ts_raw > 1_000_000_000_000 { ts_raw / 1000 } else { ts_raw };
+        let ts_secs = if ts_raw > 1_000_000_000_000 {
+            ts_raw / 1000
+        } else {
+            ts_raw
+        };
         if !super::webhook_util::timestamp_fresh(ts_secs, chrono::Utc::now().timestamp()) {
             return Err(BillingError::WebhookVerification(format!(
                 "Revolut timestamp outside tolerance (ts={ts_secs})"
@@ -223,22 +253,20 @@ impl BillingProvider for RevolutProvider {
         // Accept the first candidate that matches a configured signing secret.
         // Ruxlog configures one secret, so there is effectively one candidate;
         // the loop is a no-op for normal traffic and harmless for rotation.
-        let verified = candidates
-            .iter()
-            .any(|mac_hex| {
-                super::webhook_util::verify_hmac_sha256_hex(
-                    self.webhook_secret.as_bytes(),
-                    &manifest,
-                    mac_hex,
-                )
-            });
+        let verified = candidates.iter().any(|mac_hex| {
+            super::webhook_util::verify_hmac_sha256_hex(
+                self.webhook_secret.expose_secret().as_bytes(),
+                &manifest,
+                mac_hex,
+            )
+        });
         if !verified {
             return Err(BillingError::WebhookVerification(
                 "Revolut signature mismatch".into(),
             ));
         }
 
-        let data: serde_json::Value = serde_json::from_str(&payload_str)
+        let data: serde_json::Value = serde_json::from_str(payload_str)
             .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
 
         // Normalize Revolut's native event taxonomy to the canonical vocabulary
@@ -319,8 +347,8 @@ mod tests {
     #[test]
     fn test_revolut_new() {
         let provider = RevolutProvider::new("rev_test_key".into(), "whsec_test".into());
-        assert_eq!(provider.api_key, "rev_test_key");
-        assert_eq!(provider.webhook_secret, "whsec_test");
+        assert_eq!(provider.api_key.expose_secret(), "rev_test_key");
+        assert_eq!(provider.webhook_secret.expose_secret(), "whsec_test");
         assert_eq!(provider.base_url, "https://merchant.revolut.com/api/1.0");
     }
 

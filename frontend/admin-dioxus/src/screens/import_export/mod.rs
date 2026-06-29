@@ -21,7 +21,10 @@ pub fn ImportExportScreen() -> Element {
                     message.set(Some(format!("{} exported successfully.", kind)));
                 }
                 _ => {
-                    message.set(Some(format!("Failed to export {}. Not yet implemented on backend.", kind)));
+                    message.set(Some(format!(
+                        "Failed to export {}. Not yet implemented on backend.",
+                        kind
+                    )));
                 }
             }
             exporting.set(false);

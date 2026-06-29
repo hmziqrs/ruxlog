@@ -1,6 +1,6 @@
 use super::{
-    PasswordResetState, RequestResetPayload, ResetPasswordPayload, ResetResult,
-    VerifyResetPayload, VerifyResetResponse,
+    PasswordResetState, RequestResetPayload, ResetPasswordPayload, ResetResult, VerifyResetPayload,
+    VerifyResetResponse,
 };
 use oxcore::http;
 use oxstore::state_request_abstraction;

@@ -1,8 +1,5 @@
 use dioxus::prelude::*;
-use hmziq_dioxus_free_icons::{
-    icons::ld_icons::LdEllipsis,
-    Icon,
-};
+use hmziq_dioxus_free_icons::{icons::ld_icons::LdEllipsis, Icon};
 
 #[derive(Props, PartialEq, Clone)]
 pub struct BreadcrumbProps {

@@ -216,10 +216,7 @@ pub fn use_static_seo(page: &str) -> SeoMetadata {
             .build(),
         "tags" => SeoMetadataBuilder::new()
             .title("Tags")
-            .description(&format!(
-                "Browse all tags on {}",
-                SEO_CONFIG.site_name
-            ))
+            .description(&format!("Browse all tags on {}", SEO_CONFIG.site_name))
             .canonical("/tags")
             .build(),
         "about" => SeoMetadataBuilder::new()

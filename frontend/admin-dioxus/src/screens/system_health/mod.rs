@@ -36,7 +36,10 @@ pub fn SystemHealthScreen() -> Element {
                     }
                 }
                 Ok(resp) => {
-                    error_msg.set(Some(format!("Health check returned status {}", resp.status())));
+                    error_msg.set(Some(format!(
+                        "Health check returned status {}",
+                        resp.status()
+                    )));
                     loading.set(false);
                 }
                 Err(e) => {

@@ -1,5 +1,5 @@
-use dioxus::prelude::*;
 use crate::utils::sleep;
+use dioxus::prelude::*;
 use std::time::Duration;
 
 use super::GridCalculator;

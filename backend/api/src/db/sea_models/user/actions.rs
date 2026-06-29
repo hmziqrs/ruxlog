@@ -102,8 +102,7 @@ impl Entity {
         match user.insert(&transaction).await {
             Ok(model) => {
                 tracing::Span::current().record("user_id", model.id);
-                email_verification::Entity::create(&transaction, model.id, email_code_hash)
-                    .await?;
+                email_verification::Entity::create(&transaction, model.id, email_code_hash).await?;
                 transaction.commit().await.map_err(|_| {
                     ErrorResponse::new(ErrorCode::TransactionError)
                         .with_message("Failed to commit transaction")
@@ -201,9 +200,21 @@ impl Entity {
         user_active.password = Set(Some(hash));
         user_active.updated_at = Set(chrono::Utc::now().fixed_offset());
 
+        // F#16: rotate the server-random `session_auth_secret` on credential
+        // change. `session_auth_hash` (services/auth.rs) is keyed on this secret,
+        // so rotating it invalidates ALL of the user's prior sessions on their
+        // next request (the extractor's ct_eq mismatch deletes the stale record).
+        // This closes the CSRF/session-fixation trust transition for the
+        // password-change path: a compromised session cannot survive a reset.
+        user_active.session_auth_secret =
+            Set(super::model::new_session_auth_secret().map_err(|err| {
+                ErrorResponse::new(ErrorCode::InternalServerError)
+                    .with_message(format!("session_auth_secret rotation failed: {err}"))
+            })?);
+
         match user_active.update(conn).await {
             Ok(_) => {
-                info!(user_id, "User password changed");
+                info!(user_id, "User password changed (session binding rotated)");
                 Ok(())
             }
             Err(err) => {
@@ -272,11 +283,7 @@ impl Entity {
         let result = Self::update_many()
             .col_expr(Column::TwoFaLastTotpCounter, Expr::value(new_counter))
             .filter(Column::Id.eq(user_id))
-            .filter(
-                Column::TwoFaLastTotpCounter
-                    .is_null()
-                    .or(new_watermark),
-            )
+            .filter(Column::TwoFaLastTotpCounter.is_null().or(new_watermark))
             .exec(conn)
             .await?;
         Ok(result.rows_affected > 0)
@@ -294,9 +301,19 @@ impl Entity {
         }
     }
 
+    /// CRYP-ENC-004(a): `google_id` is stored AT REST as a DETERMINISTIC
+    /// field-crypto envelope, so the lookup encrypts the supplied id with the
+    /// same key and matches the stored ciphertext column. Transparent to
+    /// callers — they pass the plaintext Google subject id and get the user.
+    /// A key-unset deployment surfaces a 500 (never a silent miss).
     pub async fn find_by_google_id(conn: &DbConn, google_id: String) -> DbResult<Option<Model>> {
+        let lookup =
+            crate::utils::field_crypto::encrypt_deterministic(&google_id).map_err(|err| {
+                ErrorResponse::new(ErrorCode::InternalServerError)
+                    .with_message(format!("google_id lookup encryption failed: {err}"))
+            })?;
         match Self::find()
-            .filter(Column::GoogleId.eq(google_id))
+            .filter(Column::GoogleId.eq(lookup))
             .one(conn)
             .await
         {
@@ -705,20 +722,18 @@ mod tests {
     /// If a future refactor drops the `IS NULL OR <` guard, this test fails.
     #[test]
     fn advance_totp_counter_emits_atomic_conditional_update() {
-        let sql = Entity::update_many()
-            .col_expr(
-                Column::TwoFaLastTotpCounter,
-                sea_orm::sea_query::Expr::value(1_000_042_i64),
-            )
-            .filter(Column::Id.eq(7))
-            .filter(
-                Column::TwoFaLastTotpCounter
-                    .is_null()
-                    .or(sea_orm::sea_query::Expr::col(Column::TwoFaLastTotpCounter)
-                        .lt(1_000_042_i64)),
-            )
-            .into_query()
-            .to_string(PostgresQueryBuilder);
+        let sql =
+            Entity::update_many()
+                .col_expr(
+                    Column::TwoFaLastTotpCounter,
+                    sea_orm::sea_query::Expr::value(1_000_042_i64),
+                )
+                .filter(Column::Id.eq(7))
+                .filter(Column::TwoFaLastTotpCounter.is_null().or(
+                    sea_orm::sea_query::Expr::col(Column::TwoFaLastTotpCounter).lt(1_000_042_i64),
+                ))
+                .into_query()
+                .to_string(PostgresQueryBuilder);
 
         // The SET targets exactly the watermark column with the new counter.
         assert!(

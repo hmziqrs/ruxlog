@@ -9,10 +9,11 @@ use std::fmt;
     feature = "backend",
     sea_orm(rs_type = "String", db_type = "Enum", enum_name = "post_status")
 )]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum PostStatus {
     #[serde(rename = "Draft")]
     #[cfg_attr(feature = "backend", sea_orm(string_value = "draft"))]
+    #[default]
     Draft,
     #[serde(rename = "Published")]
     #[cfg_attr(feature = "backend", sea_orm(string_value = "published"))]
@@ -29,12 +30,6 @@ impl fmt::Display for PostStatus {
             Self::Published => write!(f, "published"),
             Self::Archived => write!(f, "archived"),
         }
-    }
-}
-
-impl Default for PostStatus {
-    fn default() -> Self {
-        PostStatus::Draft
     }
 }
 

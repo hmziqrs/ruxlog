@@ -4,6 +4,7 @@
 
 use async_trait::async_trait;
 use base64::Engine;
+use secrecy::{ExposeSecret, SecretString};
 
 use super::provider::{
     BillingError, BillingProvider, CheckoutSession, ParsedWebhook, SubscriptionInfo, WebhookEvent,
@@ -15,10 +16,14 @@ use super::provider::{
 use crate::state::build_http_client;
 
 /// Razorpay billing provider.
+///
+/// CRYP-ENC-012: `key_secret` and `webhook_secret` are held in
+/// `secrecy::SecretString` (redacting `Debug`, opt-in `expose_secret()`).
+/// `key_id` is Razorpay's public key identifier and stays a plain `String`.
 pub struct RazorpayProvider {
     pub key_id: String,
-    pub key_secret: String,
-    pub webhook_secret: String,
+    pub key_secret: SecretString,
+    pub webhook_secret: SecretString,
     pub base_url: String,
     pub http_client: reqwest::Client,
 }
@@ -27,8 +32,8 @@ impl RazorpayProvider {
     pub fn new(key_id: String, key_secret: String, webhook_secret: String) -> Self {
         Self {
             key_id,
-            key_secret,
-            webhook_secret,
+            key_secret: key_secret.into(),
+            webhook_secret: webhook_secret.into(),
             // Production by default; override with the sandbox host via
             // RAZORPAY_API_BASE_URL for development. See plan Phase 6f.
             base_url: std::env::var("RAZORPAY_API_BASE_URL")
@@ -46,6 +51,20 @@ impl RazorpayProvider {
     pub fn with_http_client(mut self, client: reqwest::Client) -> Self {
         self.http_client = client;
         self
+    }
+}
+
+// CRYP-ENC-012: manual redacting `Debug`. Credential fields are always
+// `<redacted>`; only the non-secret wiring is shown. No tracing/error path
+// logs the whole struct.
+impl std::fmt::Debug for RazorpayProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RazorpayProvider")
+            .field("key_id", &self.key_id)
+            .field("key_secret", &"<redacted>")
+            .field("webhook_secret", &"<redacted>")
+            .field("base_url", &self.base_url)
+            .finish_non_exhaustive()
     }
 }
 
@@ -105,8 +124,11 @@ impl BillingProvider for RazorpayProvider {
                 "Authorization",
                 format!(
                     "Basic {}",
-                    base64::engine::general_purpose::STANDARD
-                        .encode(format!("{}:{}", self.key_id, self.key_secret))
+                    base64::engine::general_purpose::STANDARD.encode(format!(
+                        "{}:{}",
+                        self.key_id,
+                        self.key_secret.expose_secret()
+                    ))
                 ),
             )
             .header("Content-Type", "application/json")
@@ -149,8 +171,11 @@ impl BillingProvider for RazorpayProvider {
                     "Authorization",
                     format!(
                         "Basic {}",
-                        base64::engine::general_purpose::STANDARD
-                            .encode(format!("{}:{}", self.key_id, self.key_secret))
+                        base64::engine::general_purpose::STANDARD.encode(format!(
+                            "{}:{}",
+                            self.key_id,
+                            self.key_secret.expose_secret()
+                        ))
                     ),
                 )
                 .json(&serde_json::json!({ "cancel_at_cycle_end": 0 }))
@@ -173,8 +198,11 @@ impl BillingProvider for RazorpayProvider {
                     "Authorization",
                     format!(
                         "Basic {}",
-                        base64::engine::general_purpose::STANDARD
-                            .encode(format!("{}:{}", self.key_id, self.key_secret))
+                        base64::engine::general_purpose::STANDARD.encode(format!(
+                            "{}:{}",
+                            self.key_id,
+                            self.key_secret.expose_secret()
+                        ))
                     ),
                 )
                 .json(&serde_json::json!({ "cancel_at_cycle_end": 1 }))
@@ -207,8 +235,11 @@ impl BillingProvider for RazorpayProvider {
                 "Authorization",
                 format!(
                     "Basic {}",
-                    base64::engine::general_purpose::STANDARD
-                        .encode(format!("{}:{}", self.key_id, self.key_secret))
+                    base64::engine::general_purpose::STANDARD.encode(format!(
+                        "{}:{}",
+                        self.key_id,
+                        self.key_secret.expose_secret()
+                    ))
                 ),
             )
             .send()
@@ -247,7 +278,7 @@ impl BillingProvider for RazorpayProvider {
                 BillingError::WebhookVerification("Missing X-Razorpay-Signature header".into())
             })?;
         if !super::webhook_util::verify_hmac_sha256_hex(
-            self.webhook_secret.as_bytes(),
+            self.webhook_secret.expose_secret().as_bytes(),
             &event.payload,
             &sig,
         ) {
@@ -259,7 +290,7 @@ impl BillingProvider for RazorpayProvider {
         let payload_str = std::str::from_utf8(&event.payload)
             .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
 
-        let data: serde_json::Value = serde_json::from_str(&payload_str)
+        let data: serde_json::Value = serde_json::from_str(payload_str)
             .map_err(|e| BillingError::WebhookVerification(e.to_string()))?;
 
         // Normalize Razorpay's native event taxonomy to the canonical vocabulary
@@ -340,8 +371,8 @@ mod tests {
         let provider =
             RazorpayProvider::new("rzp_test_abc".into(), "secret123".into(), "whsec456".into());
         assert_eq!(provider.key_id, "rzp_test_abc");
-        assert_eq!(provider.key_secret, "secret123");
-        assert_eq!(provider.webhook_secret, "whsec456");
+        assert_eq!(provider.key_secret.expose_secret(), "secret123");
+        assert_eq!(provider.webhook_secret.expose_secret(), "whsec456");
         assert_eq!(provider.base_url, "https://api.razorpay.com/v1");
     }
 
@@ -372,8 +403,7 @@ mod tests {
     /// provider-agnostic dispatch matches on (audit F#11).
     #[tokio::test]
     async fn verify_webhook_normalizes_native_events_to_canonical() {
-        let provider =
-            RazorpayProvider::new("key".into(), "secret".into(), "whsec".into());
+        let provider = RazorpayProvider::new("key".into(), "secret".into(), "whsec".into());
 
         let mk = |event: &str| -> Vec<u8> {
             // Build a minimal but well-formed Razorpay envelope.

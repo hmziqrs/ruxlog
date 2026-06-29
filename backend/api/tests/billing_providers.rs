@@ -119,14 +119,11 @@ mod billing_mock_tests {
                 mac.update(ts_str.as_bytes());
                 mac.update(b".");
                 mac.update(payload);
-                let sig = base64::engine::general_purpose::STANDARD
-                    .encode(mac.finalize().into_bytes());
+                let sig =
+                    base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes());
                 headers.insert("webhook-id", webhook_id.parse().unwrap());
                 headers.insert("webhook-timestamp", ts_str.parse().unwrap());
-                headers.insert(
-                    "webhook-signature",
-                    format!("v1,{sig}").parse().unwrap(),
-                );
+                headers.insert("webhook-signature", format!("v1,{sig}").parse().unwrap());
             }
             "mercado_pago" => {
                 // Official scheme (V-CRIT-2): x-signature: ts=<ms>,v1=<HMAC(
@@ -595,7 +592,10 @@ mod billing_mock_tests {
             let original = br#"{"type":"subscription.created","data":{"id":"sub_x"}}"#;
             let mut evt = signed_event("polar", original, &secret);
             evt.payload = br#"{"type":"subscription.created","data":{"id":"sub_EVIL"}}"#.to_vec();
-            let err = provider.verify_webhook(evt).await.expect_err("tampered body must be rejected");
+            let err = provider
+                .verify_webhook(evt)
+                .await
+                .expect_err("tampered body must be rejected");
             assert!(matches!(err, BillingError::WebhookVerification(_)));
         }
 
@@ -882,7 +882,13 @@ mod billing_mock_tests {
                 .await;
 
             let result = razorpay_mock(&server)
-                .create_checkout("plan_test", "user@test.com", 5, "https://s.cx/s", "https://s.cx/c")
+                .create_checkout(
+                    "plan_test",
+                    "user@test.com",
+                    5,
+                    "https://s.cx/s",
+                    "https://s.cx/c",
+                )
                 .await
                 .expect("ok");
             assert_eq!(result.session_id, "sub_abc123");
@@ -992,7 +998,10 @@ mod billing_mock_tests {
                 ))
                 .await;
             assert!(result.is_err());
-            assert!(matches!(result.unwrap_err(), BillingError::WebhookVerification(_)));
+            assert!(matches!(
+                result.unwrap_err(),
+                BillingError::WebhookVerification(_)
+            ));
         }
 
         #[tokio::test]
@@ -1042,7 +1051,13 @@ mod billing_mock_tests {
                 .await;
 
             let result = mp_mock(&server)
-                .create_checkout("99.90", "user@test.com", 3, "https://s.cx/s", "https://s.cx/c")
+                .create_checkout(
+                    "99.90",
+                    "user@test.com",
+                    3,
+                    "https://s.cx/s",
+                    "https://s.cx/c",
+                )
                 .await
                 .expect("ok");
             assert_eq!(result.session_id, "mp_pref_1");
@@ -1054,11 +1069,17 @@ mod billing_mock_tests {
             let server = MockServer::start().await;
             Mock::given(method("PUT"))
                 .and(path("/preapproval/sub_mp"))
-                .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id": "sub_mp", "status": "cancelled"})))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .set_body_json(json!({"id": "sub_mp", "status": "cancelled"})),
+                )
                 .mount(&server)
                 .await;
 
-            assert!(mp_mock(&server).cancel_subscription("sub_mp", true).await.is_ok());
+            assert!(mp_mock(&server)
+                .cancel_subscription("sub_mp", true)
+                .await
+                .is_ok());
         }
 
         #[tokio::test]
@@ -1074,7 +1095,10 @@ mod billing_mock_tests {
                 .mount(&server)
                 .await;
 
-            let info = mp_mock(&server).get_subscription("sub_mp2").await.expect("ok");
+            let info = mp_mock(&server)
+                .get_subscription("sub_mp2")
+                .await
+                .expect("ok");
             assert_eq!(info.status, "authorized");
             assert!(info.current_period_end.is_some());
         }
@@ -1109,7 +1133,10 @@ mod billing_mock_tests {
                 .verify_webhook(unsigned_event("mercado_pago", b"{}"))
                 .await;
             assert!(result.is_err());
-            assert!(matches!(result.unwrap_err(), BillingError::WebhookVerification(_)));
+            assert!(matches!(
+                result.unwrap_err(),
+                BillingError::WebhookVerification(_)
+            ));
         }
 
         #[tokio::test]
@@ -1151,7 +1178,9 @@ mod billing_mock_tests {
             // Mock auth endpoint
             Mock::given(method("POST"))
                 .and(path("/authentication/login"))
-                .respond_with(ResponseTemplate::new(200).set_body_json(json!({"token": "awx_bearer_tok"})))
+                .respond_with(
+                    ResponseTemplate::new(200).set_body_json(json!({"token": "awx_bearer_tok"})),
+                )
                 .mount(&server)
                 .await;
 
@@ -1167,7 +1196,13 @@ mod billing_mock_tests {
                 .await;
 
             let result = awx_mock(&server)
-                .create_checkout("99.00", "user@test.com", 7, "https://s.cx/s", "https://s.cx/c")
+                .create_checkout(
+                    "99.00",
+                    "user@test.com",
+                    7,
+                    "https://s.cx/s",
+                    "https://s.cx/c",
+                )
                 .await
                 .expect("ok");
             assert_eq!(result.session_id, "int_awx_1");
@@ -1191,7 +1226,10 @@ mod billing_mock_tests {
                 .mount(&server)
                 .await;
 
-            assert!(awx_mock(&server).cancel_subscription("sub_awx", true).await.is_ok());
+            assert!(awx_mock(&server)
+                .cancel_subscription("sub_awx", true)
+                .await
+                .is_ok());
         }
 
         #[tokio::test]
@@ -1215,7 +1253,10 @@ mod billing_mock_tests {
                 .mount(&server)
                 .await;
 
-            let info = awx_mock(&server).get_subscription("sub_awx2").await.expect("ok");
+            let info = awx_mock(&server)
+                .get_subscription("sub_awx2")
+                .await
+                .expect("ok");
             assert_eq!(info.status, "ACTIVE");
             assert!(!info.cancel_at_period_end);
         }
@@ -1252,7 +1293,10 @@ mod billing_mock_tests {
                 .verify_webhook(unsigned_event("airwallex", b"{}"))
                 .await;
             assert!(result.is_err());
-            assert!(matches!(result.unwrap_err(), BillingError::WebhookVerification(_)));
+            assert!(matches!(
+                result.unwrap_err(),
+                BillingError::WebhookVerification(_)
+            ));
         }
 
         #[test]
@@ -1291,7 +1335,13 @@ mod billing_mock_tests {
                 .await;
 
             let result = rev_mock(&server)
-                .create_checkout("9999", "user@test.com", 4, "https://s.cx/s", "https://s.cx/c")
+                .create_checkout(
+                    "9999",
+                    "user@test.com",
+                    4,
+                    "https://s.cx/s",
+                    "https://s.cx/c",
+                )
                 .await
                 .expect("ok");
             assert_eq!(result.session_id, "ord_rev_1");
@@ -1307,7 +1357,10 @@ mod billing_mock_tests {
                 .mount(&server)
                 .await;
 
-            assert!(rev_mock(&server).cancel_subscription("sub_rev", true).await.is_ok());
+            assert!(rev_mock(&server)
+                .cancel_subscription("sub_rev", true)
+                .await
+                .is_ok());
         }
 
         #[tokio::test]
@@ -1323,7 +1376,10 @@ mod billing_mock_tests {
                 .mount(&server)
                 .await;
 
-            let info = rev_mock(&server).get_subscription("sub_rev2").await.expect("ok");
+            let info = rev_mock(&server)
+                .get_subscription("sub_rev2")
+                .await
+                .expect("ok");
             assert_eq!(info.status, "active");
             assert!(info.current_period_end.is_some());
         }
@@ -1360,7 +1416,10 @@ mod billing_mock_tests {
                 .verify_webhook(unsigned_event("revolut", b"{}"))
                 .await;
             assert!(result.is_err());
-            assert!(matches!(result.unwrap_err(), BillingError::WebhookVerification(_)));
+            assert!(matches!(
+                result.unwrap_err(),
+                BillingError::WebhookVerification(_)
+            ));
         }
 
         #[tokio::test]
@@ -1430,7 +1489,13 @@ mod billing_mock_tests {
                 .await;
 
             let result = paypal_mock(&server)
-                .create_checkout("P_TESTPLAN", "user@test.com", 8, "https://s.cx/s", "https://s.cx/c")
+                .create_checkout(
+                    "P_TESTPLAN",
+                    "user@test.com",
+                    8,
+                    "https://s.cx/s",
+                    "https://s.cx/c",
+                )
                 .await
                 .expect("ok");
             assert_eq!(result.session_id, "I_TESTSUB1");
@@ -1443,7 +1508,9 @@ mod billing_mock_tests {
 
             Mock::given(method("POST"))
                 .and(path("/v1/oauth2/token"))
-                .respond_with(ResponseTemplate::new(200).set_body_json(json!({"access_token": "tok"})))
+                .respond_with(
+                    ResponseTemplate::new(200).set_body_json(json!({"access_token": "tok"})),
+                )
                 .mount(&server)
                 .await;
 
@@ -1453,7 +1520,10 @@ mod billing_mock_tests {
                 .mount(&server)
                 .await;
 
-            assert!(paypal_mock(&server).cancel_subscription("sub_pp", true).await.is_ok());
+            assert!(paypal_mock(&server)
+                .cancel_subscription("sub_pp", true)
+                .await
+                .is_ok());
         }
 
         #[tokio::test]
@@ -1462,7 +1532,9 @@ mod billing_mock_tests {
 
             Mock::given(method("POST"))
                 .and(path("/v1/oauth2/token"))
-                .respond_with(ResponseTemplate::new(200).set_body_json(json!({"access_token": "tok"})))
+                .respond_with(
+                    ResponseTemplate::new(200).set_body_json(json!({"access_token": "tok"})),
+                )
                 .mount(&server)
                 .await;
 
@@ -1476,7 +1548,10 @@ mod billing_mock_tests {
                 .mount(&server)
                 .await;
 
-            let info = paypal_mock(&server).get_subscription("sub_pp2").await.expect("ok");
+            let info = paypal_mock(&server)
+                .get_subscription("sub_pp2")
+                .await
+                .expect("ok");
             assert_eq!(info.provider_subscription_id, "sub_pp2");
             assert_eq!(info.status, "ACTIVE");
             assert!(info.current_period_end.is_some());
@@ -1520,8 +1595,14 @@ mod billing_mock_tests {
 
             let mut headers = axum::http::HeaderMap::new();
             headers.insert("PAYPAL-TRANSMISSION-ID", "tid_1".parse().unwrap());
-            headers.insert("PAYPAL-TRANSMISSION-TIME", "2026-06-17T00:00:00Z".parse().unwrap());
-            headers.insert("PAYPAL-CERT-URL", "https://example.com/cert".parse().unwrap());
+            headers.insert(
+                "PAYPAL-TRANSMISSION-TIME",
+                "2026-06-17T00:00:00Z".parse().unwrap(),
+            );
+            headers.insert(
+                "PAYPAL-CERT-URL",
+                "https://example.com/cert".parse().unwrap(),
+            );
             headers.insert("PAYPAL-AUTH-ALGO", "SHA256withRSA".parse().unwrap());
             headers.insert("PAYPAL-TRANSMISSION-SIG", "sig".parse().unwrap());
 
@@ -1548,7 +1629,10 @@ mod billing_mock_tests {
                 .verify_webhook(unsigned_event("paypal", b"{}"))
                 .await;
             assert!(result.is_err());
-            assert!(matches!(result.unwrap_err(), BillingError::WebhookVerification(_)));
+            assert!(matches!(
+                result.unwrap_err(),
+                BillingError::WebhookVerification(_)
+            ));
         }
 
         #[tokio::test]
@@ -1617,8 +1701,10 @@ mod billing_mock_tests {
             let secret = "router_whsec";
             let stripe_provider: std::sync::Arc<dyn BillingProvider> =
                 std::sync::Arc::new(StripeProvider::new("sk".into(), secret.into()));
-            let mut providers: std::collections::HashMap<String, std::sync::Arc<dyn BillingProvider>> =
-                std::collections::HashMap::new();
+            let mut providers: std::collections::HashMap<
+                String,
+                std::sync::Arc<dyn BillingProvider>,
+            > = std::collections::HashMap::new();
             providers.insert("stripe".into(), stripe_provider);
 
             let router = make_router(providers, "stripe");
@@ -1661,8 +1747,10 @@ mod billing_mock_tests {
                 .mount(&server)
                 .await;
 
-            let mut providers: std::collections::HashMap<String, std::sync::Arc<dyn BillingProvider>> =
-                std::collections::HashMap::new();
+            let mut providers: std::collections::HashMap<
+                String,
+                std::sync::Arc<dyn BillingProvider>,
+            > = std::collections::HashMap::new();
             providers.insert("stripe".into(), stripe_at_server(&server));
 
             let router = make_router(providers, "stripe");
@@ -1741,7 +1829,9 @@ mod billing_mock_tests {
         });
         let bytes = serde_json::to_vec(&webhook_payload).unwrap();
 
-        let result = provider.verify_webhook(unsigned_event("crypto", &bytes)).await;
+        let result = provider
+            .verify_webhook(unsigned_event("crypto", &bytes))
+            .await;
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
@@ -1767,7 +1857,9 @@ mod billing_mock_tests {
         });
         let bytes = serde_json::to_vec(&webhook_payload).unwrap();
 
-        let result = provider.verify_webhook(unsigned_event("crypto", &bytes)).await;
+        let result = provider
+            .verify_webhook(unsigned_event("crypto", &bytes))
+            .await;
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),

@@ -19,12 +19,6 @@ pub struct AuthSessionState<UserId> {
     /// Whether email was verified at login time
     pub email_verified: bool,
 
-    /// When TOTP was verified this session (None if not yet verified)
-    pub totp_verified_at: Option<DateTime<FixedOffset>>,
-
-    /// When password was last re-entered for sensitive operations
-    pub reauthenticated_at: Option<DateTime<FixedOffset>>,
-
     /// Last time ban status was checked
     pub ban_checked_at: Option<DateTime<FixedOffset>>,
 
@@ -58,8 +52,6 @@ impl<UserId: Clone> AuthSessionState<UserId> {
             user_id,
             authenticated_at: now,
             email_verified,
-            totp_verified_at: None,
-            reauthenticated_at: None,
             ban_checked_at: None,
             is_banned: false,
             session_auth_hash: Vec::new(),
@@ -76,16 +68,6 @@ impl<UserId: Clone> AuthSessionState<UserId> {
         self
     }
 
-    /// Mark TOTP as verified for this session
-    pub fn mark_totp_verified(&mut self) {
-        self.totp_verified_at = Some(Utc::now().fixed_offset());
-    }
-
-    /// Mark as recently re-authenticated
-    pub fn mark_reauthenticated(&mut self) {
-        self.reauthenticated_at = Some(Utc::now().fixed_offset());
-    }
-
     /// Update ban status cache
     pub fn update_ban_status(&mut self, status: &BanStatus) {
         self.ban_checked_at = Some(Utc::now().fixed_offset());
@@ -95,18 +77,6 @@ impl<UserId: Clone> AuthSessionState<UserId> {
     /// Update last seen timestamp
     pub fn touch(&mut self) {
         self.last_seen = Utc::now().fixed_offset();
-    }
-
-    /// Check if TOTP was verified this session
-    pub fn is_totp_verified(&self) -> bool {
-        self.totp_verified_at.is_some()
-    }
-
-    /// Check if reauth was within the given duration
-    pub fn reauth_within(&self, duration: Duration) -> bool {
-        self.reauthenticated_at
-            .map(|t| Utc::now().fixed_offset() - t < duration)
-            .unwrap_or(false)
     }
 
     /// Check if ban cache is stale (older than max_age)

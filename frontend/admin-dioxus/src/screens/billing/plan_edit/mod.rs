@@ -87,12 +87,10 @@ pub fn BillingPlanEditScreen(id: i32) -> Element {
         let plan_id = id;
         spawn(async move {
             saving.set(true);
-            let result = oxcore::http::put(
-                &format!("/billing/v1/plan/update/{}", plan_id),
-                &payload,
-            )
-            .send()
-            .await;
+            let result =
+                oxcore::http::put(&format!("/billing/v1/plan/update/{}", plan_id), &payload)
+                    .send()
+                    .await;
 
             match result {
                 Ok(resp) if (200..300).contains(&resp.status()) => {
@@ -101,10 +99,7 @@ pub fn BillingPlanEditScreen(id: i32) -> Element {
                     nav.push(Route::BillingPlansListScreen {});
                 }
                 Ok(resp) => {
-                    error_msg.set(format!(
-                        "Failed to update plan (status {})",
-                        resp.status()
-                    ));
+                    error_msg.set(format!("Failed to update plan (status {})", resp.status()));
                 }
                 Err(_) => {
                     error_msg.set("Network error".to_string());

@@ -83,7 +83,9 @@ pub async fn editorjs_upload_file(file: File) -> Result<JsValue, JsValue> {
                         }
                         None => {
                             // Check if there was an error
-                            if let Some(UploadStatus::Error(err_msg)) = media_store.get_upload_status(&blob_url) {
+                            if let Some(UploadStatus::Error(err_msg)) =
+                                media_store.get_upload_status(&blob_url)
+                            {
                                 tracing::error!(
                                     "[editorjs_upload_file] Upload failed: {}",
                                     &err_msg

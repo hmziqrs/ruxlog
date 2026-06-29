@@ -1,11 +1,12 @@
 use dioxus::prelude::*;
-use hmziq_dioxus_free_icons::icons::ld_icons::{
-    LdBell, LdBolt, LdFileText, LdFolder, LdHome, LdImage, LdLogOut, LdPlus, LdShieldCheck, LdTag, LdUser,
-};
 #[cfg(any(feature = "analytics", feature = "newsletter"))]
 use hmziq_dioxus_free_icons::icons::ld_icons::LdAreaChart;
 #[cfg(feature = "billing")]
 use hmziq_dioxus_free_icons::icons::ld_icons::LdCreditCard;
+use hmziq_dioxus_free_icons::icons::ld_icons::{
+    LdBell, LdBolt, LdFileText, LdFolder, LdHome, LdImage, LdLogOut, LdPlus, LdShieldCheck, LdTag,
+    LdUser,
+};
 use hmziq_dioxus_free_icons::Icon;
 
 use crate::router::Route;

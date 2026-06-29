@@ -41,12 +41,19 @@ pub type GoogleClient = Client<
 /// The verified claims of a Google `id_token`. Only the identity-bearing fields
 /// are decoded here; `aud`/`iss`/`exp` are validated by the JWT library against
 /// the raw token, independent of this struct.
+///
+/// `nonce` (V-LOW-NONCE) is the OIDC nonce we sent in the authorize request and
+/// now expect echoed back in the id_token. It is `Option` only because legacy
+/// tokens / some flows may omit it; the caller enforces the match when it sent a
+/// nonce (see [`verify_google_id_token`]).
 #[derive(Debug, Clone, Deserialize)]
 pub struct GoogleIdTokenClaims {
     pub sub: String,
     pub email: String,
     #[serde(default)]
     pub email_verified: Option<bool>,
+    #[serde(default)]
+    pub nonce: Option<String>,
 }
 
 /// A single RSA signing key as published in Google's JWKS.
@@ -79,7 +86,8 @@ static JWKS_CACHE: LazyLock<RwLock<Option<CachedJwks>>> = LazyLock::new(|| RwLoc
 #[allow(clippy::result_large_err)]
 pub fn get_google_oauth_client() -> Result<GoogleClient, ErrorResponse> {
     let client_id = std::env::var("GOOGLE_CLIENT_ID").map_err(|_| {
-        ErrorResponse::new(ErrorCode::InternalServerError).with_message("GOOGLE_CLIENT_ID not configured")
+        ErrorResponse::new(ErrorCode::InternalServerError)
+            .with_message("GOOGLE_CLIENT_ID not configured")
     })?;
 
     let client_secret = std::env::var("GOOGLE_CLIENT_SECRET").map_err(|_| {
@@ -88,7 +96,8 @@ pub fn get_google_oauth_client() -> Result<GoogleClient, ErrorResponse> {
     })?;
 
     let redirect_url = std::env::var("GOOGLE_REDIRECT_URI").map_err(|_| {
-        ErrorResponse::new(ErrorCode::InternalServerError).with_message("GOOGLE_REDIRECT_URI not configured")
+        ErrorResponse::new(ErrorCode::InternalServerError)
+            .with_message("GOOGLE_REDIRECT_URI not configured")
     })?;
 
     let auth_url = AuthUrl::new("https://accounts.google.com/o/oauth2/v2/auth".to_string())
@@ -136,10 +145,17 @@ pub fn get_google_oauth_client() -> Result<GoogleClient, ErrorResponse> {
 pub async fn verify_google_id_token(
     id_token: &str,
     expected_aud: &str,
+    expected_nonce: Option<&str>,
 ) -> Result<GoogleIdTokenClaims, ErrorResponse> {
     // First attempt against the (possibly cached) JWKS.
     let keys = fetch_google_jwks().await?;
-    match verify_id_token_with_keys_core(id_token, &keys, expected_aud, &GOOGLE_ISSUERS) {
+    match verify_id_token_with_keys_core(
+        id_token,
+        &keys,
+        expected_aud,
+        &GOOGLE_ISSUERS,
+        expected_nonce,
+    ) {
         Ok(claims) => Ok(claims),
         Err(err) => {
             // Only the "unknown signer kid" failure is retry-worthy. Every other
@@ -147,9 +163,7 @@ pub async fn verify_google_id_token(
             // against a *known* key) is deterministic and must NOT trigger a
             // re-fetch — that would just amplify load on a reject path.
             if err.unknown_signer {
-                warn!(
-                    "id_token kid not in cached JWKS; forcing one bypass-cache re-fetch (R-5)"
-                );
+                warn!("id_token kid not in cached JWKS; forcing one bypass-cache re-fetch (R-5)");
                 let refreshed = fetch_google_jwks_bypass_cache().await?;
                 // Single retry against the freshly-fetched key set. If the kid is
                 // still absent after a fresh fetch, the token is genuinely
@@ -158,8 +172,14 @@ pub async fn verify_google_id_token(
                 // carries the `unknown_signer` flag), NOT the public wrapper
                 // `verify_id_token_with_keys` (which strips it — reading
                 // `.unknown_signer` off an `ErrorResponse` does not compile).
-                verify_id_token_with_keys_core(id_token, &refreshed, expected_aud, &GOOGLE_ISSUERS)
-                    .map_err(|e| e.response)
+                verify_id_token_with_keys_core(
+                    id_token,
+                    &refreshed,
+                    expected_aud,
+                    &GOOGLE_ISSUERS,
+                    expected_nonce,
+                )
+                .map_err(|e| e.response)
             } else {
                 Err(err.response)
             }
@@ -174,11 +194,16 @@ pub async fn verify_google_id_token(
 /// wrapper (`verify_google_id_token`) decide whether a JWKS re-fetch could
 /// possibly help. The public `verify_id_token_with_keys` entry point below maps
 /// this into the API's `ErrorResponse`.
+// The Err-variant (IdTokenError) is intentionally rich (carries the JWT /
+// claims / keys for diagnostics); clippy's size heuristic flags it but the
+// design is deliberate.
+#[allow(clippy::result_large_err)]
 fn verify_id_token_with_keys_core(
     id_token: &str,
     keys: &[GoogleJwkKey],
     expected_aud: &str,
     expected_iss: &[&str],
+    expected_nonce: Option<&str>,
 ) -> Result<GoogleIdTokenClaims, IdTokenError> {
     // Read the JOSE header first to select the signing key by `kid` and to pin
     // the algorithm. Pinning RS256 is mandatory: an "alg confusion" attack would
@@ -217,12 +242,31 @@ fn verify_id_token_with_keys_core(
     validation.set_issuer(expected_iss);
     // `exp` and signature are validated by default.
 
-    let token_data = decode::<GoogleIdTokenClaims>(id_token, &decoding_key, &validation).map_err(
-        |e| {
+    let token_data =
+        decode::<GoogleIdTokenClaims>(id_token, &decoding_key, &validation).map_err(|e| {
             warn!(error = ?e, "Google id_token verification failed");
             IdTokenError::invalid("Invalid id_token")
-        },
-    )?;
+        })?;
+
+    // V-LOW-NONCE (OIDC nonce binding): if we sent a nonce in the authorize
+    // request, the id_token MUST echo it back verbatim. This binds the token to
+    // THIS browser session's authorize request, defeating a token-injection /
+    // replay attack where an attacker feeds a victim's id_token into their own
+    // session. We validate AFTER signature verification so the nonce claim is
+    // cryptographically trusted (it is covered by the signature). A missing or
+    // mismatched nonce when one is expected fails closed.
+    if let Some(expected) = expected_nonce {
+        match &token_data.claims.nonce {
+            Some(actual) if actual == expected => { /* bound */ }
+            other => {
+                warn!(
+                    ?other,
+                    "id_token nonce missing or mismatched — rejecting login"
+                );
+                return Err(IdTokenError::invalid("Invalid id_token"));
+            }
+        }
+    }
 
     Ok(token_data.claims)
 }
@@ -279,8 +323,9 @@ fn verify_id_token_with_keys(
     keys: &[GoogleJwkKey],
     expected_aud: &str,
     expected_iss: &[&str],
+    expected_nonce: Option<&str>,
 ) -> Result<GoogleIdTokenClaims, ErrorResponse> {
-    verify_id_token_with_keys_core(id_token, keys, expected_aud, expected_iss)
+    verify_id_token_with_keys_core(id_token, keys, expected_aud, expected_iss, expected_nonce)
         .map_err(|e| e.response)
 }
 
@@ -335,8 +380,9 @@ async fn fetch_google_jwks_bypass_cache() -> Result<Vec<GoogleJwkKey>, ErrorResp
 
     if !status.is_success() {
         error!(status = %status, "Google JWKS endpoint returned non-2xx");
-        return Err(ErrorResponse::new(ErrorCode::ExternalServiceError)
-            .with_message("JWKS fetch failed"));
+        return Err(
+            ErrorResponse::new(ErrorCode::ExternalServiceError).with_message("JWKS fetch failed")
+        );
     }
 
     let parsed: GoogleJwkSet = serde_json::from_slice(&bytes).map_err(|e| {
@@ -429,7 +475,8 @@ JX3Efq+lIpLs6bXvFyKzuRc=\n-----END PRIVATE KEY-----";
     fn id_token_verifies_with_matching_signature_and_claims() {
         let token = sign_token(&valid_claims(), Some(TEST_KID));
         let claims =
-            verify_id_token_with_keys(&token, &test_keys(), TEST_AUD, &GOOGLE_ISSUERS).unwrap();
+            verify_id_token_with_keys(&token, &test_keys(), TEST_AUD, &GOOGLE_ISSUERS, None)
+                .unwrap();
         assert_eq!(claims.sub, "google-sub-123");
         assert_eq!(claims.email, "user@example.com");
         assert_eq!(claims.email_verified, Some(true));
@@ -450,23 +497,33 @@ JX3Efq+lIpLs6bXvFyKzuRc=\n-----END PRIVATE KEY-----";
         }
         let sig = String::from_utf8(sig_bytes).unwrap();
         let tampered = format!("{}.{}", parts[1], sig);
-        let result = verify_id_token_with_keys(&tampered, &test_keys(), TEST_AUD, &GOOGLE_ISSUERS);
+        let result =
+            verify_id_token_with_keys(&tampered, &test_keys(), TEST_AUD, &GOOGLE_ISSUERS, None);
         assert!(result.is_err(), "tampered token must be rejected");
     }
 
     #[test]
     fn id_token_rejected_for_wrong_audience() {
         let token = sign_token(&valid_claims(), Some(TEST_KID));
-        let result =
-            verify_id_token_with_keys(&token, &test_keys(), "other-client-id", &GOOGLE_ISSUERS);
+        let result = verify_id_token_with_keys(
+            &token,
+            &test_keys(),
+            "other-client-id",
+            &GOOGLE_ISSUERS,
+            None,
+        );
         assert!(result.is_err(), "wrong-audience token must be rejected");
     }
 
     #[test]
     fn id_token_rejected_for_unknown_kid() {
         let token = sign_token(&valid_claims(), Some("not-a-known-kid"));
-        let result = verify_id_token_with_keys(&token, &test_keys(), TEST_AUD, &GOOGLE_ISSUERS);
-        assert!(result.is_err(), "token signed by unknown kid must be rejected");
+        let result =
+            verify_id_token_with_keys(&token, &test_keys(), TEST_AUD, &GOOGLE_ISSUERS, None);
+        assert!(
+            result.is_err(),
+            "token signed by unknown kid must be rejected"
+        );
     }
 
     #[test]
@@ -475,7 +532,8 @@ JX3Efq+lIpLs6bXvFyKzuRc=\n-----END PRIVATE KEY-----";
         let past = (Utc::now() - chrono::Duration::hours(2)).timestamp();
         claims["exp"] = serde_json::json!(past);
         let token = sign_token(&claims, Some(TEST_KID));
-        let result = verify_id_token_with_keys(&token, &test_keys(), TEST_AUD, &GOOGLE_ISSUERS);
+        let result =
+            verify_id_token_with_keys(&token, &test_keys(), TEST_AUD, &GOOGLE_ISSUERS, None);
         assert!(result.is_err(), "expired token must be rejected");
     }
 
@@ -487,14 +545,13 @@ JX3Efq+lIpLs6bXvFyKzuRc=\n-----END PRIVATE KEY-----";
     fn unknown_kid_is_the_only_retry_worthy_failure() {
         // Unknown kid -> retry-worthy.
         let token = sign_token(&valid_claims(), Some("not-a-known-kid"));
-        let err = verify_id_token_with_keys_core(
-            &token,
-            &test_keys(),
-            TEST_AUD,
-            &GOOGLE_ISSUERS,
-        )
-        .expect_err("unknown kid must error");
-        assert!(err.unknown_signer, "unknown kid must be flagged retry-worthy");
+        let err =
+            verify_id_token_with_keys_core(&token, &test_keys(), TEST_AUD, &GOOGLE_ISSUERS, None)
+                .expect_err("unknown kid must error");
+        assert!(
+            err.unknown_signer,
+            "unknown kid must be flagged retry-worthy"
+        );
 
         // Tampered signature against a KNOWN key -> terminal (a re-fetch cannot
         // help; the key is already present and the signature is wrong).
@@ -504,16 +561,13 @@ JX3Efq+lIpLs6bXvFyKzuRc=\n-----END PRIVATE KEY-----";
         if let Some(b) = sig_bytes.last_mut() {
             *b = if *b == b'A' { b'B' } else { b'A' };
         }
-        let tampered = format!(
-            "{}.{}",
-            parts[1],
-            String::from_utf8(sig_bytes).unwrap()
-        );
+        let tampered = format!("{}.{}", parts[1], String::from_utf8(sig_bytes).unwrap());
         let err = verify_id_token_with_keys_core(
             &tampered,
             &test_keys(),
             TEST_AUD,
             &GOOGLE_ISSUERS,
+            None,
         )
         .expect_err("tampered token must error");
         assert!(
@@ -528,6 +582,7 @@ JX3Efq+lIpLs6bXvFyKzuRc=\n-----END PRIVATE KEY-----";
             &test_keys(),
             "other-client-id",
             &GOOGLE_ISSUERS,
+            None,
         )
         .expect_err("wrong-audience token must error");
         assert!(
@@ -548,14 +603,14 @@ JX3Efq+lIpLs6bXvFyKzuRc=\n-----END PRIVATE KEY-----";
 
         // "Stale" cached set: empty -> kid lookup misses.
         let stale_keys: Vec<GoogleJwkKey> = vec![];
-        let first = verify_id_token_with_keys_core(
-            &token,
-            &stale_keys,
-            TEST_AUD,
-            &GOOGLE_ISSUERS,
-        );
+        let first =
+            verify_id_token_with_keys_core(&token, &stale_keys, TEST_AUD, &GOOGLE_ISSUERS, None);
         assert!(
-            first.as_ref().err().map(|e| e.unknown_signer).unwrap_or(false),
+            first
+                .as_ref()
+                .err()
+                .map(|e| e.unknown_signer)
+                .unwrap_or(false),
             "stale JWKS must fail with the retry-worthy unknown_signer flag"
         );
 
@@ -566,8 +621,62 @@ JX3Efq+lIpLs6bXvFyKzuRc=\n-----END PRIVATE KEY-----";
             &refreshed_keys,
             TEST_AUD,
             &GOOGLE_ISSUERS,
+            None,
         )
         .expect("refreshed JWKS must verify the rotated-kid token");
         assert_eq!(second.sub, "google-sub-123");
+    }
+
+    // V-LOW-NONCE: when an expected nonce is supplied, a token echoing that
+    // exact nonce verifies, while a token with a different (or absent) nonce is
+    // rejected — binding the id_token to the authorize request that initiated
+    // the flow. jsonwebtoken has no built-in nonce check, so this pins our
+    // manual post-signature claim comparison.
+    #[test]
+    fn id_token_nonce_must_match_when_expected() {
+        let mut claims = valid_claims();
+        claims["nonce"] = serde_json::json!("the-nonce-we-sent");
+        let token = sign_token(&claims, Some(TEST_KID));
+
+        // Matching nonce -> accepted.
+        let ok = verify_id_token_with_keys(
+            &token,
+            &test_keys(),
+            TEST_AUD,
+            &GOOGLE_ISSUERS,
+            Some("the-nonce-we-sent"),
+        )
+        .expect("token echoing the expected nonce must verify");
+        assert_eq!(ok.nonce.as_deref(), Some("the-nonce-we-sent"));
+
+        // Wrong nonce -> rejected.
+        let err = verify_id_token_with_keys(
+            &token,
+            &test_keys(),
+            TEST_AUD,
+            &GOOGLE_ISSUERS,
+            Some("a-different-nonce"),
+        );
+        assert!(err.is_err(), "mismatched nonce must be rejected");
+
+        // No nonce expected (legacy / non-nonce flow) -> still accepted.
+        let ok_none =
+            verify_id_token_with_keys(&token, &test_keys(), TEST_AUD, &GOOGLE_ISSUERS, None)
+                .expect("no-nonce-expected flow must still verify");
+        assert_eq!(ok_none.sub, "google-sub-123");
+
+        // Token MISSING the nonce claim while one is expected -> rejected.
+        let token_without_nonce = sign_token(&valid_claims(), Some(TEST_KID));
+        let err = verify_id_token_with_keys(
+            &token_without_nonce,
+            &test_keys(),
+            TEST_AUD,
+            &GOOGLE_ISSUERS,
+            Some("the-nonce-we-sent"),
+        );
+        assert!(
+            err.is_err(),
+            "token missing the nonce claim must be rejected when a nonce is expected"
+        );
     }
 }

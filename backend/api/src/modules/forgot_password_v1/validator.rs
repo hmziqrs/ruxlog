@@ -96,7 +96,10 @@ mod tests {
             password: STRONG_PW.to_string(),
             confirm_password: STRONG_PW.to_string(),
         };
-        assert!(payload.validate().is_err(), "empty reset_token must fail validation");
+        assert!(
+            payload.validate().is_err(),
+            "empty reset_token must fail validation"
+        );
     }
 
     // V-HIGH-4 (positive): a request with a valid (GETDEL-minted) token
@@ -109,7 +112,10 @@ mod tests {
             password: STRONG_PW.to_string(),
             confirm_password: STRONG_PW.to_string(),
         };
-        assert!(payload.validate().is_ok(), "a valid token + strong password must validate");
+        assert!(
+            payload.validate().is_ok(),
+            "a valid token + strong password must validate"
+        );
     }
 
     // V-HIGH-4: confirm_password still gates short/weak passwords independently
@@ -121,7 +127,10 @@ mod tests {
             password: "short".to_string(),
             confirm_password: "short".to_string(),
         };
-        assert!(payload.validate().is_err(), "short passwords must fail validation");
+        assert!(
+            payload.validate().is_err(),
+            "short passwords must fail validation"
+        );
     }
 
     // V-HIGH-4: the legacy `code`/`email` fields are silently dropped by serde
@@ -138,7 +147,10 @@ mod tests {
             "confirm_password": STRONG_PW,
         });
         let payload = serde_json::from_value::<V1ResetPayload>(raw).unwrap();
-        assert!(payload.validate().is_err(), "empty reset_token must fail even if code is present");
+        assert!(
+            payload.validate().is_err(),
+            "empty reset_token must fail even if code is present"
+        );
     }
 
     // ── password max-length bound (CWE-400: Argon2 memory DoS) ───────────

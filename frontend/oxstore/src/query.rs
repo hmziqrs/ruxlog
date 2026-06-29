@@ -187,16 +187,13 @@ mod tests {
     #[test]
     fn sort_param_order_deserializes_case_insensitive() {
         // lowercase
-        let sp: SortParam =
-            serde_json::from_str(r#"{"field":"name","order":"asc"}"#).unwrap();
+        let sp: SortParam = serde_json::from_str(r#"{"field":"name","order":"asc"}"#).unwrap();
         assert_eq!(sp.order, Order::Asc);
         // uppercase
-        let sp: SortParam =
-            serde_json::from_str(r#"{"field":"name","order":"ASC"}"#).unwrap();
+        let sp: SortParam = serde_json::from_str(r#"{"field":"name","order":"ASC"}"#).unwrap();
         assert_eq!(sp.order, Order::Asc);
         // mixed
-        let sp: SortParam =
-            serde_json::from_str(r#"{"field":"name","order":"Desc"}"#).unwrap();
+        let sp: SortParam = serde_json::from_str(r#"{"field":"name","order":"Desc"}"#).unwrap();
         assert_eq!(sp.order, Order::Desc);
     }
 

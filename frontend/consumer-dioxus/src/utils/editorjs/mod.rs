@@ -98,8 +98,7 @@ fn render_list_block(block: &EditorJsBlock) -> Element {
     if let EditorJsBlock::List { data, .. } = block {
         // EditorJS list items may carry inline markup (<b>, <a>, ...); sanitize
         // each before it hits the inner-HTML sink.
-        let list_items: Vec<String> =
-            data.items.iter().map(|item| sanitize_html(item)).collect();
+        let list_items: Vec<String> = data.items.iter().map(|item| sanitize_html(item)).collect();
         let is_ordered = data.style == "ordered";
 
         if is_ordered {
@@ -242,13 +241,16 @@ mod tests {
     #[test]
     fn sanitize_preserves_safe_inline_markup() {
         // Safe formatting tags survive so legit rich text still renders.
-        let cleaned = sanitize_html("<b>bold</b> <i>italic</i> <a href=\"https://example.com\">link</a>");
+        let cleaned =
+            sanitize_html("<b>bold</b> <i>italic</i> <a href=\"https://example.com\">link</a>");
         assert!(cleaned.contains("<b>bold</b>"));
         assert!(cleanly_contains_link(&cleaned));
     }
 
     fn cleanly_contains_link(cleaned: &str) -> bool {
-        cleaned.contains("<a") && cleaned.contains("example.com") && !cleaned.contains("javascript:")
+        cleaned.contains("<a")
+            && cleaned.contains("example.com")
+            && !cleaned.contains("javascript:")
     }
 
     #[test]

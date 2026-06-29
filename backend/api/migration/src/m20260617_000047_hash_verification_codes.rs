@@ -73,7 +73,12 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(EmailVerifications::Table)
-                    .add_column(ColumnDef::new(EmailVerifications::Code).string().not_null().default(""))
+                    .add_column(
+                        ColumnDef::new(EmailVerifications::Code)
+                            .string()
+                            .not_null()
+                            .default(""),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -90,7 +95,12 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(ForgotPasswords::Table)
-                    .add_column(ColumnDef::new(ForgotPasswords::Code).string().not_null().default(""))
+                    .add_column(
+                        ColumnDef::new(ForgotPasswords::Code)
+                            .string()
+                            .not_null()
+                            .default(""),
+                    )
                     .to_owned(),
             )
             .await

@@ -106,6 +106,8 @@ pub enum OptimizationError {
     DecodeFailed(String),
     #[error("encoding error: {0}")]
     EncodeFailed(String),
+    #[error("re-encoded output failed validation: {0}")]
+    ValidationFailed(String),
 }
 
 const LOSSY_BPP_THRESHOLD: f32 = 1.5;
@@ -627,12 +629,60 @@ fn encode_variant(
     }))
 }
 
+/// CRYP-GAP-017: after re-encoding, re-decode the produced bytes and verify the
+/// header + dimensions match the source before returning them for storage. This
+/// rejects partial/corrupt re-encoded output (it is dropped, never stored) by
+/// surfacing an [`OptimizationError::ValidationFailed`].
+///
+/// `expected_width` / `expected_height` are the dimensions of the in-memory
+/// `DynamicImage` that was just encoded; the freshly produced buffer must decode
+/// back to those exact dimensions.
+fn validate_encoded_output(
+    buffer: &[u8],
+    expected_width: u32,
+    expected_height: u32,
+) -> Result<(), OptimizationError> {
+    if buffer.is_empty() {
+        return Err(OptimizationError::ValidationFailed(
+            "encoded buffer is empty".to_string(),
+        ));
+    }
+
+    // Header + dimension check: the buffer must report the same dimensions as
+    // the source image we just encoded.
+    let size = imagesize::blob_size(buffer).map_err(|err| {
+        OptimizationError::ValidationFailed(format!("could not read re-encoded header: {err}"))
+    })?;
+    let out_width = size.width as u32;
+    let out_height = size.height as u32;
+    if out_width != expected_width || out_height != expected_height {
+        return Err(OptimizationError::ValidationFailed(format!(
+            "re-encoded dimensions {out_width}x{out_height} != expected {expected_width}x{expected_height}"
+        )));
+    }
+
+    // Full re-decode: confirms the bytes are a complete, well-formed image and
+    // not a truncated/partial stream that happened to carry a valid header.
+    let redecoded = image::load_from_memory(buffer).map_err(|err| {
+        OptimizationError::ValidationFailed(format!("re-encoded output is not decodable: {err}"))
+    })?;
+    if redecoded.width() != expected_width || redecoded.height() != expected_height {
+        return Err(OptimizationError::ValidationFailed(format!(
+            "re-decoded dimensions {}x{} != expected {expected_width}x{expected_height}",
+            redecoded.width(),
+            redecoded.height()
+        )));
+    }
+
+    Ok(())
+}
+
 fn encode_to_format(
     image: &DynamicImage,
     format: TargetFormat,
     quality: u8,
 ) -> Result<(Vec<u8>, &'static str, &'static str), OptimizationError> {
-    match format {
+    let (buffer, mime, extension) = match format {
         TargetFormat::WebpLossless => {
             let mut buffer = Vec::new();
             let rgba = image.to_rgba8();
@@ -644,7 +694,7 @@ fn encode_to_format(
                     ExtendedColorType::Rgba8,
                 )
                 .map_err(|err| OptimizationError::EncodeFailed(err.to_string()))?;
-            Ok((buffer, "image/webp", "webp"))
+            (buffer, "image/webp", "webp")
         }
         TargetFormat::Jpeg => {
             let mut buffer = Vec::new();
@@ -652,7 +702,7 @@ fn encode_to_format(
             encoder
                 .encode_image(image)
                 .map_err(|err| OptimizationError::EncodeFailed(err.to_string()))?;
-            Ok((buffer, "image/jpeg", "jpg"))
+            (buffer, "image/jpeg", "jpg")
         }
         TargetFormat::Png => {
             let mut buffer = Vec::new();
@@ -666,9 +716,16 @@ fn encode_to_format(
                     ColorType::Rgba8.into(),
                 )
                 .map_err(|err| OptimizationError::EncodeFailed(err.to_string()))?;
-            Ok((buffer, "image/png", "png"))
+            (buffer, "image/png", "png")
         }
-    }
+    };
+
+    // CRYP-GAP-017: validate the freshly re-encoded output (header +
+    // dimensions + full re-decode) before returning it for storage. A failed
+    // validation drops the bytes — they never reach a stored OptimizedImage.
+    validate_encoded_output(&buffer, image.width(), image.height())?;
+
+    Ok((buffer, mime, extension))
 }
 
 fn significant_reduction(original: usize, candidate: usize, threshold: f32) -> bool {
@@ -834,6 +891,46 @@ mod tests {
             ImageFormat::Bmp,
             0.1
         )));
+    }
+
+    // ── validate_encoded_output (CRYP-GAP-017) ──
+
+    #[test]
+    fn test_validate_rejects_empty_buffer() {
+        let err = validate_encoded_output(&[], 10, 10).unwrap_err();
+        assert!(matches!(err, OptimizationError::ValidationFailed(_)));
+    }
+
+    #[test]
+    fn test_validate_rejects_garbage_bytes() {
+        // Random bytes are not a valid image header.
+        let garbage = b"\x00\x01\x02\x03not an image";
+        let err = validate_encoded_output(garbage, 8, 8).unwrap_err();
+        assert!(matches!(err, OptimizationError::ValidationFailed(_)));
+    }
+
+    #[test]
+    fn test_validate_rejects_dimension_mismatch() {
+        // Encode a real 16x16 image, then claim the expected dimensions are
+        // different — the validator must reject it.
+        let img = DynamicImage::ImageRgb8(image::RgbImage::new(16, 16));
+        let (buffer, _, _) = encode_to_format(&img, TargetFormat::Png, 100).unwrap();
+        let err = validate_encoded_output(&buffer, 32, 32).unwrap_err();
+        assert!(matches!(err, OptimizationError::ValidationFailed(_)));
+    }
+
+    #[test]
+    fn test_validate_accepts_roundtrip_png() {
+        let img = DynamicImage::ImageRgb8(image::RgbImage::new(24, 16));
+        let (buffer, _, _) = encode_to_format(&img, TargetFormat::Png, 100).unwrap();
+        validate_encoded_output(&buffer, 24, 16).expect("valid re-encoded PNG must pass");
+    }
+
+    #[test]
+    fn test_validate_accepts_roundtrip_jpeg() {
+        let img = DynamicImage::ImageRgb8(image::RgbImage::new(40, 30));
+        let (buffer, _, _) = encode_to_format(&img, TargetFormat::Jpeg, 80).unwrap();
+        validate_encoded_output(&buffer, 40, 30).expect("valid re-encoded JPEG must pass");
     }
 
     // ── significant_reduction ──

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use rand::{rngs::StdRng, SeedableRng};
+use rand::SeedableRng;
+use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
@@ -79,9 +80,19 @@ pub fn compute_range(before: i32, after: i32) -> TableRange {
     }
 }
 
-pub fn seeded_rng(seed_mode: Option<SeedMode>) -> StdRng {
-    let seed_value = seed_mode.unwrap_or_default().to_seed();
-    StdRng::seed_from_u64(seed_value)
+/// Build the PRNG used by the seeders.
+///
+/// CRYP-RNG-006: by default we seed from OS entropy (`ChaCha20Rng::from_os_rng`)
+/// so no predictable/constant seed exists in any built binary. Deterministic
+/// output is only produced when a caller *explicitly* opts into reproducible
+/// data via `SeedMode::Static { value }` (the dev-only preset/static path) —
+/// every other path, including the default `Random` mode, is non-deterministic.
+pub fn seeded_rng(seed_mode: Option<SeedMode>) -> ChaCha20Rng {
+    match seed_mode.unwrap_or_default() {
+        SeedMode::Random => ChaCha20Rng::from_os_rng(),
+        // Explicit dev/reproducibility opt-in only.
+        SeedMode::Static { value } => ChaCha20Rng::seed_from_u64(value),
+    }
 }
 
 pub fn size_label(count: u32) -> &'static str {
