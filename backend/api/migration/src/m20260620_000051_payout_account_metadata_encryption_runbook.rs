@@ -29,9 +29,10 @@ use sea_orm_migration::prelude::*;
 /// FIELD_ENC_KEY=<32-byte key> cargo run --features full --bin ruxlog-backfill-payout-metadata
 /// ```
 ///
-/// (If no such helper binary is wired yet, the equivalent is: load each row
-/// via `Entity::find()`, read `metadata`, and `ActiveModel::set(metadata).update()`
-/// — the model's `before_save` re-encrypts. See `payout_account/model.rs`.)
+/// (The bundled helper `ruxlog-backfill-payout-metadata` does exactly this:
+/// load each row via `Entity::find()`, read `metadata`, and
+/// `ActiveModel::set(metadata).update()` — the model's `before_save` re-encrypts.
+/// See `payout_account/model.rs`.)
 ///
 /// If backfill is skipped intentionally (e.g. no production rows exist yet),
 /// this migration leaves the table untouched and the system boots and reads

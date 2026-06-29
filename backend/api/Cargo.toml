@@ -205,3 +205,13 @@ path = "scripts/restore_changes.rs"
 name = "ruxlog_tui"
 path = "scripts/ruxlog_tui.rs"
 required-features = ["seed-system"]
+
+[[bin]]
+name = "ruxlog-backfill-user-field-crypto"
+path = "scripts/backfill_user_field_crypto.rs"
+required-features = ["full"]
+
+[[bin]]
+name = "ruxlog-backfill-payout-metadata"
+path = "scripts/backfill_payout_metadata.rs"
+required-features = ["full"]

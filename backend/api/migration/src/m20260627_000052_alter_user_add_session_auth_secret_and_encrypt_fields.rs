@@ -50,10 +50,11 @@ use sea_orm_migration::prelude::*;
 ///     --bin ruxlog-backfill-user-field-crypto
 /// ```
 ///
-/// (If no such helper binary is wired yet, the equivalent is: load each row
-/// via `Entity::find()`, set `google_id`/`two_fa_secret` to the decrypted
-/// PLAINTEXT, and `ActiveModel.update()` — `before_save` re-encrypts under the
-/// current key.) If existing plaintext rows are dev/test data, a hard clobber is
+/// (The bundled helper `ruxlog-backfill-user-field-crypto` does exactly this:
+/// load each row via `Entity::find()`, set `google_id`/`two_fa_secret` to the
+/// decrypted PLAINTEXT, and `ActiveModel.update()` — `before_save` re-encrypts
+/// under the current key.) If existing plaintext rows are dev/test data, a hard
+/// clobber is
 /// also valid:
 /// ```sql
 /// UPDATE users SET two_fa_secret = NULL WHERE two_fa_secret IS NOT NULL;
