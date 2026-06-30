@@ -144,7 +144,7 @@ fn extension_for_mime(mime: &str) -> &'static str {
     }
 }
 
-#[derive(Debug, Default, Deserialize, Serialize, Validate)]
+#[derive(Debug, Default, Clone, Deserialize, Serialize, Validate)]
 pub struct MediaUploadMetadata {
     pub reference_type: Option<MediaReference>,
     pub width: Option<i32>,

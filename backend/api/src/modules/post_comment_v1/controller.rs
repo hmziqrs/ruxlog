@@ -12,8 +12,20 @@ use crate::{
     db::sea_models::{comment_flag, post_comment},
     error::{ErrorCode, ErrorResponse},
     extractors::ValidatedJson,
-    services::auth::AuthSession,
+    services::{abuse_limiter, auth::AuthSession},
     AppState,
+};
+
+/// DOS-COMMENT-CREATE-2: per-account comment throttle. The comment nest's
+/// per-IP 100/min layer alone lets one verified account behind rotating IPs
+/// flood comments; this bounds a single account (fail-closed on Redis).
+const COMMENT_ABUSE_CONFIG: abuse_limiter::AbuseLimiterConfig = abuse_limiter::AbuseLimiterConfig {
+    temp_block_attempts: 20,
+    temp_block_range: 60,
+    temp_block_duration: 600,
+    block_retry_limit: 100,
+    block_range: 3600,
+    block_duration: 3600,
 };
 
 use super::validator::{
@@ -29,6 +41,16 @@ pub async fn create(
     payload: ValidatedJson<V1CreatePostCommentPayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let user = auth.user.unwrap();
+
+    // DOS-COMMENT-CREATE-2: per-account throttle (the comment nest already has
+    // a per-IP 100/min layer; this bounds one account behind rotating IPs).
+    abuse_limiter::limiter(
+        &state.redis_pool,
+        &format!("comment:create:user:{}", user.id),
+        COMMENT_ABUSE_CONFIG,
+    )
+    .await?;
+
     let new_comment = payload.0.into_new_post_comment(user.id);
     tracing::Span::current().record("post_id", new_comment.post_id);
 

@@ -44,6 +44,21 @@ impl AclService {
             if normalized_key.is_empty() {
                 continue;
             }
+            // ACL-ENV-SECRETS-IMPORT: never persist live secret material into
+            // the `app_constants` table / shared Redis hash. The prior
+            // `guess_sensitive` heuristic both missed common secret names
+            // (DATABASE_URL, REDIS_URL, SMTP_URL, CONNECTION_STRING, PGCONN) and
+            // — critically — only controlled read-side masking, leaving every
+            // caught secret (COOKIE_KEY, FIELD_ENC_KEY, AWS_SECRET_ACCESS_KEY)
+            // stored VERBATIM at rest. Skipping secret keys entirely closes the
+            // at-rest duplication of the process's highest-value secrets.
+            if Self::looks_like_secret_key(&normalized_key) {
+                tracing::debug!(
+                    key = %normalized_key,
+                    "Skipping secret env var during import_env (not persisted)"
+                );
+                continue;
+            }
             let is_sensitive =
                 Self::guess_sensitive(&normalized_key) || Self::guess_sensitive(&value);
 
@@ -73,6 +88,73 @@ impl AclService {
             || lower.contains("token")
             || lower.contains("key")
             || lower.contains("access")
+    }
+
+    /// ACL-ENV-SECRETS-IMPORT: comprehensive secret-key detector. A key that
+    /// looks like a secret is SKIPPED by `bootstrap_from_env` (never persisted
+    /// to Postgres or the shared Redis hash). This is a deny-list that covers
+    /// the bypasses the prior `guess_sensitive` heuristic missed
+    /// (DATABASE_URL / REDIS_URL / SMTP_URL / CONNECTION_STRING / *_DSN) plus
+    /// the explicit ruxlog live-crypto/session names (COOKIE_KEY,
+    /// FIELD_ENC_KEY) and cloud/provider credentials.
+    fn looks_like_secret_key(key: &str) -> bool {
+        let k = key.to_ascii_uppercase();
+        // Explicit secret-bearing substrings (case-insensitive).
+        const SECRET_NEEDLES: &[&str] = &[
+            "SECRET",
+            "PASSWORD",
+            "PASSWD",
+            "TOKEN",
+            "CREDENTIAL",
+            "PRIVATE",
+            "SIGNING",
+            "APIKEY",
+            // connection strings / infra URLs that carry or target credentials:
+            "DATABASE_URL",
+            "DB_URL",
+            "DSN",
+            "PGCONN",
+            "CONNECTION_STRING",
+            "CONNECTIONSTRING",
+            "REDIS_URL",
+            "REDIS_TLS_URL",
+            "SMTP_URL",
+            "SMTP_PASS",
+            "MAIL_PASSWORD",
+            "AMQP",
+            "RABBITMQ",
+            "KAFKA",
+            // ruxlog live crypto / session material — must never be duplicated:
+            "COOKIE_KEY",
+            "FIELD_ENC_KEY",
+            "SESSION_KEY",
+            "CSRF_KEY",
+            "JWT_SECRET",
+            // cloud / provider credentials:
+            "AWS_SECRET_ACCESS_KEY",
+            "AWS_ACCESS_KEY_ID",
+            "AWS_SESSION_TOKEN",
+            "STRIPE",
+            "PADDLE",
+            "LEMON",
+            "RAZORPAY",
+            "MERCADO",
+            "GOOGLE_CLIENT_SECRET",
+            "OAUTH_CLIENT_SECRET",
+        ];
+        // Suffixes that mark a var as secret regardless of prefix.
+        const SECRET_SUFFIXES: &[&str] = &[
+            "_KEY",
+            "_SECRET",
+            "_TOKEN",
+            "_PASSWORD",
+            "_PASSWD",
+            "_PWD",
+            "_CREDENTIAL",
+            "_CREDENTIALS",
+        ];
+        SECRET_NEEDLES.iter().any(|n| k.contains(n))
+            || SECRET_SUFFIXES.iter().any(|s| k.ends_with(s))
     }
 
     pub async fn get_constant(

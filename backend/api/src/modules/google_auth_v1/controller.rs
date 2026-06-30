@@ -579,6 +579,23 @@ async fn find_or_create_user(
         return Ok(existing_user);
     }
 
+    // OAUTH-CREATE-UNVERIFIED: the link branch above (line ~552) refuses to bind
+    // a Google identity to an existing account unless the IdP verified the
+    // email. The CREATE branch must apply the SAME gate — otherwise an attacker
+    // who sets an unverified-at-Google primary email to a victim's address gets
+    // a brand-new verified (is_verified=true) local account in the victim's name
+    // (trust spoofing) and squats the email so the victim can never register.
+    // Fail closed: do not auto-create; the user signs up via normal email
+    // verification instead.
+    if !user_info.verified_email {
+        warn!(
+            email = %user_info.email,
+            "Refusing to create account from Google: IdP email is not verified"
+        );
+        return Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
+            .with_message("Google has not verified this email address"));
+    }
+
     info!("Creating new user from Google account");
     user::Entity::create_from_google(
         &state.sea_db,

@@ -177,6 +177,11 @@ impl Entity {
             .filter(Column::PostId.eq(post_id))
             .filter(Column::Hidden.eq(false))
             .order_by(Column::CreatedAt, Order::Asc)
+            // DOS-COMMENTLIST-1: cap the result set so a heavily-commented post
+            // cannot force an unbounded SELECT + 3-table join + serialization on
+            // every public request. 500 is a generous ceiling; true pagination
+            // (PER_PAGE) is used by the dashboard `find_with_query` path.
+            .limit(500)
             .into_model::<CommentWithUserJoined>()
             .all(conn)
             .await?;

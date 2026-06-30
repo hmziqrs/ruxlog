@@ -258,3 +258,32 @@ pub async fn limiter(
         }
     }
 }
+
+/// One-shot dedup gate: atomic `SET key 1 EX ttl NX`.
+///
+/// Returns `Ok(true)` when the key was newly created (the caller should proceed
+/// with the gated work) and `Ok(false)` when it already existed (the caller
+/// should short-circuit — the work was already recorded this window).
+///
+/// Used by `track_view` to bound DB writes to ≤1 per (post, ip) per window
+/// regardless of source-IP rotation (DOS-TRACKVIEW-2). Fail-OPEN on a Redis
+/// error: a dedup outage must not 5xx the public view tracker — the per-IP nest
+/// rate limit still bounds the floor.
+pub async fn dedup_nx(
+    redis_pool: &RedisPool,
+    key: &str,
+    ttl_secs: usize,
+) -> Result<bool, ErrorResponse> {
+    const DEDUP: &str =
+        "return redis.call('SET', KEYS[1], '1', 'EX', ARGV[1], 'NX') and 1 or 0";
+    let keys = vec![key.to_string()];
+    let args: Vec<Value> = vec![Value::from(ttl_secs as i64)];
+    let res: Result<Vec<Value>, _> = redis_pool.eval(DEDUP, keys, args).await;
+    match res {
+        Ok(v) => Ok(v.first().and_then(to_u64).unwrap_or(0) == 1),
+        Err(err) => {
+            warn!(error = %err, %key, "dedup check failed (fail-open)");
+            Ok(true)
+        }
+    }
+}

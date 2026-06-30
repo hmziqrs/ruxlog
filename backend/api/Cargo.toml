@@ -57,13 +57,13 @@ billing = []
 rux-auth = { path = "./crates/rux-auth" }
 migration = { path = "./migration" }
 ruxlog-types = { path = "../../crates/ruxlog-types", features = ["backend", "slug"] }
-axum = { version = "0.8.4", features = ["multipart"] }
+axum = { version = "0.8.9", features = ["multipart"] }
 axum-extra = { version = "0.10.1", features = [
     "typed-header",
     "cookie",
     "query",
 ] }
-sea-orm = { version = "1.1.0", features = [
+sea-orm = { version = "1.1.2", features = [
     "sqlx-postgres",
     "runtime-tokio-rustls",
     "macros",
@@ -82,8 +82,8 @@ axum-valid = { version = "0.23.0", default-features = false, features = [
 ] }
 serde_json = "1.0.130"
 tower-livereload = "0.9.6"
-tokio = { version = "1.44.2", features = ["full"] }
-serde = { version = "1.0.219", features = ["derive"] }
+tokio = { version = "1.45", features = ["full"] }
+serde = { version = "1.0.225", features = ["derive"] }
 # validator = { version = "0.16.1", features = ["derive"] }
 tower-http = { version = "0.6.2", features = [
     "trace",
@@ -93,7 +93,6 @@ tower-http = { version = "0.6.2", features = [
     "fs",
 ] }
 tower_governor = "0.4.2"
-tower-sessions-core = "0.9.0"
 tower-sessions-redis-store = "0.16.0"
 tower-sessions = { version = "0.14", features = ["private"] }
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "json"] }
@@ -122,16 +121,44 @@ rand_chacha = "0.9"
 clap = { version = "4.5", features = ["derive"] }
 fred = { version = "10.1.0", features = ["sha-1", "i-scripts", "enable-rustls"] }
 axum-client-ip = "1.0.0"
-lettre = { version = "0.11.22", features = ["default", "tokio1-native-tls"] }
-regex = "1.11.1"
+# DEPS-NATIVE-TLS-1: standardize outbound TLS on rustls. The prior
+# `tokio1-native-tls` feature pulled OpenSSL into the default build via the SMTP
+# path while the rest of the stack (sea-orm, fred, AWS SDK) is rustls-only.
+# `tokio1-rustls-tls` provides the async executor + rustls STARTTLS/TLS backend
+# for `AsyncSmtpTransport`; `smtp-transport` + `builder` are the transports and
+# message builder the mailer uses. native-tls / OpenSSL is no longer linked.
+lettre = { version = "0.11.22", default-features = false, features = [
+    "smtp-transport",
+    "builder",
+    "tokio1-rustls-tls",
+] }
+regex = "1.12"
 lazy_static = "1.5.0"
 async-trait = "0.1.88"
 tera = "1"
 log = "0.4.27"
 
-aws-config = { version = "1.6.2", features = ["behavior-version-latest"] }
-aws-sdk-s3 = "1.83.0"
-uuid = { version = "1.16.0", features = ["v4", "fast-rng"] }
+# DEPS-AWS-SDK-LEGACY-TLS: the AWS SDK's *default* features compile BOTH the
+# legacy HTTPS stack (hyper 0.14 + rustls 0.21 + rustls-webpki 0.101, which
+# carries RUSTSEC-2026-0098/0099/0104 — name-constraint bypass + CRL panic) and
+# the modern one (hyper 1.x + rustls 0.23 + aws-lc-rs + webpki 0.103). The app
+# only ever uses the modern client (aws_config::from_env() + Client::new() in
+# main.rs:144-159; no HyperClientBuilder/legacy path). Setting
+# default-features = false on BOTH crates and opting into rt-tokio +
+# default-https-client removes the entire legacy stack from every build, after
+# which the three deny.toml RUSTSEC ignores can be deleted. Both crates must be
+# changed together or cargo feature-unification re-pulls the legacy stack.
+aws-config = { version = "1.6.2", default-features = false, features = [
+    "behavior-version-latest",
+    "rt-tokio",
+    "default-https-client",
+] }
+aws-sdk-s3 = { version = "1.83.0", default-features = false, features = [
+    "behavior-version-latest",
+    "rt-tokio",
+    "default-https-client",
+] }
+uuid = { version = "1.17", features = ["v4", "fast-rng"] }
 base32 = "0.5.1"
 hmac = "0.12.1"
 sha1 = "0.10.6"
@@ -169,11 +196,25 @@ urlencoding = "2.1.3"
 imagesize = "0.12.0"
 bytes = "1.11.1"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "tiff"], optional = true }
-reqwest = { version = "0.12", features = ["json", "cookies"] }
+# DEPS-NATIVE-TLS-1: rustls for the direct HTTP client (Google userinfo, billing
+# providers). `default-features = false` drops reqwest's `default-tls`
+# (native-tls/OpenSSL); we re-add the non-TLS defaults we rely on (charset,
+# http2). TLS comes from `rustls-tls`, keeping the whole outbound TLS surface on
+# the audited rustls/webpki chain.
+reqwest = { version = "0.12", default-features = false, features = [
+    "json",
+    "cookies",
+    "rustls-tls",
+    "charset",
+    "http2",
+] }
 maxminddb = "0.27"
 tower = { version = "0.5", features = ["util"] }
 oauth2 = { version = "4.4", optional = true }
-jsonwebtoken = { version = "10.2.0", features = ["aws_lc_rs"] }
+# jsonwebtoken: raise the floor to 10.4 — CVE-2026-25537 (type confusion)
+# affects <10.3.0. The root lockfile already resolves 10.4.0; pinning the floor
+# here guarantees a future resolve can never pull a vulnerable 10.2.x.
+jsonwebtoken = { version = "10.4", features = ["aws_lc_rs"] }
 ratatui = "0.29"
 crossterm = "0.29"
 tuirealm = "3.2.0"

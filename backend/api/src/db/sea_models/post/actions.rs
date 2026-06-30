@@ -631,17 +631,17 @@ impl Entity {
             }
         }
 
-        let post = Self::find_by_id(post_id).one(&transaction).await?;
-        if let Some(post_model) = post {
-            let mut post_active: ActiveModel = post_model.into();
-            post_active.view_count = Set(post_active.view_count.unwrap() + 1);
-            match post_active.update(&transaction).await {
-                Ok(_) => {}
-                Err(err) => {
-                    transaction.rollback().await?;
-                    return Err(err.into());
-                }
-            }
+        // RACE-VIEWCOUNT-1: atomic `UPDATE post SET view_count = view_count + 1`
+        // — no read-modify-write, so concurrent distinct-IP views (the dedup
+        // gate allows one per (post, ip) per window) cannot lose increments.
+        if let Err(err) = Self::update_many()
+            .col_expr(Column::ViewCount, Expr::col(Column::ViewCount).add(1))
+            .filter(Column::Id.eq(post_id))
+            .exec(&transaction)
+            .await
+        {
+            transaction.rollback().await?;
+            return Err(err.into());
         }
 
         // Commit the transaction

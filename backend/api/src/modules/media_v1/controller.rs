@@ -319,19 +319,40 @@ pub async fn create(
 
     #[cfg(feature = "image-optimization")]
     if content_type.starts_with("image/") {
-        let optimization_request = image_optimizer::OptimizationRequest {
-            bytes: &file_bytes,
-            metadata: &metadata,
-            reference: metadata.reference_type,
-            original_mime: mime_type.as_deref(),
-            original_extension: extension.as_deref(),
-        };
-
+        // DOS-MEDIA-OPTIMIZER: the `image` crate work (full RGBA decode +
+        // Lanczos3 resize/re-encode for up to 6 variants + a second validation
+        // decode per variant) is CPU/memory-heavy. Run it on a blocking thread
+        // so a burst of uploads cannot pin the async worker and head-of-line
+        // block every other request sharing that thread. (The /media/v1 nest is
+        // also rate-limited and OPTIMIZER_MAX_PIXELS is capped.)
+        let req_bytes = file_bytes.clone();
+        let req_metadata = metadata.clone();
+        let req_reference = metadata.reference_type;
+        let req_mime = mime_type.clone();
+        let req_ext = extension.clone();
+        let optimizer_cfg = state.optimizer.clone();
         let optimization_outcome =
-            match image_optimizer::optimize(&state.optimizer, optimization_request) {
-                Ok(outcome) => outcome,
-                Err(err) => {
+            match tokio::task::spawn_blocking(move || {
+                let optimization_request = image_optimizer::OptimizationRequest {
+                    bytes: &req_bytes,
+                    metadata: &req_metadata,
+                    reference: req_reference,
+                    original_mime: req_mime.as_deref(),
+                    original_extension: req_ext.as_deref(),
+                };
+                image_optimizer::optimize(&optimizer_cfg, optimization_request)
+            })
+            .await
+            {
+                Ok(Ok(outcome)) => outcome,
+                Ok(Err(err)) => {
                     warn!("image optimizer error: {}", err);
+                    image_optimizer::OptimizationOutcome::Skipped(
+                        image_optimizer::SkipReason::DecodeFailed,
+                    )
+                }
+                Err(err) => {
+                    warn!(error = %err, "image optimizer blocking task failed");
                     image_optimizer::OptimizationOutcome::Skipped(
                         image_optimizer::SkipReason::DecodeFailed,
                     )

@@ -145,7 +145,25 @@ impl BillingProvider for MercadoPagoProvider {
     ) -> Result<CheckoutSession, BillingError> {
         let client = self.http_client.clone();
 
-        let body = serde_json::json!({
+        // SSRF-MP-NOTIFICATIONURL-1: notification_url MUST NOT be derived from
+        // the user-controlled success_url — Mercado Pago POSTs webhook events to
+        // it, so a caller could name an internal URL and have the provider probe
+        // it (provider-mediated SSRF). Build it from an operator-configured
+        // public base + the app's own webhook path; omit it if unconfigured (the
+        // dashboard-configured webhook URL then applies).
+        let notification_url = std::env::var("MERCADO_PAGO_WEBHOOK_URL")
+            .ok()
+            .map(|u| u.trim().to_string())
+            .filter(|u| !u.is_empty())
+            .or_else(|| {
+                std::env::var("CONSUMER_SITE_URL")
+                    .ok()
+                    .map(|base| {
+                        format!("{}/billing/v1/webhook/mercado_pago", base.trim_end_matches('/'))
+                    })
+            });
+
+        let mut body = serde_json::json!({
             "items": [
                 {
                     "title": format!("Plan: {}", plan_slug),
@@ -164,8 +182,10 @@ impl BillingProvider for MercadoPagoProvider {
             },
             "auto_return": "approved",
             "external_reference": user_id.to_string(),
-            "notification_url": success_url,
         });
+        if let Some(url) = notification_url {
+            body["notification_url"] = serde_json::Value::String(url);
+        }
 
         let resp = client
             .post(format!("{}/checkout/preferences", self.base_url))

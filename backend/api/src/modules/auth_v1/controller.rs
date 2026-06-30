@@ -71,6 +71,24 @@ pub async fn log_in(
     info!(client_ip = %secure_ip, "Login attempt");
 
     let payload = payload.0;
+
+    // AUTH-BF-1: per-account brute-force throttle on the password step. The
+    // generic per-IP 100/min cap on the /auth/v1 nest does not stop an attacker
+    // rotating source IPs from grinding one account's password with no
+    // account-level lockout. Key the abuse limiter on the normalized target
+    // email (same bucket shape the TOTP/2FA endpoints use for `totp:{user_id}`),
+    // so repeated guesses against one account trigger the temp/long block
+    // regardless of source IP. Fail-closed on Redis outage, matching the TOTP
+    // endpoints. (Accepted trade-off: an attacker who knows the email can lock
+    // the victim out — strictly better than unbounded password grinding.)
+    let login_key = payload.email.trim().to_lowercase();
+    abuse_limiter::limiter(
+        &state.redis_pool,
+        &format!("login:{login_key}"),
+        ABUSE_LIMITER_CONFIG,
+    )
+    .await?;
+
     let user = auth
         .backend()
         .authenticate_password(payload.email, payload.password)
@@ -434,7 +452,13 @@ pub async fn register(
         Err(err) => {
             warn!(error = ?err, "Registration failed");
             tracing::Span::current().record("result", "failure");
-            Err(err)
+            // AUTH-ENUM-REGISTER: do not surface the raw SeaORM error. A unique-
+            // violation ("Duplicate entry") is distinguishable from other
+            // failures via the ErrorCode/type field and leaks that the email is
+            // already registered. Return a generic message; the raw error type
+            // is no longer an enumeration oracle.
+            Err(ErrorResponse::new(ErrorCode::InternalServerError)
+                .with_message("Registration could not be completed at this time"))
         }
     }
 }
