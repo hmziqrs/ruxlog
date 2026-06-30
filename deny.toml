@@ -41,17 +41,13 @@ ignore = [
     # any built target. Pure lockfile-residual risk.
     { id = "RUSTSEC-2023-0071", reason = "rsa Marvin: no upstream fix; not in the built graph; no RSA ops in ruxlog." },
 
-    # rustls-webpki 0.101.7 — three advisories (CRL panic, URI-name-constraint
-    # mis-acceptance, wildcard-name-constraint mis-acceptance). 0.101.7 is
-    # pinned by rustls 0.21.12, which is itself pinned by aws-smithy-http-client
-    # (via aws-config / aws-sdk-s3) for one internal HTTPS path. No patched
-    # rustls 0.21.x exists; the fix lives in rustls-webpki >=0.103.x, reached
-    # only by moving the AWS SDK off rustls 0.21. Unavoidable while on the SDK.
-    # The rest of our TLS surface (fred, native-tls/openssl, sea-orm) is on
-    # rustls 0.23 / openssl >=0.10.72 and unaffected.
-    { id = "RUSTSEC-2026-0104", reason = "rustls-webpki 0.101.7 CRL panic; pinned by AWS SDK rustls 0.21, no 0.21.x patch." },
-    { id = "RUSTSEC-2026-0098", reason = "rustls-webpki 0.101.7 URI name-constraint bug; pinned by AWS SDK rustls 0.21." },
-    { id = "RUSTSEC-2026-0099", reason = "rustls-webpki 0.101.7 wildcard name-constraint bug; pinned by AWS SDK rustls 0.21." },
+    # DEPS-AWS-SDK-LEGACY-TLS (resolved 2026-06-30): the AWS SDK is now on
+    # default-features = false (backend/api/Cargo.toml), which removed the
+    # legacy hyper-0.14 + rustls-0.21 + rustls-webpki-0.101 stack entirely —
+    # only rustls-webpki 0.103.x remains. The three RUSTSEC-2026-0098/0099/0104
+    # ignores that used to suppress webpki 0.101.7's name-constraint / CRL
+    # advisories are therefore deleted (verified: `cargo tree` shows no
+    # rustls 0.21 / webpki 0.101 / hyper 0.14 in the graph).
 
     # async-std 1.13.x — "has been discontinued" (unmaintained). Pulled directly
     # by our `migration` path-crate (SeaORM migration tooling), which is why the
