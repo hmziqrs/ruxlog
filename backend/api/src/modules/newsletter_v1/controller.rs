@@ -1,4 +1,5 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum_client_ip::ClientIp;
 use axum_macros::debug_handler;
 use lettre::{message::header::ContentType, AsyncTransport, Message};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
@@ -66,9 +67,10 @@ async fn send_mail(
 }
 
 #[debug_handler]
-#[instrument(skip(state, payload), fields(email = %payload.email))]
+#[instrument(skip(state, client_ip, payload), fields(email = %payload.email))]
 pub async fn subscribe(
     State(state): State<AppState>,
+    ClientIp(client_ip): ClientIp,
     payload: ValidatedJson<V1SubscribePayload>,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let email = payload.email.trim().to_lowercase();
@@ -85,6 +87,23 @@ pub async fn subscribe(
         block_duration: 24 * 60 * 60,
     };
     limiter(&state.redis_pool, &key, config).await?;
+
+    // DOS-NEWSLETTER-IP-1: per-IP bucket. The per-email limiter above is
+    // defeated by rotating the email field; pair it with a per-IP bucket so a
+    // single source cannot flood inserts + outbound confirmation mail.
+    limiter(
+        &state.redis_pool,
+        &format!("newsletter:subscribe:ip:{client_ip}"),
+        AbuseLimiterConfig {
+            temp_block_attempts: 20,
+            temp_block_range: 60,
+            temp_block_duration: 60 * 60,
+            block_retry_limit: 200,
+            block_range: 24 * 60 * 60,
+            block_duration: 24 * 60 * 60,
+        },
+    )
+    .await?;
 
     let new_sub = NewSubscriber {
         email: email.clone(),

@@ -75,7 +75,18 @@ impl Entity {
 
         if let Some(model) = sub {
             // Only confirm if token matches and not already unsubscribed
-            if model.token == token && model.status != SubscriberStatus::Unsubscribed {
+            // CRYPT-NEWSLETTER-1: constant-time compare (the rest of the crypto
+            // surface uses subtle::ConstantTimeEq; the newsletter token was the
+            // lone `==` outlier). subtle is a direct dep and compiles without
+            // the billing feature, unlike services::billing::webhook_util.
+            use subtle::ConstantTimeEq;
+            let token_ok = model
+                .token
+                .as_bytes()
+                .ct_eq(token.as_bytes())
+                .unwrap_u8()
+                == 1;
+            if token_ok && model.status != SubscriberStatus::Unsubscribed {
                 let mut am: ActiveModel = model.into();
                 am.status = Set(SubscriberStatus::Confirmed);
                 am.updated_at = Set(now);
@@ -104,7 +115,10 @@ impl Entity {
         if let Some(model) = sub {
             // If a token is provided, require match
             if let Some(t) = token {
-                if model.token != t {
+                // CRYPT-NEWSLETTER-1: constant-time token compare.
+                use subtle::ConstantTimeEq;
+                let token_ok = model.token.as_bytes().ct_eq(t.as_bytes()).unwrap_u8() == 1;
+                if !token_ok {
                     return Ok(None);
                 }
             }

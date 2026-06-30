@@ -138,6 +138,29 @@ where
     }
 }
 
+/// Escape a string for safe interpolation into XML text/attribute content.
+///
+/// Escapes the five XML 1.0 metacharacters (`&`, `<`, `>`, `'`, `"`). Used for
+/// server-generated XML documents (the sitemap) where author/operator-controlled
+/// strings (post slugs, the site base URL) are interpolated into the document —
+/// preventing stored XML injection / structure breakage (SITEMAP-XML-1). Slugs
+/// are author-controlled and only length-validated, so without this a post slug
+/// like `</loc></url><!--` would corrupt or inject into `/sitemap.xml`.
+pub fn xml_escape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '\'' => out.push_str("&apos;"),
+            '"' => out.push_str("&quot;"),
+            _ => out.push(ch),
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

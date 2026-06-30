@@ -697,6 +697,30 @@ pub async fn webhook_receiver(
                     .with_message(format!("Webhook verification failed: {}", e))
             })?;
 
+        // WEBHOOK-LS-RZP-NO-REPLAY-DEDUP: LemonSqueezy/Razorpay webhooks carry
+        // no timestamp, so a captured valid event was replayable (the GETDEL
+        // checkout-intent + provider_payment_id unique index already prevent a
+        // double-grant, but a replay re-ran idempotent processing + log noise).
+        // After signature verification (only authenticated bodies populate the
+        // set), dedup on (provider, sha256(body)) for 24h so only the first
+        // authenticated delivery is processed. Fail-open on a Redis blip (the
+        // GETDEL/unique-index backstops still hold).
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(body.as_ref());
+        let body_hash = hex::encode(hasher.finalize());
+        let dedup_key = format!("webhook:{provider}:{body_hash}");
+        if !crate::services::abuse_limiter::dedup_nx(&state.redis_pool, &dedup_key, 86_400)
+            .await
+            .unwrap_or(true)
+        {
+            tracing::info!(
+                provider = %provider,
+                "Replay webhook (already processed within 24h); acknowledging"
+            );
+            return Ok(Json(json!({ "received": true })));
+        }
+
         process_webhook_event(&state, &parsed, &provider).await?;
 
         Ok(Json(json!({ "received": true })))

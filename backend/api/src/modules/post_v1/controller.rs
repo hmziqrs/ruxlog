@@ -1,9 +1,10 @@
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::IntoResponse,
     Json,
 };
+use axum_client_ip::ClientIp;
 
 use crate::db::sea_models::post::UpdatePost;
 use crate::db::sea_models::{post_revision, post_series, post_series_post, scheduled_post};
@@ -383,9 +384,43 @@ pub async fn track_view(
     State(state): State<AppState>,
     auth: AuthSession,
     Path(post_id): Path<i32>,
+    client_ip: ClientIp,
+    headers: HeaderMap,
 ) -> Result<impl IntoResponse, ErrorResponse> {
     let user_id: Option<i32> = auth.user.map(|user| user.id);
-    match post::Entity::increment_view_count(&state.sea_db, post_id, user_id, None, None).await {
+
+    // DOS-TRACKVIEW-2: dedup per (post, ip) in Redis BEFORE any DB write. The
+    // /post/v1 nest has a 200/min/IP cap, but an attacker rotating source IPs
+    // still got one post_view INSERT + post UPDATE per request (txn-per-request
+    // write load). This SET-NX gate collapses the writes to ≤1 per (post, ip)
+    // per 5-min window regardless of IP-pool size. Fail-open on a Redis blip.
+    let ip_str = client_ip.0.to_string();
+    let dedup_key = format!("trackview:{post_id}:{ip_str}");
+    let user_agent = headers
+        .get(axum::http::header::USER_AGENT)
+        .and_then(|h| h.to_str().ok())
+        .map(|s| s.to_string());
+    if !crate::services::abuse_limiter::dedup_nx(&state.redis_pool, &dedup_key, 300)
+        .await
+        .unwrap_or(true)
+    {
+        // Already counted this (post, ip) within the window — short-circuit so
+        // we don't INSERT another post_view row or bump the counter again.
+        return Ok((
+            StatusCode::OK,
+            Json(json!({ "message": "View tracked successfully" })),
+        ));
+    }
+
+    match post::Entity::increment_view_count(
+        &state.sea_db,
+        post_id,
+        user_id,
+        Some(ip_str),
+        user_agent,
+    )
+    .await
+    {
         Ok(_) => Ok((
             StatusCode::OK,
             Json(json!({ "message": "View tracked successfully" })),

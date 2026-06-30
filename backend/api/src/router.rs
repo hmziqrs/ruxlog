@@ -44,6 +44,8 @@ use crate::modules::seed_v1;
 #[cfg(feature = "billing")]
 use crate::modules::billing_v1;
 
+use crate::utils::sanitize::xml_escape;
+
 use super::AppState;
 
 pub fn router(state: AppState) -> Router<AppState> {
@@ -77,7 +79,14 @@ pub fn router(state: AppState) -> Router<AppState> {
             .nest("/forgot_password/v1", forgot_password_v1::routes());
     }
 
-    router = router.nest("/post/v1", post_v1::routes());
+    // DOS-TRACKVIEW-1: the public `track_view` endpoint writes a DB transaction
+    // per call, so the whole post nest gets a generous per-IP cap (reads are
+    // cheap SELECTs; 200/min/IP is ample for a real user and bounds a flooder
+    // that previously hit the txn-per-request view counter unbounded).
+    router = router.nest(
+        "/post/v1",
+        post_v1::routes().layer(rate_limit::RateLimitLayer::new(state.clone(), 200, 60)),
+    );
 
     #[cfg(feature = "comments")]
     {
@@ -94,9 +103,21 @@ pub fn router(state: AppState) -> Router<AppState> {
     router = router
         .nest("/category/v1", category_v1::routes())
         .nest("/tag/v1", tag_v1::routes())
-        .nest("/media/v1", media_v1::routes())
+        // DOS-MEDIA-OPTIMIZER: the upload path runs the CPU-heavy image
+        // optimizer; give /media/v1 its own tight per-IP cap (it is also
+        // author-gated) so a burst of uploads cannot monopolize workers.
+        .nest(
+            "/media/v1",
+            media_v1::routes().layer(rate_limit::RateLimitLayer::new(state.clone(), 30, 60)),
+        )
         .nest("/feed/v1", feed_v1::routes())
-        .nest("/search/v1", search_v1::routes());
+        // DOS-SEARCH-1: search runs a triple leading-wildcard ILIKE (full table
+        // scan) per request and was previously un-rate-limited. 30/min/IP bounds
+        // an anonymous caller cheaply minting a CSRF token then replaying it.
+        .nest(
+            "/search/v1",
+            search_v1::routes().layer(rate_limit::RateLimitLayer::new(state.clone(), 30, 60)),
+        );
 
     #[cfg(feature = "newsletter")]
     {
@@ -223,8 +244,13 @@ async fn sitemap_xml(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let base_url =
+    let raw_base_url =
         std::env::var("CONSUMER_SITE_URL").unwrap_or_else(|_| "https://ruxlog.com".to_string());
+    // SITEMAP-XML-1: escape both the operator base URL and every post slug
+    // before interpolating into XML. Slugs are author-controlled and only
+    // length-validated, so unescaped interpolation is a stored XML-injection
+    // vector. `feed_v1` already escapes its RSS output the same way.
+    let base_url = xml_escape(&raw_base_url);
 
     let mut urls = String::from("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
     urls.push_str(&format!(
@@ -234,9 +260,10 @@ async fn sitemap_xml(
 
     for p in &posts {
         let lastmod = p.updated_at.to_rfc3339();
+        let slug = xml_escape(&p.slug);
         urls.push_str(&format!(
             "  <url><loc>{}/posts/{}</loc><lastmod>{}</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>\n",
-            base_url, p.slug, lastmod
+            base_url, slug, lastmod
         ));
     }
 

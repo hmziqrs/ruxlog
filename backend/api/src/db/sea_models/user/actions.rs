@@ -133,6 +133,11 @@ impl Entity {
         };
 
         if let Some(user_model) = user {
+            // EMAIL-CHANGE-1: capture the current email/verified state before
+            // the model is consumed by `into()`, so an email change can be
+            // detected and the stale trust state reset.
+            let prev_email = user_model.email.clone();
+            let prev_verified = user_model.is_verified;
             let mut user_active: ActiveModel = user_model.into();
 
             if let Some(name) = update_user.name {
@@ -140,7 +145,37 @@ impl Entity {
             }
 
             if let Some(email) = update_user.email {
-                user_active.email = Set(email);
+                if email != prev_email {
+                    // A verified account that changes its email must lose its
+                    // verified status until the NEW address is proven — otherwise
+                    // a verified badge persists on an unproven address the
+                    // account holder may not control (trust spoofing, CWE-290).
+                    // Rotate the per-user `session_auth_secret` so every prior
+                    // session is invalidated on its next request (the caller
+                    // must re-authenticate), mirroring the password-change path
+                    // (F#16). The new address is re-verified via the existing
+                    // email-verification resend endpoint.
+                    user_active.email = Set(email);
+                    user_active.is_verified = Set(false);
+                    user_active.session_auth_secret =
+                        Set(super::model::new_session_auth_secret().map_err(|err| {
+                            error!(
+                                user_id,
+                                "session_auth_secret rotation failed during email change: {err}"
+                            );
+                            ErrorResponse::new(ErrorCode::InternalServerError)
+                                .with_message(format!(
+                                    "session_auth_secret rotation failed: {err}"
+                                ))
+                        })?);
+                    info!(
+                        user_id,
+                        previously_verified = prev_verified,
+                        "Email changed: is_verified reset and prior sessions invalidated"
+                    );
+                } else {
+                    user_active.email = Set(email);
+                }
             }
 
             user_active.updated_at = Set(update_user.updated_at);

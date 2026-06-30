@@ -359,7 +359,11 @@ pub struct V1PostQueryParams {
 impl V1PostQueryParams {
     pub fn into_post_query(self) -> PostQuery {
         PostQuery {
-            page_no: self.page,
+            // DOS-PUBLIST-OFFSET-1: clamp the page so a caller cannot drive an
+            // arbitrarily large OFFSET through the public published-listing
+            // multi-table join (same class as DOS-SEARCH-1). 500 × PER_PAGE
+            // bounds the offset regardless of the requested page.
+            page_no: self.page.map(|p| p.clamp(1, 500)),
             author_id: self.author_id,
             category_id: self.category_id,
             status: self.status,

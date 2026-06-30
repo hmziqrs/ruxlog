@@ -167,7 +167,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "image-optimization")]
     let optimizer = OptimizerConfig {
         enabled: env_bool("OPTIMIZE_ON_UPLOAD", true),
-        max_pixels: env_u64("OPTIMIZER_MAX_PIXELS", 40_000_000),
+        // DOS-MEDIA-OPTIMIZER: 12Mpx (~4000x3000) is ample for blog imagery and
+        // ~3x cheaper to decode/resize/re-encode than the prior 40Mpx default,
+        // which let a 2 MiB PNG declare ~40Mpx and pin a worker for seconds.
+        max_pixels: env_u64("OPTIMIZER_MAX_PIXELS", 12_000_000),
         keep_original: env_bool("OPTIMIZER_KEEP_ORIGINAL", true),
         default_webp_quality: env_u8("OPTIMIZER_WEBP_QUALITY_DEFAULT", 80),
     };
