@@ -457,7 +457,7 @@ mod tests {
         let prev = std::env::var("FIELD_ENC_KEY").ok();
         std::env::set_var("FIELD_ENC_KEY", "too-short");
 
-        let result = std::panic::catch_unwind(|| load_field_enc_key());
+        let result = std::panic::catch_unwind(load_field_enc_key);
         assert!(
             result.is_err(),
             "load_field_enc_key must panic on a non-32-byte key"

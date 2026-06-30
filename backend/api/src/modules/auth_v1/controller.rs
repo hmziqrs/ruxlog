@@ -9,10 +9,12 @@ use axum_macros::debug_handler;
 use axum_client_ip::ClientIp;
 
 use rux_auth::AuthBackend as AuthBackendTrait;
+#[cfg_attr(not(feature = "full"), allow(unused_imports))]
 use sea_orm::{ActiveModelTrait, EntityTrait};
 use serde_json::json;
 use tracing::{error, info, instrument, warn};
 
+#[cfg_attr(not(feature = "full"), allow(unused_imports))]
 use crate::{
     db::sea_models::{email_verification, user, user_session},
     error::{ErrorCode, ErrorResponse},
@@ -911,6 +913,7 @@ fn session_mapping_key(pg_session_id: i32) -> String {
 /// a 500 here would mislead the client about an otherwise-complete operation.
 /// `auth` is taken by `&mut` only so the borrow checker allows a subsequent
 /// `auth.session()` call; the mutation is to interior session state.
+#[cfg_attr(not(feature = "full"), allow(dead_code))]
 async fn rotate_session_after_trust_change(auth: &mut AuthSession) {
     if let Err(err) = auth.session().cycle_id().await {
         warn!(error = %err, "F#16: failed to re-rotate session id at trust transition; CSRF token NOT rebound");

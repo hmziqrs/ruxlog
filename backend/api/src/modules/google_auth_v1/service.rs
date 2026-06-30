@@ -318,6 +318,7 @@ impl IdTokenError {
 /// [`verify_id_token_with_keys_core`] directly. `#[cfg(test)]` keeps it out of
 /// the non-test build (where it would otherwise be dead code).
 #[cfg(test)]
+#[allow(clippy::result_large_err)] // test-only thin wrapper; ErrorResponse is the domain error type
 fn verify_id_token_with_keys(
     id_token: &str,
     keys: &[GoogleJwkKey],

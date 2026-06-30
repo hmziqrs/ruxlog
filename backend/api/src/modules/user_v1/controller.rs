@@ -1,3 +1,4 @@
+#[cfg_attr(not(feature = "full"), allow(unused_imports))]
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -9,6 +10,7 @@ use serde_json::json;
 use tracing::{error, info, instrument, warn};
 
 use super::validator::*;
+#[cfg_attr(not(feature = "full"), allow(unused_imports))]
 use crate::{
     db::sea_models::user::{Entity as User, UserRole},
     error::{ErrorCode, ErrorResponse},
@@ -75,16 +77,11 @@ pub async fn admin_create(
     // an admin cannot create a user whose role exceeds their own — otherwise an
     // ADMIN could mint a SUPER_ADMIN, defeating the top tier that admin_acl_v1
     // / seed_v1 gate with ROLE_SUPER_ADMIN.
-    let caller_level = auth
-        .user
-        .as_ref()
-        .map(|u| u.role.to_i32())
-        .ok_or_else(|| {
-            ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
-        })?;
-    let requested = UserRole::from_str(&payload.0.role).map_err(|_| {
-        ErrorResponse::new(ErrorCode::InvalidInput).with_message("Invalid role")
+    let caller_level = auth.user.as_ref().map(|u| u.role.to_i32()).ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
     })?;
+    let requested = UserRole::from_str(&payload.0.role)
+        .map_err(|_| ErrorResponse::new(ErrorCode::InvalidInput).with_message("Invalid role"))?;
     if requested.to_i32() > caller_level {
         warn!(
             caller_level,
@@ -178,17 +175,14 @@ pub async fn admin_update(
     // silent takeover primitive an admin had by editing/demoting a superior. An
     // admin still manages their own profile via the self-service
     // /user/v1/update endpoint, so blocking equal-rank edits here is safe.
-    let caller_level = auth
-        .user
-        .as_ref()
-        .map(|u| u.role.to_i32())
-        .ok_or_else(|| {
-            ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
-        })?;
+    let caller_level = auth.user.as_ref().map(|u| u.role.to_i32()).ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
+    })?;
 
     if let Some(role_str) = payload.0.role.as_deref() {
-        let requested = UserRole::from_str(role_str)
-            .map_err(|_| ErrorResponse::new(ErrorCode::InvalidInput).with_message("Invalid role"))?;
+        let requested = UserRole::from_str(role_str).map_err(|_| {
+            ErrorResponse::new(ErrorCode::InvalidInput).with_message("Invalid role")
+        })?;
         if requested.to_i32() > caller_level {
             warn!(
                 caller_level,
@@ -249,13 +243,9 @@ pub async fn admin_change_password(
     // PRIV-ESCAL-1: forbid resetting the password of a user at/above the
     // caller's own level — otherwise an ADMIN could set a known password on a
     // SUPER_ADMIN account (account takeover of a superior).
-    let caller_level = auth
-        .user
-        .as_ref()
-        .map(|u| u.role.to_i32())
-        .ok_or_else(|| {
-            ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
-        })?;
+    let caller_level = auth.user.as_ref().map(|u| u.role.to_i32()).ok_or_else(|| {
+        ErrorResponse::new(ErrorCode::Unauthorized).with_message("Not authenticated")
+    })?;
     if let Some(target) = User::get_by_id(&state.sea_db, user_id).await? {
         if target.role.to_i32() >= caller_level {
             warn!(
@@ -263,8 +253,11 @@ pub async fn admin_change_password(
                 target_level = target.role.to_i32(),
                 "Admin attempted to reset password of an equal/higher-role user"
             );
-            return Err(ErrorResponse::new(ErrorCode::OperationNotAllowed)
-                .with_message("You cannot reset the password of a user at or above your own role"));
+            return Err(
+                ErrorResponse::new(ErrorCode::OperationNotAllowed).with_message(
+                    "You cannot reset the password of a user at or above your own role",
+                ),
+            );
         }
     }
     User::change_password(&state.sea_db, user_id, payload.0.password).await?;

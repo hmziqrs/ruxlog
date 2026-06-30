@@ -1,4 +1,6 @@
-use axum::{extract::State, http::HeaderName, middleware, Extension};
+#[cfg(feature = "admin-acl")]
+use axum::extract::State;
+use axum::{http::HeaderName, middleware, Extension};
 use axum_client_ip::ClientIpSource;
 use axum_extra::extract::cookie::SameSite;
 use std::{env, net::SocketAddr, time::Duration};
@@ -46,6 +48,7 @@ fn env_bool(key: &str, default: bool) -> bool {
         .unwrap_or(default)
 }
 
+#[cfg_attr(not(feature = "full"), allow(dead_code))]
 fn env_u64(key: &str, default: u64) -> u64 {
     env::var(key)
         .ok()
@@ -53,6 +56,7 @@ fn env_u64(key: &str, default: u64) -> u64 {
         .unwrap_or(default)
 }
 
+#[cfg_attr(not(feature = "full"), allow(dead_code))]
 fn env_u8(key: &str, default: u8) -> u8 {
     let candidate = env::var(key)
         .ok()
@@ -548,6 +552,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // per-request session-revocation `SISMEMBER`.
     let redis_extension = Extension(state.redis_pool.clone());
 
+    #[cfg_attr(not(feature = "full"), allow(unused_mut))]
     let mut app = router::router(state.clone())
         .layer(ip_source.into_extension())
         .layer(db_extension)

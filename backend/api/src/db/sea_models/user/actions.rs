@@ -157,16 +157,14 @@ impl Entity {
                     // email-verification resend endpoint.
                     user_active.email = Set(email);
                     user_active.is_verified = Set(false);
-                    user_active.session_auth_secret =
-                        Set(super::model::new_session_auth_secret().map_err(|err| {
+                    user_active.session_auth_secret = Set(super::model::new_session_auth_secret()
+                        .map_err(|err| {
                             error!(
                                 user_id,
                                 "session_auth_secret rotation failed during email change: {err}"
                             );
                             ErrorResponse::new(ErrorCode::InternalServerError)
-                                .with_message(format!(
-                                    "session_auth_secret rotation failed: {err}"
-                                ))
+                                .with_message(format!("session_auth_secret rotation failed: {err}"))
                         })?);
                     info!(
                         user_id,
