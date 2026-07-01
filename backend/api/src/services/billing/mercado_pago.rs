@@ -156,11 +156,12 @@ impl BillingProvider for MercadoPagoProvider {
             .map(|u| u.trim().to_string())
             .filter(|u| !u.is_empty())
             .or_else(|| {
-                std::env::var("CONSUMER_SITE_URL")
-                    .ok()
-                    .map(|base| {
-                        format!("{}/billing/v1/webhook/mercado_pago", base.trim_end_matches('/'))
-                    })
+                std::env::var("CONSUMER_SITE_URL").ok().map(|base| {
+                    format!(
+                        "{}/billing/v1/webhook/mercado_pago",
+                        base.trim_end_matches('/')
+                    )
+                })
             });
 
         let mut body = serde_json::json!({

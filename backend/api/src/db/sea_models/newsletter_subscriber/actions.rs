@@ -80,12 +80,7 @@ impl Entity {
             // lone `==` outlier). subtle is a direct dep and compiles without
             // the billing feature, unlike services::billing::webhook_util.
             use subtle::ConstantTimeEq;
-            let token_ok = model
-                .token
-                .as_bytes()
-                .ct_eq(token.as_bytes())
-                .unwrap_u8()
-                == 1;
+            let token_ok = model.token.as_bytes().ct_eq(token.as_bytes()).unwrap_u8() == 1;
             if token_ok && model.status != SubscriberStatus::Unsubscribed {
                 let mut am: ActiveModel = model.into();
                 am.status = Set(SubscriberStatus::Confirmed);

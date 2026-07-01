@@ -73,27 +73,37 @@ jobs:
         run: |
           set -euo pipefail
 
+          # The workspace shares a single target dir at the workspace root, NOT
+          # backend/api/target, so resolve it from `cargo metadata` instead of
+          # hard-coding a relative path (which previously pointed at a path that
+          # did not exist, making this grep a silent false-pass).
+          TARGET_DIR=$(cargo metadata --format-version 1 --no-deps | jq -r '.target_directory')
+
           # Build the primary release artifact with the default feature set.
           cargo build --release --bin ruxlog
 
-          OBJ="target/release/ruxlog"
+          OBJ="$TARGET_DIR/release/ruxlog"
+          test -f "$OBJ" || { echo "::error::release binary not found at $OBJ"; exit 1; }
           if grep -aql "seed_v1\|services::seed::seeded_rng\|seed_config::SeedMode" "$OBJ"; then
             echo "::error::seed symbols leaked into the release ruxlog binary"
             exit 1
           fi
           echo "OK: no seed-system symbols found in the release binary."
 
-      - name: Explicitly fail if --features seed-system is requested for release
+      - name: Verify seed-system feature reachability (opt-in only)
         working-directory: backend/api
         run: |
           set -euo pipefail
-          # This is a guardrail: any caller that tries to build the *release*
-          # binary with seed-system enabled must be caught. We assert that the
-          # main release binary does not accept seed-system without explicitly
-          # opting into the gated TUI binary.
+          # Guardrail: confirm the seed-system feature, when explicitly enabled,
+          # actually wires the seed routes/symbols into the binary (feature
+          # reachability check). seed-system stays excluded from default/full
+          # (verified above), so it only ever lands here via an explicit
+          # `--features seed-system`.
+          TARGET_DIR=$(cargo metadata --format-version 1 --no-deps | jq -r '.target_directory')
           if cargo build --release --features seed-system --bin ruxlog; then
             echo "::warning::ruxlog compiled with seed-system; verifying seed symbols are present (feature is reachable)"
-            OBJ="target/release/ruxlog"
+            OBJ="$TARGET_DIR/release/ruxlog"
+            test -f "$OBJ" || { echo "::error::release binary not found at $OBJ"; exit 1; }
             if ! grep -aql "seed_v1\|seeded_rng" "$OBJ"; then
               echo "::error::seed-system feature was enabled but produced no seed symbols (feature wiring is broken)"
               exit 1

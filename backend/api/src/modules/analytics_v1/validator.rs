@@ -1341,6 +1341,5 @@ mod tests {
     fn constants_are_sensible() {
         assert_eq!(DEFAULT_PER_PAGE, 30);
         assert_eq!(MAX_PER_PAGE, 200);
-        assert!(MAX_PER_PAGE > DEFAULT_PER_PAGE);
     }
 }

@@ -6,6 +6,7 @@ use axum::{middleware, routing::post, Router};
 use crate::{middlewares::auth_guard, AppState};
 
 pub fn routes() -> Router<AppState> {
+    #[cfg_attr(not(feature = "user-management"), allow(unused_mut))]
     let mut public = Router::<AppState>::new()
         .route("/log_in", post(controller::log_in))
         // Second step of the two-step 2FA-at-login flow (F#4/F#7/F#16): a
@@ -23,6 +24,7 @@ pub fn routes() -> Router<AppState> {
 
     let public = public.route_layer(middleware::from_fn(auth_guard::unauthenticated));
 
+    #[cfg_attr(not(feature = "auth-2fa"), allow(unused_mut))]
     let mut authenticated = Router::<AppState>::new().route("/log_out", post(controller::log_out));
 
     #[cfg(feature = "auth-2fa")]

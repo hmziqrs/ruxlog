@@ -73,8 +73,8 @@ async fn publish_due_posts(state: &AppState) -> Result<(), sea_orm::DbErr> {
         };
         if !author_ok {
             warn!(
-                post_id, author_id,
-                "Skipping scheduled publish: author no longer authorized"
+                post_id,
+                author_id, "Skipping scheduled publish: author no longer authorized"
             );
             continue;
         }

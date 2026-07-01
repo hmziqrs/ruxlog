@@ -22,7 +22,6 @@ use crate::{
         category::{self, Model as CategoryModel},
         media::{self, Entity as Media, NewMedia},
         media_usage,
-        media_variant::{Entity as MediaVariant, NewMediaVariant},
         post::{self, Model as PostModel},
         user::{self, Model as UserModel},
     },
@@ -33,11 +32,15 @@ use crate::{
 };
 
 #[cfg(feature = "image-optimization")]
+use crate::db::sea_models::media_variant::{Entity as MediaVariant, NewMediaVariant};
+#[cfg(feature = "image-optimization")]
 use crate::services::image_optimizer;
 use tracing::{debug, error, info, instrument, warn};
 
+#[cfg(feature = "image-optimization")]
+use super::validator::is_allowed_mime;
 use super::validator::{
-    allowlisted_extension, is_allowed_mime, validate_upload, MediaUploadMetadata, V1MediaListQuery,
+    allowlisted_extension, validate_upload, MediaUploadMetadata, V1MediaListQuery,
     V1MediaUsageQuery,
 };
 
@@ -293,10 +296,15 @@ pub async fn create(
         }
     }
 
+    #[cfg_attr(not(feature = "image-optimization"), allow(unused_mut))]
     let mut extension = Some(declared_extension.clone());
+    #[cfg_attr(not(feature = "image-optimization"), allow(unused_mut))]
     let mut content_type = declared_mime.clone();
+    #[cfg_attr(not(feature = "image-optimization"), allow(unused_mut))]
     let mut final_bytes = file_bytes.clone();
+    #[cfg_attr(not(feature = "image-optimization"), allow(unused_mut))]
     let mut is_optimized = false;
+    #[cfg_attr(not(feature = "image-optimization"), allow(unused_mut))]
     let mut optimized_at = None;
 
     #[cfg(feature = "image-optimization")]
@@ -331,33 +339,32 @@ pub async fn create(
         let req_mime = mime_type.clone();
         let req_ext = extension.clone();
         let optimizer_cfg = state.optimizer.clone();
-        let optimization_outcome =
-            match tokio::task::spawn_blocking(move || {
-                let optimization_request = image_optimizer::OptimizationRequest {
-                    bytes: &req_bytes,
-                    metadata: &req_metadata,
-                    reference: req_reference,
-                    original_mime: req_mime.as_deref(),
-                    original_extension: req_ext.as_deref(),
-                };
-                image_optimizer::optimize(&optimizer_cfg, optimization_request)
-            })
-            .await
-            {
-                Ok(Ok(outcome)) => outcome,
-                Ok(Err(err)) => {
-                    warn!("image optimizer error: {}", err);
-                    image_optimizer::OptimizationOutcome::Skipped(
-                        image_optimizer::SkipReason::DecodeFailed,
-                    )
-                }
-                Err(err) => {
-                    warn!(error = %err, "image optimizer blocking task failed");
-                    image_optimizer::OptimizationOutcome::Skipped(
-                        image_optimizer::SkipReason::DecodeFailed,
-                    )
-                }
+        let optimization_outcome = match tokio::task::spawn_blocking(move || {
+            let optimization_request = image_optimizer::OptimizationRequest {
+                bytes: &req_bytes,
+                metadata: &req_metadata,
+                reference: req_reference,
+                original_mime: req_mime.as_deref(),
+                original_extension: req_ext.as_deref(),
             };
+            image_optimizer::optimize(&optimizer_cfg, optimization_request)
+        })
+        .await
+        {
+            Ok(Ok(outcome)) => outcome,
+            Ok(Err(err)) => {
+                warn!("image optimizer error: {}", err);
+                image_optimizer::OptimizationOutcome::Skipped(
+                    image_optimizer::SkipReason::DecodeFailed,
+                )
+            }
+            Err(err) => {
+                warn!(error = %err, "image optimizer blocking task failed");
+                image_optimizer::OptimizationOutcome::Skipped(
+                    image_optimizer::SkipReason::DecodeFailed,
+                )
+            }
+        };
 
         if let image_optimizer::OptimizationOutcome::Optimized(result) = optimization_outcome {
             // M-7 defense-in-depth: never trust a Content-Type/extension that
@@ -392,6 +399,7 @@ pub async fn create(
     })?;
 
     let object_key = build_object_key(extension.as_deref());
+    #[cfg(feature = "image-optimization")]
     let base_object_key = object_key
         .rsplit_once('.')
         .map(|(prefix, _)| prefix.to_string())

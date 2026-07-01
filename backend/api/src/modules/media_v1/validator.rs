@@ -268,8 +268,10 @@ mod tests {
 
     #[test]
     fn apply_field_reference_type_empty_clears() {
-        let mut meta = MediaUploadMetadata::default();
-        meta.reference_type = Some(MediaReference::Category);
+        let mut meta = MediaUploadMetadata {
+            reference_type: Some(MediaReference::Category),
+            ..Default::default()
+        };
 
         meta.apply_field("reference_type", "  ").unwrap();
         assert!(meta.reference_type.is_none());
@@ -303,8 +305,10 @@ mod tests {
 
     #[test]
     fn apply_field_width_empty_clears() {
-        let mut meta = MediaUploadMetadata::default();
-        meta.width = Some(800);
+        let mut meta = MediaUploadMetadata {
+            width: Some(800),
+            ..Default::default()
+        };
 
         meta.apply_field("width", "").unwrap();
         assert!(meta.width.is_none());
@@ -329,8 +333,10 @@ mod tests {
 
     #[test]
     fn apply_field_height_empty_clears() {
-        let mut meta = MediaUploadMetadata::default();
-        meta.height = Some(600);
+        let mut meta = MediaUploadMetadata {
+            height: Some(600),
+            ..Default::default()
+        };
 
         meta.apply_field("height", "  ").unwrap();
         assert!(meta.height.is_none());

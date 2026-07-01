@@ -56,7 +56,12 @@ jobs:
             --features "basic"
 
       - name: Rewrite paths for GitHub Pages subpath
-        working-directory: frontend/consumer-dioxus/target/dx/consumer-dioxus/release/web/public
+        # Dioxus 0.8 writes the web bundle to the *workspace-root* target dir
+        # (cargo resolves the ruxlog workspace root from any member), so the
+        # static client output lands at target/dx/consumer-dioxus/release/web/public
+        # — NOT under frontend/consumer-dioxus/target. This path is relative to
+        # the repo root (GITHUB_WORKSPACE).
+        working-directory: target/dx/consumer-dioxus/release/web/public
         run: |
           BASE="/ruxlog"
           # Normalize /./assets/ to /assets/ first
@@ -71,7 +76,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: consumer-web
-          path: frontend/consumer-dioxus/target/dx/consumer-dioxus/release/web/public
+          path: target/dx/consumer-dioxus/release/web/public
           if-no-files-found: error
           retention-days: 1
 

@@ -274,8 +274,7 @@ pub async fn dedup_nx(
     key: &str,
     ttl_secs: usize,
 ) -> Result<bool, ErrorResponse> {
-    const DEDUP: &str =
-        "return redis.call('SET', KEYS[1], '1', 'EX', ARGV[1], 'NX') and 1 or 0";
+    const DEDUP: &str = "return redis.call('SET', KEYS[1], '1', 'EX', ARGV[1], 'NX') and 1 or 0";
     let keys = vec![key.to_string()];
     let args: Vec<Value> = vec![Value::from(ttl_secs as i64)];
     let res: Result<Vec<Value>, _> = redis_pool.eval(DEDUP, keys, args).await;
